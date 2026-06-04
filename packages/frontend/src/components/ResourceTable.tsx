@@ -16,14 +16,22 @@ export function ResourceTable({schema, resources, selectedId, onSelect, onDelete
     const [confirmId, setConfirmId] = useState<string | null>(null)
     const canDelete = schema.actions.includes('delete')
 
-    if (resources.length === 0) {
-        return (
-            <div className="empty compact">
-                <h3>No resources</h3>
-                <p>The connected runtime did not return any {schema.displayName} resources.</p>
-            </div>
-        )
-    }
+   if (resources.length === 0) {
+    const emptyTitle = schema.service === 'serverless'
+        ? 'No Lambda functions'
+        : 'No resources'
+
+    const emptyDescription = schema.service === 'serverless'
+        ? 'The connected runtime did not return any Lambda functions.'
+        : `The connected runtime did not return any ${schema.displayName} resources.`
+
+    return (
+        <div className="empty compact">
+            <h3>{emptyTitle}</h3>
+            <p>{emptyDescription}</p>
+        </div>
+    )
+}
 
     return (
         <table className="table resource-table">
