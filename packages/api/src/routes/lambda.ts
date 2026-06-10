@@ -1,11 +1,12 @@
 import {Hono} from 'hono'
 import {
+     CreateFunctionCommand,
     DeleteFunctionCommand,
     GetFunctionCommand,
     InvokeCommand,
     ListFunctionsCommand,
-    CreateFunctionCommand,
-Runtime,
+    Runtime,
+    UpdateFunctionConfigurationCommand,
 } from '@aws-sdk/client-lambda'
 import {lambda} from '../aws'
 
@@ -120,6 +121,39 @@ app.get('/functions/:name', async (c) => {
         architectures: config?.Architectures,
         role: config?.Role,
         environment: config?.Environment?.Variables,
+    })
+})
+
+app.put('/functions/:name/environment', async (c) => {
+    const name = c.req.param('name')
+    const body = await c.req.json().catch(() => ({})) as {
+        environment?: Record<string, string>
+    }
+
+    if (!body.environment || typeof body.environment !== 'object' || Array.isArray(body.environment)) {
+        return c.json({error: 'environment must be an object'}, 400)
+    }
+
+    const res = await lambda.send(new UpdateFunctionConfigurationCommand({
+        FunctionName: name,
+        Environment: {
+            Variables: body.environment,
+        },
+    }))
+
+    return c.json({
+        name: res.FunctionName ?? name,
+        functionArn: res.FunctionArn,
+        runtime: res.Runtime,
+        handler: res.Handler,
+        state: res.State,
+        stateReason: res.StateReason,
+        lastModified: res.LastModified,
+        memorySize: res.MemorySize,
+        timeout: res.Timeout,
+        description: res.Description,
+        role: res.Role,
+        environment: res.Environment?.Variables,
     })
 })
 
