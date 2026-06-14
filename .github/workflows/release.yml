@@ -46,7 +46,7 @@ jobs:
         run: echo "epoch=$(git log -1 --pretty=%ct)" >> "$GITHUB_OUTPUT"
 
       # ── Build the frontend bundle (arch-independent) ───────────────────────
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.2.0
 

@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v6.0.2
 
       # ── Frontend toolchain (pnpm workspace) ────────────────────────────────
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.2.0
 
