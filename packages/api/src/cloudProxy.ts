@@ -8,6 +8,7 @@ import {AzureDatabaseAdapter} from './adapter-azure/AzureDatabaseAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
 import {GcpStorageAdapter} from './adapter-gcp/GcpStorageAdapter'
 import {CloudProxyService} from './service/CloudProxyService'
+import {AzureServerlessAdapter} from './adapter-azure/AzureServerlessAdapter'
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
 
 export function createCloudProxyService(): CloudProxyService {
@@ -21,6 +22,7 @@ export function createCloudProxyService(): CloudProxyService {
         new AzureStorageAdapter(),
         new AzureDatabaseAdapter(),
         new GcpStorageAdapter(),
+        new AzureServerlessAdapter(),
     ])
 
     return new CloudProxyService(registry)
