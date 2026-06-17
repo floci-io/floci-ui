@@ -62,12 +62,41 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
         return body ? toFunctionResource(body) : null
     }
 
-    async create(_input: CreateResourceInput): Promise<CloudResource> {
-        throw new Error('Azure Functions create is not implemented yet')
+    async create(input: CreateResourceInput): Promise<CloudResource> {
+        const functionName = stringValue(input.values.functionName ?? input.values.name)
+        const runtime = stringValue(input.values.runtime) || 'node'
+        const handler = stringValue(input.values.handler)
+        const code = stringValue(input.values.code)
+        const location = stringValue(input.values.location)
+        const functionAppName = stringValue(input.values.functionAppName)
+
+        if (!functionName) throw new Error('functionName is required')
+
+        const body = await this.azureJson<AzureFunctionRecord>(
+            '/functions',
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: functionName,
+                    runtime,
+                    handler: handler || undefined,
+                    code: code || undefined,
+                    location: location || undefined,
+                    functionAppName: functionAppName || undefined,
+                }),
+            },
+        )
+
+        if (!body) throw new Error('Azure Functions create returned an empty response')
+        return toFunctionResource(body)
     }
 
-    async delete(_id: string): Promise<void> {
-        throw new Error('Azure Functions delete is not implemented yet')
+    async delete(id: string): Promise<void> {
+        await this.client.fetch(
+            `/functions/${encodeURIComponent(id)}`,
+            {method: 'DELETE'},
+            {emptyOnNotFound: true},
+        )
     }
 
     private async azureJson<T>(
