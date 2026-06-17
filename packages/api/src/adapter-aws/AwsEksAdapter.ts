@@ -8,22 +8,26 @@ import type {
 } from '../cloud-spi/types'
 import {eksService, type EksCluster} from '../services/eks'
 
+type EksServiceShape = Pick<typeof eksService, 'listClusters' | 'describeCluster'>
+
 export class AwsEksAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'k8s' as const
+
+    constructor(private readonly eks: EksServiceShape = eksService) {}
 
     schema(): ServiceSchema {
         return awsEksSchema()
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const clusters = await eksService.listClusters()
+        const clusters = await this.eks.listClusters()
         return filterBySearch(clusters.map(toResource), query.search)
     }
 
     async get(id: string): Promise<CloudResource | null> {
         try {
-            return toResource(await eksService.describeCluster(id))
+            return toResource(await this.eks.describeCluster(id))
         } catch (error) {
             if (hasHttpStatus(error, 404)) return null
             throw error

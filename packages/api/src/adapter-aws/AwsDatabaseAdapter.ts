@@ -1,5 +1,5 @@
-import {ListTagsForResourceCommand} from '@aws-sdk/client-rds'
-import {rds} from '../aws'
+import {ListTagsForResourceCommand, type RDSClient} from '@aws-sdk/client-rds'
+import {rds as defaultRds} from '../aws'
 import {awsDatabaseSchema} from '../cloud-spi/databaseSchema'
 import type {
     CloudResource,
@@ -10,23 +10,30 @@ import type {
 } from '../cloud-spi/types'
 import {rdsService, type RdsInstance} from '../services/rds'
 
+type RdsServiceShape = Pick<typeof rdsService, 'listInstances' | 'describeInstance'>
+
 export class AwsDatabaseAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'database' as const
+
+    constructor(
+        private readonly rdsService_: RdsServiceShape = rdsService,
+        private readonly rds: RDSClient = defaultRds,
+    ) {}
 
     schema(): ServiceSchema {
         return awsDatabaseSchema()
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const instances = await rdsService.listInstances()
-        const resources = await Promise.all(instances.map(toResource))
+        const instances = await this.rdsService_.listInstances()
+        const resources = await Promise.all(instances.map((instance) => this.toResource(instance)))
         return filterBySearch(resources, query.search)
     }
 
     async get(id: string): Promise<CloudResource | null> {
         try {
-            return toResource(await rdsService.describeInstance(id))
+            return await this.toResource(await this.rdsService_.describeInstance(id))
         } catch (error) {
             if (hasHttpStatus(error, 404)) return null
             throw error
@@ -40,12 +47,11 @@ export class AwsDatabaseAdapter implements CloudServiceAdapter {
     async delete(_id: string): Promise<void> {
         throw new Error('Database deletion is not supported from the dynamic Cloud Explorer.')
     }
-}
 
-async function toResource(instance: RdsInstance): Promise<CloudResource> {
-    const tags = instance.arn ? await getTags(instance.arn) : []
+    private async toResource(instance: RdsInstance): Promise<CloudResource> {
+        const tags = instance.arn ? await this.getTags(instance.arn) : []
 
-    return {
+        return {
         id: instance.identifier,
         name: instance.identifier,
         cloud: 'aws',
@@ -74,19 +80,20 @@ async function toResource(instance: RdsInstance): Promise<CloudResource> {
             subnetGroup: instance.subnetGroup,
             tags,
         },
+        }
     }
-}
 
-async function getTags(arn: string): Promise<Array<{key: string; value: string}>> {
-    try {
-        const res = await rds.send(new ListTagsForResourceCommand({ResourceName: arn}))
-        return (res.TagList ?? []).map((tag) => ({
-            key: tag.Key ?? '',
-            value: tag.Value ?? '',
-        }))
-    } catch (error) {
-        if (error instanceof Error && error.message.includes('ListTagsForResource is not supported')) return []
-        throw error
+    private async getTags(arn: string): Promise<Array<{key: string; value: string}>> {
+        try {
+            const res = await this.rds.send(new ListTagsForResourceCommand({ResourceName: arn}))
+            return (res.TagList ?? []).map((tag) => ({
+                key: tag.Key ?? '',
+                value: tag.Value ?? '',
+            }))
+        } catch (error) {
+            if (error instanceof Error && error.message.includes('ListTagsForResource is not supported')) return []
+            throw error
+        }
     }
 }
 

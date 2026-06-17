@@ -1,24 +1,33 @@
 import {Hono} from 'hono'
 import type {Context} from 'hono'
 import type {CloudProvider, CloudServiceType} from '../cloud-spi/types'
-import {createCloudProxyService} from '../cloudProxy'
+import {serviceForAccount} from '../cloudProxy'
 import {CloudProxyService} from '../service/CloudProxyService'
 
-export function createCloudRoutes(service: CloudProxyService = createCloudProxyService()) {
+// Header (and query-param fallback for direct links such as object downloads)
+// used by the frontend to scope every request to an AWS account.
+export const ACCOUNT_HEADER = 'x-floci-account-id'
+
+export function createCloudRoutes(injectedService?: CloudProxyService) {
     const app = new Hono()
 
-    app.get('/', (c) => c.json(service.clouds()))
+    // Resolve the account-scoped service per request. An explicitly injected
+    // service (used by tests) always wins and ignores the account header.
+    const svc = (c: Context): CloudProxyService =>
+        injectedService ?? serviceForAccount(c.req.header(ACCOUNT_HEADER) ?? c.req.query('account'))
+
+    app.get('/', (c) => c.json(svc(c).clouds()))
 
     app.get('/:cloud/services', (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
-        return c.json(service.services(cloud))
+        return c.json(svc(c).services(cloud))
     })
 
     app.get('/:cloud/status', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
-        return c.json(await service.status(cloud))
+        return c.json(await svc(c).status(cloud))
     })
 
     app.get('/:cloud/services/:service/schema', (c) => {
@@ -26,7 +35,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         const serviceType = c.req.param('service') as CloudServiceType
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) return c.json({error: 'Unknown cloud or service'}, 404)
 
-        const schema = service.schema(cloud, serviceType)
+        const schema = svc(c).schema(cloud, serviceType)
         if (!schema) {
             return c.json({error: 'Schema not available'}, 404)
         }
@@ -40,7 +49,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) return c.json({error: 'Unknown cloud or service'}, 404)
 
         return withRuntime(c, async () => {
-            const resources = await service.listResources(cloud, serviceType, {search: c.req.query('search')})
+            const resources = await svc(c).listResources(cloud, serviceType, {search: c.req.query('search')})
             return c.json(resources)
         })
     })
@@ -50,7 +59,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
         return withRuntime(c, async () => {
-            const containers = await service.listCosmosContainers(cloud, c.req.param('id'))
+            const containers = await svc(c).listCosmosContainers(cloud, c.req.param('id'))
             return c.json(containers)
         })
     })
@@ -61,7 +70,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
 
         return withRuntime(c, async () => {
             const values = await c.req.json<Record<string, unknown>>()
-            const container = await service.createCosmosContainer(cloud, c.req.param('id'), {values})
+            const container = await svc(c).createCosmosContainer(cloud, c.req.param('id'), {values})
             return c.json(container, 201)
         })
     })
@@ -71,7 +80,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
         return withRuntime(c, async () => {
-            await service.deleteCosmosContainer(cloud, c.req.param('id'), c.req.param('containerId'))
+            await svc(c).deleteCosmosContainer(cloud, c.req.param('id'), c.req.param('containerId'))
             return c.json({ok: true})
         })
     })
@@ -81,7 +90,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
         return withRuntime(c, async () => {
-            const items = await service.listCosmosItems(cloud, c.req.param('id'), c.req.param('containerId'))
+            const items = await svc(c).listCosmosItems(cloud, c.req.param('id'), c.req.param('containerId'))
             return c.json(items)
         })
     })
@@ -92,7 +101,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
 
         return withRuntime(c, async () => {
             const document = await c.req.json<Record<string, unknown>>()
-            const item = await service.upsertCosmosItem(cloud, c.req.param('id'), c.req.param('containerId'), document)
+            const item = await svc(c).upsertCosmosItem(cloud, c.req.param('id'), c.req.param('containerId'), document)
             return c.json(item, 201)
         })
     })
@@ -102,7 +111,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
         return withRuntime(c, async () => {
-            await service.deleteCosmosItem(cloud, c.req.param('id'), c.req.param('containerId'), c.req.param('itemId'), c.req.query('partitionKey') ?? null)
+            await svc(c).deleteCosmosItem(cloud, c.req.param('id'), c.req.param('containerId'), c.req.param('itemId'), c.req.query('partitionKey') ?? null)
             return c.json({ok: true})
         })
     })
@@ -113,7 +122,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
 
         return withRuntime(c, async () => {
             const body = await c.req.json<{query?: string}>()
-            const result = await service.queryCosmosItems(cloud, c.req.param('id'), c.req.param('containerId'), body.query ?? '')
+            const result = await svc(c).queryCosmosItems(cloud, c.req.param('id'), c.req.param('containerId'), body.query ?? '')
             return c.json(result)
         })
     })
@@ -124,7 +133,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) return c.json({error: 'Unknown cloud or service'}, 404)
 
         return withRuntime(c, async () => {
-            const resource = await service.getResource(cloud, serviceType, c.req.param('id'))
+            const resource = await svc(c).getResource(cloud, serviceType, c.req.param('id'))
             if (!resource) return c.json({error: 'Resource not found'}, 404)
             return c.json(resource)
         })
@@ -136,7 +145,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) return c.json({error: 'Unknown cloud or service'}, 404)
 
         return withRuntime(c, async () => {
-            const objects = await service.listObjects(cloud, serviceType, c.req.param('id'), c.req.query('prefix') ?? '')
+            const objects = await svc(c).listObjects(cloud, serviceType, c.req.param('id'), c.req.query('prefix') ?? '')
             return c.json(objects)
         })
     })
@@ -151,7 +160,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         const body = new Uint8Array(await c.req.arrayBuffer())
         const contentType = c.req.header('content-type') ?? 'application/octet-stream'
         return withRuntime(c, async () => {
-            await service.putObject(cloud, serviceType, c.req.param('id'), key, body, contentType)
+            await svc(c).putObject(cloud, serviceType, c.req.param('id'), key, body, contentType)
             return c.json({ok: true})
         })
     })
@@ -164,7 +173,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         const key = c.req.query('key') ?? ''
         if (!key) return c.json({error: 'Object key is required'}, 400)
         return withRuntime(c, async () => {
-            const object = await service.getObject(cloud, serviceType, c.req.param('id'), key)
+            const object = await svc(c).getObject(cloud, serviceType, c.req.param('id'), key)
             return new Response(object.body, {
                 headers: {
                     'content-type': object.contentType,
@@ -183,7 +192,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         const key = c.req.query('key') ?? ''
         if (!key) return c.json({error: 'Object key is required'}, 400)
         return withRuntime(c, async () => {
-            await service.deleteObject(cloud, serviceType, c.req.param('id'), key)
+            await svc(c).deleteObject(cloud, serviceType, c.req.param('id'), key)
             return c.json({ok: true})
         })
     })
@@ -197,7 +206,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         if (!srcKey || !destKey) return c.json({error: 'srcKey and destKey are required'}, 400)
 
         return withRuntime(c, async () => {
-            await service.copyObject(cloud, serviceType, c.req.param('id'), srcKey, destKey, destResourceId)
+            await svc(c).copyObject(cloud, serviceType, c.req.param('id'), srcKey, destKey, destResourceId)
             return c.json({ok: true})
         })
     })
@@ -209,7 +218,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
 
         return withRuntime(c, async () => {
             const values = await c.req.json<Record<string, unknown>>()
-            const resource = await service.createResource(cloud, serviceType, {values})
+            const resource = await svc(c).createResource(cloud, serviceType, {values})
             return c.json(resource, 201)
         })
     })
@@ -220,7 +229,7 @@ export function createCloudRoutes(service: CloudProxyService = createCloudProxyS
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) return c.json({error: 'Unknown cloud or service'}, 404)
 
         return withRuntime(c, async () => {
-            await service.deleteResource(cloud, serviceType, c.req.param('id'))
+            await svc(c).deleteResource(cloud, serviceType, c.req.param('id'))
             return c.json({ok: true})
         })
     })

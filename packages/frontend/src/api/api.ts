@@ -1,4 +1,5 @@
 import { EndpointRegistry, HttpClient } from "./HttpClient";
+import { ACCOUNT_HEADER, getAccountId } from "@/lib/accountStore";
 
 export class AuthenticationRequiredError extends Error {
   constructor() {
@@ -566,6 +567,15 @@ export function createApiClient(
     },
     endpointRegistry,
   );
+
+  // Account scope — every request carries the active AWS account so Floci can
+  // isolate resources per account (the API maps this header to its SDK creds).
+  client.addRequestInterceptor((url, init) => {
+    const headers = (init.headers ?? {}) as Record<string, string>;
+    headers[ACCOUNT_HEADER] = getAccountId();
+    init.headers = headers;
+    return { url, init };
+  });
 
   // Auth interceptor — attaches Bearer token if available
   if (getToken) {

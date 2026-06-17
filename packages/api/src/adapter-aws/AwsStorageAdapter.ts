@@ -7,8 +7,9 @@ import {
     ListBucketsCommand,
     ListObjectsV2Command,
     PutObjectCommand,
+    type S3Client,
 } from '@aws-sdk/client-s3'
-import {s3} from '../aws'
+import {s3 as defaultS3} from '../aws'
 import {awsStorageSchema} from '../cloud-spi/storageSchema'
 import type {
     CloudResource,
@@ -24,12 +25,14 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'storage' as const
 
+    constructor(private readonly s3: S3Client = defaultS3) {}
+
     schema(): ServiceSchema {
         return awsStorageSchema()
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const res = await s3.send(new ListBucketsCommand({}))
+        const res = await this.s3.send(new ListBucketsCommand({}))
         const resources = (res.Buckets ?? []).map((bucket): CloudResource => ({
             id: bucket.Name ?? '',
             name: bucket.Name ?? '',
@@ -59,7 +62,7 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
             throw new Error('Use a valid S3 bucket name: 3-63 lowercase characters, numbers, dots, or hyphens.')
         }
 
-        await s3.send(new CreateBucketCommand({Bucket: bucketName}))
+        await this.s3.send(new CreateBucketCommand({Bucket: bucketName}))
         return {
             id: bucketName,
             name: bucketName,
@@ -76,11 +79,11 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
     }
 
     async delete(id: string): Promise<void> {
-        await s3.send(new DeleteBucketCommand({Bucket: id}))
+        await this.s3.send(new DeleteBucketCommand({Bucket: id}))
     }
 
     async listObjects(resourceId: string, prefix = ''): Promise<StorageObjectList> {
-        const res = await s3.send(new ListObjectsV2Command({
+        const res = await this.s3.send(new ListObjectsV2Command({
             Bucket: resourceId,
             Prefix: prefix || undefined,
             Delimiter: '/',
@@ -124,11 +127,11 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
     }
 
     async putObject(resourceId: string, key: string, body: Uint8Array, contentType: string): Promise<void> {
-        await s3.send(new PutObjectCommand({Bucket: resourceId, Key: key, Body: body, ContentType: contentType}))
+        await this.s3.send(new PutObjectCommand({Bucket: resourceId, Key: key, Body: body, ContentType: contentType}))
     }
 
     async getObject(resourceId: string, key: string): Promise<StorageObjectDownload> {
-        const res = await s3.send(new GetObjectCommand({Bucket: resourceId, Key: key}))
+        const res = await this.s3.send(new GetObjectCommand({Bucket: resourceId, Key: key}))
         return {
             body: res.Body as BodyInit,
             contentType: res.ContentType ?? 'application/octet-stream',
@@ -137,12 +140,12 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
     }
 
     async deleteObject(resourceId: string, key: string): Promise<void> {
-        await s3.send(new DeleteObjectCommand({Bucket: resourceId, Key: key}))
+        await this.s3.send(new DeleteObjectCommand({Bucket: resourceId, Key: key}))
     }
 
     async copyObject(srcResourceId: string, srcKey: string, destKey: string, destResourceId?: string): Promise<void> {
         const destBucket = destResourceId ?? srcResourceId
-        await s3.send(new CopyObjectCommand({
+        await this.s3.send(new CopyObjectCommand({
             Bucket: destBucket,
             Key: destKey,
             CopySource: `${srcResourceId}/${srcKey}`,

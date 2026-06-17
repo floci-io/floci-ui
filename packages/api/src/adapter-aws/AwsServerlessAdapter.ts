@@ -3,6 +3,7 @@ import {
   DeleteFunctionCommand,
   GetFunctionCommand,
   ListFunctionsCommand,
+  type LambdaClient,
 } from "@aws-sdk/client-lambda";
 import { awsServerlessSchema } from "../cloud-spi/serverlessSchema";
 import type {
@@ -12,18 +13,20 @@ import type {
   ResourceQuery,
   ServiceSchema,
 } from "../cloud-spi/types";
-import { lambda } from "../aws";
+import { lambda as defaultLambda } from "../aws";
 
 export class AwsServerlessAdapter implements CloudServiceAdapter {
   readonly cloud = "aws" as const;
   readonly service = "serverless" as const;
+
+  constructor(private readonly lambda: LambdaClient = defaultLambda) {}
 
   schema(): ServiceSchema {
     return awsServerlessSchema();
   }
 
   async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-    const res = await lambda.send(new ListFunctionsCommand({}));
+    const res = await this.lambda.send(new ListFunctionsCommand({}));
     const resources: CloudResource[] = (res.Functions ?? []).map((fn) => ({
       id: fn.FunctionName ?? fn.FunctionArn ?? "",
       name: fn.FunctionName ?? "",
@@ -51,7 +54,7 @@ export class AwsServerlessAdapter implements CloudServiceAdapter {
 
   async get(id: string): Promise<CloudResource | null> {
     try {
-      const res = await lambda.send(
+      const res = await this.lambda.send(
         new GetFunctionCommand({ FunctionName: id }),
       );
       const config = res.Configuration;
@@ -120,7 +123,7 @@ exports.handler = async (event) => {
     if (!handler) throw new Error("handler is required");
     if (!role) throw new Error("role is required");
 
-    const res = await lambda.send(
+    const res = await this.lambda.send(
       new CreateFunctionCommand({
         FunctionName: functionName,
         Runtime: runtime as never,
@@ -162,7 +165,7 @@ exports.handler = async (event) => {
   }
 
   async delete(id: string): Promise<void> {
-    await lambda.send(new DeleteFunctionCommand({ FunctionName: id }));
+    await this.lambda.send(new DeleteFunctionCommand({ FunctionName: id }));
   }
 }
 

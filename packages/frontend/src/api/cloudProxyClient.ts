@@ -8,6 +8,7 @@ import type {
 } from "@/types/cloud";
 import type { CloudResource, CosmosContainer, CosmosItem, CosmosQueryResult, StorageObjectList } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
+import { getAccountId } from "@/lib/accountStore";
 
 type CloudPathParams = Record<string, string>;
 
@@ -154,7 +155,11 @@ export function storageObjectDownloadUrl(
   const path = `/clouds/${encodeURIComponent(
     cloud,
   )}/services/storage/resources/${encodeURIComponent(resourceId)}/object`;
-  return `${API_BASE_URL}${path}?key=${encodeURIComponent(key)}`;
+  // This URL is opened directly by the browser (anchor/img), so it bypasses the
+  // request interceptor — pass the account as a query param the API also reads.
+  return `${API_BASE_URL}${path}?key=${encodeURIComponent(
+    key,
+  )}&account=${encodeURIComponent(getAccountId())}`;
 }
 
 export async function deleteStorageObject(

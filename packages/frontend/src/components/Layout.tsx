@@ -18,6 +18,7 @@ import flociBlack from '@/assets/floci-black.svg'
 import {useTheme} from '@/lib/useTheme'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus} from '@/api/cloudProxyClient'
+import {AccountSwitcher} from '@/components/AccountSwitcher'
 
 function NavItem({to, icon, label}: { to: string; icon: React.ElementType; label: string }) {
     const Icon = icon
@@ -129,6 +130,7 @@ export function Layout() {
                     <button className="icon-btn" onClick={toggle} title="Toggle theme">
                         {theme === 'dark' ? <Sun size={14}/> : <Moon size={14}/>}
                     </button>
+                    <AccountSwitcher/>
                     <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
                         <span className={`dot ${status}`}/>
                         <span className="connection-state">{connectionLabel}</span>
