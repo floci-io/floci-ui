@@ -144,7 +144,13 @@ export interface ResourceQuery {
 export interface CreateResourceInput {
     values: Record<string, unknown>
 }
-
+export interface ServerlessInvokeResult {
+    statusCode: number
+    payload: string
+    functionError?: string
+    logResult?: string
+    executionDuration?: number
+}
 export interface CloudServiceAdapter {
     readonly cloud: CloudProvider
     readonly service: CloudServiceType
@@ -157,6 +163,7 @@ export interface CloudServiceAdapter {
     putObject?(resourceId: string, key: string, body: Uint8Array, contentType: string): Promise<void>
     getObject?(resourceId: string, key: string): Promise<StorageObjectDownload>
     deleteObject?(resourceId: string, key: string): Promise<void>
+    invoke?(id: string, payload: string): Promise<ServerlessInvokeResult>
     copyObject?(srcResourceId: string, srcKey: string, destKey: string, destResourceId?: string): Promise<void>
     listCosmosContainers?(databaseId: string): Promise<CosmosContainer[]>
     createCosmosContainer?(databaseId: string, input: CreateResourceInput): Promise<CosmosContainer>

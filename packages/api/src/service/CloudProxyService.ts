@@ -10,6 +10,7 @@ import type {
     CosmosQueryResult,
     CreateResourceInput,
     ResourceQuery,
+    ServerlessInvokeResult,
     ServiceSchema,
     StorageObjectDownload,
     StorageObjectList,
@@ -158,7 +159,16 @@ export class CloudProxyService {
     async deleteResource(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<void> {
         await this.requireAdapter(cloud, service).delete(id)
     }
-
+async invokeResource(
+    cloud: CloudProvider,
+    service: CloudServiceType,
+    id: string,
+    payload: string,
+): Promise<ServerlessInvokeResult> {
+    const adapter = this.requireAdapter(cloud, service)
+    if (!adapter.invoke) throw new Error(`${cloud}/${service} invoke is not supported`)
+    return adapter.invoke(id, payload)
+}
     async listObjects(cloud: CloudProvider, service: CloudServiceType, resourceId: string, prefix?: string): Promise<StorageObjectList> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.listObjects) throw new Error(`Object listing is not supported for ${cloud}/${service}`)

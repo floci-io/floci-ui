@@ -5,6 +5,7 @@ import type {
     CloudServiceAdapter,
     CreateResourceInput,
     ResourceQuery,
+    ServerlessInvokeResult,
     ServiceSchema,
 } from '../cloud-spi/types'
 
@@ -98,7 +99,35 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
             {emptyOnNotFound: true},
         )
     }
+    async invoke(id: string, payload: string): Promise<ServerlessInvokeResult> {
+        const startedAt = performance.now()
 
+        const body = await this.azureJson<{
+            statusCode?: number
+            payload?: unknown
+            body?: unknown
+            error?: string
+            functionError?: string
+            logResult?: string
+        }>(
+            `/functions/${encodeURIComponent(id)}/invoke`,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    payload: payload?.trim() ? payload : '{}',
+                }),
+            },
+        )
+
+        return {
+            statusCode: body?.statusCode ?? 200,
+            payload: stringifyPayload(body?.payload ?? body?.body ?? ''),
+            functionError: body?.functionError ?? body?.error,
+            logResult: body?.logResult,
+            executionDuration: Math.round(performance.now() - startedAt),
+        }
+    }
+    
     private async azureJson<T>(
         path: string,
         init: RequestInit,
@@ -152,6 +181,12 @@ function toFunctionResource(record: AzureFunctionRecord): CloudResource {
 
 function stringValue(value: unknown): string {
     return typeof value === 'string' ? value.trim() : ''
+}
+
+function stringifyPayload(value: unknown): string {
+    if (typeof value === 'string') return value
+    if (value === undefined || value === null) return ''
+    return JSON.stringify(value)
 }
 
 function filterBySearch(resources: CloudResource[], search?: string): CloudResource[] {

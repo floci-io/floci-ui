@@ -211,6 +211,25 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.post('/:cloud/services/:service/resources/:id/invoke', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) {
+            return c.json({error: 'Unknown cloud or service'}, 404)
+        }
+
+        return withRuntime(c, async () => {
+            const body: {payload?: string} = await c.req.json<{payload?: string}>().catch(() => ({}))
+            const result = await svc(c).invokeResource(
+                cloud,
+                serviceType,
+                c.req.param('id'),
+                body.payload ?? '{}',
+            )
+            return c.json(result)
+        })
+    })
+
     app.post('/:cloud/services/:service/resources', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
