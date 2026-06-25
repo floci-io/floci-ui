@@ -113,6 +113,28 @@ export async function deleteCloudResource(
     { cloud, service, id },
   );
 }
+export interface ServerlessInvokeResult {
+  statusCode: number;
+  payload: string;
+  functionError?: string;
+  logResult?: string;
+  executionDuration?: number;
+}
+
+export async function invokeCloudResource(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  payload: string,
+  signal?: AbortSignal,
+): Promise<ServerlessInvokeResult> {
+  const res = await apiClient.call<ServerlessInvokeResult, { payload: string }>(
+    apiEndpointKeys.clouds.resources.invoke,
+    requestOptions(cloud, service, { signal, body: { payload } }),
+    { cloud, service, id },
+  );
+  return res.data;
+}
 
 export async function listStorageObjects(
   cloud: CloudProvider,
