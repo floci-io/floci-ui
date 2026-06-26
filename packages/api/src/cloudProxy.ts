@@ -14,6 +14,7 @@ import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
 import {createRdsService} from './services/rds'
+import {GcpServerlessAdapter} from './adapter-gcp/GcpServerlessAdapter'
 
 /**
  * Build a CloudProxyService whose AWS adapters are bound to a specific account.
@@ -35,6 +36,7 @@ export function createCloudProxyService(accountId?: string | null): CloudProxySe
         new AzureStorageAdapter(),
         new AzureDatabaseAdapter(),
         new GcpStorageAdapter(),
+        new GcpServerlessAdapter(),
         new AzureServerlessAdapter(),
     ])
 

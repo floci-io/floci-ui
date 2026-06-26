@@ -70,7 +70,7 @@ function CloudServiceNav() {
                     || (service.name === 'secretsmanager' && cloud === 'aws')
                     || (service.name === 'database' && (cloud === 'aws' || cloud === 'azure'))
                     || ((service.name === 'k8s' || service.name === 'compute' || service.name === 'networking') && cloud === 'aws')
-                    || (service.name === 'serverless' && (cloud === 'aws' || cloud === 'azure'))
+                    || (service.name === 'serverless' && (cloud === 'aws' || cloud === 'azure'|| cloud === 'gcp'))
                 if (service.route && available) {
                     const target = service.route.startsWith('/') ? service.route : `/cloud-explorer/${cloud}/${service.route}`
                     return <NavItem key={service.name} to={target} icon={Icon} label={service.label}/>
