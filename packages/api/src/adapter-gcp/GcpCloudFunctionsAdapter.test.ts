@@ -147,4 +147,35 @@ describe('GcpCloudFunctionsAdapter', () => {
         expect(calls[0].url).toBe(`${ENDPOINT}${FUNCTIONS_PATH}/hello`)
         expect(calls[0].method).toBe('DELETE')
     })
+
+    test('invoke posts a payload to the function call endpoint and maps the response', async () => {
+    const calls: Array<{url: string; init: RequestInit}> = []
+
+    globalThis.fetch = (async (url: RequestInfo | URL, init: RequestInit) => {
+        calls.push({url: String(url), init})
+        return new Response(JSON.stringify({
+            statusCode: 200,
+            result: {message: 'hello'},
+            logResult: 'log output',
+        }), {status: 200})
+    }) as unknown as typeof fetch
+
+    const result = await adapter().invoke('hello', '{"name":"Hajira"}')
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toBe(`${ENDPOINT}${FUNCTIONS_PATH}/hello:call`)
+    expect(calls[0].init.method).toBe('POST')
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+        data: '{"name":"Hajira"}',
+    })
+
+    expect(result).toEqual({
+        statusCode: 200,
+        payload: '{"message":"hello"}',
+        functionError: undefined,
+        logResult: 'log output',
+        executionDuration: expect.any(Number),
+    })
+})
+
 })

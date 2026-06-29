@@ -5,6 +5,7 @@ import type {
     CloudServiceAdapter,
     CreateResourceInput,
     ResourceQuery,
+    ServerlessInvokeResult,
     ServiceSchema,
 } from '../cloud-spi/types'
 
@@ -121,6 +122,37 @@ export class GcpCloudFunctionsAdapter implements CloudServiceAdapter {
         await this.fetch(`${this.functionsPath()}/${encodeURIComponent(id)}`, {method: 'DELETE'}, true)
     }
 
+    async invoke(id: string, payload: string): Promise<ServerlessInvokeResult> {
+        const startedAt = performance.now()
+
+        const body = await this.fetchJson<{
+            statusCode?: number
+            payload?: unknown
+            body?: unknown
+            result?: unknown
+            error?: string
+            functionError?: string
+            logResult?: string
+        }>(
+            `${this.functionsPath()}/${encodeURIComponent(id)}:call`,
+            {
+                method: 'POST',
+                headers: {'content-type': 'application/json'},
+                body: JSON.stringify({
+                    data: payload?.trim() ? payload : '{}',
+                }),
+            },
+        )
+
+        return {
+            statusCode: body.statusCode ?? 200,
+            payload: stringifyPayload(body.payload ?? body.body ?? body.result ?? ''),
+            functionError: body.functionError ?? body.error,
+            logResult: body.logResult,
+            executionDuration: Math.round(performance.now() - startedAt),
+        }
+    }
+
     private functionsPath(): string {
         return `/v2/projects/${encodeURIComponent(this.project)}/locations/${encodeURIComponent(this.location)}/functions`
     }
@@ -189,6 +221,13 @@ function locationOf(resourceName: string): string | null {
 
 function stringValue(value: unknown): string {
     return typeof value === 'string' ? value.trim() : ''
+}
+ 
+
+function stringifyPayload(value: unknown): string {
+    if (typeof value === 'string') return value
+    if (value === undefined || value === null) return ''
+    return JSON.stringify(value)
 }
 
 function filterBySearch(resources: CloudResource[], search?: string): CloudResource[] {
