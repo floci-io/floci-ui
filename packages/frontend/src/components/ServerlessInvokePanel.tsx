@@ -21,12 +21,14 @@ export function ServerlessInvokePanel({
   const [invokeResult, setInvokeResult] = useState<ServerlessInvokeResult | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     setPayload("{\n  \n}");
     setInvokeResult(null);
     setShowLog(false);
     setCopied(false);
+    setValidationError(null);
   }, [resource?.id]);
 
   const isSupportedResource =
@@ -37,7 +39,12 @@ export function ServerlessInvokePanel({
     resource.type === "gcp-function"
   );
 
-  const canInvoke = Boolean(resource && isSupportedResource && runtimeReachable);
+  const canInvoke = Boolean(
+  resource &&
+  isSupportedResource &&
+  runtimeReachable &&
+  !validationError,
+);
 
   const providerLabel =
   cloud === "aws"
@@ -99,21 +106,38 @@ export function ServerlessInvokePanel({
       <div className="resource-create-inline">
         <label>
           <span className="metric-label">Event payload JSON</span>
-          <textarea
-            className="json-editor"
-            value={payload}
-            onChange={(event) => setPayload(event.target.value)}
-            spellCheck={false}
-            placeholder="{}"
-            style={{minHeight: 140}}
+         <textarea
+  className="json-editor"
+  value={payload}
+  onChange={(event) => {
+    const value = event.target.value;
+    setPayload(value);
+
+    try {
+      JSON.parse(value);
+      setValidationError(null);
+    } catch {
+      setValidationError("Payload must be valid JSON.");
+    }
+  }}
+  spellCheck={false}
+  placeholder="{}"
+  style={{minHeight: 140}}
           />
         </label>
-
+{validationError && (
+  <p className="error-text compact-text">
+    {validationError}
+  </p>
+)}
         <button
           className="button primary"
           type="button"
           disabled={!canInvoke || invokeMutation.isPending}
-          onClick={() => invokeMutation.mutate()}
+          onClick={() => {
+  if (validationError) return;
+  invokeMutation.mutate();
+}}
         >
           {invokeMutation.isPending ? <Loader2 size={13} /> : <Play size={13} />}
           {invokeMutation.isPending ? "Invoking" : "Invoke"}
