@@ -113,39 +113,35 @@ export function ServerlessInvokePanel({
       <div className="resource-create-inline">
       
   <div className="inspector-section-header">
-  <span className="metric-label">Event payload JSON</span>
+  <label className="metric-label" htmlFor="serverless-invoke-payload">
+    Event payload JSON
+  </label>
 
-  <button
-    className="button"
-    type="button"
-    onClick={formatPayload}
-  >
+  <button className="button" type="button" onClick={formatPayload}>
     <Wand2 size={13} />
     Format JSON
   </button>
 </div>
 
-<label>
-  <textarea
-    className="json-editor"
-    value={payload}
-    onChange={(event) => {
-      const value = event.target.value;
-      setPayload(value);
+<textarea
+  id="serverless-invoke-payload"
+  className="json-editor"
+  value={payload}
+  onChange={(event) => {
+    const value = event.target.value;
+    setPayload(value);
 
-      try {
-        JSON.parse(value);
-        setValidationError(null);
-      } catch {
-        setValidationError("Payload must be valid JSON.");
-      }
-    }}
-    spellCheck={false}
-    placeholder="{}"
-    style={{minHeight: 140}}
-  />
-</label>
-
+    try {
+      JSON.parse(value);
+      setValidationError(null);
+    } catch {
+      setValidationError("Payload must be valid JSON.");
+    }
+  }}
+  spellCheck={false}
+  placeholder="{}"
+  style={{minHeight: 140}}
+/>
         {validationError && (
           <p className="error-text compact-text">
             {validationError}
