@@ -71,11 +71,6 @@ export function ServerlessInvokePanel({
     }
   };
 
-  const useSamplePayload = () => {
-  setPayload(JSON.stringify({message: "hello"}, null, 2));
-  setValidationError(null);
-};
-
 const clearPayload = () => {
   setPayload("{}");
   setValidationError(null);
@@ -131,9 +126,6 @@ const clearPayload = () => {
     <Wand2 size={13} />
     Format JSON
   </button>
-  <button className="button" type="button" onClick={useSamplePayload}>
-  Sample
-</button>
 
 <button className="button" type="button" onClick={clearPayload}>
   Clear
