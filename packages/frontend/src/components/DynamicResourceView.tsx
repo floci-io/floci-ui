@@ -4,6 +4,7 @@ import {
   ChevronUp,
   Eye,
   Filter,
+  Loader2,
   Plus,
   RefreshCw,
   Table2,
@@ -374,6 +375,7 @@ export function DynamicResourceView({
               resourcesError: resourcesQuery.error,
               onSelect: setSelected,
               onDelete: (resource) => deleteMut.mutate(resource),
+              onRetry: () => resourcesQuery.refetch(),
             })}
           </section>
         </section>
@@ -554,6 +556,7 @@ function renderResourceSurface({
   resourcesError,
   onSelect,
   onDelete,
+  onRetry,
 }: {
   schema: ServiceSchema;
   resources: CloudResource[];
@@ -566,6 +569,7 @@ function renderResourceSurface({
   resourcesError: unknown;
   onSelect: (resource: CloudResource) => void;
   onDelete: (resource: CloudResource) => void;
+  onRetry?: () => void;
 }) {
   if (statusLoading) {
     return (
@@ -596,25 +600,59 @@ function renderResourceSurface({
     );
   }
   if (resourcesError) {
+    let title = "Resource load failed";
+    let detail = "The adapter is registered, but the proxy could not load resources from the selected runtime.";
+
+    if (schema.service === "serverless") {
+      if (schema.cloud === "aws") {
+        title = "Unable to load AWS Lambda functions.";
+        detail = "The proxy could not fetch functions from the AWS emulator.";
+      } else if (schema.cloud === "azure") {
+        title = "Unable to load Azure Functions.";
+        detail = "The proxy could not fetch functions from the Azure emulator.";
+      } else if (schema.cloud === "gcp") {
+        title = "Unable to load Cloud Functions.";
+        detail = "The proxy could not fetch functions from the GCP emulator.";
+      }
+    }
+
     return (
       <RuntimeNotice
-        title="Resource load failed"
-        detail="The adapter is registered, but the proxy could not load resources from the selected runtime."
+        title={title}
+        detail={detail}
         error={
           resourcesError instanceof Error
             ? resourcesError.message
             : "Unknown resource error"
         }
         state="unavailable"
+        onRetry={onRetry}
       />
     );
   }
   if (resourcesLoading) {
+    let title = "Loading resources";
+    let detail = "Reading normalized resources from the selected cloud adapter.";
+
+    if (schema.service === "serverless") {
+      if (schema.cloud === "aws") {
+        title = "Loading AWS Lambda functions...";
+        detail = "Reading functions from the AWS emulator.";
+      } else if (schema.cloud === "azure") {
+        title = "Loading Azure Functions...";
+        detail = "Reading functions from the Azure emulator.";
+      } else if (schema.cloud === "gcp") {
+        title = "Loading Cloud Functions...";
+        detail = "Reading functions from the GCP emulator.";
+      }
+    }
+
     return (
       <RuntimeNotice
-        title="Loading resources"
-        detail="Reading normalized resources from the selected cloud adapter."
+        title={title}
+        detail={detail}
         state="pending"
+        showSpinner={true}
       />
     );
   }
@@ -636,17 +674,37 @@ function RuntimeNotice({
   detail,
   error,
   state,
+  showSpinner,
+  onRetry,
 }: {
   title: string;
   detail: string;
   error?: string;
   state: "pending" | "unavailable";
+  showSpinner?: boolean;
+  onRetry?: () => void;
 }) {
   return (
     <div className={`runtime-notice ${state}`}>
+      {showSpinner && (
+        <Loader2
+          size={24}
+          style={{ animation: "spin 1s linear infinite", marginBottom: 8, color: "var(--accent)" }}
+        />
+      )}
       <h3>{title}</h3>
       <p>{detail}</p>
       {error && <code>{error}</code>}
+      {onRetry && (
+        <button
+          className="button"
+          type="button"
+          style={{ marginTop: 12 }}
+          onClick={onRetry}
+        >
+          Retry
+        </button>
+      )}
     </div>
   );
 }

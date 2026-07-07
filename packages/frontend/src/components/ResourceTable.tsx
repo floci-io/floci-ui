@@ -17,13 +17,24 @@ export function ResourceTable({schema, resources, selectedId, onSelect, onDelete
     const canDelete = schema.actions.includes('delete')
 
    if (resources.length === 0) {
-    const emptyTitle = schema.service === 'serverless'
-        ? 'No Lambda functions'
-        : 'No resources'
+    let emptyTitle = 'No resources'
+    let emptyDescription = `The connected runtime did not return any ${schema.displayName} resources.`
 
-    const emptyDescription = schema.service === 'serverless'
-        ? 'The connected runtime did not return any Lambda functions.'
-        : `The connected runtime did not return any ${schema.displayName} resources.`
+    if (schema.service === 'serverless') {
+        if (schema.cloud === 'aws') {
+            emptyTitle = 'No Lambda functions'
+            emptyDescription = 'The connected runtime did not return any Lambda functions.'
+        } else if (schema.cloud === 'azure') {
+            emptyTitle = 'No Azure Functions found.'
+            emptyDescription = 'The connected runtime did not return any Azure Functions.'
+        } else if (schema.cloud === 'gcp') {
+            emptyTitle = 'No Cloud Functions found.'
+            emptyDescription = 'The connected runtime did not return any Cloud Functions.'
+        } else {
+            emptyTitle = 'No functions'
+            emptyDescription = 'The connected runtime did not return any functions.'
+        }
+    }
 
     return (
         <div className="empty compact">
