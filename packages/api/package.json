@@ -10,12 +10,12 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@aws-sdk/client-ec2": "^3.1075.0",
-    "@aws-sdk/client-eks": "^3.1075.0",
-    "@aws-sdk/client-lambda": "^3.1075.0",
-    "@aws-sdk/client-rds": "^3.1075.0",
-    "@aws-sdk/client-s3": "^3.1075.0",
-    "@aws-sdk/client-secrets-manager": "^3.1075.0",
+    "@aws-sdk/client-ec2": "^3.1076.0",
+    "@aws-sdk/client-eks": "^3.1076.0",
+    "@aws-sdk/client-lambda": "^3.1076.0",
+    "@aws-sdk/client-rds": "^3.1076.0",
+    "@aws-sdk/client-s3": "^3.1076.0",
+    "@aws-sdk/client-secrets-manager": "^3.1076.0",
     "dotenv": "^17.4.2",
     "hono": "^4.12.27"
   },
