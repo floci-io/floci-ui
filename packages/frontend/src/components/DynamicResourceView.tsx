@@ -373,6 +373,7 @@ export function DynamicResourceView({
               serviceAvailability,
               resourcesLoading: resourcesQuery.isLoading,
               resourcesError: resourcesQuery.error,
+              isRetrying: resourcesQuery.isFetching,
               onSelect: setSelected,
               onDelete: (resource) => deleteMut.mutate(resource),
               onRetry: () => resourcesQuery.refetch(),
@@ -554,6 +555,7 @@ function renderResourceSurface({
   serviceAvailability,
   resourcesLoading,
   resourcesError,
+  isRetrying,
   onSelect,
   onDelete,
   onRetry,
@@ -567,6 +569,7 @@ function renderResourceSurface({
   serviceAvailability: CloudAvailability;
   resourcesLoading: boolean;
   resourcesError: unknown;
+  isRetrying: boolean;
   onSelect: (resource: CloudResource) => void;
   onDelete: (resource: CloudResource) => void;
   onRetry?: () => void;
@@ -600,57 +603,26 @@ function renderResourceSurface({
     );
   }
   if (resourcesError) {
-    let title = "Resource load failed";
-    let detail = "The adapter is registered, but the proxy could not load resources from the selected runtime.";
-
-    if (schema.service === "serverless") {
-      if (schema.cloud === "aws") {
-        title = "Unable to load AWS Lambda functions.";
-        detail = "The proxy could not fetch functions from the AWS emulator.";
-      } else if (schema.cloud === "azure") {
-        title = "Unable to load Azure Functions.";
-        detail = "The proxy could not fetch functions from the Azure emulator.";
-      } else if (schema.cloud === "gcp") {
-        title = "Unable to load Cloud Functions.";
-        detail = "The proxy could not fetch functions from the GCP emulator.";
-      }
-    }
-
     return (
       <RuntimeNotice
-        title={title}
-        detail={detail}
+        title={`Unable to load ${schema.displayName}.`}
+        detail={`The proxy could not fetch ${schema.displayName} resources from the runtime.`}
         error={
           resourcesError instanceof Error
             ? resourcesError.message
             : "Unknown resource error"
         }
         state="unavailable"
+        isRetrying={isRetrying}
         onRetry={onRetry}
       />
     );
   }
   if (resourcesLoading) {
-    let title = "Loading resources";
-    let detail = "Reading normalized resources from the selected cloud adapter.";
-
-    if (schema.service === "serverless") {
-      if (schema.cloud === "aws") {
-        title = "Loading AWS Lambda functions...";
-        detail = "Reading functions from the AWS emulator.";
-      } else if (schema.cloud === "azure") {
-        title = "Loading Azure Functions...";
-        detail = "Reading functions from the Azure emulator.";
-      } else if (schema.cloud === "gcp") {
-        title = "Loading Cloud Functions...";
-        detail = "Reading functions from the GCP emulator.";
-      }
-    }
-
     return (
       <RuntimeNotice
-        title={title}
-        detail={detail}
+        title={`Loading ${schema.displayName}...`}
+        detail={`Reading ${schema.displayName} resources from the runtime.`}
         state="pending"
         showSpinner={true}
       />
@@ -675,6 +647,7 @@ function RuntimeNotice({
   error,
   state,
   showSpinner,
+  isRetrying,
   onRetry,
 }: {
   title: string;
@@ -682,14 +655,16 @@ function RuntimeNotice({
   error?: string;
   state: "pending" | "unavailable";
   showSpinner?: boolean;
+  isRetrying?: boolean;
   onRetry?: () => void;
 }) {
   return (
     <div className={`runtime-notice ${state}`}>
-      {showSpinner && (
+      {(showSpinner || isRetrying) && (
         <Loader2
           size={24}
-          style={{ animation: "spin 1s linear infinite", marginBottom: 8, color: "var(--accent)" }}
+          className="spin"
+          style={{ marginBottom: 8, color: "var(--accent)" }}
         />
       )}
       <h3>{title}</h3>
@@ -700,9 +675,10 @@ function RuntimeNotice({
           className="button"
           type="button"
           style={{ marginTop: 12 }}
-          onClick={onRetry}
+          disabled={isRetrying}
+          onClick={() => { if (!isRetrying) onRetry(); }}
         >
-          Retry
+          {isRetrying ? "Retrying\u2026" : "Retry"}
         </button>
       )}
     </div>
