@@ -369,6 +369,9 @@ pre,
 
 .account-switcher {
     position: relative;
+}
+
+.topbar-status:empty + .account-switcher {
     margin-left: auto;
 }
 
@@ -562,22 +565,11 @@ pre,
     gap: 8px;
 }
 
-.page-title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
 .page-title h2 {
     margin: 0;
     color: var(--text);
     font-size: 20px;
     font-weight: 400;
-}
-
-.page-info-btn {
-    width: 24px;
-    height: 24px;
 }
 
 .info-link {
@@ -936,83 +928,9 @@ pre,
 
 .cloud-explorer {
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: 10px;
     min-height: calc(100vh - 92px);
-}
-
-.cloud-runtime-strip {
-    display: grid;
-    grid-template-columns: 1.5fr repeat(4, minmax(0, 1fr));
-    gap: 0;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--elevated);
-    overflow: hidden;
-}
-
-.cloud-runtime-strip.compact {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.runtime-card {
-    min-height: 38px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border-right: 1px solid var(--border);
-    padding: 7px 10px;
-}
-
-.cloud-runtime-strip.compact .runtime-card {
-    min-height: 28px;
-    gap: 8px;
-    padding: 8px 10px;
-}
-
-.runtime-card:last-child {
-    border-right: 0;
-}
-
-.runtime-card svg {
-    color: var(--link);
-    flex: 0 0 auto;
-}
-
-.cloud-runtime-strip span {
-    display: block;
-    color: var(--text-2);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
-
-.cloud-runtime-strip strong {
-    display: block;
-    min-width: 0;
-    color: var(--text-bright);
-    font-size: 10px;
-    font-weight: 500;
-    word-break: break-word;
-}
-
-.cloud-runtime-strip small {
-    display: block;
-    overflow: hidden;
-    color: var(--text-2);
-    font-size: 10px;
-    line-height: 1.35;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.cloud-runtime-strip.compact strong {
-    font-size: 11px;
-}
-
-.cloud-runtime-strip.compact small {
-    font-size: 10px;
 }
 
 .service-info-dialog {
@@ -1102,55 +1020,6 @@ pre,
     line-height: 1.6;
 }
 
-.runtime-card.ready svg,
-.runtime-card.status.ready strong {
-    color: #4ade80;
-}
-
-.runtime-card.pending svg,
-.runtime-card.status.pending strong {
-    color: #fbbf24;
-}
-
-.runtime-card.unavailable svg,
-.runtime-card.status.unavailable strong {
-    color: #f87171;
-}
-
-.runtime-card.status {
-    position: relative;
-    padding-left: 24px;
-    display: grid;
-    gap: 1px;
-    align-content: center;
-    align-items: center;
-}
-
-.runtime-card.status::before {
-    content: "";
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
-    transform: translateY(-50%);
-}
-
-.runtime-card.status.ready::before {
-    background: #22c55e;
-    box-shadow: 0 0 6px #22c55e;
-}
-
-.runtime-card.status.pending::before {
-    background: #f59e0b;
-}
-
-.runtime-card.status.unavailable::before {
-    background: #ef4444;
-    box-shadow: 0 0 6px rgba(239, 68, 68, 0.8);
-}
-
 .cloud-selector {
     display: flex;
     flex-wrap: wrap;
@@ -1182,16 +1051,26 @@ pre,
 
 .dynamic-resource-view {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: 10px;
     min-height: 0;
 }
 
-.dynamic-stage {
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--elevated);
-    overflow: hidden;
+.topbar-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.topbar-status:empty {
+    display: none;
+}
+
+.topbar-status .icon-btn {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
 }
 
 .dynamic-stage-header {
@@ -1218,27 +1097,6 @@ pre,
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-}
-
-.schema-action-list {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 6px;
-}
-
-.schema-action {
-    display: inline-flex;
-    align-items: center;
-    min-height: 22px;
-    border: 1px solid var(--link-tint-border);
-    border-radius: 999px;
-    background: var(--link-tint);
-    color: var(--link);
-    padding: 0 9px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: capitalize;
 }
 
 .runtime-state {
@@ -1268,16 +1126,6 @@ pre,
     color: #fbbf24;
     border-color: rgba(251, 191, 36, 0.24);
     background: rgba(251, 191, 36, 0.08);
-}
-
-.resource-count {
-    color: var(--text-bright);
-}
-
-.dynamic-stage-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0;
 }
 
 .capability-strip {
@@ -1319,58 +1167,9 @@ pre,
     background: rgba(148, 163, 184, 0.06);
 }
 
-.feature-tile {
-    min-height: 68px;
-    display: grid;
-    grid-template-columns: 28px minmax(0, 1fr);
-    grid-template-areas:
-        "icon title"
-        "icon value"
-        "icon detail";
-    gap: 2px 10px;
-    align-content: center;
-    border-right: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 12px;
-    text-align: left;
-}
-
-.feature-tile:last-child {
-    border-right: 0;
-}
-
-.feature-tile svg {
-    grid-area: icon;
-    color: var(--link);
-    align-self: start;
-    width: 18px;
-    height: 18px;
-    margin-top: 1px;
-}
-
-.feature-tile span {
-    grid-area: title;
-    color: var(--text-2);
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.feature-tile strong {
-    grid-area: value;
-    color: var(--text-bright);
-    font-size: 11px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.feature-tile small {
-    grid-area: detail;
-    color: var(--text-3);
-    font-size: 10px;
-    line-height: 1.35;
+.service-info-section .capability-strip {
+    border-top: 0;
+    padding: 8px 0 0;
 }
 
 .dynamic-form {
@@ -1458,10 +1257,14 @@ pre,
 
 .resource-workbench {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(380px, 30vw);
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
     align-items: stretch;
     min-height: 0;
+}
+
+.resource-workbench.with-inspector {
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 30vw);
 }
 
 .resource-main {
@@ -2611,8 +2414,7 @@ button.console-service-card {
         flex-direction: column;
     }
 
-    .cloud-runtime-strip,
-    .resource-workbench,
+    .resource-workbench.with-inspector,
     .cloud-coming-soon {
         grid-template-columns: 1fr;
     }
@@ -2621,28 +2423,9 @@ button.console-service-card {
         grid-template-columns: 1fr;
     }
 
-    .runtime-card {
-        border-right: 0;
-        border-bottom: 1px solid var(--border);
-    }
-
-    .runtime-card:last-child {
-        border-bottom: 0;
-    }
-
-    .dynamic-stage-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .console-summary,
     .console-service-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .feature-tile {
-        grid-template-columns: 28px minmax(0, 1fr);
-        border-right: 0;
-        border-bottom: 1px solid var(--border);
     }
 
     .dynamic-form,

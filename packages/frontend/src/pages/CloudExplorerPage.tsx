@@ -1,11 +1,11 @@
-import {type ElementType, useMemo, useState} from 'react'
-import {Cloud, DatabaseZap, Info, Radio, Route, ShieldCheck, X} from 'lucide-react'
+import {useMemo, useState} from 'react'
+import {Cloud, X} from 'lucide-react'
 import {Navigate, useNavigate, useParams} from 'react-router-dom'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus, getServiceSchema, listClouds, listCloudServices} from '@/api/cloudProxyClient'
 import {CloudSelector} from '@/components/CloudSelector'
 import {DynamicResourceView} from '@/components/DynamicResourceView'
-import {normalizeCapabilities} from '@/lib/capabilities'
+import {normalizeCapabilities, withRuntimeState, withServiceAvailability} from '@/lib/capabilities'
 import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatus} from '@/types/cloud'
 import type {ServiceSchema} from '@/types/schema'
 
@@ -53,12 +53,7 @@ export function CloudExplorerPage() {
                 <div className="page-title">
                     <Cloud size={20}/>
                     <div>
-                        <div className="page-title-row">
-                            <h2>Cloud Explorer</h2>
-                            <button className="icon-btn page-info-btn" type="button" onClick={() => setInfoOpen(true)} title="Service information">
-                                <Info size={14}/>
-                            </button>
-                        </div>
+                        <h2>Cloud Explorer</h2>
                         <p className="muted">Unified local runtime console</p>
                     </div>
                 </div>
@@ -78,19 +73,13 @@ export function CloudExplorerPage() {
                 </div>
             </div>
             <div className="content cloud-explorer">
-                <div className="cloud-runtime-strip compact">
-                    <RuntimeCard icon={Route} label="Service" value={selectedService?.displayName ?? serviceLabel(service)} detail={serviceAvailability(selectedService)}/>
-                    <RuntimeCard icon={DatabaseZap} label="Proxy API" value={`/api/clouds/${cloud}/services/${service}`} detail="Single entry point"/>
-                    <RuntimeCard icon={Radio} label="Runtime" value={runtimeValue(cloud, statusQuery.data)} detail={runtimeDetail(statusQuery.data, statusQuery.isLoading)} state={runtimeState(statusQuery.data, statusQuery.isLoading)}/>
-                    <RuntimeCard icon={ShieldCheck} label="Adapter" value={adapterValue(cloud, statusQuery.data)} detail={adapterDetail(statusQuery.data, statusQuery.isLoading)} state={adapterState(cloud, statusQuery.data)}/>
-                    <RuntimeCard icon={Cloud} label="Connection" value={connectionValue(statusQuery.data, statusQuery.isLoading)} detail={statusQuery.data?.endpoint ?? 'No runtime endpoint'} state={runtimeState(statusQuery.data, statusQuery.isLoading)}/>
-                </div>
                 <DynamicResourceView
                     cloud={cloud}
                     service={service}
                     serviceAvailability={selectedService?.availability}
                     cloudStatus={statusQuery.data}
                     statusLoading={statusQuery.isLoading}
+                    onOpenInfo={() => setInfoOpen(true)}
                 />
             </div>
             {infoOpen && (
@@ -116,32 +105,6 @@ function normalizeService(value?: string): CloudServiceType | null {
     return value === 'storage' || value === 'k8s' || value === 'database' || value === 'compute' || value === 'networking' || value === 'serverless' ? value : null
 }
 
-function RuntimeCard({
-    icon,
-    label,
-    value,
-    detail,
-    state,
-}: {
-    icon: ElementType
-    label: string
-    value: string
-    detail: string
-    state?: 'ready' | 'pending' | 'unavailable'
-}) {
-    const Icon = icon
-    return (
-        <div className={`runtime-card ${state ?? ''}`}>
-            <Icon size={16}/>
-            <div>
-                <span>{label}</span>
-                <strong>{value}</strong>
-                <small>{detail}</small>
-            </div>
-        </div>
-    )
-}
-
 function ServiceInfoDialog({
     cloud,
     service,
@@ -160,14 +123,18 @@ function ServiceInfoDialog({
     onClose: () => void
 }) {
     const capabilityList = schema?.capabilities
-        ? normalizeCapabilities([
-            ...(schema.capabilities.resourceActions ?? []),
-            ...(schema.capabilities.objectActions ?? []),
-        ])
+        ? withServiceAvailability(
+            withRuntimeState(
+                normalizeCapabilities([
+                    ...(schema.capabilities.resourceActions ?? []),
+                    ...(schema.capabilities.objectActions ?? []),
+                ]),
+                status?.runtime === 'reachable',
+            ),
+            descriptor?.availability ?? 'coming_soon',
+        )
         : []
-    const capabilityLabels = capabilityList.length
-        ? capabilityList.map((capability) => capability.label).join(', ')
-        : schema?.actions.join(', ') ?? 'Loading actions'
+    const actionFallback = schema?.actions.join(', ') ?? 'Loading actions'
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -187,11 +154,25 @@ function ServiceInfoDialog({
                     <InfoCard label="Runtime" value={runtimeValue(cloud, status)} detail={runtimeDetail(status, statusLoading)} state={runtimeState(status, statusLoading)}/>
                     <InfoCard label="Adapter" value={adapterValue(cloud, status)} detail={adapterDetail(status, statusLoading)} state={adapterState(cloud, status)}/>
                     <InfoCard label="Connection" value={connectionValue(status, statusLoading)} detail={status?.endpoint ?? 'No runtime endpoint'} state={runtimeState(status, statusLoading)}/>
-                    <InfoCard label="Normalized Contract" value={schema?.columns.length ? `${schema.columns.length} columns` : 'Loading schema'} detail="Shared table and resource inspector"/>
+                    <InfoCard label="Normalized Contract" value={schema?.columns.length ? `${schema.columns.length} columns · ${schema.filters.length} filters` : 'Loading schema'} detail="Shared table and resource inspector"/>
                 </div>
                 <div className="service-info-section">
                     <p className="eyebrow">Supported Actions</p>
-                    <p className="service-info-copy">{capabilityLabels}</p>
+                    {capabilityList.length ? (
+                        <div className="capability-strip">
+                            {capabilityList.map((capability) => (
+                                <span
+                                    key={capability.name}
+                                    className={`capability-pill ${capability.status}`}
+                                    title={capability.reason}
+                                >
+                                    {capability.label}
+                                </span>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="service-info-copy">{actionFallback}</p>
+                    )}
                 </div>
                 <div className="service-info-section">
                     <p className="eyebrow">Current Limitations</p>

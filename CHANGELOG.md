@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-08
+
+### Added
+
+- AWS Secrets Manager console page: list, inspect, create, and delete secrets (scheduled or forced deletion).
+- Azure Functions in the Cloud Explorer: list, inspect, create, delete, and invoke.
+- GCP Cloud Functions in the Cloud Explorer, including invoke support.
+- Serverless invoke panel payload tooling: pre-invoke validation plus format, sample, and clear payload actions.
+- Account switcher scoping the Cloud Explorer to a selectable AWS account.
+- Service information dialog describing each service's capabilities, runtime adapter, and connection state.
+
+### Changed
+
+- Decluttered the Cloud Explorer service view: the resource table now leads the page, diagnostics moved into a compact topbar ⓘ info dialog, and the resource inspector only renders when a resource is selected.
+- Migrated the Secrets Manager frontend to the shared `HttpClient`/`ApiRegistry` pattern and wired it into the navigation shell.
+- Updated all JavaScript dependencies and adapted the codebase to TypeScript 6 and stricter ESLint rules.
+- Streamlined the local development setup.
+
+### Fixed
+
+- Secrets drawer opening partially off-screen.
+- Duplicate serverless invoke client export.
+
+## [0.1.0] - 2026-06-14
+
 ### Added
 
 - Theme-aware Floci brand logo (light/dark) and a brand-aligned indigo color palette sourced from floci.io.
@@ -32,4 +57,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `docker-compose.dev.yml` (folded into `docker-compose.yml`).
 
-[Unreleased]: https://github.com/floci-io/floci-ui/commits/main
+[Unreleased]: https://github.com/floci-io/floci-ui/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/floci-io/floci-ui/compare/0.1.0...0.2.0
+[0.1.0]: https://github.com/floci-io/floci-ui/releases/tag/0.1.0

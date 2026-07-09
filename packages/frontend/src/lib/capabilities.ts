@@ -1,4 +1,5 @@
 import type {CapabilitySchema, CapabilityStatus, ObjectActionName, ResourceActionName} from '@/types/schema'
+import type {CloudAvailability} from '@/types/cloud'
 
 export type CapabilityActionName = ResourceActionName | ObjectActionName
 export type AnyCapability = CapabilitySchema<CapabilityActionName>
@@ -51,15 +52,15 @@ export function withRuntimeState<TAction extends CapabilityActionName>(
     })
 }
 
-export function capabilitySummary(capabilities: AnyCapability[]): {ready: number; total: number; blocked: number; partial: number} {
-    return capabilities.reduce(
-        (summary, capability) => {
-            summary.total += 1
-            if (capability.status === 'blocked' || capability.status === 'coming_soon' || !capability.enabled) summary.blocked += 1
-            else if (capability.status === 'partial') summary.partial += 1
-            else summary.ready += 1
-            return summary
-        },
-        {ready: 0, total: 0, blocked: 0, partial: 0},
-    )
+export function withServiceAvailability<TAction extends CapabilityActionName>(
+    capabilities: Array<CapabilitySchema<TAction>>,
+    serviceAvailability: CloudAvailability,
+): Array<CapabilitySchema<TAction>> {
+    if (serviceAvailability === 'available') return capabilities
+    return capabilities.map((capability) => ({
+        ...capability,
+        enabled: false,
+        status: 'coming_soon' as CapabilityStatus,
+        reason: 'This provider service schema is available, but no runtime adapter is registered yet.',
+    }))
 }

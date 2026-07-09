@@ -1,5 +1,6 @@
 {
   "name": "floci-ui",
+  "version": "0.2.0",
   "description": "Any Cloud. Locally. — the local cloud console for Floci, an AWS-Console-style UI for your multi-cloud runtime.",
   "private": true,
   "packageManager": "pnpm@9.2.0",
