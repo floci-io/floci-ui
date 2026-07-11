@@ -19,11 +19,6 @@ import {
 import type {CloudProvider} from '@/types/cloud'
 import type {ConsoleServiceCard} from './types'
 
-const SERVICE_PLACEHOLDERS = [
-    {id: 'queue', label: 'Queue', icon: MessageSquare},
-    {id: 'function', label: 'Function', icon: Zap},
-]
-
 export function useCloudConsoleHomeData(cloud: CloudProvider) {
     const cloudsQuery = useCloudsQuery()
     const servicesQuery = useCloudServicesQuery(cloud)
@@ -37,11 +32,15 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
     const storageResourcesQuery = useCloudConsoleResourcesQuery({...queryContext, service: 'storage'})
     const k8sResourcesQuery = useCloudConsoleResourcesQuery({...queryContext, service: 'k8s'})
     const databaseResourcesQuery = useCloudConsoleResourcesQuery({...queryContext, service: 'database'})
+    const queueResourcesQuery = useCloudConsoleResourcesQuery({...queryContext, service: 'queue'})
+    const serverlessResourcesQuery = useCloudConsoleResourcesQuery({...queryContext, service: 'serverless'})
     const secretsQuery = useSecretsQuery(cloud === 'aws' && status?.runtime === 'reachable')
     const serviceCards = useMemo<ConsoleServiceCard[]>(() => {
         const storage = servicesQuery.data?.find((service) => service.service === 'storage')
         const k8s = servicesQuery.data?.find((service) => service.service === 'k8s')
         const database = servicesQuery.data?.find((service) => service.service === 'database')
+        const queueSvc = servicesQuery.data?.find((service) => service.service === 'queue')
+        const serverlessSvc = servicesQuery.data?.find((service) => service.service === 'serverless')
 
         return [
             {
@@ -80,13 +79,24 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
                 route: '/secretsmanager',
                 meta: serviceMetaLabel(status, secretsQuery.isLoading, 'secrets'),
             }] : []),
-            ...SERVICE_PLACEHOLDERS.map((service) => ({
-                ...service,
-                status: 'coming_soon' as const,
-                count: undefined,
-                route: undefined,
-                meta: 'not wired yet',
-            })),
+            ...(queueSvc ? [{
+                id: 'queue',
+                label: queueSvc.displayName ?? 'Queue',
+                status: queueSvc.availability,
+                count: queueResourcesQuery.data?.length,
+                icon: MessageSquare,
+                route: `/cloud-explorer/${cloud}/queue`,
+                meta: serviceMetaLabel(status, queueResourcesQuery.isLoading, 'queues'),
+            }] : []),
+            ...(serverlessSvc ? [{
+                id: 'serverless',
+                label: serverlessSvc.displayName ?? 'Serverless',
+                status: serverlessSvc.availability,
+                count: serverlessResourcesQuery.data?.length,
+                icon: Zap,
+                route: `/cloud-explorer/${cloud}/serverless`,
+                meta: serviceMetaLabel(status, serverlessResourcesQuery.isLoading, 'functions'),
+            }] : []),
         ]
     }, [
         databaseResourcesQuery.data,
@@ -94,6 +104,10 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
         cloud,
         k8sResourcesQuery.data,
         k8sResourcesQuery.isLoading,
+        queueResourcesQuery.data,
+        queueResourcesQuery.isLoading,
+        serverlessResourcesQuery.data,
+        serverlessResourcesQuery.isLoading,
         secretsQuery.data,
         secretsQuery.isLoading,
         servicesQuery.data,

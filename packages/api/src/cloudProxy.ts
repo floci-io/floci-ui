@@ -11,6 +11,7 @@ import {GcpCloudFunctionsAdapter} from './adapter-gcp/GcpCloudFunctionsAdapter'
 import {CloudProxyService} from './service/CloudProxyService'
 import {AzureServerlessAdapter} from './adapter-azure/AzureServerlessAdapter'
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
+import {AwsQueueAdapter} from './adapter-aws/AwsQueueAdapter'
 import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
@@ -33,6 +34,7 @@ export function createCloudProxyService(accountId?: string | null): CloudProxySe
         new AwsComputeAdapter(ec2Service),
         new AwsNetworkingAdapter(ec2Service),
         new AwsServerlessAdapter(clients.lambda),
+        new AwsQueueAdapter(clients.sqs),
         new AzureStorageAdapter(),
         new AzureDatabaseAdapter(),
         new GcpStorageAdapter(),

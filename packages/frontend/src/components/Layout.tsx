@@ -52,8 +52,7 @@ const CLOUD_SERVICE_ITEMS: Array<{name: CloudSidebarService; label: string; rout
     {name: 'networking', label: 'Networking', route: 'networking'},
     {name: 'secretsmanager', label: 'Secrets Manager', route: '/secretsmanager'},
     {name: 'serverless', label: 'Serverless', route: 'serverless'},
-    {name: 'queue', label: 'Queue'},
-    {name: 'function', label: 'Function'},
+    {name: 'queue', label: 'Queue', route: 'queue'},
 ]
 
 function CloudServiceNav() {
@@ -71,6 +70,7 @@ function CloudServiceNav() {
                     || (service.name === 'database' && (cloud === 'aws' || cloud === 'azure'))
                     || ((service.name === 'k8s' || service.name === 'compute' || service.name === 'networking') && cloud === 'aws')
                     || (service.name === 'serverless' && (cloud === 'aws' || cloud === 'azure'))
+                    || (service.name === 'queue' && cloud === 'aws')
                 if (service.route && available) {
                     const target = service.route.startsWith('/') ? service.route : `/cloud-explorer/${cloud}/${service.route}`
                     return <NavItem key={service.name} to={target} icon={Icon} label={service.label}/>
