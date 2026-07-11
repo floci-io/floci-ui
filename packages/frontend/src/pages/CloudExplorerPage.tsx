@@ -102,7 +102,7 @@ function normalizeCloud(value?: string): CloudProvider | null {
 }
 
 function normalizeService(value?: string): CloudServiceType | null {
-    return value === 'storage' || value === 'k8s' || value === 'database' || value === 'compute' || value === 'networking' || value === 'serverless' ? value : null
+    return value === 'storage' || value === 'k8s' || value === 'database' || value === 'compute' || value === 'networking' || value === 'serverless' || value === 'queue' ? value : null
 }
 
 function ServiceInfoDialog({
