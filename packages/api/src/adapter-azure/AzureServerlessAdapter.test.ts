@@ -305,6 +305,20 @@ describe('AzureServerlessAdapter', () => {
         expect(result.payload).toBe('ok')
     })
 
+        test('lists functions from a direct array response', async () => {
+          const client = testClient(async () =>
+            new Response(
+                JSON.stringify([azureFunction('hello')]),
+                {status: 200},
+        ),
+    )
+
+    const resources = await new AzureServerlessAdapter(client).list()
+
+    expect(resources).toHaveLength(1)
+    expect(resources[0].id).toBe('hello')
+    expect(resources[0].type).toBe('azure-function')
+})
     test('propagates runtime errors from the Azure client', async () => {
         const client = testClient(async () => {
             throw new Error('Azure Functions request failed: HTTP 500')
