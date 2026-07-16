@@ -16,19 +16,25 @@ function azureFunction(name: string) {
         location: 'centralus',
         type: 'Microsoft.Web/sites/functions',
         properties: {
-            state: 'Running',
-            runtime: 'node',
-            functionAppName: 'floci-functions',
-            lastModifiedTimeUtc: '2026-06-22T05:29:13Z',
-            scriptHref: `http://localhost:4577/functions/${name}/script`,
-            invokeUrlTemplate: `http://localhost:4577/functions/${name}/invoke`,
-            config: {
-                bindings: [],
+    state: 'Running',
+    runtime: 'node',
+    functionAppName: 'floci-functions',
+    lastModifiedTimeUtc: '2026-06-22T05:29:13Z',
+    scriptHref: `http://localhost:4577/functions/${name}/script`,
+    invokeUrlTemplate: `http://localhost:4577/functions/${name}/invoke`,
+    config: {
+        bindings: [
+            {
+                type: 'httpTrigger',
+                direction: 'in',
+                name: 'req',
             },
-            files: {
-                'index.js': 'module.exports = async () => ({statusCode: 200})',
-            },
-        },
+        ],
+    },
+    files: {
+        'index.js': 'module.exports = async () => ({statusCode: 200})',
+    },
+},
     }
 }
 
@@ -69,23 +75,31 @@ describe('AzureServerlessAdapter', () => {
                 region: 'centralus',
                 createdAt: '2026-06-22T05:29:13Z',
                 status: 'Running',
-                metadata: {
-                    provider: 'azure',
-                    serverlessService: 'functions',
-                    kind: 'functionapp',
-                    resourceType: 'Microsoft.Web/sites/functions',
-                    runtime: 'node',
-                    functionAppName: 'floci-functions',
-                    scriptHref: 'http://localhost:4577/functions/hello/script',
-                    invokeUrlTemplate: 'http://localhost:4577/functions/hello/invoke',
-                    config: {
-                        bindings: [],
-                    },
-                    files: {
-                        'index.js':
-                            'module.exports = async () => ({statusCode: 200})',
-                    },
-                },
+               metadata: {
+    provider: 'azure',
+    serverlessService: 'functions',
+    kind: 'functionapp',
+    resourceType: 'Microsoft.Web/sites/functions',
+    runtime: 'node',
+    functionAppName: 'floci-functions',
+    lastModified: '2026-06-22T05:29:13Z',
+    triggerType: 'httpTrigger',
+    scriptHref: 'http://localhost:4577/functions/hello/script',
+    invokeUrlTemplate: 'http://localhost:4577/functions/hello/invoke',
+    config: {
+        bindings: [
+            {
+                type: 'httpTrigger',
+                direction: 'in',
+                name: 'req',
+            },
+        ],
+    },
+    files: {
+        'index.js':
+            'module.exports = async () => ({statusCode: 200})',
+    },
+},
             },
         ])
     })

@@ -164,18 +164,20 @@ function toFunctionResource(record: AzureFunctionRecord): CloudResource {
         region: record.location ?? null,
         createdAt: props.lastModifiedTimeUtc ?? null,
         status: props.state ?? props.status ?? null,
-        metadata: {
-            provider: 'azure',
-            serverlessService: 'functions',
-            kind: record.kind,
-            resourceType: record.type,
-            runtime: props.runtime,
-            functionAppName: props.functionAppName,
-            scriptHref: props.scriptHref,
-            invokeUrlTemplate: props.invokeUrlTemplate,
-            config: props.config,
-            files: props.files,
-        },
+       metadata: {
+    provider: 'azure',
+    serverlessService: 'functions',
+    kind: record.kind,
+    resourceType: record.type,
+    runtime: props.runtime,
+    functionAppName: props.functionAppName,
+    lastModified: props.lastModifiedTimeUtc,
+    triggerType: getTriggerType(props.config),
+    scriptHref: props.scriptHref,
+    invokeUrlTemplate: props.invokeUrlTemplate,
+    config: props.config,
+    files: props.files,
+},
     }
 }
 
@@ -187,6 +189,23 @@ function stringifyPayload(value: unknown): string {
     if (typeof value === 'string') return value
     if (value === undefined || value === null) return ''
     return JSON.stringify(value)
+}
+
+function getTriggerType(config?: Record<string, unknown>): string | undefined {
+    const bindings = config?.bindings
+    if (!Array.isArray(bindings)) return undefined
+
+    const trigger = bindings.find((binding) => {
+        if (!binding || typeof binding !== 'object') return false
+
+        const type = (binding as Record<string, unknown>).type
+        return typeof type === 'string' && type.toLowerCase().endsWith('trigger')
+    })
+
+    if (!trigger || typeof trigger !== 'object') return undefined
+
+    const type = (trigger as Record<string, unknown>).type
+    return typeof type === 'string' ? type : undefined
 }
 
 function filterBySearch(resources: CloudResource[], search?: string): CloudResource[] {
