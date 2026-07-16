@@ -1,5 +1,5 @@
-import {azure, type AzureRuntimeClient} from '../azure'
-import {azureServerlessSchema} from '../cloud-spi/serverlessSchema'
+import { azure, type AzureRuntimeClient } from '../azure'
+import { azureServerlessSchema } from '../cloud-spi/serverlessSchema'
 import type {
     CloudResource,
     CloudServiceAdapter,
@@ -36,7 +36,7 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
     readonly cloud = 'azure' as const
     readonly service = 'serverless' as const
 
-    constructor(private readonly client: AzureRuntimeClient = azure) {}
+    constructor(private readonly client: AzureRuntimeClient = azure) { }
 
     schema(): ServiceSchema {
         return azureServerlessSchema()
@@ -45,8 +45,8 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const body = await this.azureJson<AzureFunctionListResponse | AzureFunctionRecord[]>(
             '/functions',
-            {method: 'GET'},
-            {emptyOnNotFound: true},
+            { method: 'GET' },
+            { emptyOnNotFound: true },
         )
 
         const records = Array.isArray(body) ? body : body?.value ?? []
@@ -56,8 +56,8 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
     async get(id: string): Promise<CloudResource | null> {
         const body = await this.azureJson<AzureFunctionRecord>(
             `/functions/${encodeURIComponent(id)}`,
-            {method: 'GET'},
-            {emptyOnNotFound: true},
+            { method: 'GET' },
+            { emptyOnNotFound: true },
         )
 
         return body ? toFunctionResource(body) : null
@@ -95,8 +95,8 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
     async delete(id: string): Promise<void> {
         await this.client.fetch(
             `/functions/${encodeURIComponent(id)}`,
-            {method: 'DELETE'},
-            {emptyOnNotFound: true},
+            { method: 'DELETE' },
+            { emptyOnNotFound: true },
         )
     }
     async invoke(id: string, payload: string): Promise<ServerlessInvokeResult> {
@@ -127,11 +127,11 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
             executionDuration: Math.round(performance.now() - startedAt),
         }
     }
-    
+
     private async azureJson<T>(
         path: string,
         init: RequestInit,
-        options?: {emptyOnNotFound?: boolean},
+        options?: { emptyOnNotFound?: boolean },
     ): Promise<T | null> {
         const res = await this.client.fetch(
             path,
@@ -164,20 +164,20 @@ function toFunctionResource(record: AzureFunctionRecord): CloudResource {
         region: record.location ?? null,
         createdAt: props.lastModifiedTimeUtc ?? null,
         status: props.state ?? props.status ?? null,
-       metadata: {
-    provider: 'azure',
-    serverlessService: 'functions',
-    kind: record.kind,
-    resourceType: record.type,
-    runtime: props.runtime,
-    functionAppName: props.functionAppName,
-    lastModified: props.lastModifiedTimeUtc,
-    triggerType: getTriggerType(props.config),
-    scriptHref: props.scriptHref,
-    invokeUrlTemplate: props.invokeUrlTemplate,
-    config: props.config,
-    files: props.files,
-},
+        metadata: {
+            provider: 'azure',
+            serverlessService: 'functions',
+            kind: record.kind,
+            resourceType: record.type,
+            runtime: props.runtime,
+            functionAppName: props.functionAppName,
+            lastModified: props.lastModifiedTimeUtc,
+            triggerType: getTriggerType(props.config),
+            scriptHref: props.scriptHref,
+            invokeUrlTemplate: props.invokeUrlTemplate,
+            config: props.config,
+            files: props.files,
+        },
     }
 }
 
