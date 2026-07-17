@@ -4,8 +4,9 @@ import { EKSClient } from "@aws-sdk/client-eks";
 import { EC2Client } from "@aws-sdk/client-ec2";
 import { RDSClient } from "@aws-sdk/client-rds";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { SQSClient } from "@aws-sdk/client-sqs";
 
-const endpoint = process.env.FLOCI_ENDPOINT;
+const endpoint = process.env.FLOCI_ENDPOINT || 'http://localhost:4566';
 const region = process.env.AWS_REGION || "us-east-1";
 
 // Floci derives the AWS account from AWS_ACCESS_KEY_ID: a value that is exactly
@@ -39,6 +40,7 @@ export type AwsClients = {
   ec2: EC2Client;
   rds: RDSClient;
   secretsManager: SecretsManagerClient;
+  sqs: SQSClient;
 };
 
 export type AwsClientName = keyof AwsClients;
@@ -58,6 +60,7 @@ function buildClients(accountId: string): AwsClients {
     ec2: new EC2Client(base),
     rds: new RDSClient(base),
     secretsManager: new SecretsManagerClient(base),
+    sqs: new SQSClient(base),
   };
 }
 

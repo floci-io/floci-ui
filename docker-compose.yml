@@ -28,13 +28,13 @@ services:
     ports:
       - "4501:4501"
     environment:
-      FLOCI_ENDPOINT: http://floci:4566
-      FLOCI_AZURE_ENDPOINT: http://floci-az:4577
-      AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: test
-      AWS_SECRET_ACCESS_KEY: test
-      FLOCI_GCP_ENDPOINT: http://floci-gcp:4588
-      FLOCI_GCP_PROJECT: floci-local
+      FLOCI_ENDPOINT: ${FLOCI_ENDPOINT:-http://floci:4566}
+      FLOCI_AZURE_ENDPOINT: ${FLOCI_AZURE_ENDPOINT:-http://floci-az:4577}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_KEY:-test}
+      FLOCI_GCP_ENDPOINT: ${FLOCI_GCP_ENDPOINT:-http://floci-gcp:4588}
+      FLOCI_GCP_PROJECT: ${FLOCI_GCP_PROJECT:-floci-local}
       PORT: "4501"
     depends_on:
       - floci
