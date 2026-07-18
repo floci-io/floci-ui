@@ -235,9 +235,18 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
         return withRuntime(c, async () => {
-            const body = await c.req.json<{body?: string; messageAttributes?: Record<string, string>}>()
+            const body = await c.req.json<{
+                body?: string
+                messageAttributes?: Record<string, string>
+                messageGroupId?: string
+                messageDeduplicationId?: string
+            }>()
             if (!body.body) return c.json({error: 'body is required', code: 'invalid_request', message: 'body is required'}, 400)
-            const message = await svc(c).sendQueueMessage(cloud, c.req.param('id'), body.body, body.messageAttributes)
+            const message = await svc(c).sendQueueMessage(cloud, c.req.param('id'), body.body, {
+                messageAttributes: body.messageAttributes,
+                messageGroupId: body.messageGroupId,
+                messageDeduplicationId: body.messageDeduplicationId,
+            })
             return c.json(message, 201)
         })
     })

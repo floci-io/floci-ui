@@ -144,21 +144,27 @@ export async function invokeCloudResource(
   return res.data;
 }
 
+export interface SendQueueMessageOptions {
+  messageAttributes?: Record<string, string>;
+  messageGroupId?: string;
+  messageDeduplicationId?: string;
+}
+
 export async function sendQueueMessage(
   cloud: CloudProvider,
   queueId: string,
   body: string,
-  messageAttributes?: Record<string, string>,
+  options?: SendQueueMessageOptions,
   signal?: AbortSignal,
 ): Promise<QueueMessage> {
   const res = await apiClient.call<
     QueueMessage,
-    { body: string; messageAttributes?: Record<string, string> }
+    { body: string } & SendQueueMessageOptions
   >(
     apiEndpointKeys.clouds.queue.messages.send,
     requestOptions(cloud, "queue", {
       signal,
-      body: { body, messageAttributes },
+      body: { body, ...options },
     }),
     { cloud, id: queueId },
   );

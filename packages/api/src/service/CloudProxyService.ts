@@ -11,6 +11,7 @@ import type {
     CreateResourceInput,
     QueueMessage,
     ResourceQuery,
+    SendMessageOptions,
     ServerlessInvokeResult,
     ServiceSchema,
     StorageObjectDownload,
@@ -178,10 +179,10 @@ async invokeResource(
     if (!adapter.invoke) throw new Error(`${cloud}/${service} invoke is not supported`)
     return adapter.invoke(id, payload)
 }
-    async sendQueueMessage(cloud: CloudProvider, queueId: string, body: string, messageAttributes?: Record<string, string>): Promise<QueueMessage> {
+    async sendQueueMessage(cloud: CloudProvider, queueId: string, body: string, options?: SendMessageOptions): Promise<QueueMessage> {
         const adapter = this.requireAdapter(cloud, 'queue')
         if (!adapter.sendMessage) throw new Error(`${cloud}/queue send message is not supported`)
-        return adapter.sendMessage(queueId, body, messageAttributes)
+        return adapter.sendMessage(queueId, body, options)
     }
 
     async receiveQueueMessages(cloud: CloudProvider, queueId: string, maxMessages?: number, waitTimeSeconds?: number): Promise<QueueMessage[]> {

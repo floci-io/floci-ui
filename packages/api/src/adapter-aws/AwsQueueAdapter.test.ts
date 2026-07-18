@@ -116,4 +116,65 @@ describe('AwsQueueAdapter', () => {
         await expect(adapter.deleteMessage(QUEUE_URL, 'receipt-1')).resolves.toBeUndefined()
         await expect(adapter.purgeQueue(QUEUE_URL)).resolves.toBeUndefined()
     })
+
+    test('list follows NextToken across multiple pages', async () => {
+        const pageTwoUrl = `${QUEUE_URL}-page2`
+        let call = 0
+        const adapter = new AwsQueueAdapter(fakeSqs({
+            ListQueuesCommand: () => {
+                call += 1
+                if (call === 1) return {QueueUrls: [QUEUE_URL], NextToken: 'token-2'}
+                return {QueueUrls: [pageTwoUrl]}
+            },
+        }))
+
+        const result = await adapter.list()
+
+        expect(call).toBe(2)
+        expect(result.map((r) => r.id)).toEqual([QUEUE_URL, pageTwoUrl])
+    })
+
+    test('sendMessage rejects a FIFO queue without a messageGroupId', async () => {
+        const fifoUrl = `${QUEUE_URL}.fifo`
+        const adapter = new AwsQueueAdapter(fakeSqs())
+
+        await expect(adapter.sendMessage(fifoUrl, 'body')).rejects.toThrow(
+            'messageGroupId is required to send a message to a FIFO queue',
+        )
+    })
+
+    test('sendMessage passes messageGroupId and messageDeduplicationId for a FIFO queue', async () => {
+        const fifoUrl = `${QUEUE_URL}.fifo`
+        let captured: {MessageGroupId?: string; MessageDeduplicationId?: string} | undefined
+        const adapter = new AwsQueueAdapter(fakeSqs({
+            SendMessageCommand: (input) => {
+                captured = input as typeof captured
+                return {MessageId: 'msg-1'}
+            },
+        }))
+
+        await adapter.sendMessage(fifoUrl, 'body', {
+            messageGroupId: 'group-1',
+            messageDeduplicationId: 'dedup-1',
+        })
+
+        expect(captured?.MessageGroupId).toBe('group-1')
+        expect(captured?.MessageDeduplicationId).toBe('dedup-1')
+    })
+
+    test('a malformed RedrivePolicy does not break list()', async () => {
+        const adapter = new AwsQueueAdapter(fakeSqs({
+            GetQueueAttributesCommand: () => ({
+                Attributes: {
+                    QueueArn: 'arn:aws:sqs:us-east-1:000000000000:orders',
+                    RedrivePolicy: 'not-valid-json{',
+                },
+            }),
+        }))
+
+        const result = await adapter.list()
+
+        expect(result).toHaveLength(1)
+        expect(result[0].metadata.redrivePolicy).toBeNull()
+    })
 })

@@ -17,6 +17,7 @@ import type {
     CreateResourceInput,
     QueueMessage,
     ResourceQuery,
+    SendMessageOptions,
     ServiceSchema,
 } from '../cloud-spi/types'
 import {sqs as defaultSqs} from '../aws'
@@ -45,8 +46,14 @@ export class AwsQueueAdapter implements CloudServiceAdapter {
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const res = await this.sqs.send(new ListQueuesCommand({}))
-        const urls = res.QueueUrls ?? []
+        const urls: string[] = []
+        let nextToken: string | undefined
+
+        do {
+            const res = await this.sqs.send(new ListQueuesCommand({NextToken: nextToken}))
+            urls.push(...(res.QueueUrls ?? []))
+            nextToken = res.NextToken
+        } while (nextToken)
 
         const resources = await Promise.all(
             urls.map((url) => this.toResource(url)),
@@ -94,10 +101,19 @@ export class AwsQueueAdapter implements CloudServiceAdapter {
         await this.sqs.send(new DeleteQueueCommand({QueueUrl: id}))
     }
 
-    async sendMessage(queueId: string, body: string, messageAttributes?: Record<string, string>): Promise<QueueMessage> {
+    async sendMessage(queueId: string, body: string, options: SendMessageOptions = {}): Promise<QueueMessage> {
+        const {messageAttributes, messageGroupId, messageDeduplicationId} = options
+        const isFifo = queueId.endsWith('.fifo')
+
+        if (isFifo && !messageGroupId) {
+            throw new Error('messageGroupId is required to send a message to a FIFO queue')
+        }
+
         const res = await this.sqs.send(new SendMessageCommand({
             QueueUrl: queueId,
             MessageBody: body,
+            MessageGroupId: messageGroupId,
+            MessageDeduplicationId: messageDeduplicationId,
             MessageAttributes: messageAttributes
                 ? Object.fromEntries(
                     Object.entries(messageAttributes).map(([key, value]) => [
@@ -182,7 +198,7 @@ export class AwsQueueAdapter implements CloudServiceAdapter {
                 visibilityTimeout: numberOr(attrs.VisibilityTimeout, null),
                 delaySeconds: numberOr(attrs.DelaySeconds, null),
                 messageRetentionPeriod: numberOr(attrs.MessageRetentionPeriod, null),
-                redrivePolicy: attrs.RedrivePolicy ? JSON.parse(attrs.RedrivePolicy) : null,
+                redrivePolicy: attrs.RedrivePolicy ? parseJsonSafe(attrs.RedrivePolicy) : null,
             },
         }
     }
@@ -207,6 +223,14 @@ function filterBySearch(resources: CloudResource[], search?: string): CloudResou
     const normalized = search?.trim().toLowerCase()
     if (!normalized) return resources
     return resources.filter((r) => r.name.toLowerCase().includes(normalized))
+}
+
+function parseJsonSafe(raw: string): unknown {
+    try {
+        return JSON.parse(raw)
+    } catch {
+        return null
+    }
 }
 
 function isQueueMissing(error: unknown): boolean {

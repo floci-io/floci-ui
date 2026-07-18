@@ -147,6 +147,12 @@ export interface QueueMessage {
     receiveCount: number | null
 }
 
+export interface SendMessageOptions {
+    messageAttributes?: Record<string, string>
+    messageGroupId?: string
+    messageDeduplicationId?: string
+}
+
 export interface ResourceQuery {
     search?: string
 }
@@ -182,7 +188,7 @@ export interface CloudServiceAdapter {
     upsertCosmosItem?(databaseId: string, containerId: string, document: Record<string, unknown>): Promise<CosmosItem>
     deleteCosmosItem?(databaseId: string, containerId: string, itemId: string, partitionKey?: string | null): Promise<void>
     queryCosmosItems?(databaseId: string, containerId: string, query: string): Promise<CosmosQueryResult>
-    sendMessage?(queueId: string, body: string, messageAttributes?: Record<string, string>): Promise<QueueMessage>
+    sendMessage?(queueId: string, body: string, options?: SendMessageOptions): Promise<QueueMessage>
     receiveMessages?(queueId: string, maxMessages?: number, waitTimeSeconds?: number): Promise<QueueMessage[]>
     deleteMessage?(queueId: string, receiptHandle: string): Promise<void>
     purgeQueue?(queueId: string): Promise<void>

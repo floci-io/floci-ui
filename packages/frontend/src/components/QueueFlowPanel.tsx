@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Eraser,
@@ -29,6 +29,7 @@ interface QueueFlowPanelProps {
 }
 
 interface AttributeRow {
+  id: number;
   key: string;
   value: string;
 }
@@ -48,15 +49,20 @@ export function QueueFlowPanel({
 
   const [sendBody, setSendBody] = useState('{\n  \n}');
   const [attributeRows, setAttributeRows] = useState<AttributeRow[]>([]);
+  const [messageGroupId, setMessageGroupId] = useState("");
+  const [messageDeduplicationId, setMessageDeduplicationId] = useState("");
   const [longPoll, setLongPoll] = useState(false);
   const [maxMessages, setMaxMessages] = useState(5);
   const [messages, setMessages] = useState<QueueMessage[]>([]);
   const [purgeConfirm, setPurgeConfirm] = useState(false);
   const [lastSentId, setLastSentId] = useState<string | null>(null);
+  const nextAttrId = useRef(0);
 
   useEffect(() => {
     setSendBody('{\n  \n}');
     setAttributeRows([]);
+    setMessageGroupId("");
+    setMessageDeduplicationId("");
     setMessages([]);
     setPurgeConfirm(false);
     setLastSentId(null);
@@ -74,9 +80,17 @@ export function QueueFlowPanel({
   const live = detailQuery.data ?? resource;
   const isQueue = resource?.service === "queue";
 
+  const isFifoQueue = Boolean(queueId?.endsWith(".fifo"));
+
   const sendMut = useMutation({
     mutationFn: () =>
-      sendQueueMessage(cloud, queueId ?? "", sendBody, attributesRecord(attributeRows)),
+      sendQueueMessage(cloud, queueId ?? "", sendBody, {
+        messageAttributes: attributesRecord(attributeRows),
+        messageGroupId: isFifoQueue ? messageGroupId.trim() : undefined,
+        messageDeduplicationId: isFifoQueue
+          ? messageDeduplicationId.trim() || undefined
+          : undefined,
+      }),
     onSuccess: (message) => {
       setLastSentId(message.id);
       void qc.invalidateQueries({ queryKey: detailKey });
@@ -152,15 +166,25 @@ export function QueueFlowPanel({
             {canOperate ? "Ready" : "Runtime unavailable"}
           </span>
           {purgeConfirm ? (
-            <button
-              className="button danger compact"
-              type="button"
-              disabled={purgeMut.isPending}
-              onClick={() => purgeMut.mutate()}
-            >
-              {purgeMut.isPending ? <Loader2 size={13} className="spin" /> : <Eraser size={13} />}
-              Confirm purge
-            </button>
+            <>
+              <button
+                className="button danger compact"
+                type="button"
+                disabled={purgeMut.isPending}
+                onClick={() => purgeMut.mutate()}
+              >
+                {purgeMut.isPending ? <Loader2 size={13} className="spin" /> : <Eraser size={13} />}
+                Confirm purge
+              </button>
+              <button
+                className="button"
+                type="button"
+                disabled={purgeMut.isPending}
+                onClick={() => setPurgeConfirm(false)}
+              >
+                Cancel
+              </button>
+            </>
           ) : (
             <button
               className="button"
@@ -257,25 +281,41 @@ export function QueueFlowPanel({
             placeholder="Message body"
             style={{ minHeight: 110 }}
           />
-          {attributeRows.map((row, index) => (
-            <div className="queue-attr-row" key={index}>
+          {isFifoQueue && (
+            <>
+              <input
+                className="input"
+                placeholder="Message group ID (required for FIFO)"
+                value={messageGroupId}
+                onChange={(event) => setMessageGroupId(event.target.value)}
+              />
+              <input
+                className="input"
+                placeholder="Message deduplication ID (optional)"
+                value={messageDeduplicationId}
+                onChange={(event) => setMessageDeduplicationId(event.target.value)}
+              />
+            </>
+          )}
+          {attributeRows.map((row) => (
+            <div className="queue-attr-row" key={row.id}>
               <input
                 className="input"
                 placeholder="Attribute name"
                 value={row.key}
-                onChange={(event) => updateAttributeRow(index, { key: event.target.value })}
+                onChange={(event) => updateAttributeRow(row.id, { key: event.target.value })}
               />
               <input
                 className="input"
                 placeholder="Value"
                 value={row.value}
-                onChange={(event) => updateAttributeRow(index, { value: event.target.value })}
+                onChange={(event) => updateAttributeRow(row.id, { value: event.target.value })}
               />
               <button
                 className="icon-btn"
                 type="button"
                 title="Remove attribute"
-                onClick={() => setAttributeRows((rows) => rows.filter((_, i) => i !== index))}
+                onClick={() => setAttributeRows((rows) => rows.filter((r) => r.id !== row.id))}
               >
                 <X size={13} />
               </button>
@@ -284,7 +324,12 @@ export function QueueFlowPanel({
           <button
             className="button"
             type="button"
-            onClick={() => setAttributeRows((rows) => [...rows, { key: "", value: "" }])}
+            onClick={() =>
+              setAttributeRows((rows) => [
+                ...rows,
+                { id: nextAttrId.current++, key: "", value: "" },
+              ])
+            }
           >
             <Plus size={13} />
             Add message attribute
@@ -292,7 +337,12 @@ export function QueueFlowPanel({
           <button
             className="button primary"
             type="button"
-            disabled={!canOperate || sendMut.isPending || !sendBody.trim()}
+            disabled={
+              !canOperate ||
+              sendMut.isPending ||
+              !sendBody.trim() ||
+              (isFifoQueue && !messageGroupId.trim())
+            }
             onClick={() => sendMut.mutate()}
           >
             {sendMut.isPending ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
@@ -381,9 +431,9 @@ export function QueueFlowPanel({
     </section>
   );
 
-  function updateAttributeRow(index: number, patch: Partial<AttributeRow>) {
+  function updateAttributeRow(id: number, patch: Partial<AttributeRow>) {
     setAttributeRows((rows) =>
-      rows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+      rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
     );
   }
 }
