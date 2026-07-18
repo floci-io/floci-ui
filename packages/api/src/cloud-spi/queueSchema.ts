@@ -36,10 +36,10 @@ export function awsQueueSchema(): ServiceSchema {
                 required: true,
                 description: '1-80 characters. Letters, numbers, hyphens, and underscores. FIFO queues must end with .fifo.',
                 validation: {
-                    pattern: '^[a-zA-Z0-9_-]{1,80}$',
+                    pattern: '^[a-zA-Z0-9_-]{1,75}(\\.fifo)?$',
                     minLength: 1,
                     maxLength: 80,
-                    message: 'Use a valid SQS queue name: 1-80 characters using letters, numbers, hyphens, and underscores.',
+                    message: 'Use a valid SQS queue name: 1-80 characters using letters, numbers, hyphens, and underscores. FIFO queues must end with .fifo.',
                 },
             },
             {

@@ -66,10 +66,16 @@ export class AwsQueueAdapter implements CloudServiceAdapter {
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
-        const queueName = stringValue(input.values.queueName)
+        let queueName = stringValue(input.values.queueName)
         if (!queueName) throw new Error('queueName is required')
-        if (!/^[a-zA-Z0-9_-]{1,80}$/.test(queueName)) {
-            throw new Error('Use a valid SQS queue name: 1-80 characters using letters, numbers, hyphens, and underscores.')
+        if (!/^[a-zA-Z0-9_-]{1,75}(\.fifo)?$/.test(queueName)) {
+            throw new Error('Use a valid SQS queue name: 1-80 characters using letters, numbers, hyphens, and underscores. FIFO queues must end with .fifo.')
+        }
+
+        // SQS requires FIFO queue names to end with .fifo. Normalize the name so
+        // selecting the FIFO option without typing the suffix still works.
+        if (stringValue(input.values.fifoQueue) === 'true' && !queueName.endsWith('.fifo')) {
+            queueName = `${queueName}.fifo`
         }
 
         const attributes = collectAttributes(input.values)

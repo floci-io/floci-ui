@@ -69,6 +69,42 @@ describe('AwsQueueAdapter', () => {
         expect(resource).toMatchObject({id: 'orders-queue', name: 'orders-queue', type: 'queue'})
     })
 
+    test('appends .fifo and sets FifoQueue when the FIFO option is selected', async () => {
+        let captured: unknown
+        const sqs = mockSqs((command) => {
+            if (command instanceof CreateQueueCommand) {
+                captured = command
+                return {QueueUrl: 'http://localhost:4566/000000000000/orders.fifo'}
+            }
+            return {}
+        })
+
+        const adapter = new AwsQueueAdapter(sqs)
+        const resource = await adapter.create({values: {queueName: 'orders', fifoQueue: 'true'}})
+
+        const command = captured as CreateQueueCommand
+        expect(command.input.QueueName).toBe('orders.fifo')
+        expect(command.input.Attributes?.FifoQueue).toBe('true')
+        expect(resource.name).toBe('orders.fifo')
+    })
+
+    test('accepts an explicit .fifo queue name without double-suffixing', async () => {
+        let captured: unknown
+        const sqs = mockSqs((command) => {
+            if (command instanceof CreateQueueCommand) {
+                captured = command
+                return {QueueUrl: 'http://localhost:4566/000000000000/orders.fifo'}
+            }
+            return {}
+        })
+
+        const adapter = new AwsQueueAdapter(sqs)
+        await adapter.create({values: {queueName: 'orders.fifo', fifoQueue: 'true'}})
+
+        const command = captured as CreateQueueCommand
+        expect(command.input.QueueName).toBe('orders.fifo')
+    })
+
     test('rejects create without a queue name', async () => {
         const sqs = mockSqs(() => ({}))
         const adapter = new AwsQueueAdapter(sqs)

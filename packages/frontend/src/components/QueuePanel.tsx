@@ -22,6 +22,7 @@ export function QueuePanel({cloud, resource, runtimeReachable}: QueuePanelProps)
   const [sendResult, setSendResult] = useState<SendMessageResult | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [opError, setOpError] = useState<string | null>(null);
+  const [deletingHandles, setDeletingHandles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setMessageBody("");
@@ -57,6 +58,16 @@ export function QueuePanel({cloud, resource, runtimeReachable}: QueuePanelProps)
   const deleteMessageMutation = useMutation({
     mutationFn: (receiptHandle: string) =>
       deleteQueueMessage(cloud, "queue", resource!.id, receiptHandle),
+    onMutate: (receiptHandle) => {
+      setDeletingHandles((prev) => new Set(prev).add(receiptHandle));
+    },
+    onSettled: (_result, _error, receiptHandle) => {
+      setDeletingHandles((prev) => {
+        const next = new Set(prev);
+        next.delete(receiptHandle);
+        return next;
+      });
+    },
     onSuccess: () => {
       setOpError(null);
       void messagesQuery.refetch();
@@ -201,7 +212,7 @@ export function QueuePanel({cloud, resource, runtimeReachable}: QueuePanelProps)
                 key={message.messageId}
                 message={message}
                 onDelete={() => deleteMessageMutation.mutate(message.receiptHandle)}
-                isDeleting={deleteMessageMutation.isPending}
+                isDeleting={deletingHandles.has(message.receiptHandle)}
               />
             ))}
           </div>
