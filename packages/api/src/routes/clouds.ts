@@ -230,6 +230,54 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.post('/:cloud/services/queue/resources/:id/messages', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const body = await c.req.json<{body?: string; messageAttributes?: Record<string, string>}>()
+            if (!body.body) return c.json({error: 'body is required', code: 'invalid_request', message: 'body is required'}, 400)
+            const message = await svc(c).sendQueueMessage(cloud, c.req.param('id'), body.body, body.messageAttributes)
+            return c.json(message, 201)
+        })
+    })
+
+    app.get('/:cloud/services/queue/resources/:id/messages', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const maxMessages = Number(c.req.query('maxMessages') ?? '5')
+            const waitTimeSeconds = Number(c.req.query('waitTimeSeconds') ?? '0')
+            const messages = await svc(c).receiveQueueMessages(cloud, c.req.param('id'), maxMessages, waitTimeSeconds)
+            return c.json(messages)
+        })
+    })
+
+    app.post('/:cloud/services/queue/resources/:id/messages/delete', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const body = await c.req.json<{receiptHandle?: string}>()
+            if (!body.receiptHandle) {
+                return c.json({error: 'receiptHandle is required', code: 'invalid_request', message: 'receiptHandle is required'}, 400)
+            }
+            await svc(c).deleteQueueMessage(cloud, c.req.param('id'), body.receiptHandle)
+            return c.json({ok: true})
+        })
+    })
+
+    app.post('/:cloud/services/queue/resources/:id/purge', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            await svc(c).purgeQueue(cloud, c.req.param('id'))
+            return c.json({ok: true})
+        })
+    })
+
     app.post('/:cloud/services/:service/resources', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
@@ -261,7 +309,7 @@ function isCloudProvider(value: string): value is CloudProvider {
 }
 
 function isServiceType(value: string): value is CloudServiceType {
-    return value === 'storage' || value === 'k8s' || value === 'database' || value === 'serverless' || value === 'compute' || value === 'networking'
+    return value === 'storage' || value === 'k8s' || value === 'database' || value === 'serverless' || value === 'compute' || value === 'networking' || value === 'queue'
 }
 
 async function withRuntime(c: Context, handler: () => Promise<Response>): Promise<Response> {

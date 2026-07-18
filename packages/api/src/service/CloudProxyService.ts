@@ -9,6 +9,7 @@ import type {
     CosmosItem,
     CosmosQueryResult,
     CreateResourceInput,
+    QueueMessage,
     ResourceQuery,
     ServerlessInvokeResult,
     ServiceSchema,
@@ -18,6 +19,7 @@ import type {
 import {storageSchemaFor} from '../cloud-spi/storageSchema'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {serverlessSchemaFor} from '../cloud-spi/serverlessSchema'
+import {queueSchemaFor} from '../cloud-spi/queueSchema'
 import {k8sSchemaFor} from '../cloud-spi/eksSchema'
 import {databaseSchemaFor} from '../cloud-spi/databaseSchema'
 import {azureEndpoint} from '../azure'
@@ -73,6 +75,12 @@ export class CloudProxyService {
             displayName: 'Networking',
             availability: this.registry.get(cloud, 'networking') ? 'available' : 'coming_soon',
         })
+        services.push({
+            cloud,
+            service: 'queue',
+            displayName: 'Queue',
+            availability: this.registry.get(cloud, 'queue') ? 'available' : 'coming_soon',
+        })
         return services
     }
 
@@ -83,6 +91,7 @@ export class CloudProxyService {
         if (service === 'k8s') return k8sSchemaFor(cloud)
         if (service === 'database') return databaseSchemaFor(cloud)
         if (service === 'serverless') return serverlessSchemaFor(cloud)
+        if (service === 'queue') return queueSchemaFor(cloud)
         return null
     }
 
@@ -169,6 +178,30 @@ async invokeResource(
     if (!adapter.invoke) throw new Error(`${cloud}/${service} invoke is not supported`)
     return adapter.invoke(id, payload)
 }
+    async sendQueueMessage(cloud: CloudProvider, queueId: string, body: string, messageAttributes?: Record<string, string>): Promise<QueueMessage> {
+        const adapter = this.requireAdapter(cloud, 'queue')
+        if (!adapter.sendMessage) throw new Error(`${cloud}/queue send message is not supported`)
+        return adapter.sendMessage(queueId, body, messageAttributes)
+    }
+
+    async receiveQueueMessages(cloud: CloudProvider, queueId: string, maxMessages?: number, waitTimeSeconds?: number): Promise<QueueMessage[]> {
+        const adapter = this.requireAdapter(cloud, 'queue')
+        if (!adapter.receiveMessages) throw new Error(`${cloud}/queue receive messages is not supported`)
+        return adapter.receiveMessages(queueId, maxMessages, waitTimeSeconds)
+    }
+
+    async deleteQueueMessage(cloud: CloudProvider, queueId: string, receiptHandle: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'queue')
+        if (!adapter.deleteMessage) throw new Error(`${cloud}/queue delete message is not supported`)
+        await adapter.deleteMessage(queueId, receiptHandle)
+    }
+
+    async purgeQueue(cloud: CloudProvider, queueId: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'queue')
+        if (!adapter.purgeQueue) throw new Error(`${cloud}/queue purge is not supported`)
+        await adapter.purgeQueue(queueId)
+    }
+
     async listObjects(cloud: CloudProvider, service: CloudServiceType, resourceId: string, prefix?: string): Promise<StorageObjectList> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.listObjects) throw new Error(`Object listing is not supported for ${cloud}/${service}`)
