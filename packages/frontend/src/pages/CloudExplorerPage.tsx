@@ -102,7 +102,7 @@ function normalizeCloud(value?: string): CloudProvider | null {
 }
 
 function normalizeService(value?: string): CloudServiceType | null {
-    return value === 'storage' || value === 'k8s' || value === 'database' || value === 'compute' || value === 'networking' || value === 'serverless' ? value : null
+    return value === 'storage' || value === 'k8s' || value === 'database' || value === 'compute' || value === 'networking' || value === 'serverless' || value === 'secrets' ? value : null
 }
 
 function ServiceInfoDialog({
@@ -256,6 +256,7 @@ function connectionValue(status?: CloudStatus, loading?: boolean): string {
 function serviceLabel(service: CloudServiceType): string {
     if (service === 'k8s') return 'k8s Engine'
     if (service === 'serverless') return 'Serverless'
+    if (service === 'secrets') return 'Secrets'
     return service.charAt(0).toUpperCase() + service.slice(1)
 }
 
@@ -263,6 +264,7 @@ function limitationCopy(cloud: CloudProvider, service: CloudServiceType): string
     if (cloud === 'aws' && service === 'storage') return 'Advanced S3 workflows such as bulk actions, version browsing, and richer object lifecycle controls still live outside the normalized surface.'
     if (cloud === 'azure' && service === 'storage') return 'Blob Storage is wired through the normalized contract, but advanced metadata, tags, and access-policy workflows are still limited.'
     if (cloud === 'azure' && service === 'database') return 'Cosmos DB uses a richer panel below for databases, containers, items, and SQL queries; a fully normalized database model is still evolving.'
+    if (cloud === 'azure' && service === 'secrets') return 'Key Vault secret metadata and lifecycle operations are wired through the normalized contract; secret value versioning and recovery workflows are not exposed yet.'
     if (cloud === 'aws' && service === 'compute') return 'Compute workflows still rely on AWS-specific forms for dependent infrastructure choices such as VPC, subnet, and security group.'
     if (cloud === 'aws' && service === 'networking') return 'Networking uses AWS-specific operational panels because many actions require nested workflows instead of a flat generic form.'
     return 'This service is available through the current adapter, but the normalized contract is still expanding.'

@@ -40,6 +40,7 @@ const CLOUD_SERVICE_ICONS = {
     compute: Server,
     networking: Network,
     serverless: Zap,
+    secrets: KeyRound,
 } satisfies Record<string, React.ElementType>
 
 type CloudSidebarService = keyof typeof CLOUD_SERVICE_ICONS
@@ -52,6 +53,7 @@ const CLOUD_SERVICE_ITEMS: Array<{name: CloudSidebarService; label: string; rout
     {name: 'networking', label: 'Networking', route: 'networking'},
     {name: 'secretsmanager', label: 'Secrets Manager', route: '/secretsmanager'},
     {name: 'serverless', label: 'Serverless', route: 'serverless'},
+    {name: 'secrets', label: 'Key Vault', route: 'secrets'},
     {name: 'queue', label: 'Queue'},
     {name: 'function', label: 'Function'},
 ]
@@ -71,6 +73,7 @@ function CloudServiceNav() {
                     || (service.name === 'database' && (cloud === 'aws' || cloud === 'azure'))
                     || ((service.name === 'k8s' || service.name === 'compute' || service.name === 'networking') && cloud === 'aws')
                     || (service.name === 'serverless' && (cloud === 'aws' || cloud === 'azure'))
+                    || (service.name === 'secrets' && cloud === 'azure')
                 if (service.route && available) {
                     const target = service.route.startsWith('/') ? service.route : `/cloud-explorer/${cloud}/${service.route}`
                     return <NavItem key={service.name} to={target} icon={Icon} label={service.label}/>

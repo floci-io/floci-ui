@@ -20,6 +20,7 @@ import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {serverlessSchemaFor} from '../cloud-spi/serverlessSchema'
 import {k8sSchemaFor} from '../cloud-spi/eksSchema'
 import {databaseSchemaFor} from '../cloud-spi/databaseSchema'
+import {secretsSchemaFor} from '../cloud-spi/secretsSchema'
 import {azureEndpoint} from '../azure'
 import {checkGcpRuntime, gcpEndpoint} from '../gcp'
 
@@ -73,6 +74,12 @@ export class CloudProxyService {
             displayName: 'Networking',
             availability: this.registry.get(cloud, 'networking') ? 'available' : 'coming_soon',
         })
+        services.push({
+            cloud,
+            service: 'secrets',
+            displayName: cloud === 'azure' ? 'Key Vault' : 'Secrets',
+            availability: this.registry.get(cloud, 'secrets') ? 'available' : 'coming_soon',
+        })
         return services
     }
 
@@ -83,6 +90,7 @@ export class CloudProxyService {
         if (service === 'k8s') return k8sSchemaFor(cloud)
         if (service === 'database') return databaseSchemaFor(cloud)
         if (service === 'serverless') return serverlessSchemaFor(cloud)
+        if (service === 'secrets') return secretsSchemaFor(cloud)
         return null
     }
 

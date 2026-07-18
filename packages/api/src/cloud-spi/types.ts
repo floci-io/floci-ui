@@ -1,6 +1,6 @@
 export type CloudProvider = 'aws' | 'azure' | 'gcp'
 
-export type CloudServiceType = 'storage' | 'k8s' | 'database' | 'serverless' | 'compute' | 'networking'
+export type CloudServiceType = 'storage' | 'k8s' | 'database' | 'serverless' | 'compute' | 'networking' | 'secrets'
 
 export type CloudAvailability = 'available' | 'coming_soon'
 
@@ -26,7 +26,7 @@ export interface CloudStatus {
     error: string | null
 }
 
-export type FieldType = 'text' | 'select'
+export type FieldType = 'text' | 'password' | 'select'
 
 export interface FieldSchema {
     name: string
@@ -83,7 +83,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function'
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret'
     region: string | null
     createdAt: string | null
     status?: string | null

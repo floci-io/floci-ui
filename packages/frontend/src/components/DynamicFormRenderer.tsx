@@ -89,6 +89,7 @@ function FieldInput({field, value, invalid, onChange}: {field: FieldSchema; valu
 
     return (
         <input
+            type={field.type === 'password' ? 'password' : 'text'}
             className={`input ${invalid ? 'invalid' : ''}`}
             value={value}
             required={field.required}

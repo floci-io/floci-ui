@@ -355,6 +355,8 @@ function resourceCreateLabel(schema: ServiceSchema): string {
     return "Create container";
   if (schema.cloud === "azure" && schema.service === "database")
     return "Create database";
+  if (schema.cloud === "azure" && schema.service === "secrets")
+    return "Create secret";
   return "Create resource";
 }
 

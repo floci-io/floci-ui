@@ -1,6 +1,6 @@
 import type {CloudProvider, CloudServiceType} from './cloud'
 
-export type FieldType = 'text' | 'select'
+export type FieldType = 'text' | 'password' | 'select'
 export type ActionSchema = 'list' | 'create' | 'delete' | 'inspect'
 export type ResourceActionName = 'list' | 'create' | 'delete' | 'inspect'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'

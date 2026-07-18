@@ -2,6 +2,7 @@ import {describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import {awsStorageSchema, azureStorageSchema} from '../cloud-spi/storageSchema'
+import {azureSecretsSchema} from '../cloud-spi/secretsSchema'
 import type {CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
@@ -114,6 +115,35 @@ describe('cloud schema routes', () => {
         expect(azureBody.displayName).toBe('Cosmos DB')
         expect(gcpRes.status).toBe(200)
         expect(gcpBody.displayName).toBe('Cloud SQL')
+    })
+
+    test('returns Azure Key Vault schema without a registered adapter', async () => {
+        const res = await appWithRoutes().request('/api/clouds/azure/services/secrets/schema')
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(body.displayName).toBe('Azure Key Vault')
+        expect(body.fields.map((field: {name: string}) => field.name)).toEqual([
+            'secretName',
+            'secretValue',
+            'contentType',
+        ])
+    })
+
+    test('marks Azure Key Vault available when its adapter is registered', async () => {
+        const app = appWithRoutes([mockAdapter('azure', {
+            service: 'secrets',
+            schema: azureSecretsSchema,
+        })])
+        const res = await app.request('/api/clouds/azure/services')
+        const body = await res.json()
+        const secrets = body.find((service: {service: string}) => service.service === 'secrets')
+
+        expect(res.status).toBe(200)
+        expect(secrets).toMatchObject({
+            displayName: 'Key Vault',
+            availability: 'available',
+        })
     })
 
     test('returns AWS cloud status', async () => {

@@ -53,6 +53,7 @@ This table is the source of truth for the current UI surface.
 | Cloud Explorer / Compute | Yes | Placeholder | Placeholder | AWS EC2 and AMI workflows. |
 | Cloud Explorer / Networking | Yes | Placeholder | Placeholder | AWS VPC/networking workflows. |
 | Cloud Explorer / Serverless | Yes | Not exposed in navigation | Not exposed in navigation | AWS Lambda flows through the unified shell. |
+| Cloud Explorer / Secrets | No | Yes | Placeholder | Azure Key Vault list/create/delete/inspect through the schema-driven explorer. |
 | Dedicated page / Secrets Manager | Yes | No | No | AWS-only page outside Cloud Explorer. |
 
 Visible placeholders in the current sidebar:
@@ -178,9 +179,9 @@ Current gaps:
 </details>
 
 <details>
-<summary><strong>Secrets Manager</strong></summary>
+<summary><strong>Secrets</strong></summary>
 
-This is the only dedicated AWS page still outside Cloud Explorer.
+AWS Secrets Manager remains a dedicated page outside Cloud Explorer.
 
 - List secrets.
 - Inspect metadata.
@@ -189,10 +190,18 @@ This is the only dedicated AWS page still outside Cloud Explorer.
 - Update values.
 - Delete secrets, including force delete.
 
+Azure Key Vault uses the shared Cloud Explorer:
+
+- List and filter secret metadata without exposing values.
+- Create secrets with optional content type.
+- Inspect normalized metadata.
+- Soft-delete secrets.
+
 Current gaps:
 
-- Not migrated into the Cloud Explorer contract yet.
-- No Azure or GCP secret adapter yet.
+- AWS Secrets Manager is not migrated into the Cloud Explorer contract yet.
+- Key Vault value retrieval, versioning, recovery, and purge workflows are not exposed yet.
+- No GCP Secret Manager adapter yet.
 
 </details>
 
