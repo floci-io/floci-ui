@@ -6,7 +6,7 @@ import type {
   CloudServiceType,
   CloudStatus,
 } from "@/types/cloud";
-import type { CloudResource, CosmosContainer, CosmosItem, CosmosQueryResult, StorageObjectList } from "@/types/resource";
+import type { CloudResource, CosmosContainer, CosmosItem, CosmosQueryResult, QueueMessage, StorageObjectList } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { getAccountId } from "@/lib/accountStore";
 
@@ -142,6 +142,70 @@ export async function invokeCloudResource(
     { cloud, service, id },
   );
   return res.data;
+}
+
+export async function sendQueueMessage(
+  cloud: CloudProvider,
+  queueId: string,
+  body: string,
+  messageAttributes?: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<QueueMessage> {
+  const res = await apiClient.call<
+    QueueMessage,
+    { body: string; messageAttributes?: Record<string, string> }
+  >(
+    apiEndpointKeys.clouds.queue.messages.send,
+    requestOptions(cloud, "queue", {
+      signal,
+      body: { body, messageAttributes },
+    }),
+    { cloud, id: queueId },
+  );
+  return res.data;
+}
+
+export async function receiveQueueMessages(
+  cloud: CloudProvider,
+  queueId: string,
+  maxMessages?: number,
+  waitTimeSeconds?: number,
+  signal?: AbortSignal,
+): Promise<QueueMessage[]> {
+  const res = await apiClient.call<QueueMessage[]>(
+    apiEndpointKeys.clouds.queue.messages.receive,
+    requestOptions(cloud, "queue", {
+      signal,
+      params: { maxMessages, waitTimeSeconds },
+    }),
+    { cloud, id: queueId },
+  );
+  return res.data;
+}
+
+export async function deleteQueueMessage(
+  cloud: CloudProvider,
+  queueId: string,
+  receiptHandle: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void, { receiptHandle: string }>(
+    apiEndpointKeys.clouds.queue.messages.delete,
+    requestOptions(cloud, "queue", { signal, body: { receiptHandle } }),
+    { cloud, id: queueId },
+  );
+}
+
+export async function purgeQueue(
+  cloud: CloudProvider,
+  queueId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.queue.purge,
+    requestOptions(cloud, "queue", { signal }),
+    { cloud, id: queueId },
+  );
 }
 
 export async function listStorageObjects(

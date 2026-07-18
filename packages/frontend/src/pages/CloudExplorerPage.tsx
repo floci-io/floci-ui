@@ -102,7 +102,7 @@ function normalizeCloud(value?: string): CloudProvider | null {
 }
 
 function normalizeService(value?: string): CloudServiceType | null {
-    return value === 'storage' || value === 'k8s' || value === 'database' || value === 'compute' || value === 'networking' || value === 'serverless' ? value : null
+    return value === 'storage' || value === 'k8s' || value === 'database' || value === 'compute' || value === 'networking' || value === 'serverless' || value === 'queue' ? value : null
 }
 
 function ServiceInfoDialog({
@@ -256,6 +256,7 @@ function connectionValue(status?: CloudStatus, loading?: boolean): string {
 function serviceLabel(service: CloudServiceType): string {
     if (service === 'k8s') return 'k8s Engine'
     if (service === 'serverless') return 'Serverless'
+    if (service === 'queue') return 'Queue'
     return service.charAt(0).toUpperCase() + service.slice(1)
 }
 

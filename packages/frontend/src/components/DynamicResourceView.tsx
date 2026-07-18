@@ -31,6 +31,7 @@ import type { CloudResource, StorageObject } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { CosmosNoSqlPanel } from "@/components/CosmosNoSqlPanel";
 import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
+import { QueueFlowPanel } from "@/components/QueueFlowPanel";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -325,6 +326,13 @@ export function DynamicResourceView({
     runtimeReachable={canUseRuntime}
   />
 )}
+      {service === "queue" && (
+        <QueueFlowPanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
     </div>
   );
 }
@@ -355,6 +363,7 @@ function resourceCreateLabel(schema: ServiceSchema): string {
     return "Create container";
   if (schema.cloud === "azure" && schema.service === "database")
     return "Create database";
+  if (schema.service === "queue") return "Create queue";
   return "Create resource";
 }
 
