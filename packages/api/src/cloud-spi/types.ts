@@ -1,6 +1,6 @@
 export type CloudProvider = 'aws' | 'azure' | 'gcp'
 
-export type CloudServiceType = 'storage' | 'k8s' | 'database' | 'serverless' | 'compute' | 'networking'
+export type CloudServiceType = 'storage' | 'k8s' | 'database' | 'serverless' | 'compute' | 'networking' | 'queue'
 
 export type CloudAvailability = 'available' | 'coming_soon'
 
@@ -83,7 +83,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function'
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'queue'
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -137,6 +137,16 @@ export interface CosmosQueryResult {
     count: number
 }
 
+export interface QueueMessage {
+    id: string
+    receiptHandle: string
+    body: string
+    attributes: Record<string, string>
+    messageAttributes: Record<string, string>
+    sentAt: string | null
+    receiveCount: number | null
+}
+
 export interface ResourceQuery {
     search?: string
 }
@@ -172,4 +182,8 @@ export interface CloudServiceAdapter {
     upsertCosmosItem?(databaseId: string, containerId: string, document: Record<string, unknown>): Promise<CosmosItem>
     deleteCosmosItem?(databaseId: string, containerId: string, itemId: string, partitionKey?: string | null): Promise<void>
     queryCosmosItems?(databaseId: string, containerId: string, query: string): Promise<CosmosQueryResult>
+    sendMessage?(queueId: string, body: string, messageAttributes?: Record<string, string>): Promise<QueueMessage>
+    receiveMessages?(queueId: string, maxMessages?: number, waitTimeSeconds?: number): Promise<QueueMessage[]>
+    deleteMessage?(queueId: string, receiptHandle: string): Promise<void>
+    purgeQueue?(queueId: string): Promise<void>
 }
