@@ -31,6 +31,7 @@ import type { CloudResource, StorageObject } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { CosmosNoSqlPanel } from "@/components/CosmosNoSqlPanel";
 import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
+import { QueuePanel } from "@/components/QueuePanel";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -325,6 +326,13 @@ export function DynamicResourceView({
     runtimeReachable={canUseRuntime}
   />
 )}
+      {service === "queue" && (
+        <QueuePanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={runtimeReachable}
+        />
+      )}
     </div>
   );
 }
