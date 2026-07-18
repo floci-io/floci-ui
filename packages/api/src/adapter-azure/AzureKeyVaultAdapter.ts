@@ -44,13 +44,20 @@ export class AzureKeyVaultAdapter implements CloudServiceAdapter {
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const body = await this.keyVaultJson<KeyVaultSecretListResponse>(
-            `/secrets?api-version=${API_VERSION}`,
-            {method: 'GET'},
-            {emptyOnNotFound: true},
-        )
+        const records: KeyVaultSecretRecord[] = []
+        let path: string | null = `/secrets?api-version=${API_VERSION}`
 
-        return filterBySearch((body?.value ?? []).map((record) => toSecretResource(record)), query.search)
+        while (path) {
+            const body: KeyVaultSecretListResponse | null = await this.keyVaultJson<KeyVaultSecretListResponse>(
+                path,
+                {method: 'GET'},
+                {emptyOnNotFound: true},
+            )
+            records.push(...(body?.value ?? []))
+            path = body?.nextLink ? keyVaultNextPath(body.nextLink) : null
+        }
+
+        return filterBySearch(records.map((record) => toSecretResource(record)), query.search)
     }
 
     async get(id: string): Promise<CloudResource | null> {
@@ -93,7 +100,7 @@ export class AzureKeyVaultAdapter implements CloudServiceAdapter {
         await this.client.fetch(
             this.keyVaultPath(`/secrets/${encodeURIComponent(id)}?api-version=${API_VERSION}`),
             {method: 'DELETE', headers: keyVaultHeaders()},
-            {emptyOnNotFound: true},
+            {emptyOnNotFound: true, includeStorageApiVersion: false},
         )
     }
 
@@ -111,7 +118,7 @@ export class AzureKeyVaultAdapter implements CloudServiceAdapter {
                     ...(init.headers ?? {}),
                 },
             },
-            options,
+            {...options, includeStorageApiVersion: false},
         )
 
         if (!res || res.status === 204) return null
@@ -120,6 +127,15 @@ export class AzureKeyVaultAdapter implements CloudServiceAdapter {
 
     private keyVaultPath(path: string): string {
         return `/${encodeURIComponent(this.client.accountName)}-keyvault${path}`
+    }
+}
+
+function keyVaultNextPath(nextLink: string): string {
+    try {
+        const url = new URL(nextLink)
+        return `${url.pathname}${url.search}`
+    } catch {
+        return nextLink.startsWith('/') ? nextLink : `/${nextLink}`
     }
 }
 

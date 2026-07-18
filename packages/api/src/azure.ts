@@ -1,5 +1,6 @@
 export interface AzureRuntimeFetchOptions {
     emptyOnNotFound?: boolean
+    includeStorageApiVersion?: boolean
 }
 
 export interface AzureRuntimeClient {
@@ -20,7 +21,7 @@ export class AzureRestRuntimeClient implements AzureRuntimeClient {
             res = await globalThis.fetch(`${this.endpoint}${path}`, {
                 ...init,
                 headers: {
-                    'x-ms-version': '2021-12-02',
+                    ...(options.includeStorageApiVersion === false ? {} : {'x-ms-version': '2021-12-02'}),
                     ...(init.headers ?? {}),
                 },
             })

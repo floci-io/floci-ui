@@ -10,15 +10,17 @@ interface RecordedCall {
 
 describe('AzureKeyVaultAdapter', () => {
     test('lists and filters Key Vault secrets without exposing values', async () => {
+        const calls: RecordedCall[] = []
         const adapter = new AzureKeyVaultAdapter(testClient({
             '/devstoreaccount1-keyvault/secrets?api-version=7.4': {
-                value: [
-                    secretRecord('database-password', 'v1', {env: 'test'}),
-                    secretRecord('api-token', 'v2'),
-                ],
+                value: [secretRecord('api-token', 'v2')],
+                nextLink: 'https://devstoreaccount1.vault.azure.net/secrets?api-version=7.4&next=page-2',
+            },
+            '/devstoreaccount1-keyvault/secrets?api-version=7.4&next=page-2': {
+                value: [secretRecord('database-password', 'v1', {env: 'test'})],
                 nextLink: null,
             },
-        }))
+        }, calls))
 
         await expect(adapter.list({search: 'database'})).resolves.toEqual([{
             id: 'database-password',
@@ -43,6 +45,11 @@ describe('AzureKeyVaultAdapter', () => {
                 tags: [{key: 'env', value: 'test'}],
             },
         }])
+        expect(calls.map((call) => call.path)).toEqual([
+            '/devstoreaccount1-keyvault/secrets?api-version=7.4',
+            '/devstoreaccount1-keyvault/secrets?api-version=7.4&next=page-2',
+        ])
+        expect(calls.every((call) => call.options.includeStorageApiVersion === false)).toBe(true)
     })
 
     test('gets a secret and omits its value from normalized metadata', async () => {
@@ -83,6 +90,7 @@ describe('AzureKeyVaultAdapter', () => {
             authorization: 'Bearer floci-ui',
             'content-type': 'application/json',
         })
+        expect(calls[0].options.includeStorageApiVersion).toBe(false)
         expect(JSON.parse(String(calls[0].init.body))).toEqual({
             value: 'abc123',
             contentType: 'application/json',
@@ -100,6 +108,7 @@ describe('AzureKeyVaultAdapter', () => {
         expect(calls).toHaveLength(1)
         expect(calls[0].init.method).toBe('DELETE')
         expect(calls[0].init.headers).toMatchObject({authorization: 'Bearer floci-ui'})
+        expect(calls[0].options.includeStorageApiVersion).toBe(false)
     })
 
     test('normalizes missing secrets to null and missing lists to empty', async () => {
