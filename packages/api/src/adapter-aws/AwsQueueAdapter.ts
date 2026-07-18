@@ -95,8 +95,15 @@ export class AwsQueueAdapter implements CloudServiceAdapter {
     }
 
     async sendMessage(id: string, body: string): Promise<SendMessageResult> {
+        // SQS requires MessageGroupId on every send to a FIFO queue. Derive a
+        // default from the queue name so FIFO sends work without a UI field.
+        const isFifo = id.endsWith('.fifo')
         const res = await this.sqs.send(
-            new SendMessageCommand({QueueUrl: resolveQueueUrl(id), MessageBody: body}),
+            new SendMessageCommand({
+                QueueUrl: resolveQueueUrl(id),
+                MessageBody: body,
+                ...(isFifo ? {MessageGroupId: id.replace(/\.fifo$/, '')} : {}),
+            }),
         )
         return {
             messageId: res.MessageId ?? '',

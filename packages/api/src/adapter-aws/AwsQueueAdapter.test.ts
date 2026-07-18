@@ -7,6 +7,7 @@ import {
     ListQueuesCommand,
     PurgeQueueCommand,
     ReceiveMessageCommand,
+    SendMessageCommand,
     type SQSClient,
 } from '@aws-sdk/client-sqs'
 import {AwsQueueAdapter} from './AwsQueueAdapter'
@@ -246,5 +247,39 @@ describe('AwsQueueAdapter', () => {
         expect(send).toHaveBeenCalledWith(expect.any(PurgeQueueCommand))
         const command = captured as PurgeQueueCommand
         expect(command.input.QueueUrl).toBe(QUEUE_URL)
+    })
+
+    test('sets MessageGroupId when sending to a FIFO queue', async () => {
+        let captured: unknown
+        const sqs = mockSqs((command) => {
+            if (command instanceof SendMessageCommand) {
+                captured = command
+                return {MessageId: 'msg-fifo', MD5OfMessageBody: 'def'}
+            }
+            return {}
+        })
+
+        const adapter = new AwsQueueAdapter(sqs)
+        await adapter.sendMessage('orders.fifo', 'hello')
+
+        const command = captured as SendMessageCommand
+        expect(command.input.MessageGroupId).toBe('orders')
+    })
+
+    test('omits MessageGroupId when sending to a standard queue', async () => {
+        let captured: unknown
+        const sqs = mockSqs((command) => {
+            if (command instanceof SendMessageCommand) {
+                captured = command
+                return {MessageId: 'msg-std', MD5OfMessageBody: 'def'}
+            }
+            return {}
+        })
+
+        const adapter = new AwsQueueAdapter(sqs)
+        await adapter.sendMessage('orders-queue', 'hello')
+
+        const command = captured as SendMessageCommand
+        expect(command.input.MessageGroupId).toBeUndefined()
     })
 })
