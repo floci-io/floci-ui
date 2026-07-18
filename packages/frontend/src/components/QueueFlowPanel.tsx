@@ -98,13 +98,13 @@ export function QueueFlowPanel({
   });
 
   const receiveMut = useMutation({
-    mutationFn: () =>
-      receiveQueueMessages(cloud, queueId ?? "", maxMessages, longPoll ? 5 : 0),
-    onSuccess: (received) => {
-      if (received.length === 0) return;
+    mutationFn: (targetQueueId: string) =>
+      receiveQueueMessages(cloud, targetQueueId, maxMessages, longPoll ? 5 : 0),
+    onSuccess: (received, targetQueueId) => {
+      if (targetQueueId !== queueId || received.length === 0) return;
       setMessages((current) => {
-        const seen = new Set(current.map((m) => m.receiptHandle));
-        return [...received.filter((m) => !seen.has(m.receiptHandle)), ...current];
+        const seen = new Set(current.map((m) => m.id));
+        return [...received.filter((m) => !seen.has(m.id)), ...current];
       });
       void qc.invalidateQueries({ queryKey: detailKey });
     },
@@ -391,7 +391,7 @@ export function QueueFlowPanel({
             className="button"
             type="button"
             disabled={!canOperate || receiveMut.isPending}
-            onClick={() => receiveMut.mutate()}
+            onClick={() => receiveMut.mutate(queueId ?? "")}
           >
             {receiveMut.isPending ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
             {receiveMut.isPending ? "Polling" : "Poll for messages"}
