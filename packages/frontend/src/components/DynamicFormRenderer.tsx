@@ -29,7 +29,7 @@ export function DynamicFormRenderer({schema, isSubmitting, submitLabel = 'Create
     }
 
     return (
-        <form className="dynamic-form" onSubmit={submit}>
+        <form className="dynamic-form" onSubmit={submit} noValidate>
             {schema.fields.map((field) => (
                 <FieldRow
                     key={field.name}
@@ -47,11 +47,15 @@ export function DynamicFormRenderer({schema, isSubmitting, submitLabel = 'Create
                 />
             ))}
             <button className="button primary" type="submit" disabled={isSubmitting}>
-                <Plus size={14}/>
-                {isSubmitting ? pendingLabel : submitLabel}
-            </button>
-            {submitError && <div className="form-error">{submitError}</div>}
-        </form>
+    <Plus size={14}/>
+    {isSubmitting ? pendingLabel : submitLabel}
+</button>
+{submitError && (
+    <div className="form-error" role="alert">
+        {submitError}
+    </div>
+)}
+</form>
     )
 }
 
@@ -66,7 +70,7 @@ function FieldRow({field, value, error, onChange}: {field: FieldSchema; value: s
                 </span>
                 <FieldInput field={field} value={value} invalid={Boolean(error)} onChange={onChange}/>
                 {(error || field.description) && (
-                    <small className={error ? 'field-error' : undefined}>
+                 <small className={error ? 'field-error' : undefined} role={error ? 'alert' : undefined}>
                         {error ?? field.description}
                     </small>
                 )}
