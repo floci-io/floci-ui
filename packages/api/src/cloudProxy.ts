@@ -4,6 +4,7 @@ import {AwsNetworkingAdapter} from './adapter-aws/AwsNetworkingAdapter'
 import {AwsDatabaseAdapter} from './adapter-aws/AwsDatabaseAdapter'
 import {AwsEksAdapter} from './adapter-aws/AwsEksAdapter'
 import {AwsStorageAdapter} from './adapter-aws/AwsStorageAdapter'
+import {AwsQueueAdapter} from './adapter-aws/AwsQueueAdapter'
 import {AzureDatabaseAdapter} from './adapter-azure/AzureDatabaseAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
 import {GcpStorageAdapter} from './adapter-gcp/GcpStorageAdapter'
@@ -28,6 +29,7 @@ export function createCloudProxyService(accountId?: string | null): CloudProxySe
 
     const registry = new CloudAdapterRegistry([
         new AwsStorageAdapter(clients.s3),
+        new AwsQueueAdapter(clients.sqs),
         new AwsEksAdapter(createEksService(clients.eks)),
         new AwsDatabaseAdapter(createRdsService(clients.rds), clients.rds),
         new AwsComputeAdapter(ec2Service),

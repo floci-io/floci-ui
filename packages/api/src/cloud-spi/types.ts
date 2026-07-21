@@ -1,6 +1,6 @@
 export type CloudProvider = 'aws' | 'azure' | 'gcp'
 
-export type CloudServiceType = 'storage' | 'k8s' | 'database' | 'serverless' | 'compute' | 'networking'
+export type CloudServiceType = 'storage' | 'k8s' | 'database' | 'serverless' | 'compute' | 'networking' | 'queue'
 
 export type CloudAvailability = 'available' | 'coming_soon'
 
@@ -45,8 +45,8 @@ export interface FieldSchema {
     options?: Array<{label: string; value: string}>
 }
 
-export type ActionSchema = 'list' | 'create' | 'delete' | 'inspect'
-export type ResourceActionName = 'list' | 'create' | 'delete' | 'inspect'
+export type ActionSchema = 'list' | 'create' | 'delete' | 'inspect' | 'send' | 'receive' | 'deleteMessage' | 'purge'
+export type ResourceActionName = 'list' | 'create' | 'delete' | 'inspect' | 'send' | 'receive' | 'deleteMessage' | 'purge'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
 export type CapabilityStatus = 'available' | 'blocked' | 'partial' | 'coming_soon'
 
@@ -83,7 +83,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function'
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'queue'
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -151,6 +151,18 @@ export interface ServerlessInvokeResult {
     logResult?: string
     executionDuration?: number
 }
+export interface SendMessageResult {
+    messageId: string
+    md5OfMessageBody?: string
+}
+
+export interface QueueMessage {
+    messageId: string
+    body: string
+    receiptHandle: string
+    attributes?: Record<string, string>
+    md5OfBody?: string
+}
 export interface CloudServiceAdapter {
     readonly cloud: CloudProvider
     readonly service: CloudServiceType
@@ -164,6 +176,10 @@ export interface CloudServiceAdapter {
     getObject?(resourceId: string, key: string): Promise<StorageObjectDownload>
     deleteObject?(resourceId: string, key: string): Promise<void>
     invoke?(id: string, payload: string): Promise<ServerlessInvokeResult>
+    sendMessage?(id: string, body: string): Promise<SendMessageResult>
+    receiveMessages?(id: string, maxMessages?: number): Promise<QueueMessage[]>
+    deleteMessage?(id: string, receiptHandle: string): Promise<void>
+    purgeQueue?(id: string): Promise<void>
     copyObject?(srcResourceId: string, srcKey: string, destKey: string, destResourceId?: string): Promise<void>
     listCosmosContainers?(databaseId: string): Promise<CosmosContainer[]>
     createCosmosContainer?(databaseId: string, input: CreateResourceInput): Promise<CosmosContainer>

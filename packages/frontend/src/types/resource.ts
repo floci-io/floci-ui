@@ -5,7 +5,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | "azure-function" | 'gcp-function';
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | "azure-function" | 'gcp-function' | 'queue';
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -51,4 +51,12 @@ export interface CosmosItem {
 export interface CosmosQueryResult {
     items: Array<Record<string, unknown> | string | number | boolean | null>
     count: number
+}
+
+export interface QueueMessage {
+    messageId: string
+    body: string
+    receiptHandle: string
+    attributes?: Record<string, string>
+    md5OfBody?: string
 }

@@ -1,8 +1,8 @@
 import type {CloudProvider, CloudServiceType} from './cloud'
 
 export type FieldType = 'text' | 'select'
-export type ActionSchema = 'list' | 'create' | 'delete' | 'inspect'
-export type ResourceActionName = 'list' | 'create' | 'delete' | 'inspect'
+export type ActionSchema = 'list' | 'create' | 'delete' | 'inspect' | 'send' | 'receive' | 'deleteMessage' | 'purge'
+export type ResourceActionName = 'list' | 'create' | 'delete' | 'inspect' | 'send' | 'receive' | 'deleteMessage' | 'purge'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
 export type CapabilityStatus = 'available' | 'blocked' | 'partial' | 'coming_soon'
 

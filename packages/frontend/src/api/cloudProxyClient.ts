@@ -6,7 +6,7 @@ import type {
   CloudServiceType,
   CloudStatus,
 } from "@/types/cloud";
-import type { CloudResource, CosmosContainer, CosmosItem, CosmosQueryResult, StorageObjectList } from "@/types/resource";
+import type { CloudResource, CosmosContainer, CosmosItem, CosmosQueryResult, QueueMessage, StorageObjectList } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { getAccountId } from "@/lib/accountStore";
 
@@ -113,14 +113,74 @@ export async function deleteCloudResource(
     { cloud, service, id },
   );
 }
-export interface ServerlessInvokeResult {
-  statusCode: number;
-  payload: string;
-  functionError?: string;
-  logResult?: string;
-  executionDuration?: number;
+
+export interface SendMessageResult {
+  messageId: string
+  md5OfMessageBody?: string
 }
 
+export async function sendQueueMessage(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: string,
+  signal?: AbortSignal,
+): Promise<SendMessageResult> {
+  const res = await apiClient.call<SendMessageResult, { body: string }>(
+    apiEndpointKeys.clouds.resources.send,
+    requestOptions(cloud, service, { signal, body: { body } }),
+    { cloud, service, id },
+  );
+  return res.data;
+}
+
+export async function receiveQueueMessages(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  maxMessages?: number,
+  signal?: AbortSignal,
+): Promise<QueueMessage[]> {
+  const res = await apiClient.call<QueueMessage[], { maxMessages?: number }>(
+    apiEndpointKeys.clouds.resources.receive,
+    requestOptions(cloud, service, {
+      signal,
+      body: maxMessages ? { maxMessages } : {},
+    }),
+    { cloud, service, id },
+  );
+  return res.data;
+}
+
+export async function deleteQueueMessage(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  receiptHandle: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.resources.deleteMessage,
+    requestOptions(cloud, service, {
+      signal,
+      params: { receiptHandle },
+    }),
+    { cloud, service, id },
+  );
+}
+
+export async function purgeQueue(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.resources.purge,
+    requestOptions(cloud, service, { signal }),
+    { cloud, service, id },
+  );
+}
 export interface ServerlessInvokeResult {
   statusCode: number;
   payload: string;

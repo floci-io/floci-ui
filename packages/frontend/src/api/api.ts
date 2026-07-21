@@ -14,13 +14,17 @@ export const apiEndpointKeys = {
     services: "clouds.services.list",
     status: "clouds.status.get",
     schema: "clouds.services.schema.get",
-    resources: {
-      list: "clouds.services.resources.list",
-      get: "clouds.services.resources.get",
-      create: "clouds.services.resources.create",
-      delete: "clouds.services.resources.delete",
-      invoke: "clouds.services.resources.invoke",
-    },
+       resources: {
+        list: "clouds.services.resources.list",
+        get: "clouds.services.resources.get",
+        create: "clouds.services.resources.create",
+        delete: "clouds.services.resources.delete",
+         invoke: "clouds.services.resources.invoke",
+         send: "clouds.services.resources.send",
+         receive: "clouds.services.resources.receive",
+         deleteMessage: "clouds.services.resources.messages.delete",
+         purge: "clouds.services.resources.purge",
+       },
     storage: {
       objects: {
         list: "clouds.services.storage.objects.list",
@@ -211,13 +215,45 @@ export const endpointRegistry: EndpointRegistry = new Map([
     },
   ],
   [
-  apiEndpointKeys.clouds.resources.invoke,
-  {
-    path: "/clouds/:cloud/services/:service/resources/:id/invoke",
-    method: "POST",
-    telemetry: { service: "cloud-proxy" },
-  },
-],
+    apiEndpointKeys.clouds.resources.invoke,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/invoke",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.send,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/send",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.receive,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/receive",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.deleteMessage,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/messages",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.purge,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/purge",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
   [
     apiEndpointKeys.clouds.resources.get,
     {
@@ -242,15 +278,6 @@ export const endpointRegistry: EndpointRegistry = new Map([
       telemetry: { service: "cloud-proxy" },
     },
   ],
-
-[
-  apiEndpointKeys.clouds.resources.invoke,
-  {
-    path: "/clouds/:cloud/services/:service/resources/:id/invoke",
-    method: "POST",
-    telemetry: { service: "cloud-proxy" },
-  },
-],
 
   [
     apiEndpointKeys.clouds.storage.objects.list,

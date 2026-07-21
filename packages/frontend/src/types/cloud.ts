@@ -1,6 +1,6 @@
 export type CloudProvider = 'aws' | 'azure' | 'gcp'
 export type CloudAvailability = 'available' | 'coming_soon'
-export type CloudServiceType = 'storage' | 'k8s' | 'database' | 'compute' | 'networking' | 'serverless'
+export type CloudServiceType = 'storage' | 'k8s' | 'database' | 'compute' | 'networking' | 'serverless' | 'queue'
 
 export interface CloudDescriptor {
     id: CloudProvider
