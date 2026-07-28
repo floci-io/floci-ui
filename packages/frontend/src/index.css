@@ -3090,3 +3090,75 @@ button.console-service-card {
     animation: spin 1s linear infinite;
 }
 
+
+/* ── Server-driven service nav ─────────────────────────────────────────────── */
+
+.nav-group {
+    margin: 0 0 2px;
+}
+
+.nav-group-label {
+    display: block;
+    padding: 6px 16px 3px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-3);
+}
+
+.nav-link.nav-error {
+    color: var(--text-3);
+}
+
+.nav-retry {
+    display: block;
+    margin: 2px 16px 6px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.nav-retry:hover:not(:disabled) {
+    background: var(--hover);
+    color: var(--text);
+}
+
+.nav-retry:disabled {
+    cursor: progress;
+    opacity: 0.6;
+}
+
+.nav-link.nav-skeleton {
+    cursor: default;
+    opacity: 1;
+}
+
+.skeleton-bar {
+    display: block;
+    width: 60%;
+    height: 9px;
+    border-radius: 4px;
+    background: var(--border);
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.nav-link.nav-skeleton:nth-child(even) .skeleton-bar {
+    width: 74%;
+}
+
+@keyframes skeleton-pulse {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.75; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-bar {
+        animation: none;
+    }
+}

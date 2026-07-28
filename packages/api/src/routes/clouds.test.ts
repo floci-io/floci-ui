@@ -1,18 +1,19 @@
 import {describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
+import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
-import {awsStorageSchema, azureStorageSchema} from '../cloud-spi/storageSchema'
-import {azureSecretsSchema} from '../cloud-spi/secretsSchema'
-import type {CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput} from '../cloud-spi/types'
+import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
+import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
+import type {RuntimeProbe} from '../service/runtimeProbe'
 import {createCloudRoutes} from './clouds'
 
-function mockAdapter(cloud: 'aws' | 'azure', overrides: Partial<CloudServiceAdapter> = {}): CloudServiceAdapter {
+function mockAdapter(cloud: CloudProvider, overrides: Partial<CloudServiceAdapter> = {}): CloudServiceAdapter {
     return {
         cloud,
         service: 'storage',
-        schema: cloud === 'aws' ? awsStorageSchema : azureStorageSchema,
+        schema: cloud === 'aws' ? awsStorageSchema : cloud === 'gcp' ? gcpStorageSchema : azureStorageSchema,
         list: async () => [],
         get: async () => null,
         create: async (_input: CreateResourceInput): Promise<CloudResource> => ({
@@ -20,7 +21,7 @@ function mockAdapter(cloud: 'aws' | 'azure', overrides: Partial<CloudServiceAdap
             name: 'created',
             cloud,
             service: 'storage',
-            type: cloud === 'aws' ? 'bucket' : 'container',
+            type: cloud === 'azure' ? 'container' : 'bucket',
             region: null,
             createdAt: null,
             metadata: {},
@@ -41,10 +42,29 @@ function mockAdapter(cloud: 'aws' | 'azure', overrides: Partial<CloudServiceAdap
     }
 }
 
-function appWithRoutes(adapters: CloudServiceAdapter[] = [mockAdapter('aws'), mockAdapter('azure')]) {
+/**
+ * Runtime probes make real HTTP calls to the emulator endpoints, so tests inject
+ * stubs — otherwise status assertions depend on whether a container happens to
+ * be listening, which passes locally and fails in CI.
+ */
+function stubProbes(overrides: Partial<Record<CloudProvider, RuntimeProbe>> = {}): Record<CloudProvider, RuntimeProbe> {
+    const reachable: RuntimeProbe = async () => {}
+    return {aws: reachable, azure: reachable, gcp: reachable, ...overrides}
+}
+
+function unreachable(message: string): RuntimeProbe {
+    return async () => {
+        throw new RuntimeUnavailableError(message)
+    }
+}
+
+function appWithRoutes(
+    adapters: CloudServiceAdapter[] = [mockAdapter('aws'), mockAdapter('azure')],
+    probes: Record<CloudProvider, RuntimeProbe> = stubProbes(),
+) {
     const app = new Hono()
     const registry = new CloudAdapterRegistry(adapters)
-    app.route('/api/clouds', createCloudRoutes(new CloudProxyService(registry)))
+    app.route('/api/clouds', createCloudRoutes(new CloudProxyService(registry, probes)))
     return app
 }
 
@@ -83,8 +103,9 @@ describe('cloud schema routes', () => {
         expect(body.displayName).toBe('Cosmos DB')
     })
 
-    test('returns GCP storage schema', async () => {
-        const res = await appWithRoutes().request('/api/clouds/gcp/services/storage/schema')
+    test('returns GCP storage schema when the adapter is registered', async () => {
+        const app = appWithRoutes([mockAdapter('gcp', {service: 'storage', schema: gcpStorageSchema})])
+        const res = await app.request('/api/clouds/gcp/services/storage/schema')
         const body = await res.json()
 
         expect(res.status).toBe(200)
@@ -93,57 +114,28 @@ describe('cloud schema routes', () => {
         expect(body.fields[0].name).toBe('bucketName')
     })
 
-    test('returns provider k8s schemas without registered adapters', async () => {
-        const azureRes = await appWithRoutes().request('/api/clouds/azure/services/k8s/schema')
-        const azureBody = await azureRes.json()
-        const gcpRes = await appWithRoutes().request('/api/clouds/gcp/services/k8s/schema')
-        const gcpBody = await gcpRes.json()
+    // Previously a static schema was served for any known service even with no
+    // adapter behind it, so the UI rendered a table that then 501'd on every call.
+    test('does not serve a schema for a service with no registered adapter', async () => {
+        const app = appWithRoutes([mockAdapter('aws')])
 
-        expect(azureRes.status).toBe(200)
-        expect(azureBody.displayName).toBe('Azure AKS')
-        expect(gcpRes.status).toBe(200)
-        expect(gcpBody.displayName).toBe('Google GKE')
+        for (const path of [
+            '/api/clouds/azure/services/k8s/schema',
+            '/api/clouds/gcp/services/k8s/schema',
+            '/api/clouds/gcp/services/database/schema',
+            '/api/clouds/azure/services/compute/schema',
+        ]) {
+            const res = await app.request(path)
+            expect(res.status).toBe(404)
+            expect((await res.json()).error).toBe('Schema not available')
+        }
     })
 
-    test('returns provider database schemas without registered adapters', async () => {
-        const azureRes = await appWithRoutes().request('/api/clouds/azure/services/database/schema')
-        const azureBody = await azureRes.json()
-        const gcpRes = await appWithRoutes().request('/api/clouds/gcp/services/database/schema')
-        const gcpBody = await gcpRes.json()
+    test('rejects a service slug that is not in the catalog', async () => {
+        const res = await appWithRoutes().request('/api/clouds/aws/services/queue/schema')
 
-        expect(azureRes.status).toBe(200)
-        expect(azureBody.displayName).toBe('Cosmos DB')
-        expect(gcpRes.status).toBe(200)
-        expect(gcpBody.displayName).toBe('Cloud SQL')
-    })
-
-    test('returns Azure Key Vault schema without a registered adapter', async () => {
-        const res = await appWithRoutes().request('/api/clouds/azure/services/secrets/schema')
-        const body = await res.json()
-
-        expect(res.status).toBe(200)
-        expect(body.displayName).toBe('Key Vault')
-        expect(body.fields.map((field: {name: string}) => field.name)).toEqual([
-            'secretName',
-            'secretValue',
-            'contentType',
-        ])
-    })
-
-    test('marks Azure Key Vault available when its adapter is registered', async () => {
-        const app = appWithRoutes([mockAdapter('azure', {
-            service: 'secrets',
-            schema: azureSecretsSchema,
-        })])
-        const res = await app.request('/api/clouds/azure/services')
-        const body = await res.json()
-        const secrets = body.find((service: {service: string}) => service.service === 'secrets')
-
-        expect(res.status).toBe(200)
-        expect(secrets).toMatchObject({
-            displayName: 'Key Vault',
-            availability: 'available',
-        })
+        expect(res.status).toBe(404)
+        expect((await res.json()).error).toBe('Unknown cloud or service')
     })
 
     test('returns AWS cloud status', async () => {
@@ -157,7 +149,11 @@ describe('cloud schema routes', () => {
     })
 
     test('returns GCP runtime status without a registered adapter', async () => {
-        const res = await appWithRoutes().request('/api/clouds/gcp/status')
+        const app = appWithRoutes(
+            [mockAdapter('aws'), mockAdapter('azure')],
+            stubProbes({gcp: unreachable('Cannot reach Floci-GCP at http://localhost:4588')}),
+        )
+        const res = await app.request('/api/clouds/gcp/status')
         const body = await res.json()
 
         expect(res.status).toBe(200)
@@ -165,6 +161,20 @@ describe('cloud schema routes', () => {
         expect(body.adapterRegistered).toBe(false)
         expect(body.runtime).toBe('unavailable')
         expect(body.endpoint).toBe('http://localhost:4588')
+        expect(body.error).toContain('Cannot reach Floci-GCP')
+    })
+
+    test('cloud status reflects the runtime probe, not one adapter listing', async () => {
+        // Previously a cloud whose storage adapter could list reported "reachable"
+        // no matter what state the runtime was actually in.
+        const app = appWithRoutes(
+            [mockAdapter('aws')],
+            stubProbes({aws: unreachable('Cannot reach Floci core at http://localhost:4566')}),
+        )
+        const body = await (await app.request('/api/clouds/aws/status')).json()
+
+        expect(body.runtime).toBe('unavailable')
+        expect(body.adapterRegistered).toBe(true)
     })
 
     test('lists storage objects through the cloud adapter', async () => {
@@ -311,7 +321,7 @@ describe('cloud schema routes', () => {
         const app = appWithRoutes([
             mockAdapter('aws', {
                 list: async () => {
-                    throw new Error('Cannot reach Floci-AZ at http://localhost:4577: connection refused')
+                    throw new RuntimeUnavailableError('Cannot reach Floci-AZ at http://localhost:4577: connection refused')
                 },
             }),
         ])
@@ -328,7 +338,7 @@ describe('cloud schema routes', () => {
         const app = appWithRoutes([
             mockAdapter('azure', {
                 create: async () => {
-                    throw new Error('Azure Blob request failed: HTTP 501')
+                    throw new NotImplementedByRuntimeError('Azure Blob request failed: HTTP 501')
                 },
             }),
         ])
@@ -341,5 +351,243 @@ describe('cloud schema routes', () => {
         expect(res.status).toBe(501)
         expect(body.code).toBe('operation_not_implemented')
         expect(body.message).toBe('Operation is not implemented by the selected runtime')
+    })
+
+    test('reports a missing adapter as unsupported rather than a runtime failure', async () => {
+        const res = await appWithRoutes([mockAdapter('aws')]).request('/api/clouds/azure/services/storage/resources')
+        const body = await res.json()
+
+        expect(res.status).toBe(501)
+        expect(body.code).toBe('operation_not_supported')
+        expect(body.detail).toContain('No adapter registered for azure/storage')
+    })
+
+    test('maps a validation error to 400 with the adapter message intact', async () => {
+        const app = appWithRoutes([
+            mockAdapter('aws', {
+                create: async () => {
+                    throw new ValidationError('bucketName is required')
+                },
+            }),
+        ])
+        const res = await app.request('/api/clouds/aws/services/storage/resources', {
+            method: 'POST',
+            body: JSON.stringify({}),
+        })
+        const body = await res.json()
+
+        expect(res.status).toBe(400)
+        expect(body.code).toBe('invalid_request')
+        expect(body.message).toBe('bucketName is required')
+    })
+
+    // Before typed errors these AWS SDK failures all collapsed into a blanket 502.
+    const sdkCases: Array<{name: string; status: number; code: string}> = [
+        {name: 'BucketAlreadyOwnedByYou', status: 409, code: 'resource_conflict'},
+        {name: 'AccessDenied', status: 403, code: 'access_denied'},
+        {name: 'ValidationException', status: 400, code: 'invalid_request'},
+        {name: 'ThrottlingException', status: 429, code: 'rate_limited'},
+        {name: 'NoSuchBucket', status: 404, code: 'resource_not_found'},
+    ]
+
+    for (const sdkCase of sdkCases) {
+        test(`maps the AWS SDK ${sdkCase.name} error to ${sdkCase.status}`, async () => {
+            const app = appWithRoutes([
+                mockAdapter('aws', {
+                    create: async () => {
+                        const err = new Error(`${sdkCase.name} raised by the runtime`)
+                        err.name = sdkCase.name
+                        Object.assign(err, {$metadata: {httpStatusCode: 500}, $fault: 'client'})
+                        throw err
+                    },
+                }),
+            ])
+            const res = await app.request('/api/clouds/aws/services/storage/resources', {
+                method: 'POST',
+                body: JSON.stringify({name: 'demo'}),
+            })
+            const body = await res.json()
+
+            expect(res.status).toBe(sdkCase.status)
+            expect(body.code).toBe(sdkCase.code)
+            expect(body.detail ?? body.message).toContain(sdkCase.name)
+        })
+    }
+})
+
+describe('service descriptors', () => {
+    test('every descriptor carries nav metadata for every cloud', async () => {
+        for (const cloud of ['aws', 'azure', 'gcp']) {
+            const res = await appWithRoutes().request(`/api/clouds/${cloud}/services`)
+            const body = await res.json()
+
+            expect(res.status).toBe(200)
+            expect(body.length).toBeGreaterThan(0)
+            for (const descriptor of body) {
+                expect(descriptor.cloud).toBe(cloud)
+                expect(typeof descriptor.route).toBe('string')
+                expect(descriptor.route.length).toBeGreaterThan(0)
+                expect(typeof descriptor.iconKey).toBe('string')
+                expect(typeof descriptor.group).toBe('string')
+                expect(typeof descriptor.order).toBe('number')
+                expect(descriptor.displayName.length).toBeGreaterThan(0)
+            }
+        }
+    })
+
+    test('every unavailable service explains itself', async () => {
+        for (const cloud of ['aws', 'azure', 'gcp']) {
+            const body = await (await appWithRoutes().request(`/api/clouds/${cloud}/services`)).json()
+            const unexplained = body.filter(
+                (d: {availability: string; reason?: string}) => d.availability === 'coming_soon' && !d.reason,
+            )
+            expect(unexplained).toEqual([])
+        }
+    })
+
+    test('availability follows adapter registration rather than a hardcoded list', async () => {
+        const withK8s = await (await appWithRoutes([
+            mockAdapter('gcp', {service: 'k8s'}),
+        ]).request('/api/clouds/gcp/services')).json()
+        const withoutK8s = await (await appWithRoutes([mockAdapter('aws')]).request('/api/clouds/gcp/services')).json()
+
+        const find = (body: Array<{service: string; reason?: string}>, service: string) =>
+            body.find((d) => d.service === service)
+
+        expect(find(withK8s, 'k8s')).toMatchObject({availability: 'available'})
+        expect(find(withoutK8s, 'k8s')).toMatchObject({availability: 'coming_soon'})
+        expect(find(withoutK8s, 'k8s')?.reason).toContain('GCP')
+    })
+
+    test('an adapter can report coming_soon when its runtime does not implement it', async () => {
+        // floci-az answers 501 for /functions, so a registered adapter must still
+        // be able to tell the truth about the runtime behind it.
+        const app = appWithRoutes([
+            mockAdapter('azure', {
+                service: 'serverless',
+                descriptorOverride: () => ({
+                    availability: 'coming_soon',
+                    reason: 'The Floci-AZ runtime returns 501 NotImplemented for the Azure Functions endpoint.',
+                }),
+            }),
+        ])
+        const body = await (await app.request('/api/clouds/azure/services')).json()
+        const serverless = body.find((d: {service: string}) => d.service === 'serverless')
+
+        expect(serverless.availability).toBe('coming_soon')
+        expect(serverless.reason).toContain('501')
+    })
+
+    test('keeps the legacy Secrets Manager page available on AWS only', async () => {
+        const aws = await (await appWithRoutes().request('/api/clouds/aws/services')).json()
+        const gcp = await (await appWithRoutes().request('/api/clouds/gcp/services')).json()
+        const secretsFor = (body: Array<{service: string}>) => body.find((d) => d.service === 'secrets')
+
+        expect(secretsFor(aws)).toMatchObject({availability: 'available', route: '/secretsmanager'})
+        expect(secretsFor(gcp)).toMatchObject({availability: 'coming_soon'})
+    })
+})
+
+describe('per-service status', () => {
+    test('reports a reachable service with a latency measurement', async () => {
+        const res = await appWithRoutes().request('/api/clouds/aws/services/storage/status')
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(body).toMatchObject({
+            cloud: 'aws',
+            service: 'storage',
+            adapterRegistered: true,
+            runtime: 'reachable',
+            error: null,
+            errorCode: null,
+        })
+        expect(body.latencyMs).toBeGreaterThanOrEqual(0)
+    })
+
+    test('reports coming_soon for a service with no adapter', async () => {
+        const res = await appWithRoutes([mockAdapter('aws')]).request('/api/clouds/gcp/services/storage/status')
+        const body = await res.json()
+
+        expect(body).toMatchObject({runtime: 'coming_soon', adapterRegistered: false, latencyMs: null})
+    })
+
+    test('distinguishes a runtime that does not implement a service from one that is down', async () => {
+        // This is the whole point of errorCode: floci-az serves blob storage but
+        // answers 501 for functions, and the UI must not call that "offline".
+        const app = appWithRoutes([
+            mockAdapter('azure', {
+                service: 'serverless',
+                list: async () => {
+                    throw new NotImplementedByRuntimeError('HTTP 501 /functions')
+                },
+            }),
+            mockAdapter('gcp', {
+                list: async () => {
+                    throw new RuntimeUnavailableError('Cannot reach Floci-GCP')
+                },
+            }),
+        ])
+
+        const notImplemented = await (await app.request('/api/clouds/azure/services/serverless/status')).json()
+        expect(notImplemented.runtime).toBe('unavailable')
+        expect(notImplemented.errorCode).toBe('operation_not_implemented')
+
+        const down = await (await app.request('/api/clouds/gcp/services/storage/status')).json()
+        expect(down.errorCode).toBe('runtime_unavailable')
+    })
+
+    test('prefers an adapter health() override to list()', async () => {
+        let listCalls = 0
+        let healthCalls = 0
+        const app = appWithRoutes([
+            mockAdapter('aws', {
+                list: async () => {
+                    listCalls += 1
+                    return []
+                },
+                health: async () => {
+                    healthCalls += 1
+                },
+            }),
+        ])
+
+        await app.request('/api/clouds/aws/services/storage/status')
+        expect(healthCalls).toBe(1)
+        expect(listCalls).toBe(0)
+    })
+
+    test('omits per-service detail from the cloud status by default', async () => {
+        const body = await (await appWithRoutes().request('/api/clouds/aws/status')).json()
+        expect(body.services).toBeUndefined()
+    })
+
+    test('includes per-service detail only when asked', async () => {
+        const body = await (await appWithRoutes().request('/api/clouds/aws/status?services=all')).json()
+
+        expect(Array.isArray(body.services)).toBe(true)
+        expect(body.services[0]).toMatchObject({cloud: 'aws', service: 'storage'})
+    })
+
+    test('caches probes so a polling sidebar does not fan out per request', async () => {
+        let probes = 0
+        const app = appWithRoutes([
+            mockAdapter('aws', {
+                list: async () => {
+                    probes += 1
+                    return []
+                },
+            }),
+        ])
+
+        for (let i = 0; i < 5; i += 1) {
+            await app.request('/api/clouds/aws/services/storage/status')
+        }
+        expect(probes).toBe(1)
+    })
+
+    test('rejects an unknown service slug', async () => {
+        const res = await appWithRoutes().request('/api/clouds/aws/services/queue/status')
+        expect(res.status).toBe(404)
     })
 })

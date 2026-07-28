@@ -1,5 +1,6 @@
+import {NotFoundError, ValidationError} from '../cloud-spi/errors'
 import {gcpStorageSchema} from '../cloud-spi/storageSchema'
-import {gcpEndpoint, gcpProject} from '../gcp'
+import {gcp, type GcpRuntimeClient} from '../gcp'
 import type {
     CloudResource,
     CloudServiceAdapter,
@@ -35,53 +36,56 @@ export class GcpStorageAdapter implements CloudServiceAdapter {
     readonly cloud = 'gcp' as const
     readonly service = 'storage' as const
 
-    constructor(
-        private readonly endpoint: string = gcpEndpoint(),
-        private readonly project: string = gcpProject(),
-    ) {}
+    constructor(private readonly client: GcpRuntimeClient = gcp) {}
+
+    private get project(): string {
+        return this.client.project
+    }
 
     schema(): ServiceSchema {
         return gcpStorageSchema()
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const body = await this.fetchJson<{items?: GcpBucket[]}>(`/storage/v1/b?project=${encodeURIComponent(this.project)}`)
-        return filterBySearch((body.items ?? []).map(toResource), query.search)
+        const body = await this.client.json<{items?: GcpBucket[]}>(`/storage/v1/b?project=${encodeURIComponent(this.project)}`)
+        return filterBySearch((body?.items ?? []).map(toResource), query.search)
     }
 
     async get(id: string): Promise<CloudResource | null> {
-        const res = await this.fetch(`/storage/v1/b/${encodeURIComponent(id)}`, {method: 'GET'}, true)
-        if (res.status === 404) return null
-        if (!res) return null
-        return toResource(await res.json() as GcpBucket)
+        const bucket = await this.client.json<GcpBucket>(
+            `/storage/v1/b/${encodeURIComponent(id)}`,
+            {method: 'GET'},
+            {emptyOnNotFound: true},
+        )
+        return bucket ? toResource(bucket) : null
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
         const bucketName = stringValue(input.values.bucketName)
-        if (!bucketName) throw new Error('bucketName is required')
+        if (!bucketName) throw new ValidationError('bucketName is required')
         if (!isValidBucketName(bucketName)) {
-            throw new Error('Use a valid GCS bucket name: 3-63 lowercase characters, numbers, dots, underscores, or hyphens.')
+            throw new ValidationError('Use a valid GCS bucket name: 3-63 lowercase characters, numbers, dots, underscores, or hyphens.')
         }
-        const body = await this.fetchJson<GcpBucket>(`/storage/v1/b?project=${encodeURIComponent(this.project)}`, {
+        const body = await this.client.json<GcpBucket>(`/storage/v1/b?project=${encodeURIComponent(this.project)}`, {
             method: 'POST',
             headers: {'content-type': 'application/json'},
             body: JSON.stringify({name: bucketName}),
         })
-        return toResource(body)
+        return toResource(body ?? {name: bucketName})
     }
 
     async delete(id: string): Promise<void> {
-        await this.fetch(`/storage/v1/b/${encodeURIComponent(id)}`, {method: 'DELETE'}, true)
+        await this.client.fetch(`/storage/v1/b/${encodeURIComponent(id)}`, {method: 'DELETE'}, {emptyOnNotFound: true})
     }
 
     async listObjects(resourceId: string, prefix = ''): Promise<StorageObjectList> {
         const qs = new URLSearchParams({delimiter: '/'})
         if (prefix) qs.set('prefix', prefix)
-        const body = await this.fetchJson<{items?: GcpObject[]; prefixes?: string[]}>(`/storage/v1/b/${encodeURIComponent(resourceId)}/o?${qs}`)
+        const body = await this.client.json<{items?: GcpObject[]; prefixes?: string[]}>(`/storage/v1/b/${encodeURIComponent(resourceId)}/o?${qs}`)
         return {
             prefix,
             objects: [
-                ...(body.prefixes ?? []).map((key): StorageObject => ({
+                ...(body?.prefixes ?? []).map((key): StorageObject => ({
                     key,
                     name: objectName(key, prefix),
                     type: 'folder',
@@ -93,7 +97,7 @@ export class GcpStorageAdapter implements CloudServiceAdapter {
                         prefix: key,
                     },
                 })),
-                ...(body.items ?? [])
+                ...(body?.items ?? [])
                     .filter((item) => item.name && item.name !== prefix)
                     .map((item): StorageObject => ({
                         key: item.name ?? '',
@@ -115,7 +119,7 @@ export class GcpStorageAdapter implements CloudServiceAdapter {
 
     async putObject(resourceId: string, key: string, body: Uint8Array, contentType: string): Promise<void> {
         const path = `/upload/storage/v1/b/${encodeURIComponent(resourceId)}/o?uploadType=media&name=${encodeURIComponent(key)}`
-        await this.fetch(path, {
+        await this.client.fetch(path, {
             method: 'POST',
             headers: {'content-type': contentType},
             body: copyBytes(body),
@@ -123,7 +127,11 @@ export class GcpStorageAdapter implements CloudServiceAdapter {
     }
 
     async getObject(resourceId: string, key: string): Promise<StorageObjectDownload> {
-        const res = await this.fetch(`/storage/v1/b/${encodeURIComponent(resourceId)}/o/${encodeURIComponent(key)}?alt=media`, {method: 'GET'})
+        const res = await this.client.fetch(
+            `/storage/v1/b/${encodeURIComponent(resourceId)}/o/${encodeURIComponent(key)}?alt=media`,
+            {method: 'GET'},
+        )
+        if (!res) throw new NotFoundError(`Object ${key} not found in bucket ${resourceId}`)
         return {
             body: await res.arrayBuffer(),
             contentType: res.headers.get('content-type') ?? 'application/octet-stream',
@@ -132,35 +140,17 @@ export class GcpStorageAdapter implements CloudServiceAdapter {
     }
 
     async deleteObject(resourceId: string, key: string): Promise<void> {
-        await this.fetch(`/storage/v1/b/${encodeURIComponent(resourceId)}/o/${encodeURIComponent(key)}`, {method: 'DELETE'}, true)
+        await this.client.fetch(`/storage/v1/b/${encodeURIComponent(resourceId)}/o/${encodeURIComponent(key)}`, {method: 'DELETE'}, {emptyOnNotFound: true})
     }
 
     async copyObject(srcResourceId: string, srcKey: string, destKey: string, destResourceId?: string): Promise<void> {
         const destBucket = destResourceId ?? srcResourceId
-        await this.fetch(
+        await this.client.fetch(
             `/storage/v1/b/${encodeURIComponent(srcResourceId)}/o/${encodeURIComponent(srcKey)}/copyTo/b/${encodeURIComponent(destBucket)}/o/${encodeURIComponent(destKey)}`,
             {method: 'POST'},
         )
     }
 
-    private async fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-        const res = await this.fetch(path, init)
-        return res.json() as Promise<T>
-    }
-
-    private async fetch(path: string, init: RequestInit, emptyOnNotFound = false): Promise<Response> {
-        let res: Response
-        try {
-            res = await globalThis.fetch(`${this.endpoint}${path}`, init)
-        } catch (error) {
-            throw new Error(`Cannot reach Floci-GCP at ${this.endpoint}: ${errorMessage(error)}`)
-        }
-        if (emptyOnNotFound && res.status === 404) return res
-        if (!res.ok && !(emptyOnNotFound && res.status === 404)) {
-            throw new Error(`GCP Storage request failed: HTTP ${res.status}`)
-        }
-        return res
-    }
 }
 
 function toResource(bucket: GcpBucket): CloudResource {
@@ -211,8 +201,4 @@ function copyBytes(bytes: Uint8Array): ArrayBuffer {
 
 function isValidBucketName(value: string): boolean {
     return /^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$/.test(value)
-}
-
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error)
 }

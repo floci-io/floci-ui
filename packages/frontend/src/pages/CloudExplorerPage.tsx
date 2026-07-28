@@ -2,9 +2,12 @@ import {useMemo, useState} from 'react'
 import {Cloud, X} from 'lucide-react'
 import {Navigate, useNavigate, useParams} from 'react-router-dom'
 import {useQuery} from '@tanstack/react-query'
-import {getCloudStatus, getServiceSchema, listClouds, listCloudServices} from '@/api/cloudProxyClient'
+import {Link} from 'react-router-dom'
+import {getServiceSchema} from '@/api/cloudProxyClient'
+import {useCloudServicesQuery, useCloudStatusQuery, useCloudsQuery} from '@/api/queries/cloudQueries'
 import {CloudSelector} from '@/components/CloudSelector'
 import {DynamicResourceView} from '@/components/DynamicResourceView'
+import {EmptyState} from '@/components/EmptyState'
 import {normalizeCapabilities, withRuntimeState, withServiceAvailability} from '@/lib/capabilities'
 import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatus} from '@/types/cloud'
 import type {ServiceSchema} from '@/types/schema'
@@ -13,29 +16,17 @@ export function CloudExplorerPage() {
     const navigate = useNavigate()
     const params = useParams()
     const routeCloud = normalizeCloud(params.cloud)
-    const routeService = normalizeService(params.service)
     const cloud = routeCloud ?? 'aws'
-    const service = routeService ?? 'storage'
+    const service = params.service ?? ''
     const [infoOpen, setInfoOpen] = useState(false)
 
-    const cloudsQuery = useQuery({
-        queryKey: ['clouds'],
-        queryFn: ({signal}) => listClouds(signal),
-    })
-
-    const servicesQuery = useQuery({
-        queryKey: ['cloud-services', cloud],
-        queryFn: ({signal}) => listCloudServices(cloud, signal),
-    })
-
-    const statusQuery = useQuery({
-        queryKey: ['cloud-status', cloud],
-        queryFn: ({signal}) => getCloudStatus(cloud, signal),
-        refetchInterval: 10_000,
-    })
+    const cloudsQuery = useCloudsQuery()
+    const servicesQuery = useCloudServicesQuery(cloud)
+    const statusQuery = useCloudStatusQuery(cloud)
     const schemaQuery = useQuery({
         queryKey: ['cloud-schema', cloud, service],
         queryFn: ({signal}) => getServiceSchema(cloud, service, signal),
+        enabled: Boolean(service),
     })
 
     const selectedService = useMemo(
@@ -43,8 +34,19 @@ export function CloudExplorerPage() {
         [service, servicesQuery.data],
     )
 
-    if (!routeCloud || !routeService) {
+    // Until the catalog resolves, availability is unknown — not "coming soon".
+    // Treating it as unknown keeps a registered service from flashing the
+    // adapter-coming-soon notice on every load.
+    const catalogPending = servicesQuery.isPending
+
+    if (!routeCloud) {
         return <Navigate to="/cloud-explorer/aws/storage" replace/>
+    }
+
+    // Never redirect while the catalog is still loading: doing so silently sent
+    // any unknown or slow-loading service to storage.
+    if (servicesQuery.isSuccess && !selectedService) {
+        return <UnknownServiceNotice cloud={cloud} service={service} services={servicesQuery.data}/>
     }
 
     return (
@@ -60,7 +62,7 @@ export function CloudExplorerPage() {
                 <div className="cloud-header-selectors">
                     <label>
                         <span>Service</span>
-                        <div className="service-selector-readonly">{selectedService?.displayName ?? serviceLabel(service)}</div>
+                        <div className="service-selector-readonly">{selectedService?.displayName ?? service}</div>
                     </label>
                     <label>
                         <span>Cloud</span>
@@ -77,8 +79,9 @@ export function CloudExplorerPage() {
                     cloud={cloud}
                     service={service}
                     serviceAvailability={selectedService?.availability}
+                    serviceReason={selectedService?.reason}
                     cloudStatus={statusQuery.data}
-                    statusLoading={statusQuery.isLoading}
+                    statusLoading={statusQuery.isLoading || catalogPending}
                     onOpenInfo={() => setInfoOpen(true)}
                 />
             </div>
@@ -99,10 +102,6 @@ export function CloudExplorerPage() {
 
 function normalizeCloud(value?: string): CloudProvider | null {
     return value === 'aws' || value === 'azure' || value === 'gcp' ? value : null
-}
-
-function normalizeService(value?: string): CloudServiceType | null {
-    return value === 'storage' || value === 'k8s' || value === 'database' || value === 'compute' || value === 'networking' || value === 'serverless' || value === 'secrets' ? value : null
 }
 
 function ServiceInfoDialog({
@@ -142,7 +141,7 @@ function ServiceInfoDialog({
                 <div className="service-info-header">
                     <div>
                         <p className="eyebrow">Service Information</p>
-                        <h3>{schema?.displayName ?? descriptor?.displayName ?? serviceLabel(service)}</h3>
+                        <h3>{schema?.displayName ?? descriptor?.displayName ?? service}</h3>
                     </div>
                     <button className="icon-btn" type="button" onClick={onClose}>
                         <X size={14}/>
@@ -150,8 +149,8 @@ function ServiceInfoDialog({
                 </div>
                 <div className="service-info-grid">
                     <InfoCard label="Proxy API" value={`/api/clouds/${cloud}/services/${service}`} detail="Single entry point used by the UI"/>
-                    <InfoCard label="Service" value={descriptor?.displayName ?? serviceLabel(service)} detail={serviceAvailability(descriptor)}/>
-                    <InfoCard label="Runtime" value={runtimeValue(cloud, status)} detail={runtimeDetail(status, statusLoading)} state={runtimeState(status, statusLoading)}/>
+                    <InfoCard label="Service" value={descriptor?.displayName ?? service} detail={serviceAvailability(descriptor)}/>
+                    <InfoCard label="Runtime" value={runtimeValue(status)} detail={runtimeDetail(status, statusLoading)} state={runtimeState(status, statusLoading)}/>
                     <InfoCard label="Adapter" value={adapterValue(cloud, status)} detail={adapterDetail(status, statusLoading)} state={adapterState(cloud, status)}/>
                     <InfoCard label="Connection" value={connectionValue(status, statusLoading)} detail={status?.endpoint ?? 'No runtime endpoint'} state={runtimeState(status, statusLoading)}/>
                     <InfoCard label="Normalized Contract" value={schema?.columns.length ? `${schema.columns.length} columns · ${schema.filters.length} filters` : 'Loading schema'} detail="Shared table and resource inspector"/>
@@ -174,10 +173,12 @@ function ServiceInfoDialog({
                         <p className="service-info-copy">{actionFallback}</p>
                     )}
                 </div>
-                <div className="service-info-section">
-                    <p className="eyebrow">Current Limitations</p>
-                    <p className="service-info-copy">{limitationCopy(cloud, service)}</p>
-                </div>
+                {descriptor?.reason && (
+                    <div className="service-info-section">
+                        <p className="eyebrow">Availability</p>
+                        <p className="service-info-copy">{descriptor.reason}</p>
+                    </div>
+                )}
             </div>
         </div>
     )
@@ -208,11 +209,8 @@ function serviceAvailability(service?: CloudServiceDescriptor): string {
     return service.availability === 'available' ? 'Schema available' : 'Coming soon'
 }
 
-function runtimeValue(cloud: CloudProvider, status?: CloudStatus): string {
-    if (status?.endpoint) return status.endpoint.replace(/^https?:\/\//, '')
-    if (cloud === 'aws') return 'localhost:4566'
-    if (cloud === 'azure') return 'localhost:4577'
-    return 'localhost:4588'
+function runtimeValue(status?: CloudStatus): string {
+    return status?.endpoint?.replace(/^https?:\/\//, '') ?? 'Unknown'
 }
 
 function runtimeDetail(status?: CloudStatus, loading?: boolean): string {
@@ -253,19 +251,53 @@ function connectionValue(status?: CloudStatus, loading?: boolean): string {
     return 'Coming soon'
 }
 
-function serviceLabel(service: CloudServiceType): string {
-    if (service === 'k8s') return 'k8s Engine'
-    if (service === 'serverless') return 'Serverless'
-    if (service === 'secrets') return 'Secrets'
-    return service.charAt(0).toUpperCase() + service.slice(1)
-}
 
-function limitationCopy(cloud: CloudProvider, service: CloudServiceType): string {
-    if (cloud === 'aws' && service === 'storage') return 'Advanced S3 workflows such as bulk actions, version browsing, and richer object lifecycle controls still live outside the normalized surface.'
-    if (cloud === 'azure' && service === 'storage') return 'Blob Storage is wired through the normalized contract, but advanced metadata, tags, and access-policy workflows are still limited.'
-    if (cloud === 'azure' && service === 'database') return 'Cosmos DB uses a richer panel below for databases, containers, items, and SQL queries; a fully normalized database model is still evolving.'
-    if (cloud === 'azure' && service === 'secrets') return 'Key Vault secret metadata and lifecycle operations are wired through the normalized contract; secret value versioning and recovery workflows are not exposed yet.'
-    if (cloud === 'aws' && service === 'compute') return 'Compute workflows still rely on AWS-specific forms for dependent infrastructure choices such as VPC, subnet, and security group.'
-    if (cloud === 'aws' && service === 'networking') return 'Networking uses AWS-specific operational panels because many actions require nested workflows instead of a flat generic form.'
-    return 'This service is available through the current adapter, but the normalized contract is still expanding.'
+
+/**
+ * A slug that is not in the server's catalog. Previously this silently redirected
+ * to storage, so a typo or a stale bookmark looked like a working page.
+ */
+function UnknownServiceNotice({
+    cloud,
+    service,
+    services,
+}: {
+    cloud: CloudProvider
+    service: string
+    services?: CloudServiceDescriptor[]
+}) {
+    const available = (services ?? []).filter((item) => item.availability === 'available')
+
+    return (
+        <>
+            <div className="page-header cloud-explorer-header">
+                <div className="page-title">
+                    <Cloud size={20}/>
+                    <div>
+                        <h2>Cloud Explorer</h2>
+                        <p className="muted">Unified local runtime console</p>
+                    </div>
+                </div>
+            </div>
+            <div className="content cloud-explorer">
+                <EmptyState
+                    icon={Cloud}
+                    title={service ? `${cloud.toUpperCase()} has no service called "${service}"` : 'No service selected'}
+                    description="Pick one of the services this runtime exposes."
+                />
+                <div className="unknown-service-links">
+                    {available.map((item) => (
+                        <Link
+                            className="button compact"
+                            key={item.service}
+                            to={item.route.startsWith('/') ? item.route : `/cloud-explorer/${cloud}/${item.route}`}
+                        >
+                            {item.displayName}
+                        </Link>
+                    ))}
+                    <Link className="button compact" to={`/console/${cloud}`}>Console Home</Link>
+                </div>
+            </div>
+        </>
+    )
 }

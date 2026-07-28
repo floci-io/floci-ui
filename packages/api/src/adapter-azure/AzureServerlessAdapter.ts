@@ -1,8 +1,10 @@
-import {azure, type AzureRuntimeClient} from '../azure'
-import {azureServerlessSchema} from '../cloud-spi/serverlessSchema'
+import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import { azure, type AzureRuntimeClient } from '../azure'
+import { azureServerlessSchema } from '../cloud-spi/serverlessSchema'
 import type {
     CloudResource,
     CloudServiceAdapter,
+    CloudServiceDescriptorOverride,
     CreateResourceInput,
     ResourceQuery,
     ServerlessInvokeResult,
@@ -36,7 +38,20 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
     readonly cloud = 'azure' as const
     readonly service = 'serverless' as const
 
-    constructor(private readonly client: AzureRuntimeClient = azure) {}
+    constructor(private readonly client: AzureRuntimeClient = azure) { }
+
+    /**
+     * floci-az answers 501 NotImplemented on /functions, so this adapter cannot
+     * currently serve a request even though it is registered. Reporting
+     * coming_soon keeps the nav honest; remove this once the runtime ships the
+     * endpoint and the adapter's own tests exercise it against a real response.
+     */
+    descriptorOverride(): CloudServiceDescriptorOverride {
+        return {
+            availability: 'coming_soon',
+            reason: 'The Floci-AZ runtime returns 501 NotImplemented for the Azure Functions endpoint.',
+        }
+    }
 
     schema(): ServiceSchema {
         return azureServerlessSchema()
@@ -45,8 +60,8 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const body = await this.azureJson<AzureFunctionListResponse | AzureFunctionRecord[]>(
             '/functions',
-            {method: 'GET'},
-            {emptyOnNotFound: true},
+            { method: 'GET' },
+            { emptyOnNotFound: true },
         )
 
         const records = Array.isArray(body) ? body : body?.value ?? []
@@ -56,8 +71,8 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
     async get(id: string): Promise<CloudResource | null> {
         const body = await this.azureJson<AzureFunctionRecord>(
             `/functions/${encodeURIComponent(id)}`,
-            {method: 'GET'},
-            {emptyOnNotFound: true},
+            { method: 'GET' },
+            { emptyOnNotFound: true },
         )
 
         return body ? toFunctionResource(body) : null
@@ -71,7 +86,7 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
         const location = stringValue(input.values.location)
         const functionAppName = stringValue(input.values.functionAppName)
 
-        if (!functionName) throw new Error('functionName is required')
+        if (!functionName) throw new ValidationError('functionName is required')
 
         const body = await this.azureJson<AzureFunctionRecord>(
             '/functions',
@@ -88,15 +103,15 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
             },
         )
 
-        if (!body) throw new Error('Azure Functions create returned an empty response')
+        if (!body) throw new RuntimeError('Azure Functions create returned an empty response')
         return toFunctionResource(body)
     }
 
     async delete(id: string): Promise<void> {
         await this.client.fetch(
             `/functions/${encodeURIComponent(id)}`,
-            {method: 'DELETE'},
-            {emptyOnNotFound: true},
+            { method: 'DELETE' },
+            { emptyOnNotFound: true },
         )
     }
     async invoke(id: string, payload: string): Promise<ServerlessInvokeResult> {
@@ -127,11 +142,11 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
             executionDuration: Math.round(performance.now() - startedAt),
         }
     }
-    
+
     private async azureJson<T>(
         path: string,
         init: RequestInit,
-        options?: {emptyOnNotFound?: boolean},
+        options?: { emptyOnNotFound?: boolean },
     ): Promise<T | null> {
         const res = await this.client.fetch(
             path,
@@ -171,6 +186,8 @@ function toFunctionResource(record: AzureFunctionRecord): CloudResource {
             resourceType: record.type,
             runtime: props.runtime,
             functionAppName: props.functionAppName,
+            lastModified: props.lastModifiedTimeUtc,
+            triggerType: getTriggerType(props.config),
             scriptHref: props.scriptHref,
             invokeUrlTemplate: props.invokeUrlTemplate,
             config: props.config,
@@ -187,6 +204,23 @@ function stringifyPayload(value: unknown): string {
     if (typeof value === 'string') return value
     if (value === undefined || value === null) return ''
     return JSON.stringify(value)
+}
+
+function getTriggerType(config?: Record<string, unknown>): string | undefined {
+    const bindings = config?.bindings
+    if (!Array.isArray(bindings)) return undefined
+
+    const trigger = bindings.find((binding) => {
+        if (!binding || typeof binding !== 'object') return false
+
+        const type = (binding as Record<string, unknown>).type
+        return typeof type === 'string' && type.toLowerCase().endsWith('trigger')
+    })
+
+    if (!trigger || typeof trigger !== 'object') return undefined
+
+    const type = (trigger as Record<string, unknown>).type
+    return typeof type === 'string' ? type : undefined
 }
 
 function filterBySearch(resources: CloudResource[], search?: string): CloudResource[] {

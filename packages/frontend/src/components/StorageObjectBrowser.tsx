@@ -14,6 +14,7 @@ import {capabilityEnabled, capabilityFor, normalizeCapabilities, withRuntimeStat
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource, StorageObject} from '@/types/resource'
 import type {CapabilitySchema, ObjectActionName} from '@/types/schema'
+import {formatBytes} from '@/lib/format'
 
 interface StorageObjectBrowserProps {
     cloud: CloudProvider
@@ -597,9 +598,3 @@ function parentPrefix(prefix: string): string {
     return segments.length ? `${segments.join('/')}/` : ''
 }
 
-function formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B'
-    const units = ['B', 'KB', 'MB', 'GB']
-    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
-    return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`
-}

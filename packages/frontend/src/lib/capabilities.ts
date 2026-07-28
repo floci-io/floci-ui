@@ -14,6 +14,11 @@ const actionLabels: Record<CapabilityActionName, string> = {
     download: 'Download',
     createFolder: 'Create folder',
     copy: 'Copy object',
+    invoke: 'Invoke',
+    start: 'Start',
+    stop: 'Stop',
+    reboot: 'Reboot',
+    updateTags: 'Edit tags',
 }
 
 export function normalizeCapabilities<TAction extends CapabilityActionName>(capabilities: Array<CapabilityInput<TAction>> = []): Array<CapabilitySchema<TAction>> {

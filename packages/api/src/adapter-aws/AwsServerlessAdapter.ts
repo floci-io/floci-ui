@@ -1,7 +1,10 @@
+import {ValidationError} from '../cloud-spi/errors'
 import {
   CreateFunctionCommand,
   DeleteFunctionCommand,
   GetFunctionCommand,
+  InvokeCommand,
+  type InvokeCommandOutput,
   ListFunctionsCommand,
   type LambdaClient,
 } from "@aws-sdk/client-lambda";
@@ -11,9 +14,11 @@ import type {
   CloudServiceAdapter,
   CreateResourceInput,
   ResourceQuery,
+  ServerlessInvokeResult,
   ServiceSchema,
 } from "../cloud-spi/types";
 import { lambda as defaultLambda } from "../aws";
+import { createZipArchive, handlerFileName } from "./zipArchive";
 
 export class AwsServerlessAdapter implements CloudServiceAdapter {
   readonly cloud = "aws" as const;
@@ -118,10 +123,10 @@ exports.handler = async (event) => {
 };
 `.trim();
 
-    if (!functionName) throw new Error("functionName is required");
-    if (!runtime) throw new Error("runtime is required");
-    if (!handler) throw new Error("handler is required");
-    if (!role) throw new Error("role is required");
+    if (!functionName) throw new ValidationError("functionName is required");
+    if (!runtime) throw new ValidationError("runtime is required");
+    if (!handler) throw new ValidationError("handler is required");
+    if (!role) throw new ValidationError("role is required");
 
     const res = await this.lambda.send(
       new CreateFunctionCommand({
@@ -133,7 +138,11 @@ exports.handler = async (event) => {
         MemorySize: Number.isFinite(memorySize) ? memorySize : 128,
         Timeout: Number.isFinite(timeout) ? timeout : 3,
         Code: {
-          ZipFile: new TextEncoder().encode(code),
+          // Must be a real archive: the runtime looks for the handler's module
+          // inside it, so raw source text is rejected outright.
+          ZipFile: createZipArchive([
+            { name: handlerFileName(handler, runtime), content: code },
+          ]),
         },
       }),
     );
@@ -166,6 +175,41 @@ exports.handler = async (event) => {
 
   async delete(id: string): Promise<void> {
     await this.lambda.send(new DeleteFunctionCommand({ FunctionName: id }));
+  }
+
+  async invoke(id: string, payload: string): Promise<ServerlessInvokeResult> {
+    const startedAt = performance.now();
+    const res = await this.lambda.send(
+      new InvokeCommand({
+        FunctionName: id,
+        Payload: new TextEncoder().encode(payload || "{}"),
+        // Tail returns the last 4 KB of the execution log, base64 encoded.
+        LogType: "Tail",
+      }),
+    );
+    const executionDuration = Math.round(performance.now() - startedAt);
+
+    return {
+      statusCode: res.StatusCode ?? 0,
+      payload: decodePayload(res.Payload),
+      ...(res.FunctionError ? { functionError: res.FunctionError } : {}),
+      ...(res.LogResult ? { logResult: decodeLogResult(res.LogResult) } : {}),
+      executionDuration,
+    };
+  }
+}
+
+function decodePayload(payload: InvokeCommandOutput["Payload"]): string {
+  if (!payload) return "";
+  return new TextDecoder().decode(payload);
+}
+
+/** Lambda returns the tailed log base64 encoded; surface it as plain text. */
+function decodeLogResult(logResult: string): string {
+  try {
+    return Buffer.from(logResult, "base64").toString("utf8");
+  } catch {
+    return logResult;
   }
 }
 

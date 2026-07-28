@@ -1,3 +1,5 @@
+import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {CosmosNoSqlUnavailableError} from './CosmosNoSqlUnavailableError'
 import {azure, type AzureRuntimeClient} from '../azure'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import type {
@@ -43,14 +45,14 @@ export class AzureDatabaseAdapter implements CloudServiceAdapter {
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
         const databaseName = stringValue(input.values.databaseName)
-        if (!databaseName) throw new Error('databaseName is required')
-        if (!isValidCosmosId(databaseName)) throw new Error('Use a valid Cosmos database name.')
+        if (!databaseName) throw new ValidationError('databaseName is required')
+        if (!isValidCosmosId(databaseName)) throw new ValidationError('Use a valid Cosmos database name.')
 
         const body = await this.cosmosJson<CosmosRecord>('/dbs', {
             method: 'POST',
             body: JSON.stringify({id: databaseName}),
         })
-        if (!body) throw new Error('Cosmos database creation returned an empty response')
+        if (!body) throw new RuntimeError('Cosmos database creation returned an empty response')
         return toDatabaseResource(body)
     }
 
@@ -70,8 +72,8 @@ export class AzureDatabaseAdapter implements CloudServiceAdapter {
     async createCosmosContainer(databaseId: string, input: CreateResourceInput): Promise<CosmosContainer> {
         const containerName = stringValue(input.values.containerName)
         const partitionKeyPath = normalizePartitionKeyPath(stringValue(input.values.partitionKeyPath) || '/id')
-        if (!containerName) throw new Error('containerName is required')
-        if (!isValidCosmosId(containerName)) throw new Error('Use a valid Cosmos container name.')
+        if (!containerName) throw new ValidationError('containerName is required')
+        if (!isValidCosmosId(containerName)) throw new ValidationError('Use a valid Cosmos container name.')
 
         const body = await this.cosmosJson<CosmosRecord>(`/dbs/${encodeSegment(databaseId)}/colls`, {
             method: 'POST',
@@ -80,7 +82,7 @@ export class AzureDatabaseAdapter implements CloudServiceAdapter {
                 partitionKey: {paths: [partitionKeyPath], kind: 'Hash'},
             }),
         })
-        if (!body) throw new Error('Cosmos container creation returned an empty response')
+        if (!body) throw new RuntimeError('Cosmos container creation returned an empty response')
         return toContainer(databaseId, body)
     }
 
@@ -102,9 +104,9 @@ export class AzureDatabaseAdapter implements CloudServiceAdapter {
     }
 
     async upsertCosmosItem(databaseId: string, containerId: string, document: Record<string, unknown>): Promise<CosmosItem> {
-        if (!isRecord(document)) throw new Error('document must be a JSON object')
+        if (!isRecord(document)) throw new ValidationError('document must be a JSON object')
         const id = stringValue(document.id)
-        if (!id) throw new Error('Cosmos document id is required')
+        if (!id) throw new ValidationError('Cosmos document id is required')
 
         const container = await this.getCosmosContainer(databaseId, containerId)
         const pkPath = container ? partitionKeyPath(container) : '/id'
@@ -119,7 +121,7 @@ export class AzureDatabaseAdapter implements CloudServiceAdapter {
                 },
             },
         )
-        if (!body) throw new Error('Cosmos document upsert returned an empty response')
+        if (!body) throw new RuntimeError('Cosmos document upsert returned an empty response')
         return toItem(databaseId, containerId, body, pkPath)
     }
 
@@ -147,7 +149,7 @@ export class AzureDatabaseAdapter implements CloudServiceAdapter {
                 },
             },
         )
-        if (!body) throw new Error('Cosmos query returned an empty response')
+        if (!body) throw new RuntimeError('Cosmos query returned an empty response')
         const items = body.Documents ?? []
         return {items, count: body._count ?? items.length}
     }
@@ -196,7 +198,7 @@ export class AzureDatabaseAdapter implements CloudServiceAdapter {
             }
         }
 
-        throw new Error(`Cosmos NoSQL request failed on all known routes. ${failures.join(' | ')}`)
+        throw new CosmosNoSqlUnavailableError(`Cosmos NoSQL request failed on all known routes. ${failures.join(' | ')}`)
     }
 }
 

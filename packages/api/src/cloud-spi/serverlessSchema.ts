@@ -1,14 +1,27 @@
-import type {CloudProvider, FieldSchema, ServiceSchema, TableColumnSchema} from './types'
+import type {CapabilitySchema, CloudProvider, FieldSchema, ResourceActionName, ServiceSchema, TableColumnSchema} from './types'
 
 const serverlessColumns: TableColumnSchema[] = [
     {name: 'name', label: 'Function Name'},
     {name: 'type', label: 'Type'},
     {name: 'cloud', label: 'Cloud'},
     {name: 'region', label: 'Region'},
-    {name: 'runtime', label: 'Runtime'},
+    {name: 'runtime', label: 'Runtime', path: 'metadata.runtime'},
     {name: 'status', label: 'Status'},
-    {name: 'updatedAt', label: 'Last Updated'},
+    {name: 'updatedAt', label: 'Last Updated', path: 'metadata.lastModified', format: 'datetime'},
 ]
+
+/** Invoke is the verb that distinguishes serverless from every other category. */
+function serverlessResourceActions(
+    invoke: CapabilitySchema<ResourceActionName>,
+): CapabilitySchema<ResourceActionName>[] {
+    return [
+        {name: 'list', label: 'List functions', enabled: true, status: 'available', runtimeRequired: true},
+        {name: 'create', label: 'Create function', enabled: true, status: 'available', runtimeRequired: true},
+        {name: 'delete', label: 'Delete function', enabled: true, status: 'available', runtimeRequired: true},
+        {name: 'inspect', label: 'Inspect function', enabled: true, status: 'available', runtimeRequired: false},
+        invoke,
+    ]
+}
 
 const serverlessFilters: FieldSchema[] = [
     {name: 'search', label: 'Search', type: 'text', required: false},
@@ -86,6 +99,11 @@ export function awsServerlessSchema(): ServiceSchema {
         actions: ['list', 'create', 'inspect', 'delete'],
         filters: serverlessFilters,
         columns: serverlessColumns,
+        capabilities: {
+            resourceActions: serverlessResourceActions({
+                name: 'invoke', label: 'Invoke function', enabled: true, status: 'available', runtimeRequired: true,
+            }),
+        },
     }
 }
 
@@ -147,6 +165,11 @@ export function azureServerlessSchema(): ServiceSchema {
         actions: ['list', 'create', 'inspect', 'delete'],
         filters: serverlessFilters,
         columns: serverlessColumns,
+        capabilities: {
+            resourceActions: serverlessResourceActions({
+                name: 'invoke', label: 'Invoke function', enabled: true, status: 'available', runtimeRequired: true,
+            }),
+        },
     }
 }
 
@@ -195,6 +218,16 @@ export function gcpServerlessSchema(): ServiceSchema {
         actions: ['list', 'create', 'inspect', 'delete'],
         filters: serverlessFilters,
         columns: serverlessColumns,
+        capabilities: {
+            resourceActions: serverlessResourceActions({
+                name: 'invoke',
+                label: 'Invoke function',
+                enabled: false,
+                status: 'coming_soon',
+                reason: 'The Cloud Functions :call endpoint is not wired through the adapter yet.',
+                runtimeRequired: true,
+            }),
+        },
     }
 }
 

@@ -1,3 +1,4 @@
+import {NotSupportedError} from '../cloud-spi/errors'
 import {ListTagsForResourceCommand, type RDSClient} from '@aws-sdk/client-rds'
 import {rds as defaultRds} from '../aws'
 import {awsDatabaseSchema} from '../cloud-spi/databaseSchema'
@@ -41,11 +42,11 @@ export class AwsDatabaseAdapter implements CloudServiceAdapter {
     }
 
     async create(_input: CreateResourceInput): Promise<CloudResource> {
-        throw new Error('Database creation is not supported from the dynamic Cloud Explorer.')
+        throw new NotSupportedError('Database creation is not supported from the dynamic Cloud Explorer.')
     }
 
     async delete(_id: string): Promise<void> {
-        throw new Error('Database deletion is not supported from the dynamic Cloud Explorer.')
+        throw new NotSupportedError('Database deletion is not supported from the dynamic Cloud Explorer.')
     }
 
     private async toResource(instance: RdsInstance): Promise<CloudResource> {

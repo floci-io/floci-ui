@@ -2,6 +2,7 @@ import { useCreateRdsSnapshotMutation } from "@/api/aws/rds.mutations";
 import { useRdsSnapshotsQuery } from "@/api/aws/rds.queries";
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
 import type { CloudResource, StorageObject } from "@/types/resource";
+import {formatBytes} from "@/lib/format";
 
 interface ResourceInspectorProps {
   resource?: CloudResource;
@@ -363,15 +364,6 @@ function humanizeKey(value: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const index = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1,
-  );
-  return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
-}
 
 function getStringMetadata(value: unknown): string | null {
   return typeof value === "string" ? value : null;

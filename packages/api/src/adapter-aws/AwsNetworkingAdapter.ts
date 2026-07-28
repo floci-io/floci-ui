@@ -1,3 +1,4 @@
+import {NotSupportedError} from '../cloud-spi/errors'
 import {awsNetworkingSchema} from '../cloud-spi/networkingSchema'
 import type {CloudResource, CloudServiceAdapter, CreateResourceInput, ResourceQuery, ServiceSchema} from '../cloud-spi/types'
 import {ec2Service, type Ec2Tag, type Ec2Vpc} from '../services/ec2'
@@ -29,16 +30,21 @@ export class AwsNetworkingAdapter implements CloudServiceAdapter {
         return filterBySearch(vpcs.map(vpcToResource), query.search)
     }
 
-    async get(_id: string): Promise<CloudResource | null> {
-        return null
+    async get(id: string): Promise<CloudResource | null> {
+        // listVpcs is the only read the EC2 service exposes here, and a local
+        // emulator's VPC count is small enough that filtering it is cheaper than
+        // adding a describe path through the legacy service layer.
+        const vpcs = await this.service_.listVpcs()
+        const match = vpcs.find((vpc) => vpc.vpcId === id)
+        return match ? vpcToResource(match) : null
     }
 
     async create(_input: CreateResourceInput): Promise<CloudResource> {
-        throw new Error('Use the Networking panel to create VPCs and networking resources.')
+        throw new NotSupportedError('Use the Networking panel to create VPCs and networking resources.')
     }
 
     async delete(_id: string): Promise<void> {
-        throw new Error('Use the Networking panel to delete networking resources.')
+        throw new NotSupportedError('Use the Networking panel to delete networking resources.')
     }
 }
 

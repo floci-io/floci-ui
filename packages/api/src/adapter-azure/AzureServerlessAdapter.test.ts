@@ -1,6 +1,6 @@
-import {describe, expect, test} from 'bun:test'
-import type {AzureRuntimeClient, AzureRuntimeFetchOptions} from '../azure'
-import {AzureServerlessAdapter} from './AzureServerlessAdapter'
+import { describe, expect, test } from 'bun:test'
+import type { AzureRuntimeClient, AzureRuntimeFetchOptions } from '../azure'
+import { AzureServerlessAdapter } from './AzureServerlessAdapter'
 
 interface RecordedCall {
     path: string
@@ -23,7 +23,13 @@ function azureFunction(name: string) {
             scriptHref: `http://localhost:4577/functions/${name}/script`,
             invokeUrlTemplate: `http://localhost:4577/functions/${name}/invoke`,
             config: {
-                bindings: [],
+                bindings: [
+                    {
+                        type: 'httpTrigger',
+                        direction: 'in',
+                        name: 'req',
+                    },
+                ],
             },
             files: {
                 'index.js': 'module.exports = async () => ({statusCode: 200})',
@@ -53,7 +59,7 @@ describe('AzureServerlessAdapter', () => {
                 JSON.stringify({
                     value: [azureFunction('hello')],
                 }),
-                {status: 200},
+                { status: 200 },
             ),
         )
 
@@ -76,10 +82,18 @@ describe('AzureServerlessAdapter', () => {
                     resourceType: 'Microsoft.Web/sites/functions',
                     runtime: 'node',
                     functionAppName: 'floci-functions',
+                    lastModified: '2026-06-22T05:29:13Z',
+                    triggerType: 'httpTrigger',
                     scriptHref: 'http://localhost:4577/functions/hello/script',
                     invokeUrlTemplate: 'http://localhost:4577/functions/hello/invoke',
                     config: {
-                        bindings: [],
+                        bindings: [
+                            {
+                                type: 'httpTrigger',
+                                direction: 'in',
+                                name: 'req',
+                            },
+                        ],
                     },
                     files: {
                         'index.js':
@@ -90,10 +104,33 @@ describe('AzureServerlessAdapter', () => {
         ])
     })
 
+    test('handles missing trigger metadata gracefully', async () => {
+        const functionWithoutBindings = azureFunction('hello')
+        functionWithoutBindings.properties.config = {
+            bindings: [],
+        }
+
+        const client = testClient(async () =>
+            new Response(
+                JSON.stringify({
+                    value: [functionWithoutBindings],
+                }),
+                { status: 200 },
+            ),
+        )
+
+        const resources = await new AzureServerlessAdapter(client).list()
+
+        expect(resources[0].metadata.lastModified).toBe(
+            '2026-06-22T05:29:13Z',
+        )
+        expect(resources[0].metadata.triggerType).toBeUndefined()
+    })
+
     test('normalizes a missing list endpoint to an empty list', async () => {
         const client = testClient(async (_path, _init, options) => {
             if (options?.emptyOnNotFound) return null
-            return new Response('Not Found', {status: 404})
+            return new Response('Not Found', { status: 404 })
         })
 
         await expect(new AzureServerlessAdapter(client).list()).resolves.toEqual([])
@@ -105,7 +142,7 @@ describe('AzureServerlessAdapter', () => {
                 JSON.stringify({
                     value: [azureFunction('alpha'), azureFunction('beta')],
                 }),
-                {status: 200},
+                { status: 200 },
             ),
         )
 
@@ -118,7 +155,7 @@ describe('AzureServerlessAdapter', () => {
 
     test('gets and maps a single function', async () => {
         const client = testClient(async () =>
-            new Response(JSON.stringify(azureFunction('hello')), {status: 200}),
+            new Response(JSON.stringify(azureFunction('hello')), { status: 200 }),
         )
 
         const resource = await new AzureServerlessAdapter(client).get('hello')
@@ -131,7 +168,7 @@ describe('AzureServerlessAdapter', () => {
     test('get returns null when the function is missing', async () => {
         const client = testClient(async (_path, _init, options) => {
             if (options?.emptyOnNotFound) return null
-            return new Response('Not Found', {status: 404})
+            return new Response('Not Found', { status: 404 })
         })
 
         await expect(
@@ -143,7 +180,7 @@ describe('AzureServerlessAdapter', () => {
         const calls: RecordedCall[] = []
 
         const client = testClient(async (path, init, options) => {
-            calls.push({path, init, options})
+            calls.push({ path, init, options })
             return new Response(JSON.stringify(azureFunction('hello')), {
                 status: 201,
             })
@@ -202,7 +239,7 @@ describe('AzureServerlessAdapter', () => {
 
     test('create rejects when functionName is missing', async () => {
         const client = testClient(async () =>
-            new Response(JSON.stringify({}), {status: 200}),
+            new Response(JSON.stringify({}), { status: 200 }),
         )
 
         await expect(
@@ -214,7 +251,7 @@ describe('AzureServerlessAdapter', () => {
 
     test('create rejects when the runtime returns an empty response', async () => {
         const client = testClient(async () =>
-            new Response(null, {status: 204}),
+            new Response(null, { status: 204 }),
         )
 
         await expect(
@@ -230,8 +267,8 @@ describe('AzureServerlessAdapter', () => {
         const calls: RecordedCall[] = []
 
         const client = testClient(async (path, init, options) => {
-            calls.push({path, init, options})
-            return new Response(null, {status: 204})
+            calls.push({ path, init, options })
+            return new Response(null, { status: 204 })
         })
 
         await new AzureServerlessAdapter(client).delete('hello')
@@ -248,7 +285,7 @@ describe('AzureServerlessAdapter', () => {
         const calls: RecordedCall[] = []
 
         const client = testClient(async (path, init, options) => {
-            calls.push({path, init, options})
+            calls.push({ path, init, options })
             return new Response(
                 JSON.stringify({
                     statusCode: 202,
@@ -258,7 +295,7 @@ describe('AzureServerlessAdapter', () => {
                     functionError: 'Handled',
                     logResult: 'execution log',
                 }),
-                {status: 200},
+                { status: 200 },
             )
         })
 
@@ -290,7 +327,7 @@ describe('AzureServerlessAdapter', () => {
                     statusCode: 200,
                     body: 'ok',
                 }),
-                {status: 200},
+                { status: 200 },
             )
         })
 
@@ -305,20 +342,20 @@ describe('AzureServerlessAdapter', () => {
         expect(result.payload).toBe('ok')
     })
 
-        test('lists functions from a direct array response', async () => {
-          const client = testClient(async () =>
+    test('lists functions from a direct array response', async () => {
+        const client = testClient(async () =>
             new Response(
                 JSON.stringify([azureFunction('hello')]),
-                {status: 200},
-        ),
-    )
+                { status: 200 },
+            ),
+        )
 
-    const resources = await new AzureServerlessAdapter(client).list()
+        const resources = await new AzureServerlessAdapter(client).list()
 
-    expect(resources).toHaveLength(1)
-    expect(resources[0].id).toBe('hello')
-    expect(resources[0].type).toBe('azure-function')
-})
+        expect(resources).toHaveLength(1)
+        expect(resources[0].id).toBe('hello')
+        expect(resources[0].type).toBe('azure-function')
+    })
     test('propagates runtime errors from the Azure client', async () => {
         const client = testClient(async () => {
             throw new Error('Azure Functions request failed: HTTP 500')

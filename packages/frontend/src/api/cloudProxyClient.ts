@@ -3,6 +3,7 @@ import type {
   CloudDescriptor,
   CloudProvider,
   CloudServiceDescriptor,
+  CloudServiceStatus,
   CloudServiceType,
   CloudStatus,
 } from "@/types/cloud";
@@ -42,6 +43,19 @@ export async function getCloudStatus(
     apiEndpointKeys.clouds.status,
     requestOptions(cloud, "cloud-proxy", { signal }),
     { cloud },
+  );
+  return res.data;
+}
+
+export async function getCloudServiceStatus(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  signal?: AbortSignal,
+): Promise<CloudServiceStatus> {
+  const res = await apiClient.call<CloudServiceStatus>(
+    apiEndpointKeys.clouds.serviceStatus,
+    requestOptions(cloud, service, { signal }),
+    { cloud, service },
   );
   return res.data;
 }

@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- AWS Lambda invoke, including the tailed execution log and handler errors.
+- Per-service status: `GET /api/clouds/:cloud/services/:service/status` and
+  `GET /api/clouds/:cloud/status?services=all`, with an `errorCode` that distinguishes a
+  runtime that does not implement a service from one that cannot be reached.
+- `packages/api/scripts/service-matrix.ts` generates the README coverage table from the
+  service catalog and adapter registry.
+- Grouped sidebar sections, a loading skeleton, and a tooltip explaining why a service is
+  unavailable.
+
+### Changed
+
+- Service availability is derived from one catalog plus the adapter registry and served to
+  the frontend. Registering an adapter is now the only step needed for a service to appear;
+  the sidebar, Console Home, and Cloud Explorer no longer hardcode it.
+- Adapters throw typed errors that are mapped to HTTP in one place, so AWS SDK failures
+  return 400/403/404/409/429 instead of a blanket 502.
+- Both GCP adapters share a runtime client that reports Google's error message instead of a
+  bare HTTP status.
+
+### Fixed
+
+- AWS Lambda creation failed against the runtime: inline code was sent as raw text where a
+  deployment archive is required, so "create" could never succeed.
+- Azure serverless was advertised as available even though the Floci-AZ runtime answers 501
+  NotImplemented; it now reports `coming_soon` with that reason. GCP Cloud Functions invoke
+  is likewise advertised as `coming_soon` — contrary to the 0.2.0 note below, it was never
+  implemented.
+- AWS networking advertised create and delete as available while the adapter threw, and its
+  `get()` always returned null so inspect never worked.
+- A schema was served for services with no registered adapter, so the UI rendered a table
+  that then failed on every request.
+- GCP runtime status reported "reachable" whenever the port was open, because the probe
+  ignored the HTTP status. Cloud status was also inferred solely from the storage adapter.
+- Table columns bound to `metadata` fields — including Serverless "Runtime" and
+  "Last Updated" — rendered blank on every row.
+- An unknown service slug silently redirected to Storage instead of reporting it.
+
 ## [0.2.0] - 2026-07-08
 
 ### Added

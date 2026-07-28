@@ -1,14 +1,14 @@
 import {useMemo} from 'react'
-import {Cpu, Database, KeyRound, MessageSquare, Table2, Zap} from 'lucide-react'
+import {useQueries} from '@tanstack/react-query'
+import {listCloudResources} from '@/api/cloudProxyClient'
 import {
-    useCloudConsoleResourcesQuery,
-    useCloudsQuery,
+    cloudQueryKeys,
     useCloudServicesQuery,
     useCloudStatusQuery,
-} from './cloudConsoleHome.queries'
-import {useSecretsQuery} from '@/api/aws/secretsmanager.queries'
+    useCloudsQuery,
+} from '@/api/queries/cloudQueries'
+import {serviceIcon} from '@/components/serviceIcons'
 import {
-    activeServicesDetailFor,
     resourceDetailFor,
     runtimeClassFor,
     runtimeDetailFor,
@@ -19,112 +19,98 @@ import {
 import type {CloudProvider} from '@/types/cloud'
 import type {ConsoleServiceCard} from './types'
 
-const SERVICE_PLACEHOLDERS = [
-    {id: 'queue', label: 'Queue', icon: MessageSquare},
-    {id: 'function', label: 'Function', icon: Zap},
-]
-
+/**
+ * Console home is driven entirely by `GET /clouds/:cloud/services`.
+ *
+ * It previously hardcoded three resource queries, spliced in a Secrets Manager
+ * card for AWS with a hardcoded "available", and appended two permanent
+ * placeholder cards — so it could disagree with both the sidebar and the API.
+ */
 export function useCloudConsoleHomeData(cloud: CloudProvider) {
     const cloudsQuery = useCloudsQuery()
     const servicesQuery = useCloudServicesQuery(cloud)
     const statusQuery = useCloudStatusQuery(cloud)
     const status = statusQuery.data
-    const queryContext = {
-        cloud,
-        services: servicesQuery.data,
-        status,
-    }
-    const storageResourcesQuery = useCloudConsoleResourcesQuery({...queryContext, service: 'storage'})
-    const k8sResourcesQuery = useCloudConsoleResourcesQuery({...queryContext, service: 'k8s'})
-    const databaseResourcesQuery = useCloudConsoleResourcesQuery({...queryContext, service: 'database'})
-    const secretsQuery = useSecretsQuery(cloud === 'aws' && status?.runtime === 'reachable')
-    const serviceCards = useMemo<ConsoleServiceCard[]>(() => {
-        const storage = servicesQuery.data?.find((service) => service.service === 'storage')
-        const k8s = servicesQuery.data?.find((service) => service.service === 'k8s')
-        const database = servicesQuery.data?.find((service) => service.service === 'database')
+    const services = useMemo(() => servicesQuery.data ?? [], [servicesQuery.data])
 
-        return [
-            {
-                id: 'storage',
-                label: storage?.displayName ?? 'Storage',
-                status: storage?.availability ?? (cloud === 'gcp' ? 'coming_soon' : 'available'),
-                count: storageResourcesQuery.data?.length,
-                icon: Database,
-                route: `/cloud-explorer/${cloud}/storage`,
-                meta: serviceMetaLabel(status, storageResourcesQuery.isLoading, 'resources'),
-            },
-            {
-                id: 'k8s',
-                label: k8s?.displayName ?? 'k8s Engine',
-                status: k8s?.availability ?? 'coming_soon',
-                count: k8sResourcesQuery.data?.length,
-                icon: Cpu,
-                route: `/cloud-explorer/${cloud}/k8s`,
-                meta: serviceMetaLabel(status, k8sResourcesQuery.isLoading, 'clusters'),
-            },
-            {
-                id: 'database',
-                label: database?.displayName ?? 'Database',
-                status: database?.availability ?? 'coming_soon',
-                count: databaseResourcesQuery.data?.length,
-                icon: Table2,
-                route: `/cloud-explorer/${cloud}/database`,
-                meta: serviceMetaLabel(status, databaseResourcesQuery.isLoading, 'instances'),
-            },
-            ...(cloud === 'aws' ? [{
-                id: 'secretsmanager',
-                label: 'Secrets Manager',
-                status: 'available' as const,
-                count: secretsQuery.data?.length,
-                icon: KeyRound,
-                route: '/secretsmanager',
-                meta: serviceMetaLabel(status, secretsQuery.isLoading, 'secrets'),
-            }] : []),
-            ...SERVICE_PLACEHOLDERS.map((service) => ({
-                ...service,
-                status: 'coming_soon' as const,
-                count: undefined,
-                route: undefined,
-                meta: 'not wired yet',
-            })),
-        ]
-    }, [
-        databaseResourcesQuery.data,
-        databaseResourcesQuery.isLoading,
-        cloud,
-        k8sResourcesQuery.data,
-        k8sResourcesQuery.isLoading,
-        secretsQuery.data,
-        secretsQuery.isLoading,
-        servicesQuery.data,
-        status,
-        storageResourcesQuery.data,
-        storageResourcesQuery.isLoading,
-    ])
+    // Services on their own route are counted through the generic list endpoint;
+    // a legacy absolute-route page has no such endpoint, so it shows no count.
+    const countable = useMemo(
+        () => services.filter((service) => service.availability === 'available' && !service.route.startsWith('/')),
+        [services],
+    )
 
-    const resourcesLoading = storageResourcesQuery.isLoading
-        || k8sResourcesQuery.isLoading
-        || databaseResourcesQuery.isLoading
-        || (cloud === 'aws' && secretsQuery.isLoading)
-    const resourcesError = storageResourcesQuery.isError
-        || k8sResourcesQuery.isError
-        || databaseResourcesQuery.isError
-        || (cloud === 'aws' && secretsQuery.isError)
+    const runtimeReachable = status?.runtime === 'reachable'
+    const countQueries = useQueries({
+        queries: countable.map((service) => ({
+            queryKey: cloudQueryKeys.resources(cloud, service.service),
+            queryFn: ({signal}: {signal?: AbortSignal}) =>
+                listCloudResources(cloud, service.service, undefined, signal),
+            enabled: runtimeReachable,
+            staleTime: 30_000,
+        })),
+    })
+
+    const countsByService = useMemo(() => {
+        const map = new Map<string, {count?: number; isLoading: boolean; isError: boolean}>()
+        countable.forEach((service, index) => {
+            const query = countQueries[index]
+            map.set(service.service, {
+                count: query?.data?.length,
+                isLoading: query?.isLoading ?? false,
+                isError: query?.isError ?? false,
+            })
+        })
+        return map
+    }, [countable, countQueries])
+
+    const serviceCards = useMemo<ConsoleServiceCard[]>(
+        () =>
+            services.map((service): ConsoleServiceCard => {
+                const counts = countsByService.get(service.service)
+                const isLegacyPage = service.route.startsWith('/')
+                return {
+                    id: service.service,
+                    label: service.displayName,
+                    status: service.availability,
+                    count: counts?.count,
+                    icon: serviceIcon(service.iconKey),
+                    route:
+                        service.availability === 'available'
+                            ? isLegacyPage
+                                ? service.route
+                                : `/cloud-explorer/${cloud}/${service.route}`
+                            : undefined,
+                    meta:
+                        service.availability === 'available'
+                            ? isLegacyPage
+                                ? 'open service'
+                                : serviceMetaLabel(status, counts?.isLoading ?? false, 'resources')
+                            : 'coming soon',
+                }
+            }),
+        [cloud, countsByService, services, status],
+    )
+
+    const resourcesLoading = countQueries.some((query) => query.isLoading)
+    const resourcesError = countQueries.some((query) => query.isError)
+    const resourceCount = countQueries.reduce((total, query) => total + (query.data?.length ?? 0), 0)
+    const activeServices = services.filter((service) => service.availability === 'available').length
 
     return {
         cloudsQuery,
         status,
-        runtimeLabel: runtimeEndpointLabel(cloud, status),
+        runtimeLabel: runtimeEndpointLabel(status),
         runtimeState: runtimeLabelFor(status, statusQuery.isLoading),
         runtimeClass: runtimeClassFor(status, statusQuery.isLoading),
         runtimeDetail: status?.error ?? runtimeDetailFor(cloud, status),
-        activeServices: serviceCards.filter((service) => service.status === 'available').length,
-        activeServicesDetail: activeServicesDetailFor(cloud),
-        resourceCount: (storageResourcesQuery.data?.length ?? 0)
-            + (k8sResourcesQuery.data?.length ?? 0)
-            + (databaseResourcesQuery.data?.length ?? 0)
-            + (cloud === 'aws' ? (secretsQuery.data?.length ?? 0) : 0),
-        resourceDetail: resourceDetailFor(cloud, status, statusQuery.isLoading, resourcesLoading, resourcesError),
+        activeServices,
+        // Counted rather than asserted: the old copy claimed a fixed service list.
+        activeServicesDetail: servicesQuery.isSuccess
+            ? `${activeServices} of ${services.length} services available`
+            : 'Loading services',
+        resourceCount,
+        resourceDetail: resourceDetailFor(status, statusQuery.isLoading, resourcesLoading, resourcesError),
         serviceCards,
     }
 }

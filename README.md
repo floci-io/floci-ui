@@ -42,27 +42,42 @@ Open [http://localhost:4500](http://localhost:4500).
 
 ## What The UI Actually Exposes Today
 
-This table is the source of truth for the current UI surface.
+The sidebar and Console Home are rendered from `GET /api/clouds/:cloud/services`,
+so this table is derived from the service catalog and the adapter registry rather
+than maintained by hand. Regenerate it after any change to either:
 
-| Surface | AWS | Azure | GCP | Notes |
+```bash
+cd packages/api && bun run scripts/service-matrix.ts
+```
+
+| Group | Service | AWS | Azure | GCP |
 |---|---|---|---|---|
-| Console Home | Yes | Yes | Yes | Cloud-aware overview page with runtime status and service cards. |
-| Cloud Explorer / Storage | Yes | Yes | Yes | Unified storage view with resource table, inspector, object browser, and schema-driven actions. |
-| Cloud Explorer / k8s Engine | Yes | Placeholder | Placeholder | AWS EKS list/inspect is wired. |
-| Cloud Explorer / Database | Yes | Yes | Placeholder | AWS RDS list/inspect and Azure Cosmos DB NoSQL workflows. |
-| Cloud Explorer / Compute | Yes | Placeholder | Placeholder | AWS EC2 and AMI workflows. |
-| Cloud Explorer / Networking | Yes | Placeholder | Placeholder | AWS VPC/networking workflows. |
-| Cloud Explorer / Serverless | Yes | Not exposed in navigation | Not exposed in navigation | AWS Lambda flows through the unified shell. |
-| Cloud Explorer / Secrets | No | Yes | Placeholder | Azure Key Vault list/create/delete/inspect through the schema-driven explorer. |
-| Dedicated page / Secrets Manager | Yes | No | No | AWS-only page outside Cloud Explorer. |
+| Compute | Compute | Yes (list, inspect, create, delete) | No | No |
+| Compute | EKS / AKS / GKE | Yes (list, inspect) | No | No |
+| Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) |
+| Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
+| Databases | Database | Yes (list, inspect) | Yes (list, create, delete, inspect) | No |
+| Networking | Networking | Yes (list) | No | No |
+| Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
 
-Visible placeholders in the current sidebar:
+Console Home is available for all three clouds.
 
-- Queue
-- Function
-- Azure compute, networking, and k8s
-- GCP non-storage services
-- IAM, KMS, Cognito, Systems Manager, ElastiCache
+Runtime gaps — an adapter exists but the local runtime does not implement it:
+
+- Azure Serverless: the Floci-AZ runtime returns 501 NotImplemented for the Azure Functions endpoint.
+
+Services marked `No` render as a disabled sidebar row whose tooltip carries the
+server-supplied reason. Adding one is a catalog row in
+`packages/api/src/cloud-spi/serviceCatalog.ts` plus an adapter — no frontend change.
+
+<p align="center">
+  <img src="docs/images/floci-ui-console-azure.png" alt="Azure console home, showing services grouped by category with per-cloud naming and coming-soon reasons" width="900" />
+</p>
+
+Azure on the same build: the nav is grouped by category, `k8s Engine` is labelled
+`AKS` for this provider, and every unavailable service carries a reason — Serverless
+reads `coming soon` because the Floci-AZ runtime answers 501 for Azure Functions,
+even though an adapter is registered.
 
 ## Current Capability Snapshot
 
@@ -150,14 +165,17 @@ Current gaps:
 
 AWS only, through the unified shell plus an AWS-specific networking panel.
 
-- VPC list and inspect.
-- VPC creation and delete.
-- VPC wizard.
-- Subnets, security groups, internet gateways, NAT gateways, route tables, and Elastic IP workflows.
+- VPC list and inspect through the unified resource table.
+- VPC creation and delete, the VPC wizard, subnets, security groups, internet
+  gateways, NAT gateways, route tables, and Elastic IP workflows — all in the
+  Networking panel.
 
 Current gaps:
 
 - No Azure VNet or GCP VPC adapter yet.
+- Create and delete are advertised as `partial` in the unified schema and are
+  handled by the Networking panel, because they need dependent selectors that a
+  flat generic form cannot express.
 - Advanced multi-cloud networking normalization is still pending.
 
 </details>
@@ -165,23 +183,27 @@ Current gaps:
 <details>
 <summary><strong>Serverless</strong></summary>
 
-AWS only in the current navigation.
+AWS and GCP, both through the unified shell.
 
-- Lambda-oriented unified schema is wired through the Cloud Explorer serverless service.
-- The backend already exposes serverless through the Cloud Proxy API.
+- AWS Lambda and GCP Cloud Functions list, create, inspect, and delete.
+- AWS Lambda invoke is wired, including the tailed execution log and handler errors.
+- Lambda creation packages inline code into a real deployment archive.
+- The navigation entry appears for any cloud with a registered adapter.
 
 Current gaps:
 
-- Azure Functions is not yet exposed in the left navigation.
-- No GCP serverless adapter in the UI surface.
+- Azure Functions is registered but the Floci-AZ runtime answers 501 NotImplemented,
+  so it reports `coming_soon` with that reason rather than appearing available.
+- GCP Cloud Functions invoke is not wired yet; the capability is advertised as
+  `coming_soon` instead of being silently missing.
 - Old AWS Lambda page is gone; all future work should stay in the unified model.
 
 </details>
 
 <details>
-<summary><strong>Secrets</strong></summary>
+<summary><strong>Secrets Manager</strong></summary>
 
-AWS Secrets Manager remains a dedicated page outside Cloud Explorer.
+This is the only dedicated AWS page still outside Cloud Explorer.
 
 - List secrets.
 - Inspect metadata.
@@ -190,18 +212,10 @@ AWS Secrets Manager remains a dedicated page outside Cloud Explorer.
 - Update values.
 - Delete secrets, including force delete.
 
-Azure Key Vault uses the shared Cloud Explorer:
-
-- List and filter secret metadata without exposing values.
-- Create secrets with optional content type.
-- Inspect normalized metadata.
-- Soft-delete secrets.
-
 Current gaps:
 
-- AWS Secrets Manager is not migrated into the Cloud Explorer contract yet.
-- Key Vault value retrieval, versioning, recovery, and purge workflows are not exposed yet.
-- No GCP Secret Manager adapter yet.
+- Not migrated into the Cloud Explorer contract yet.
+- No Azure or GCP secret adapter yet.
 
 </details>
 
@@ -401,10 +415,26 @@ Check the runtime directly:
 
 ```bash
 curl http://localhost:4566/_floci/health
+curl http://localhost:4577/_floci/health
+curl http://localhost:4588/_floci-gcp/health
 curl http://localhost:4501/api/clouds/aws/status
 curl http://localhost:4501/api/clouds/azure/status
 curl http://localhost:4501/api/clouds/gcp/status
 ```
+
+### A single service shows as unavailable while the cloud is connected
+
+Cloud status reflects the runtime; each service is probed separately. Ask which
+service is failing and why:
+
+```bash
+curl http://localhost:4501/api/clouds/azure/status?services=all
+curl http://localhost:4501/api/clouds/azure/services/serverless/status
+```
+
+`errorCode` distinguishes the cases: `operation_not_implemented` means the local
+runtime does not implement that service, `runtime_unavailable` means it cannot be
+reached, and `operation_not_supported` means no adapter is registered.
 
 ### Credentials or endpoint mismatch
 

@@ -59,13 +59,21 @@ for all new work; the legacy routes survive only for deep EC2 panels and Secrets
 
 ### The multi-cloud SPI (the part you will use most)
 
-- `packages/api/src/cloud-spi/types.ts` — `CloudProvider` (`aws|azure|gcp`),
-  `CloudServiceType` (`storage|k8s|database|serverless|compute|networking|…`),
-  the `CloudServiceAdapter` interface, and `ServiceSchema`.
+- `packages/api/src/cloud-spi/serviceCatalog.ts` — **the single source of truth for which
+  services exist.** `CloudServiceType` derives from its keys; nav metadata (display name,
+  icon hint, group, route) is served to the frontend from here.
+- `packages/api/src/cloud-spi/types.ts` — `CloudProvider` (`aws|azure|gcp`), the
+  `CloudServiceAdapter` interface, `ServiceSchema`, and the status shapes.
+- `packages/api/src/cloud-spi/errors.ts` — the typed errors adapters throw; mapped to HTTP
+  once in `routes/clouds.ts` (with `adapter-aws/awsErrors.ts` for SDK failures).
 - `packages/api/src/registry/CloudAdapterRegistry.ts` — registry keyed by `"cloud:service"`.
+  Availability is derived from it, so registering an adapter is what lights up the nav.
 - `packages/api/src/service/CloudProxyService.ts` — the single dispatcher.
+- `packages/api/src/service/runtimeProbe.ts` — per-runtime liveness probes.
 - `packages/api/src/cloudProxy.ts` — where adapters are instantiated and registered.
 - `packages/api/src/routes/clouds.ts` — the generic `/api/clouds/...` REST surface.
+- `packages/api/src/cloudProxy.test.ts` — guards that no schema advertises a capability its
+  adapter cannot perform.
 
 A `ServiceSchema` (fields, `actions`, `capabilities`, `filters`, `columns`) drives the UI:
 the frontend's `DynamicResourceView` renders list / create / delete / inspect generically
@@ -74,8 +82,9 @@ from the schema — most services need **no bespoke UI**.
 ### Frontend layout
 
 - `packages/frontend/src/App.tsx` — routes (`/console/:cloud`, `/cloud-explorer/:cloud/:service`)
-- `packages/frontend/src/components/Layout.tsx` — nav (`CLOUD_SERVICE_ITEMS`, `CLOUD_SERVICE_ICONS`)
-- `packages/frontend/src/pages/CloudExplorerPage.tsx` — `normalizeService()` route handling
+- `packages/frontend/src/components/Layout.tsx` — nav, rendered from `GET /clouds/:cloud/services`
+- `packages/frontend/src/api/queries/cloudQueries.ts` — shared cloud/service/status queries
+- `packages/frontend/src/components/serviceIcons.ts` — `iconKey` -> component, with a fallback
 - `packages/frontend/src/components/DynamicResourceView.tsx` — schema → table/form/inspector orchestrator
 - Reusable: `ResourceTable`, `DynamicFormRenderer`, `ResourceInspector`, `StorageObjectBrowser`,
   `CosmosNoSqlPanel`, `EmptyState`, `lib/capabilities.ts`
@@ -111,29 +120,40 @@ Requires a running Floci core (`:4566`) — see `README.md` / `docker compose` (
 
 This is the canonical pattern (also referenced by the open service-coverage issues).
 
-**Backend (`packages/api`):**
+**Backend (`packages/api`) — this is the whole change:**
 
-1. `src/cloud-spi/<service>Schema.ts` — export `<service>SchemaFor(cloud)` returning a
-   `ServiceSchema`. Model: `src/cloud-spi/storageSchema.ts`.
-2. Add the literal to `CloudServiceType` in `src/cloud-spi/types.ts` (once per new category).
+1. Add one row to `SERVICE_CATALOG` in `src/cloud-spi/serviceCatalog.ts` (only for a new
+   category). `CloudServiceType`, the route guard, and the nav metadata all derive from it.
+2. `src/cloud-spi/<service>Schema.ts` — export a per-cloud `<cloud><Service>Schema()`
+   returning a `ServiceSchema`. Model: `src/cloud-spi/storageSchema.ts`. Use `path` on a
+   column to surface a `metadata.*` field.
 3. `src/adapter-<cloud>/<Cloud><Service>Adapter.ts implements CloudServiceAdapter` with a
    `.test.ts` alongside. Model: `src/adapter-aws/AwsStorageAdapter.ts`. AWS adapters use AWS
-   SDK v3 against `FLOCI_ENDPOINT`; Azure/GCP adapters call the local runtime over HTTP
-   (`adapter-azure/azure.ts`, `adapter-gcp/gcp.ts`).
-4. Register `new <Cloud><Service>Adapter()` in `src/cloudProxy.ts`.
-5. Add a `services.push({...})` entry + `schema()` fallback in `service/CloudProxyService.ts`,
-   and extend `isServiceType()` in `routes/clouds.ts`. The generic `/api/clouds/...` routes
-   then work with no new handler.
+   SDK v3 against `FLOCI_ENDPOINT`; Azure/GCP adapters take the shared runtime client
+   (`AzureRuntimeClient` in `azure.ts`, `GcpRuntimeClient` in `gcp.ts`) — do not hand-roll fetch.
+4. Register it in `src/cloudProxy.ts`.
 
-**Frontend (`packages/frontend`):**
+That is it. `services()` derives availability from the registry, `schema()` serves only
+registered adapters, and the generic `/api/clouds/...` routes need no new handler.
 
-1. Extend `CloudServiceType` in `src/types/cloud.ts` (and `types/schema.ts` if new shapes).
-2. Add a nav entry + icon and per-cloud gating in `components/Layout.tsx`.
-3. Handle the literal in `normalizeService()` in `pages/CloudExplorerPage.tsx`.
-4. `DynamicResourceView` renders it generically. Only add a `service === '<x>'` panel for
-   deep UX (models: `ComputePanel`, `NetworkingPanel`, `CosmosNoSqlPanel`).
+**Frontend (`packages/frontend`): normally nothing.**
 
-Rule: copy an existing adapter + schema before introducing a new shape.
+The nav, Console Home, and Cloud Explorer render `GET /clouds/:cloud/services`. Optional:
+add an `iconKey` to `components/serviceIcons.ts` (an unknown key falls back to a generic
+icon, so this is cosmetic), and add a `service === '<x>'` panel in `DynamicResourceView`
+only for deep UX (models: `ComputePanel`, `NetworkingPanel`, `CosmosNoSqlPanel`).
+
+Rules:
+
+- Copy an existing adapter + schema before introducing a new shape.
+- Throw the typed errors in `src/cloud-spi/errors.ts`, never a bare `Error` —
+  `routes/clouds.ts` maps them to HTTP and no longer matches on message text.
+- Never advertise a capability the adapter cannot perform. `src/cloudProxy.test.ts`
+  fails the build if a capability marked `available` has no adapter method, or if
+  anything not `available` lacks a `reason`. Use `descriptorOverride()` when the
+  adapter exists but the local runtime does not implement it.
+- Regenerate the README table when navigation changes:
+  `cd packages/api && bun run scripts/service-matrix.ts`.
 
 ---
 
@@ -185,7 +205,10 @@ and push the multi-arch `floci/floci-ui` image. Treat release workflows as criti
 - Calling cloud endpoints directly from the frontend instead of through `/api/*`
 - Adding fake/sample data instead of real empty states
 - Extending the legacy `ec2/rds/eks/secretsmanager` routes for new work
-- Forgetting to register the adapter (`cloudProxy.ts`) or wire the nav (`Layout.tsx`)
+- Forgetting to register the adapter in `cloudProxy.ts` — that registration *is* what makes
+  the service appear; do not hardcode availability in the frontend
+- Advertising a schema capability the adapter cannot perform (`cloudProxy.test.ts` catches it)
+- Throwing a bare `Error` from an adapter instead of a typed error from `cloud-spi/errors.ts`
 - Skipping `pnpm type-check` / `pnpm test` before finishing
 
 ---

@@ -1,3 +1,4 @@
+import {ValidationError} from '../cloud-spi/errors'
 import {
     CopyObjectCommand,
     CreateBucketCommand,
@@ -57,9 +58,9 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
         const bucketName = stringValue(input.values.bucketName)
-        if (!bucketName) throw new Error('bucketName is required')
+        if (!bucketName) throw new ValidationError('bucketName is required')
         if (!isValidS3BucketName(bucketName)) {
-            throw new Error('Use a valid S3 bucket name: 3-63 lowercase characters, numbers, dots, or hyphens.')
+            throw new ValidationError('Use a valid S3 bucket name: 3-63 lowercase characters, numbers, dots, or hyphens.')
         }
 
         await this.s3.send(new CreateBucketCommand({Bucket: bucketName}))

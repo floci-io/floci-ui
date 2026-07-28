@@ -18,16 +18,19 @@ import {createEksService} from './services/eks'
 import {createRdsService} from './services/rds'
 
 /**
- * Build a CloudProxyService whose AWS adapters are bound to a specific account.
- * The account id drives the AWS SDK credentials (see aws.ts), so every AWS call
- * the returned service makes is isolated to that account. Azure and GCP adapters
- * use their own runtime auth model and are account-neutral.
+ * Build the adapter registry for an account. The account id drives the AWS SDK
+ * credentials (see aws.ts), so every AWS call is isolated to that account; Azure
+ * and GCP adapters use their own runtime auth model and are account-neutral.
+ *
+ * Exported separately from the service so tests can assert registry contents —
+ * notably that every adapter implements what its schema advertises — without
+ * reaching into private state.
  */
-export function createCloudProxyService(accountId?: string | null): CloudProxyService {
+export function createCloudAdapterRegistry(accountId?: string | null): CloudAdapterRegistry {
     const clients = awsClientsForAccount(accountId)
     const ec2Service = createEc2Service(clients.ec2)
 
-    const registry = new CloudAdapterRegistry([
+    return new CloudAdapterRegistry([
         new AwsStorageAdapter(clients.s3),
         new AwsEksAdapter(createEksService(clients.eks)),
         new AwsDatabaseAdapter(createRdsService(clients.rds), clients.rds),
@@ -41,8 +44,10 @@ export function createCloudProxyService(accountId?: string | null): CloudProxySe
         new AzureServerlessAdapter(),
         new AzureKeyVaultAdapter(),
     ])
+}
 
-    return new CloudProxyService(registry)
+export function createCloudProxyService(accountId?: string | null): CloudProxyService {
+    return new CloudProxyService(createCloudAdapterRegistry(accountId))
 }
 
 const serviceCache = new Map<string, CloudProxyService>()

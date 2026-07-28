@@ -66,7 +66,3 @@ export function azureSecretsSchema(): ServiceSchema {
     }
 }
 
-export function secretsSchemaFor(cloud: CloudProvider): ServiceSchema | null {
-    if (cloud === 'azure') return azureSecretsSchema()
-    return null
-}

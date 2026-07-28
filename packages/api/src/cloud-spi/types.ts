@@ -1,6 +1,10 @@
-export type CloudProvider = 'aws' | 'azure' | 'gcp'
+// Derived from SERVICE_CATALOG so a new catalog row is a new service type.
+// This type-only cycle with serviceCatalog.ts is erased at compile time.
+import type {CloudServiceType, ServiceGroup} from './serviceCatalog'
 
-export type CloudServiceType = 'storage' | 'k8s' | 'database' | 'serverless' | 'compute' | 'networking' | 'secrets'
+export type {CloudServiceType, ServiceGroup}
+
+export type CloudProvider = 'aws' | 'azure' | 'gcp'
 
 export type CloudAvailability = 'available' | 'coming_soon'
 
@@ -10,20 +14,55 @@ export interface CloudDescriptor {
     availability: CloudAvailability
 }
 
+/**
+ * What the frontend needs to render a nav entry. Everything except
+ * `availability` and `reason` comes from the service catalog; those two are
+ * resolved per cloud at request time.
+ */
 export interface CloudServiceDescriptor {
     cloud: CloudProvider
     service: CloudServiceType
     displayName: string
     availability: CloudAvailability
+    /** Why the service is unavailable. Always set when availability is coming_soon. */
+    reason?: string
+    /** Route slug, or an absolute path for a page outside Cloud Explorer. */
+    route: string
+    /** Icon hint; the frontend maps it to a component and falls back if unknown. */
+    iconKey: string
+    group: ServiceGroup
+    order: number
 }
+
+export type RuntimeReachability = 'reachable' | 'unavailable' | 'coming_soon'
 
 export interface CloudStatus {
     cloud: CloudProvider
     adapterRegistered: boolean
-    runtime: 'reachable' | 'unavailable' | 'coming_soon'
+    runtime: RuntimeReachability
     endpoint: string | null
     checkedAt: string
     error: string | null
+    /** Present only when the caller asks for per-service detail. */
+    services?: CloudServiceStatus[]
+}
+
+/**
+ * Health of one service rather than the whole cloud. Needed because a cloud can
+ * be up while an individual service is not — the Azure runtime serves blob
+ * storage but answers 501 for functions.
+ */
+export interface CloudServiceStatus {
+    cloud: CloudProvider
+    service: CloudServiceType
+    adapterRegistered: boolean
+    runtime: RuntimeReachability
+    endpoint: string | null
+    checkedAt: string
+    latencyMs: number | null
+    error: string | null
+    /** The mapped error code, so the UI can tell "not implemented" from "down". */
+    errorCode: string | null
 }
 
 export type FieldType = 'text' | 'password' | 'select'
@@ -45,8 +84,22 @@ export interface FieldSchema {
     options?: Array<{label: string; value: string}>
 }
 
+/**
+ * Verbs a service can advertise. `ActionSchema` drives which controls the
+ * generic view renders; `ResourceActionName` additionally covers lifecycle verbs
+ * that a capability block can describe but that are not table-level controls.
+ */
 export type ActionSchema = 'list' | 'create' | 'delete' | 'inspect'
-export type ResourceActionName = 'list' | 'create' | 'delete' | 'inspect'
+export type ResourceActionName =
+    | 'list'
+    | 'create'
+    | 'delete'
+    | 'inspect'
+    | 'invoke'
+    | 'start'
+    | 'stop'
+    | 'reboot'
+    | 'updateTags'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
 export type CapabilityStatus = 'available' | 'blocked' | 'partial' | 'coming_soon'
 
@@ -59,9 +112,25 @@ export interface CapabilitySchema<TAction extends string> {
     runtimeRequired?: boolean
 }
 
+/**
+ * How a column is rendered. Everything past `label` is optional and every
+ * default reproduces the previous behaviour, so existing schemas are unaffected.
+ */
+export type ColumnFormat = 'text' | 'datetime' | 'relative' | 'bytes' | 'boolean' | 'badge' | 'code' | 'list'
+
 export interface TableColumnSchema {
+    /** Column identity and sort key. */
     name: string
     label: string
+    /**
+     * Dotted accessor into the resource, defaulting to `name`. Needed because
+     * most provider detail lives under `metadata`, which a top-level lookup
+     * cannot reach — those columns previously rendered blank for every row.
+     */
+    path?: string
+    format?: ColumnFormat
+    emptyText?: string
+    width?: string
 }
 
 export interface ServiceSchema {
@@ -151,10 +220,26 @@ export interface ServerlessInvokeResult {
     logResult?: string
     executionDuration?: number
 }
+/**
+ * Lets a registered adapter correct its own advertised availability.
+ *
+ * Needed because "an adapter exists" and "the local runtime implements it" are
+ * different facts: floci-az ships no /functions endpoint, so the Azure
+ * serverless adapter is registered but cannot serve a request. Declaring that
+ * here keeps the sidebar, the console card and the explorer surface consistent
+ * from one string.
+ */
+export interface CloudServiceDescriptorOverride {
+    availability?: CloudAvailability
+    reason?: string
+    displayName?: string
+}
+
 export interface CloudServiceAdapter {
     readonly cloud: CloudProvider
     readonly service: CloudServiceType
     schema(): ServiceSchema
+    descriptorOverride?(): CloudServiceDescriptorOverride
     list(query?: ResourceQuery): Promise<CloudResource[]>
     get(id: string): Promise<CloudResource | null>
     create(input: CreateResourceInput): Promise<CloudResource>
@@ -164,6 +249,18 @@ export interface CloudServiceAdapter {
     getObject?(resourceId: string, key: string): Promise<StorageObjectDownload>
     deleteObject?(resourceId: string, key: string): Promise<void>
     invoke?(id: string, payload: string): Promise<ServerlessInvokeResult>
+    // Lifecycle verbs. Optional because most categories have no notion of them;
+    // an adapter that advertises one in `capabilities` must implement it, which
+    // cloudProxy.test.ts enforces.
+    start?(id: string): Promise<void>
+    stop?(id: string, force?: boolean): Promise<void>
+    reboot?(id: string): Promise<void>
+    updateTags?(id: string, tags: Record<string, string | null>): Promise<void>
+    /**
+     * Cheap liveness check. Defaults to `list()`, which is a valid probe for
+     * every current adapter; override where listing is expensive.
+     */
+    health?(): Promise<void>
     copyObject?(srcResourceId: string, srcKey: string, destKey: string, destResourceId?: string): Promise<void>
     listCosmosContainers?(databaseId: string): Promise<CosmosContainer[]>
     createCosmosContainer?(databaseId: string, input: CreateResourceInput): Promise<CosmosContainer>

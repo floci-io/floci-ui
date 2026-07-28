@@ -1,3 +1,4 @@
+import {NotFoundError, ValidationError} from '../cloud-spi/errors'
 import {azureStorageSchema} from '../cloud-spi/storageSchema'
 import {azure, type AzureRuntimeClient} from '../azure'
 import type {
@@ -38,9 +39,9 @@ export class AzureStorageAdapter implements CloudServiceAdapter {
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
         const containerName = stringValue(input.values.containerName)
-        if (!containerName) throw new Error('containerName is required')
+        if (!containerName) throw new ValidationError('containerName is required')
         if (!isValidContainerName(containerName)) {
-            throw new Error('Use a valid Azure container name: 3-63 lowercase letters, numbers, or single hyphens.')
+            throw new ValidationError('Use a valid Azure container name: 3-63 lowercase letters, numbers, or single hyphens.')
         }
 
         await this.client.fetch(`${containerPath(this.client, containerName)}?restype=container`, {method: 'PUT'})
@@ -75,7 +76,7 @@ export class AzureStorageAdapter implements CloudServiceAdapter {
 
     async getObject(resourceId: string, key: string): Promise<StorageObjectDownload> {
         const res = await this.client.fetch(`${containerPath(this.client, resourceId)}/${encodePath(key)}`, {method: 'GET'})
-        if (!res) throw new Error('Azure blob not found')
+        if (!res) throw new NotFoundError('Azure blob not found')
         return {
             body: await res.arrayBuffer(),
             contentType: res.headers.get('content-type') ?? 'application/octet-stream',

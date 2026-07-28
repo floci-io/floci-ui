@@ -2,6 +2,8 @@ import {useState} from 'react';
 import {Trash2} from 'lucide-react';
 import type {CloudResource} from '@/types/resource';
 import type {ServiceSchema} from '@/types/schema';
+import {getPath} from '@/lib/resourcePath';
+import {renderColumnValue} from '@/lib/columnFormat';
 
 interface ResourceTableProps {
   schema: ServiceSchema;
@@ -39,7 +41,9 @@ export function ResourceTable({
       <thead>
         <tr>
           {schema.columns.map((column) => (
-            <th key={column.name}>{column.label}</th>
+            <th key={column.name} style={column.width ? {width: column.width} : undefined}>
+              {column.label}
+            </th>
           ))}
           {canDelete && <th aria-label="Actions" />}
         </tr>
@@ -49,7 +53,7 @@ export function ResourceTable({
           <tr key={resource.id} className={selectedId === resource.id ? 'selected' : ''}>
             {schema.columns.map((column) => (
               <td key={column.name} onClick={() => onSelect(resource)}>
-                {formatValue(resource[column.name as keyof CloudResource])}
+                {renderColumnValue(getPath(resource, column.path ?? column.name), column)}
               </td>
             ))}
             {canDelete && (
@@ -86,7 +90,3 @@ export function ResourceTable({
   );
 }
 
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '-';
-  return String(value);
-}

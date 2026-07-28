@@ -1,3 +1,4 @@
+import {NotSupportedError} from '../cloud-spi/errors'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
 import type {
     CloudResource,
@@ -35,11 +36,11 @@ export class AwsEksAdapter implements CloudServiceAdapter {
     }
 
     async create(_input: CreateResourceInput): Promise<CloudResource> {
-        throw new Error('EKS cluster creation is not supported from the dynamic Cloud Explorer.')
+        throw new NotSupportedError('EKS cluster creation is not supported from the dynamic Cloud Explorer.')
     }
 
     async delete(_id: string): Promise<void> {
-        throw new Error('EKS cluster deletion is not supported from the dynamic Cloud Explorer.')
+        throw new NotSupportedError('EKS cluster deletion is not supported from the dynamic Cloud Explorer.')
     }
 }
 

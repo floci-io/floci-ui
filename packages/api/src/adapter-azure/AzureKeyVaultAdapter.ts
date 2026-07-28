@@ -1,5 +1,6 @@
 import {azure, type AzureRuntimeClient} from '../azure'
 import {azureSecretsSchema, SECRET_NAME_MESSAGE, SECRET_NAME_PATTERN} from '../cloud-spi/secretsSchema'
+import {ValidationError} from '../cloud-spi/errors'
 import type {
     CloudResource,
     CloudServiceAdapter,
@@ -79,9 +80,9 @@ export class AzureKeyVaultAdapter implements CloudServiceAdapter {
         const secretValue = stringValue(input.values.secretValue ?? input.values.value, false)
         const contentType = stringValue(input.values.contentType)
 
-        if (!secretName) throw new Error('secretName is required')
-        if (!new RegExp(SECRET_NAME_PATTERN).test(secretName)) throw new Error(SECRET_NAME_MESSAGE)
-        if (!secretValue) throw new Error('secretValue is required')
+        if (!secretName) throw new ValidationError('secretName is required')
+        if (!new RegExp(SECRET_NAME_PATTERN).test(secretName)) throw new ValidationError(SECRET_NAME_MESSAGE)
+        if (!secretValue) throw new ValidationError('secretValue is required')
 
         const body = await this.keyVaultJson<KeyVaultSecretRecord>(
             `/secrets/${encodeURIComponent(secretName)}?api-version=${API_VERSION}`,
