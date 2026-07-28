@@ -13,11 +13,11 @@ describe('AzureKeyVaultAdapter', () => {
         const calls: RecordedCall[] = []
         const adapter = new AzureKeyVaultAdapter(testClient({
             '/devstoreaccount1-keyvault/secrets?api-version=7.4': {
-                value: [secretRecord('api-token', 'v2')],
+                value: [listedSecretRecord('api-token')],
                 nextLink: 'https://devstoreaccount1.vault.azure.net/secrets?api-version=7.4&next=page-2',
             },
             '/devstoreaccount1-keyvault/secrets?api-version=7.4&next=page-2': {
-                value: [secretRecord('database-password', 'v1', {env: 'test'})],
+                value: [listedSecretRecord('database-password', {env: 'test'})],
                 nextLink: null,
             },
         }, calls))
@@ -31,7 +31,7 @@ describe('AzureKeyVaultAdapter', () => {
             region: null,
             createdAt: '2026-05-20T20:00:00.000Z',
             status: 'enabled',
-            version: 'v1',
+            version: null,
             metadata: {
                 provider: 'azure',
                 secretsService: 'key-vault',
@@ -50,6 +50,19 @@ describe('AzureKeyVaultAdapter', () => {
             '/devstoreaccount1-keyvault/secrets?api-version=7.4&next=page-2',
         ])
         expect(calls.every((call) => call.options.includeStorageApiVersion === false)).toBe(true)
+    })
+
+    test('stops paging when the runtime echoes the current page as its nextLink', async () => {
+        const calls: RecordedCall[] = []
+        const adapter = new AzureKeyVaultAdapter(testClient({
+            '/devstoreaccount1-keyvault/secrets?api-version=7.4': {
+                value: [listedSecretRecord('api-token')],
+                nextLink: 'https://devstoreaccount1.vault.azure.net/secrets?api-version=7.4',
+            },
+        }, calls))
+
+        await expect(adapter.list()).resolves.toHaveLength(1)
+        expect(calls).toHaveLength(1)
     })
 
     test('gets a secret and omits its value from normalized metadata', async () => {
@@ -109,6 +122,19 @@ describe('AzureKeyVaultAdapter', () => {
         expect(calls[0].init.method).toBe('DELETE')
         expect(calls[0].init.headers).toMatchObject({authorization: 'Bearer floci-ui'})
         expect(calls[0].options.includeStorageApiVersion).toBe(false)
+        expect(calls[0].options.emptyOnNotFound).toBeUndefined()
+    })
+
+    test('surfaces a delete of a secret that does not exist', async () => {
+        const adapter = new AzureKeyVaultAdapter({
+            endpoint: 'http://localhost:4577',
+            accountName: 'devstoreaccount1',
+            async fetch(path: string) {
+                throw new Error(`Azure runtime request failed: HTTP 404 ${path}`)
+            },
+        })
+
+        await expect(adapter.delete('missing')).rejects.toThrow('HTTP 404')
     })
 
     test('normalizes missing secrets to null and missing lists to empty', async () => {
@@ -140,9 +166,14 @@ describe('AzureKeyVaultAdapter', () => {
     })
 })
 
-function secretRecord(name: string, version: string, tags: Record<string, string> = {}) {
+// The list endpoint returns base identifiers; only a single-secret read carries a version.
+function listedSecretRecord(name: string, tags: Record<string, string> = {}) {
+    return secretRecord(name, null, tags)
+}
+
+function secretRecord(name: string, version: string | null, tags: Record<string, string> = {}) {
     return {
-        id: `https://devstoreaccount1.vault.azure.net/secrets/${name}/${version}`,
+        id: `https://devstoreaccount1.vault.azure.net/secrets/${name}${version ? `/${version}` : ''}`,
         attributes: {
             enabled: true,
             created: 1779307200,

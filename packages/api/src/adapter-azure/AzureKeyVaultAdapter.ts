@@ -1,5 +1,5 @@
 import {azure, type AzureRuntimeClient} from '../azure'
-import {azureSecretsSchema} from '../cloud-spi/secretsSchema'
+import {azureSecretsSchema, SECRET_NAME_MESSAGE, SECRET_NAME_PATTERN} from '../cloud-spi/secretsSchema'
 import type {
     CloudResource,
     CloudServiceAdapter,
@@ -45,9 +45,13 @@ export class AzureKeyVaultAdapter implements CloudServiceAdapter {
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const records: KeyVaultSecretRecord[] = []
+        const visited = new Set<string>()
         let path: string | null = `/secrets?api-version=${API_VERSION}`
 
-        while (path) {
+        // A runtime that echoes the current page as its own nextLink would otherwise
+        // loop forever, so stop as soon as a page repeats.
+        while (path && !visited.has(path)) {
+            visited.add(path)
             const body: KeyVaultSecretListResponse | null = await this.keyVaultJson<KeyVaultSecretListResponse>(
                 path,
                 {method: 'GET'},
@@ -76,9 +80,7 @@ export class AzureKeyVaultAdapter implements CloudServiceAdapter {
         const contentType = stringValue(input.values.contentType)
 
         if (!secretName) throw new Error('secretName is required')
-        if (!/^[0-9A-Za-z-]{1,127}$/.test(secretName)) {
-            throw new Error('Use a valid Key Vault secret name: 1-127 letters, numbers, or hyphens.')
-        }
+        if (!new RegExp(SECRET_NAME_PATTERN).test(secretName)) throw new Error(SECRET_NAME_MESSAGE)
         if (!secretValue) throw new Error('secretValue is required')
 
         const body = await this.keyVaultJson<KeyVaultSecretRecord>(
@@ -100,7 +102,7 @@ export class AzureKeyVaultAdapter implements CloudServiceAdapter {
         await this.client.fetch(
             this.keyVaultPath(`/secrets/${encodeURIComponent(id)}?api-version=${API_VERSION}`),
             {method: 'DELETE', headers: keyVaultHeaders()},
-            {emptyOnNotFound: true, includeStorageApiVersion: false},
+            {includeStorageApiVersion: false},
         )
     }
 

@@ -122,7 +122,7 @@ describe('cloud schema routes', () => {
         const body = await res.json()
 
         expect(res.status).toBe(200)
-        expect(body.displayName).toBe('Azure Key Vault')
+        expect(body.displayName).toBe('Key Vault')
         expect(body.fields.map((field: {name: string}) => field.name)).toEqual([
             'secretName',
             'secretValue',

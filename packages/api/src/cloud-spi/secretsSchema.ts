@@ -1,21 +1,27 @@
 import type {CloudProvider, FieldSchema, ServiceSchema, TableColumnSchema} from './types'
 
+// The hyphen is escaped so the pattern also compiles under the `v` flag used for
+// HTML pattern validation in the browser.
+export const SECRET_NAME_PATTERN = '^[0-9A-Za-z\\-]{1,127}$'
+export const SECRET_NAME_MESSAGE = 'Use a valid Key Vault secret name: 1-127 letters, numbers, or hyphens.'
+
 const secretsFilters: FieldSchema[] = [
     {name: 'search', label: 'Search', type: 'text', required: false},
 ]
 
+// The list endpoint returns base secret identifiers without a version, so a Version
+// column would be blank for every row. Versions are surfaced on inspect instead.
 const secretsColumns: TableColumnSchema[] = [
     {name: 'name', label: 'Secret Name'},
     {name: 'status', label: 'Status'},
     {name: 'createdAt', label: 'Created At'},
-    {name: 'version', label: 'Version'},
 ]
 
 export function azureSecretsSchema(): ServiceSchema {
     return {
         cloud: 'azure',
         service: 'secrets',
-        displayName: 'Azure Key Vault',
+        displayName: 'Key Vault',
         fields: [
             {
                 name: 'secretName',
@@ -26,8 +32,8 @@ export function azureSecretsSchema(): ServiceSchema {
                 validation: {
                     minLength: 1,
                     maxLength: 127,
-                    pattern: '^(?:[0-9A-Za-z]|-)+$',
-                    message: 'Use letters, numbers, or hyphens.',
+                    pattern: SECRET_NAME_PATTERN,
+                    message: SECRET_NAME_MESSAGE,
                 },
             },
             {
