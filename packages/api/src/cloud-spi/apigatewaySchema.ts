@@ -1,4 +1,4 @@
-import type {CapabilitySchema, CloudProvider, ResourceActionName, ServiceSchema} from './types'
+import type {CapabilitySchema, ResourceActionName, ServiceSchema} from './types'
 
 const resourceActions: CapabilitySchema<ResourceActionName>[] = [
     {name: 'list', label: 'List APIs', enabled: true, status: 'available', runtimeRequired: true},
@@ -46,8 +46,4 @@ export function awsApiGatewaySchema(): ServiceSchema {
             {name: 'createdAt', label: 'Created At'},
         ],
     }
-}
-
-export function apigatewaySchemaFor(cloud: CloudProvider): ServiceSchema | null {
-    return cloud === 'aws' ? awsApiGatewaySchema() : null
 }
