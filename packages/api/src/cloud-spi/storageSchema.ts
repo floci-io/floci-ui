@@ -12,12 +12,14 @@ const storageFilters: FieldSchema[] = [
     {name: 'search', label: 'Search', type: 'text', required: false},
 ]
 
-const storageResourceActions: CapabilitySchema<ResourceActionName>[] = [
-    {name: 'list', label: 'List resources', enabled: true, status: 'available', runtimeRequired: true},
-    {name: 'create', label: 'Create resource', enabled: true, status: 'available', runtimeRequired: true},
-    {name: 'delete', label: 'Delete resource', enabled: true, status: 'available', runtimeRequired: true},
-    {name: 'inspect', label: 'Inspect resource', enabled: true, status: 'available', runtimeRequired: false},
-]
+function storageResourceActions(createLabel: string): CapabilitySchema<ResourceActionName>[] {
+    return [
+        {name: 'list', label: 'List resources', enabled: true, status: 'available', runtimeRequired: true},
+        {name: 'create', label: createLabel, enabled: true, status: 'available', runtimeRequired: true},
+        {name: 'delete', label: 'Delete resource', enabled: true, status: 'available', runtimeRequired: true},
+        {name: 'inspect', label: 'Inspect resource', enabled: true, status: 'available', runtimeRequired: false},
+    ]
+}
 
 const storageObjectActions: CapabilitySchema<ObjectActionName>[] = [
     {name: 'list', label: 'List objects', enabled: true, status: 'available', runtimeRequired: true},
@@ -67,7 +69,7 @@ export function awsStorageSchema(): ServiceSchema {
         ],
         actions: ['list', 'create', 'delete', 'inspect'],
         capabilities: {
-            resourceActions: storageResourceActions,
+            resourceActions: storageResourceActions('Create bucket'),
             objectActions: storageObjectActions,
         },
         filters: storageFilters,
@@ -97,7 +99,7 @@ export function azureStorageSchema(): ServiceSchema {
         ],
         actions: ['list', 'create', 'delete', 'inspect'],
         capabilities: {
-            resourceActions: storageResourceActions,
+            resourceActions: storageResourceActions('Create container'),
             objectActions: storageObjectActions,
         },
         filters: storageFilters,
@@ -127,7 +129,7 @@ export function gcpStorageSchema(): ServiceSchema {
         ],
         actions: ['list', 'create', 'delete', 'inspect'],
         capabilities: {
-            resourceActions: storageResourceActions,
+            resourceActions: storageResourceActions('Create bucket'),
             objectActions: storageObjectActions,
         },
         filters: storageFilters,
