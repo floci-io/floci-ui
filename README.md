@@ -57,7 +57,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Databases | Database | Yes (list, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
-| Networking | Networking | Yes (list) | No | No |
+| Networking | Networking | Yes (list) | Yes (list, inspect, create, delete) | No |
 | Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
 
 Console Home is available for all three clouds.
