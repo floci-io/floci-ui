@@ -121,6 +121,13 @@ async function readTextPreview(src: string, signal: AbortSignal): Promise<{text:
         }
         if (text.length > TEXT_PREVIEW_LIMIT) {
             text = text.slice(0, TEXT_PREVIEW_LIMIT)
+            // A code unit landing exactly on the cut could be the high half of a
+            // surrogate pair (e.g. an emoji) with its low half past the boundary —
+            // slice() doesn't know that, and leaves a lone surrogate that renders
+            // as a replacement glyph. Drop it so the preview only ever ends on a
+            // complete character.
+            const lastCode = text.charCodeAt(text.length - 1)
+            if (lastCode >= 0xd800 && lastCode <= 0xdbff) text = text.slice(0, -1)
             truncated = true
         } else {
             // Confirm whether more data was actually available before claiming

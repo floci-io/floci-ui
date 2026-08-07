@@ -372,7 +372,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                     <td onClick={() => onSelectObject(object)} style={{cursor: 'pointer'}}>
                                         <span className="object-name">
                                             {iconKind ? (
-                                                <ObjectThumbnail kind={iconKind} src={storageObjectDownloadUrl(cloud, resource.id, object.key)} name={object.name}/>
+                                                <ObjectThumbnail kind={iconKind} src={storageObjectDownloadUrl(cloud, resource.id, object.key)} name={object.name} canLoad={canDownload}/>
                                             ) : (
                                                 <File size={14}/>
                                             )}
@@ -384,7 +384,13 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                     <td>{object.lastModified ?? '—'}</td>
                                     <td className="table-actions">
                                         {previewKind && (
-                                            <button className="icon-btn" type="button" title={`Preview ${object.name}`} onClick={(e) => { e.stopPropagation(); setPreviewObject(object) }}>
+                                            <button
+                                                className="icon-btn"
+                                                type="button"
+                                                disabled={!canDownload}
+                                                title={canDownload ? `Preview ${object.name}` : (downloadCapability?.reason ?? `Preview ${object.name}`)}
+                                                onClick={(e) => { e.stopPropagation(); if (canDownload) setPreviewObject(object) }}
+                                            >
                                                 <Eye size={13}/>
                                             </button>
                                         )}
