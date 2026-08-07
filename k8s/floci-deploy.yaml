@@ -24,6 +24,8 @@ spec:
           value: persistent
         - name: FLOCI_DEFAULT_REGION
           value: us-east-1
+        - name: FLOCI_PORT
+          value: "4566"
         ports:
         - containerPort: 4566
         volumeMounts:
