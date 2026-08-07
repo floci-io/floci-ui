@@ -206,6 +206,19 @@ export function storageObjectDownloadUrl(
   )}&account=${encodeURIComponent(getAccountId())}`;
 }
 
+/**
+ * Same object, but rendered inline (e.g. in an <iframe> PDF viewer) instead
+ * of triggering a download. The regular Download button/link always uses
+ * {@link storageObjectDownloadUrl} — this is only for the preview surface.
+ */
+export function storageObjectPreviewUrl(
+  cloud: CloudProvider,
+  resourceId: string,
+  key: string,
+): string {
+  return `${storageObjectDownloadUrl(cloud, resourceId, key)}&inline=1`;
+}
+
 export async function deleteStorageObject(
   cloud: CloudProvider,
   resourceId: string,

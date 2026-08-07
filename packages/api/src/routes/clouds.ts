@@ -184,13 +184,19 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
 
         const key = c.req.query('key') ?? ''
         if (!key) return c.json({error: 'Object key is required'}, 400)
+        // Object previews (e.g. an in-browser PDF viewer) need the response to
+        // render inline instead of triggering a download. Regular downloads
+        // (the toolbar Download button, "Save As") keep the existing
+        // attachment behavior unchanged.
+        const inline = c.req.query('inline') === '1'
         return withRuntime(c, async () => {
             const object = await svc(c).getObject(cloud, serviceType, c.req.param('id'), key)
+            const disposition = inline ? 'inline' : 'attachment'
             return new Response(object.body, {
                 headers: {
                     'content-type': object.contentType,
                     ...(object.contentLength === null ? {} : {'content-length': String(object.contentLength)}),
-                    'content-disposition': `attachment; filename="${key.split('/').pop() ?? key}"`,
+                    'content-disposition': `${disposition}; filename="${key.split('/').pop() ?? key}"`,
                 },
             })
         })

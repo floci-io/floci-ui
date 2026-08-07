@@ -186,6 +186,36 @@ describe('cloud schema routes', () => {
         expect(body.objects[0].name).toBe('object.txt')
     })
 
+    test('downloads a storage object as an attachment by default', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            getObject: async () => ({
+                body: new TextEncoder().encode('hello'),
+                contentType: 'text/plain',
+                contentLength: 5,
+            }),
+        })])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/demo/object?key=notes.txt')
+
+        expect(res.status).toBe(200)
+        expect(res.headers.get('content-disposition')).toBe('attachment; filename="notes.txt"')
+    })
+
+    test('serves a storage object inline when previewing (inline=1)', async () => {
+        // Previews (e.g. an in-browser PDF viewer) need the response to render
+        // inline instead of triggering a download.
+        const app = appWithRoutes([mockAdapter('aws', {
+            getObject: async () => ({
+                body: new TextEncoder().encode('%PDF-1.4'),
+                contentType: 'application/pdf',
+                contentLength: 8,
+            }),
+        })])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/demo/object?key=report.pdf&inline=1')
+
+        expect(res.status).toBe(200)
+        expect(res.headers.get('content-disposition')).toBe('inline; filename="report.pdf"')
+    })
+
     test('lists Cosmos containers through the cloud database adapter', async () => {
         const app = appWithRoutes([mockAdapter('azure', {
             service: 'database',

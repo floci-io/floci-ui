@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react'
-import {ChevronLeft, ChevronRight, Copy, Download, File, Folder, Loader2, RefreshCw, Search, Trash2, Upload, X} from 'lucide-react'
+import {ChevronLeft, ChevronRight, Copy, Download, Eye, File, Folder, Loader2, RefreshCw, Search, Trash2, Upload, X} from 'lucide-react'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {
     copyStorageObject,
@@ -8,13 +8,16 @@ import {
     listCloudResources,
     listStorageObjects,
     storageObjectDownloadUrl,
+    storageObjectPreviewUrl,
     uploadStorageObject,
 } from '@/api/cloudProxyClient'
 import {capabilityEnabled, capabilityFor, normalizeCapabilities, withRuntimeState} from '@/lib/capabilities'
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource, StorageObject} from '@/types/resource'
 import type {CapabilitySchema, ObjectActionName} from '@/types/schema'
-import {formatBytes} from '@/lib/format'
+import {formatBytes, objectIconKind, objectPreviewKind} from '@/lib/format'
+import {ImagePreviewModal} from '@/components/ImagePreviewModal'
+import {ObjectThumbnail} from '@/components/ObjectThumbnail'
 
 interface StorageObjectBrowserProps {
     cloud: CloudProvider
@@ -37,6 +40,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     const [search, setSearch] = useState('')
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
     const [bulkDeleting, setBulkDeleting] = useState(false)
+    const [previewObject, setPreviewObject] = useState<StorageObject | null>(null)
 
     const resolvedCapabilities = withRuntimeState(normalizeCapabilities(capabilities), runtimeReachable)
     const uploadCapability = capabilityFor(resolvedCapabilities, 'upload')
@@ -59,6 +63,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         setCopyObject(null)
         setSearch('')
         setSelectedKeys(new Set())
+        setPreviewObject(null)
         onSelectObject(undefined)
     }, [resource?.id, onSelectObject])
 
@@ -123,6 +128,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         setSearch('')
         setSelectedKeys(new Set())
         setDeleteConfirm(null)
+        setPreviewObject(null)
         onSelectObject(undefined)
     }
 
@@ -170,6 +176,16 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
 
     return (
         <section className="object-browser">
+            {previewObject && resource && objectPreviewKind(previewObject.name) && (
+                <ImagePreviewModal
+                    kind={objectPreviewKind(previewObject.name)!}
+                    name={previewObject.name}
+                    src={storageObjectDownloadUrl(cloud, resource.id, previewObject.key)}
+                    previewSrc={storageObjectPreviewUrl(cloud, resource.id, previewObject.key)}
+                    onClose={() => setPreviewObject(null)}
+                />
+            )}
+
             {copyObject && resource && (
                 <MoveOrCopyModal
                     cloud={cloud}
@@ -332,6 +348,8 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                         ))}
                         {filteredFiles.map((object) => {
                             const isSelected = selectedKeys.has(object.key)
+                            const iconKind = objectIconKind(object.name)
+                            const previewKind = objectPreviewKind(object.name)
                             return (
                                 <tr
                                     key={object.key}
@@ -355,7 +373,11 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                     </td>
                                     <td onClick={() => onSelectObject(object)} style={{cursor: 'pointer'}}>
                                         <span className="object-name">
-                                            <File size={14}/>
+                                            {iconKind ? (
+                                                <ObjectThumbnail kind={iconKind} src={storageObjectDownloadUrl(cloud, resource.id, object.key)} name={object.name}/>
+                                            ) : (
+                                                <File size={14}/>
+                                            )}
                                             {object.name}
                                         </span>
                                     </td>
@@ -363,6 +385,11 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                     <td>{object.size === null ? '—' : formatBytes(object.size)}</td>
                                     <td>{object.lastModified ?? '—'}</td>
                                     <td className="table-actions">
+                                        {previewKind && (
+                                            <button className="icon-btn" type="button" title={`Preview ${object.name}`} onClick={(e) => { e.stopPropagation(); setPreviewObject(object) }}>
+                                                <Eye size={13}/>
+                                            </button>
+                                        )}
                                         {downloadCapability && (
                                             <a className={`icon-btn ${canDownload ? '' : 'disabled'}`} href={canDownload ? storageObjectDownloadUrl(cloud, resource.id, object.key) : undefined} title={downloadCapability.reason ?? `Download ${object.name}`}>
                                                 <Download size={13}/>
