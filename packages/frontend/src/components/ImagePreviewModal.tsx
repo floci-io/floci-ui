@@ -52,7 +52,10 @@ export function ImagePreviewModal({kind, name, src, previewSrc, onClose}: Object
                     {kind === 'video' && <video src={src} controls autoPlay={false}/>}
                     {kind === 'audio' && <audio src={src} controls autoPlay={false} style={{width: '100%'}}/>}
                     {kind === 'text' && <TextPreview src={src}/>}
-                    {kind === 'pdf' && <iframe className="object-pdf-preview" src={previewSrc} title={name}/>}
+                    {/* No `sandbox` permissions granted: this must stay a passive document
+                        view, since the backend only guarantees the response can't be
+                        text/html — it can't guarantee the bytes are a well-formed PDF. */}
+                    {kind === 'pdf' && <iframe className="object-pdf-preview" src={previewSrc} title={name} sandbox=""/>}
                 </div>
             </div>
         </div>

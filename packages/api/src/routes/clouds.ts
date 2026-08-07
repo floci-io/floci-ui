@@ -188,9 +188,14 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         // render inline instead of triggering a download. Regular downloads
         // (the toolbar Download button, "Save As") keep the existing
         // attachment behavior unchanged.
-        const inline = c.req.query('inline') === '1'
+        const inlineRequested = c.req.query('inline') === '1'
         return withRuntime(c, async () => {
             const object = await svc(c).getObject(cloud, serviceType, c.req.param('id'), key)
+            // putObject() stores whatever Content-Type the uploader sent — it is not
+            // trustworthy. Never honor `inline` for a type outside this allow-list,
+            // or an object uploaded as "report.pdf" with Content-Type: text/html
+            // would render (and execute) as HTML in the preview surface.
+            const inline = inlineRequested && isSafeForInlinePreview(object.contentType)
             const disposition = inline ? 'inline' : 'attachment'
             return new Response(object.body, {
                 headers: {
@@ -276,6 +281,41 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
 
 function isCloudProvider(value: string): value is CloudProvider {
     return value === 'aws' || value === 'azure' || value === 'gcp'
+}
+
+/**
+ * Non-media Content-Types the object browser is allowed to render inline.
+ * Deliberately an explicit allow-list rather than a "text/*" prefix check:
+ * text/html (and friends like application/xhtml+xml) render as an
+ * interactive document and execute embedded <script> when navigated to
+ * directly — exactly what the PDF preview iframe does — so they must never
+ * be reachable via `inline=1` no matter what extension the object was
+ * uploaded with.
+ */
+const INLINE_SAFE_NON_MEDIA_TYPES = new Set([
+    'application/pdf',
+    'application/json',
+    'text/plain',
+    'text/css',
+    'text/csv',
+    'text/markdown',
+    'text/yaml',
+    'text/x-yaml',
+])
+
+/**
+ * putObject() stores whatever Content-Type the uploader sent — it is
+ * attacker-controlled and not trustworthy. Only content types on this
+ * allow-list may ever be served with `Content-Disposition: inline`;
+ * everything else falls back to `attachment` regardless of the `inline`
+ * query flag or the object's file extension, so an object uploaded as
+ * "report.pdf" with Content-Type: text/html can't render (and execute) as
+ * HTML in the preview surface.
+ */
+function isSafeForInlinePreview(contentType: string): boolean {
+    const type = contentType.split(';')[0]!.trim().toLowerCase()
+    if (type.startsWith('image/') || type.startsWith('video/') || type.startsWith('audio/')) return true
+    return INLINE_SAFE_NON_MEDIA_TYPES.has(type)
 }
 
 async function withRuntime(c: Context, handler: () => Promise<Response>): Promise<Response> {

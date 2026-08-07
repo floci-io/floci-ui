@@ -216,6 +216,24 @@ describe('cloud schema routes', () => {
         expect(res.headers.get('content-disposition')).toBe('inline; filename="report.pdf"')
     })
 
+    test('never honors inline=1 for an unsafe stored content type, regardless of extension', async () => {
+        // Security regression test: putObject() stores whatever Content-Type the
+        // uploader sent, so an object named "report.pdf" could actually be stored
+        // as text/html. inline=1 must not let that render (and execute) as HTML
+        // in the unsandboxed preview surface — it must still download.
+        const app = appWithRoutes([mockAdapter('aws', {
+            getObject: async () => ({
+                body: new TextEncoder().encode('<script>alert(document.domain)</script>'),
+                contentType: 'text/html',
+                contentLength: 40,
+            }),
+        })])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/demo/object?key=report.pdf&inline=1')
+
+        expect(res.status).toBe(200)
+        expect(res.headers.get('content-disposition')).toBe('attachment; filename="report.pdf"')
+    })
+
     test('lists Cosmos containers through the cloud database adapter', async () => {
         const app = appWithRoutes([mockAdapter('azure', {
             service: 'database',
