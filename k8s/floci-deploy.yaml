@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: floci
+  namespace: apps-ns
+  labels:
+    app: floci
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: floci
+  template:
+    metadata:
+      labels:
+        app: floci
+    spec:
+      containers:
+      - name: floci
+        image: floci/floci:latest-compat
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: FLOCI_STORAGE_MODE
+          value: persistent
+        - name: FLOCI_DEFAULT_REGION
+          value: us-east-1
+        ports:
+        - containerPort: 4566
+        volumeMounts:
+        - name: floci-data
+          mountPath: /app/data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "768Mi"
+            cpu: "750m"
+        livenessProbe:
+          httpGet:
+            path: /_floci/health
+            port: 4566
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /_floci/health
+            port: 4566
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: floci-data
+        persistentVolumeClaim:
+          claimName: floci-data

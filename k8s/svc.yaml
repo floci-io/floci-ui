@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: floci-ui
+  namespace: apps-ns
+  labels:
+    app: floci-ui
+spec:
+  selector:
+    app: floci-ui
+  ports:
+  - protocol: TCP
+    port: 4500
+    targetPort: 4500
+    name: http

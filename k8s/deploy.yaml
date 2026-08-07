@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: floci-ui
+  namespace: apps-ns
+  labels:
+    app: floci-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: floci-ui
+  template:
+    metadata:
+      labels:
+        app: floci-ui
+    spec:
+      containers:
+      - name: floci-ui
+        image: k3d-reg:5000/floci-ui:v1.0.1
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: floci-ui-env
+            optional: true
+        env:
+        - name: IMAGE_TAG
+          value: "v1.0.1"
+        - name: PORT
+          value: "4500"
+        - name: FLOCI_ENDPOINT
+          value: "http://floci:4566"
+        - name: FLOCI_AZURE_ENDPOINT
+          value: "http://floci-az:4577"
+        - name: FLOCI_GCP_ENDPOINT
+          value: "http://floci-gcp:4588"
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: AWS_ACCESS_KEY_ID
+          value: "test"
+        - name: AWS_SECRET_ACCESS_KEY
+          value: "test"
+        - name: CORS_ALLOWED_ORIGINS
+          value: "http://floci-ui.lab"
+        ports:
+        - containerPort: 4500
+
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "300m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 4500
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 4500
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
