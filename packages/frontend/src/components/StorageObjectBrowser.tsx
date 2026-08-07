@@ -53,6 +53,16 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     const canCreateFolder = capabilityEnabled(createFolderCapability)
     const canCopy = capabilityEnabled(copyCapability)
 
+    // Runtime reachability can flip while a preview is already open (it's polled
+    // independently of this component). Re-checking canDownload only at the
+    // moment the Eye button is clicked isn't enough — close an already-open
+    // preview the instant download capability is revoked, so its modal can't
+    // keep serving object content (img/video/audio src, the Download link,
+    // an in-flight text fetch) after the gate that allowed it closes.
+    useEffect(() => {
+        if (!canDownload) setPreviewObject(null)
+    }, [canDownload])
+
     useEffect(() => {
         setPrefix('')
         setUploadPrefix('')
