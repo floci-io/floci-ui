@@ -1,7 +1,7 @@
 {
   "integration": "opencode",
   "version": "unknown",
-  "installed_at": "2026-08-08T23:01:59.747134+00:00",
+  "installed_at": "2026-08-09T14:15:33.255264+00:00",
   "files": {
     ".opencode/commands/spec.analyze.md": "ced129d734a5fedda1dcb3ba4f614c4cbde6491edf79e6b6990fdb02ef22441a",
     ".opencode/commands/spec.clarify.md": "cf396edf21704c7960e77bffa308a7ccc305aa996cf54ca61783eb2097b1ac21",
@@ -13,19 +13,8 @@
     ".opencode/commands/spec.specify.md": "bcca4133890a0f945514e663d1f3f1a9c89006ebf6627d468fe0cf50d51c5c80",
     ".opencode/commands/spec.tasks.md": "55c2087dad671692b3861f4268196480b867516d31585ec529d2339001ef6ec9",
     ".opencode/commands/spec.taskstoissues.md": "308c8f5e31e9dd76734ad8eb01466a19b381116e91a78973b7a4c4a90efb6694",
-    ".opencode/commands/levelup.specify.md": "beca3b6acf62bdf244ff47ebe154e0d2100baf51298f6998182559ca5e0d4511",
-    ".opencode/commands/levelup.init.md": "8ad28d5bd4160d9f7c3af0e2066034aa1cdd0fe4919eb75f567860f7def4a120",
-    ".opencode/commands/team.evolve.md": "524f2a9fae6ce017415887ed3fd6a40cfd73bdca46fdb8f07c40468fef515919",
-    ".opencode/commands/levelup.clarify.md": "b5d77f4e7dd5b1664d8bbc07c6d7491e8932302a303154f821375665065ace89",
-    ".opencode/commands/team.curate.md": "5adf3f91d0a423e15cb1a7450bee338df62236a49655706d40dead475a09e363",
-    ".opencode/commands/team.repair.md": "79a55b78a7f3a3ca51c05a0d46c49bcc28947af037ef313642c41f7648b24d73",
-    ".opencode/commands/levelup.implement.md": "ebaa8bf27bf28fbab1c89813dd0b22e71a709251bf7a2a2478c29f33c170a64a",
-    ".opencode/commands/levelup.validate.md": "e2cb7f3a83c8bacb53c2bef0fcb6a9bfe6a7da6da3ae5002bfcfefc0ec259043",
-    ".opencode/commands/levelup.skill.md": "5fb80d4e9ef20392a726b88406c6aead6acb7242a03e36deb8b1cf34406be3fa",
-    ".opencode/commands/team.skills.md": "b031b8af352621f4ca2304dc7c0ff305287bad7dc3173c6798db999c56207314",
-    ".opencode/commands/team.verify.md": "f0485b85987d37ce8dcca690251c610a40c8e7ca3f9efff2efbddefd1165c1eb",
-    ".opencode/commands/team.discover.md": "8725f1ddccb02c3ee4f23548899a3f1f2eb26e3a65e6001be05ed25bd8cc961c",
-    ".opencode/commands/speckit.agent-context.update.md": "023ec489cb7fa14248baba2d55d225e225dbd2b3f445ef4ad4d4365bddc873e3",
-    ".opencode/commands/team.boot.md": "32946ea3d605f323ec9b45b40f39dcf325e4d8f311befd3332d8ef8385b09373"
+    ".specify/events.py": "82e69b9975f7b2c2497be501e2f2eb1da3dc9a0751516f26d972c49b4d3acc6d",
+    ".opencode/plugin/speckit-events.ts": "140ec8842621037f4b7a1ca3f493763c408ecf8450b12c07ea58261f106a51b9",
+    "opencode.json": "f0ad36c3107d81f54f92b7e4d258ba879013bec1b5fcc55f226299d2fa25a784"
   }
 }

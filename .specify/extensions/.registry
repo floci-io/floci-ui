@@ -18,11 +18,7 @@
           "team.verify"
         ]
       },
-      "registered_skills": [
-        "team-boot",
-        "team-discover",
-        "team-skills"
-      ],
+      "registered_skills": [],
       "installed_at": "2026-08-08T23:01:59.823226+00:00"
     },
     "agent-context": {

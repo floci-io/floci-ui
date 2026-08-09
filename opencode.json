@@ -1,0 +1,5 @@
+{
+  "plugin": [
+    "./.opencode/plugin/speckit-events.ts"
+  ]
+}
