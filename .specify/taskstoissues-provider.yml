@@ -1,0 +1,88 @@
+# taskstoissues-provider.yml
+#
+# Provider configuration for /spec.taskstoissues.
+# Uncomment and set the provider + options for your issue tracker.
+#
+# Supported providers: github, gitlab, linear, jira
+# Default (no config file): github
+#
+# IMPORTANT: Never put API tokens in this file. Use environment variables.
+# The agent discovers credentials at runtime via env vars and MCP/CLI tools.
+
+# --- Required: Select your provider ---
+# provider: github
+
+# --- Optional: Override git remote heuristic ---
+# Set to force a provider when the git remote URL doesn't match.
+# remote_override: "https://gitlab.com/my-org/my-project"
+
+# --- Optional: Field mappings per provider ---
+#
+# GitHub
+#   Auth: $GITHUB_TOKEN (or $GH_TOKEN)
+#   MCP: github/github-mcp-server (preferred when available)
+#   CLI: gh (fallback)
+#   Labels: auto-detected from task tags
+#   Milestones: by milestone title (must exist in repo)
+#
+# provider: github
+# field_mapping:
+#   labels: true              # Create labels matching task tags
+#   milestone_from_feature: true  # Use feature name as milestone title
+#
+# ---
+#
+# GitLab
+#   Auth: $GITLAB_TOKEN
+#   API: GitLab REST API (gitlab.com or self-hosted $GITLAB_URL)
+#   CLI: glab (fallback)
+#   Project ID: detected from git remote or set explicitly
+#
+# provider: gitlab
+# field_mapping:
+#   project_id: ""            # Override auto-detected GitLab project ID
+#   labels: true              # Create labels from task tags
+#   milestone_from_feature: true
+#
+# ---
+#
+# Linear
+#   Auth: $LINEAR_API_KEY
+#   API: Linear GraphQL API
+#   MCP: linear/mcp-server (preferred when available)
+#   Team/Project: detected from config or defaults to first available
+#
+# provider: linear
+# field_mapping:
+#   team_id: ""               # Override auto-detected Linear team
+#   project_id: ""            # Optional: attach to a Linear project
+#   priority_map:
+#     P1: urgent
+#     P2: high
+#     P3: medium
+#     P4: low
+#   feature_as_project: false # Create a Linear project per feature
+#   feature_as_epic: true     # Create an epic per feature (default)
+#
+# ---
+#
+# Jira
+#   Auth: $JIRA_URL + $JIRA_EMAIL + $JIRA_API_TOKEN
+#   API: Jira REST API v3
+#   MCP: atlassian-mcp-server (preferred when available)
+#   CLI: jira (fallback)
+#   Project key: required
+#
+# provider: jira
+# field_mapping:
+#   project_key: "PROJ"       # Required: your Jira project key
+#   issue_types:
+#     feature: Epic           # Jira issue type for features
+#     task: Story             # Jira issue type for tasks
+#     subtask: Sub-task       # Jira issue type for sub-tasks (optional)
+#   priority_map:
+#     P1: Highest
+#     P2: High
+#     P3: Medium
+#     P4: Low
+#   component_from_tag: true  # Create Jira components from task tags

@@ -1,0 +1,147 @@
+schema_version: "1.0"
+
+extension:
+  id: "levelup"
+  name: "LevelUp - Team AI Directives Contributor"
+  version: "1.10.0"
+  description: "Discover and contribute context modules to team-ai-directives using CDRs. Features multi-agent sub-system analysis with cross-system pattern detection, inconsistency tracking, signal gate filtering, verification metadata, and freshness tracking."
+  author: "Agentic SDLC Team"
+  repository: "https://github.com/tikalk/agentic-sdlc-spec-kit"
+  license: "MIT"
+  homepage: "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/levelup"
+
+requires:
+  speckit_version: ">=0.0.80"
+  tools:
+    - name: "git"
+      required: true
+      version: ">=2.0.0"
+
+provides:
+  commands:
+    # Brownfield CDR discovery - like architect.init
+    - name: "adlc.levelup.init"
+      file: "commands/init.md"
+      description: "Scan codebase and discover Context Directive Records (CDRs) for team-ai-directives contributions"
+      aliases: ["levelup.init"]
+
+    # Resolve CDR ambiguities - like architect.clarify
+    - name: "adlc.levelup.clarify"
+      file: "commands/clarify.md"
+      description: "Resolve ambiguities in discovered/proposed CDRs through clarifying questions"
+      aliases: ["levelup.clarify"]
+
+    # Refine CDRs from feature context - handoff only
+    - name: "adlc.levelup.specify"
+      file: "commands/specify.md"
+      description: "Refine CDRs using current feature spec context (handoff from init/clarify)"
+      aliases: ["levelup.specify"]
+
+    # Build single skill from user input
+    - name: "adlc.levelup.skill"
+      file: "commands/skill.md"
+      description: "Build one skill from accepted CDRs"
+      aliases: ["levelup.skill"]
+
+    # Compile CDRs to PR with memory engineering
+    - name: "adlc.levelup.implement"
+      file: "commands/implement.md"
+      description: "Compile accepted CDRs into a draft PR with signal gate filtering, YAML frontmatter, and verification metadata"
+      aliases: ["levelup.implement"]
+
+    # Validate - Rule conflict detection and verification
+    - name: "adlc.levelup.validate"
+      file: "commands/validate.md"
+      description: "Scan team-ai-directives for rule conflicts, update verification timestamps, and create CDRs for resolution"
+      aliases: ["levelup.validate"]
+
+  config:
+    - name: "levelup-config.yml"
+      template: "config-template.yml"
+      description: "LevelUp extension configuration for team-ai-directives integration"
+      required: false
+
+# Manual handoffs - user decides next step
+handoffs:
+  levelup.init:
+    - label: "Resolve Ambiguities"
+      agent: "levelup.clarify"
+      prompt: "Review discovered CDRs and resolve ambiguities"
+      send: false
+    - label: "Refine from Feature Context"
+      agent: "levelup.specify"
+      prompt: "Refine CDRs using current feature spec context"
+      send: false
+
+  levelup.clarify:
+    - label: "Refine from Feature Context"
+      agent: "levelup.specify"
+      prompt: "Add context from current feature spec"
+      send: false
+    - label: "Build Skill"
+      agent: "levelup.skill"
+      prompt: "Build one skill from accepted CDRs"
+      send: false
+
+  levelup.validate:
+    - label: "Resolve Conflicts"
+      agent: "levelup.clarify"
+      prompt: "Resolve rule conflicts detected by validate command"
+      send: false
+    - label: "Create PR"
+      agent: "levelup.implement"
+      prompt: "Compile conflict resolution CDRs to team-ai-directives PR"
+      send: false
+
+tags:
+  - "team-ai-directives"
+  - "brownfield"
+  - "context-modules"
+  - "skills"
+  - "cdr"
+  - "contribution"
+  - "validation"
+  - "memory-engineering"
+  - "signal-gate"
+  - "verification"
+  - "subagents"
+  - "cross-system-analysis"
+  - "inconsistency-detection"
+
+defaults:
+  cdr:
+    heuristic: "surprising"
+    location: ".specify/drafts/cdr.md"
+    type: ""
+  skills:
+    drafts_location: ".specify/drafts/skills"
+  team_directives:
+    # Resolved from SPECIFY_TEAM_DIRECTIVES env var
+    # Fallback path: .specify/team-ai-directives (submodule)
+    env_var: "SPECIFY_TEAM_DIRECTIVES"
+  memory_engineering:
+    signal_gate:
+      strict: true
+    verification:
+      age_warning_days: 30
+      auto_update_on_validate: true
+  state:
+    enabled: true
+    location: ".specify/levelup/state.json"
+    version: "1.1.0"
+  subagents:
+    enabled: true
+    sequential: true
+    phases:
+      - discovery
+      - pattern_analysis
+      - synthesis
+  cross_system:
+    enabled: true
+    threshold: 0.5
+    detect_inconsistencies: true
+    create_inconsistency_cdrs: true
+  team_directives_comparison:
+    enabled: true
+    check_similarity: true
+    flag_gaps: true

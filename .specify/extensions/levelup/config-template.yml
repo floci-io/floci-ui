@@ -1,0 +1,93 @@
+# LevelUp Extension Configuration
+# This file configures the levelup extension for team-ai-directives contributions.
+
+# Team AI Directives Configuration
+team_directives:
+  # Path to team-ai-directives repository
+  # Resolution order:
+  # 1. SPECIFY_TEAM_DIRECTIVES environment variable
+  # 2. .specify/team-ai-directives (submodule - recommended)
+  #
+  # Uncomment to override with explicit path:
+  # path: "/path/to/team-ai-directives"
+
+  # CDR (Context Directive Record) Settings
+cdr:
+  # CDR generation heuristic
+  # - surprising: Only document patterns not already in team-directives (default)
+  # - all: Document all discovered patterns
+  # - minimal: Only high-value/novel patterns
+  heuristic: "surprising"
+
+  # Location of CDR file (local project)
+  # CDRs stored in markdown format
+  location: ".specify/drafts/cdr.md"
+
+# Skills Settings
+skills:
+  # Location for draft skills before moving to team-directives
+  drafts_location: ".specify/drafts/skills"
+
+  # Skills manifest format follows team-ai-directives/.skills.json structure
+  # See: https://github.com/tikalk/agentic-sdlc-team-ai-directives
+
+# Context Types to Discover
+# Enable/disable specific context types during levelup.init
+discovery:
+  rules: true
+  personas: true
+  examples: true
+  constitution: true
+  skills: true
+
+# PR Settings for levelup.implement
+pull_request:
+  # Create as draft PR by default
+  draft: true
+
+  # Branch prefix for levelup PRs
+  branch_prefix: "levelup/"
+
+  # Target branch in team-ai-directives
+  target_branch: "main"
+
+# Memory Engineering Settings
+# Configure agent memory engineering features (signal gate, verification)
+memory_engineering:
+  # Signal Gate: Filters CDRs before publishing to team-ai-directives
+  signal_gate:
+    # Strict mode: Skip CDRs without concrete evidence
+    strict: true
+    
+    # Required evidence types (at least one must be present)
+    require_commits: true      # Must reference commit SHA(s)
+    require_files: true        # Must reference file path(s)
+    
+    # Signal gate criteria weights (all must pass in strict mode)
+    criteria:
+      team_wide: true          # Pattern must be team-wide applicable
+      high_value: true         # Must save >30min per future use
+      unique: true             # Must not duplicate existing directives
+      concrete_evidence: true  # Must have commits/files (strict)
+  
+  # Verification: Tracks directive freshness
+  verification:
+    # Age threshold for stale warnings (days)
+    age_warning_days: 30
+    
+    # Auto-update verified timestamp in /levelup.validate
+    auto_update_on_validate: true
+    
+    # Require manual approval for stale directives (>threshold days)
+    require_approval_if_stale: false
+  
+  # Metadata format for published directives
+  metadata:
+    # Include YAML frontmatter in published files
+    include_yaml_frontmatter: true
+    
+    # Include freshness warning banner
+    include_verification_banner: true
+    
+    # Include verification log table
+    include_verification_log: true

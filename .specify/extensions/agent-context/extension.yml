@@ -1,0 +1,40 @@
+schema_version: "1.0"
+
+extension:
+  id: agent-context
+  name: "Coding Agent Context"
+  version: "1.3.0"
+  description: "Manages coding agent context/instruction files (e.g., CLAUDE.md, copilot-instructions.md) with project-specific plan references and configurable markers"
+  author: spec-kit-core
+  repository: https://github.com/github/spec-kit
+  license: MIT
+
+requires:
+  speckit_version: ">=0.2.0"
+
+provides:
+  commands:
+    - name: speckit.agent-context.update
+      file: commands/speckit.agent-context.update.md
+      description: "Refresh the managed Spec Kit section in the coding agent context file"
+
+hooks:
+  after_specify:
+    command: speckit.agent-context.update
+    optional: true
+    description: "Refresh agent context after specification"
+  after_plan:
+    command: speckit.agent-context.update
+    optional: true
+    description: "Refresh agent context after planning"
+
+events:
+  session_start:
+    command: speckit.agent-context.update
+    optional: true
+    description: "Refresh agent context when an agent session starts"
+
+tags:
+  - "agent"
+  - "context"
+  - "core"

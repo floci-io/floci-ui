@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "extensions": {
+    "team-ai-directives": {
+      "version": "4.3.3",
+      "source": "local",
+      "manifest_hash": "sha256:02a0c8b43defb639a9dc775f43dc2fabdad64b432f82e09321250230953c86f1",
+      "enabled": true,
+      "priority": 1,
+      "registered_commands": {
+        "opencode": [
+          "team.boot",
+          "team.discover",
+          "team.curate",
+          "team.evolve",
+          "team.repair",
+          "team.skills",
+          "team.verify"
+        ]
+      },
+      "registered_skills": [
+        "team-boot",
+        "team-discover",
+        "team-skills"
+      ],
+      "installed_at": "2026-08-08T23:01:59.823226+00:00"
+    },
+    "agent-context": {
+      "version": "1.3.0",
+      "source": "local",
+      "manifest_hash": "sha256:b6fe0f25a66a13a94821818f351921ef5e7e1225bfd41761fdf73f7613548770",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "opencode": [
+          "speckit.agent-context.update"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-08-08T23:01:59.908007+00:00"
+    },
+    "levelup": {
+      "version": "1.10.0",
+      "source": "local",
+      "manifest_hash": "sha256:deeb3680ddf8a15c1bfc64cbd6532942064e20222e87114503c04dde8417b2d6",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "opencode": [
+          "levelup.init",
+          "levelup.clarify",
+          "levelup.specify",
+          "levelup.skill",
+          "levelup.implement",
+          "levelup.validate"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-08-08T23:02:00.060019+00:00"
+    }
+  }
+}

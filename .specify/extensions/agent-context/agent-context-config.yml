@@ -1,0 +1,22 @@
+# Coding Agent Context Extension Configuration
+# This file is a template. The actual config (agent-context-config.yml) is
+# created by the extension's own update scripts on first run — never by
+# `specify init`.
+
+# Path (relative to the project root) to the default coding agent context file
+# managed by this extension (e.g. CLAUDE.md, AGENTS.md,
+# .github/copilot-instructions.md). When left empty, the update scripts
+# self-seed it by looking up the active integration's key in
+# agent-context-defaults.json.
+context_file: ""
+
+# Optional list of project-relative coding agent context files managed by this
+# extension. When non-empty, this list takes precedence over `context_file`.
+# Use this for projects that intentionally keep multiple agent anchors in sync.
+context_files: []
+
+# Delimiters for the managed Spec Kit section.
+# Edit these to use custom markers.
+context_markers:
+  start: "<!-- SPECKIT START -->"
+  end: "<!-- SPECKIT END -->"

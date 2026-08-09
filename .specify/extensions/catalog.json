@@ -1,0 +1,333 @@
+{
+  "schema_version": "1.0",
+  "updated_at": "2026-07-17T00:00:00Z",
+  "catalog_url": "https://raw.githubusercontent.com/github/spec-kit/main/extensions/catalog.json",
+  "extensions": {
+    "team-ai-directives": {
+      "id": "team-ai-directives",
+      "name": "Team AI Directives",
+      "version": "4.1.0",
+      "bundled": true,
+      "preinstall": false,
+      "description": "Bundled governance extension for team-ai-directives: discover, curate, evolve, repair, verify, and manage team skills. Governance commands and skills are bundled here; domain skills remain in the external knowledge base.",
+      "author": "Agentic SDLC Team",
+      "repository": "https://github.com/tikalk/agentic-sdlc-spec-kit",
+      "homepage": "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/team-ai-directives",
+      "download_url": "https://github.com/tikalk/agentic-sdlc-spec-kit/releases/download/{{VERSION}}/extension-team-ai-directives-{{VERSION}}.zip",
+      "license": "MIT",
+      "requires": {
+        "speckit_version": ">=0.12.0"
+      },
+      "commands": [
+        "adlc.team-ai-directives.discover",
+        "adlc.team-ai-directives.curate",
+        "adlc.team-ai-directives.evolve",
+        "adlc.team-ai-directives.repair",
+        "adlc.team-ai-directives.skills",
+        "adlc.team-ai-directives.verify"
+      ],
+      "tags": [
+        "team-ai-directives",
+        "governance",
+        "context-modules",
+        "cdr",
+        "skills"
+      ],
+      "verified": false,
+      "featured": false
+    },
+    "agent-context": {
+      "name": "Coding Agent Context",
+      "id": "agent-context",
+      "version": "1.3.0",
+      "description": "Manages coding agent context/instruction files (e.g., CLAUDE.md, copilot-instructions.md) with project-specific plan references and configurable markers",
+      "author": "spec-kit-core",
+      "repository": "https://github.com/github/spec-kit",
+      "bundled": true,
+      "preinstall": true,
+      "tags": [
+        "agent",
+        "context",
+        "core"
+      ]
+    },
+    "assess": {
+      "name": "Idea Assessment Pipeline",
+      "id": "assess",
+      "version": "1.0.0",
+      "description": "Assess an idea before Spec-Driven Development via intake, research, define, shape, and decide. A go verdict hands off to /speckit.specify; a kill closes it. Lives under .specify/assessments/<slug>/",
+      "author": "spec-kit-core",
+      "repository": "https://github.com/github/spec-kit",
+      "bundled": true,
+      "tags": [
+        "assessment",
+        "discovery",
+        "triage",
+        "product",
+        "workflow"
+      ]
+    },
+    "bug": {
+      "name": "Bug Triage Workflow",
+      "id": "bug",
+      "version": "1.0.0",
+      "description": "Assess, fix, and validate bug reports against the codebase with per-bug reports stored under .specify/bugs/<slug>/",
+      "author": "spec-kit-core",
+      "repository": "https://github.com/github/spec-kit",
+      "bundled": true,
+      "tags": [
+        "bug",
+        "triage",
+        "workflow",
+        "qa"
+      ]
+    },
+    "git": {
+      "name": "Git Branching Workflow",
+      "id": "git",
+      "version": "1.0.0",
+      "description": "Feature branch creation, numbering (sequential/timestamp), validation, and Git remote detection",
+      "author": "spec-kit-core",
+      "repository": "https://github.com/github/spec-kit",
+      "bundled": true,
+      "tags": [
+        "git",
+        "branching",
+        "workflow",
+        "core"
+      ]
+    },
+    "tdd": {
+      "id": "tdd",
+      "name": "TDD - Test-Driven Development Workflow",
+      "version": "1.0.4",
+      "bundled": true,
+      "preinstall": false,
+      "description": "Strict RED→GREEN→REFACTOR TDD with increment-based and risk-based testing. Language auto-detection, hybrid test generation, test quality validation.",
+      "author": "Agentic SDLC Team",
+      "repository": "https://github.com/tikalk/agentic-sdlc-spec-kit",
+      "homepage": "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/tdd",
+      "download_url": "https://github.com/tikalk/agentic-sdlc-spec-kit/releases/download/{{VERSION}}/extension-tdd-{{VERSION}}.zip",
+      "license": "MIT",
+      "requires": {
+        "speckit_version": ">=0.0.80"
+      },
+      "commands": [
+        "adlc.tdd.plan",
+        "adlc.tdd.tasks",
+        "adlc.tdd.implement",
+        "adlc.tdd.validate"
+      ],
+      "tags": [
+        "tdd",
+        "testing",
+        "red-green-refactor",
+        "risk-based-testing",
+        "vertical-slicing"
+      ],
+      "verified": false,
+      "featured": true
+    },
+    "edd": {
+      "id": "edd",
+      "name": "EDD — Evaluation-Driven Development",
+      "version": "1.0.0",
+      "bundled": true,
+      "preinstall": false,
+      "description": "Adds a verification layer to the SDLC cycle: deterministic checks (lint, tests, smoke) + AI-driven evaluation (oracle adequacy, evidence mapping, analyze findings) + grading + corrective prompt generation. Enables loop-driven development workflows.",
+      "author": "Agentic SDLC Team",
+      "repository": "https://github.com/tikalk/agentic-sdlc-spec-kit",
+      "homepage": "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/edd",
+      "download_url": "https://github.com/tikalk/agentic-sdlc-spec-kit/releases/download/{{VERSION}}/extension-edd-{{VERSION}}.zip",
+      "license": "MIT",
+      "requires": {
+        "speckit_version": ">=0.10.0"
+      },
+      "commands": [
+        "adlc.edd.verify"
+      ],
+      "tags": [
+        "evaluation",
+        "verify",
+        "grading",
+        "quality-gates",
+        "loop-driven",
+        "deterministic",
+        "evidence"
+      ],
+      "verified": false,
+      "featured": false
+    },
+    "levelup": {
+      "id": "levelup",
+      "name": "LevelUp - Team AI Directives Contributor",
+      "version": "1.0.0",
+      "bundled": true,
+      "preinstall": true,
+      "description": "Discover and contribute context modules (rules, personas, examples, skills) to team-ai-directives using Context Directive Records (CDRs)",
+      "author": "Agentic SDLC Team",
+      "repository": "https://github.com/tikalk/agentic-sdlc-spec-kit",
+      "homepage": "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/levelup",
+      "download_url": "https://github.com/tikalk/agentic-sdlc-spec-kit/releases/download/{{VERSION}}/extension-levelup-{{VERSION}}.zip",
+      "license": "MIT",
+      "requires": {
+        "speckit_version": ">=0.0.80"
+      },
+      "commands": [
+        "adlc.levelup.init",
+        "adlc.levelup.clarify",
+        "adlc.levelup.specify",
+        "adlc.levelup.skills",
+        "adlc.levelup.implement"
+      ],
+      "tags": [
+        "team-ai-directives",
+        "brownfield",
+        "context-modules",
+        "skills",
+        "cdr",
+        "contribution"
+      ],
+      "verified": false,
+      "featured": false
+    },
+    "architect": {
+      "id": "architect",
+      "name": "Architect - ADR & Architecture Description",
+      "version": "2.0.0",
+      "bundled": true,
+      "preinstall": false,
+      "description": "Create and manage Architecture Decision Records (ADRs) and Architecture Descriptions (AD.md) using Rozanski & Woods methodology",
+      "author": "Agentic SDLC Team",
+      "repository": "https://github.com/tikalk/agentic-sdlc-spec-kit",
+      "homepage": "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/architect",
+      "download_url": "https://github.com/tikalk/agentic-sdlc-spec-kit/releases/download/{{VERSION}}/extension-architect-{{VERSION}}.zip",
+      "license": "MIT",
+      "requires": {
+        "speckit_version": ">=0.0.80"
+      },
+      "commands": [
+        "adlc.architect.init",
+        "adlc.architect.specify",
+        "adlc.architect.clarify",
+        "adlc.architect.implement",
+        "adlc.architect.analyze",
+        "adlc.architect.validate"
+      ],
+      "tags": [
+        "architecture",
+        "adr",
+        "rozanski-woods",
+        "brownfield",
+        "greenfield",
+        "documentation"
+      ],
+      "verified": false,
+      "featured": false
+    },
+    "product": {
+      "id": "product",
+      "name": "Product - PRD & PDR Management",
+      "version": "1.0.0",
+      "bundled": true,
+      "preinstall": false,
+      "description": "Create and manage Product Requirements Documents (PRD) and Product Decision Records (PDR) for systematic product development",
+      "author": "Agentic SDLC Team",
+      "repository": "https://github.com/tikalk/agentic-sdlc-spec-kit",
+      "homepage": "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/product",
+      "download_url": "https://github.com/tikalk/agentic-sdlc-spec-kit/releases/download/{{VERSION}}/extension-product-{{VERSION}}.zip",
+      "license": "MIT",
+      "requires": {
+        "speckit_version": ">=0.0.80"
+      },
+      "commands": [
+        "adlc.product.init",
+        "adlc.product.specify",
+        "adlc.product.clarify",
+        "adlc.product.implement",
+        "adlc.product.analyze",
+        "adlc.product.validate"
+      ],
+      "tags": [
+        "product",
+        "prd",
+        "pdr",
+        "requirements",
+        "product-management",
+        "brownfield",
+        "greenfield"
+      ],
+      "verified": false,
+      "featured": false
+    },
+    "evals": {
+      "id": "evals",
+      "name": "Evals - EDD (Eval-Driven Development) with PromptFoo Integration",
+      "version": "1.0.0",
+      "bundled": true,
+      "preinstall": false,
+      "description": "Build evaluation systems following EDD (Eval-Driven Development) principles, integrating with PromptFoo for eval execution and annotation",
+      "author": "Agentic SDLC Team",
+      "repository": "https://github.com/tikalk/agentic-sdlc-spec-kit",
+      "homepage": "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/evals",
+      "download_url": "https://github.com/tikalk/agentic-sdlc-spec-kit/releases/download/{{VERSION}}/extension-evals-{{VERSION}}.zip",
+      "license": "MIT",
+      "requires": {
+        "speckit_version": ">=0.0.80"
+      },
+      "commands": [
+        "adlc.evals.init",
+        "adlc.evals.specify",
+        "adlc.evals.clarify",
+        "adlc.evals.analyze",
+        "adlc.evals.tasks",
+        "adlc.evals.implement",
+        "adlc.evals.validate",
+        "adlc.evals.levelup"
+      ],
+      "tags": [
+        "evaluation",
+        "edd",
+        "eval-driven-development",
+        "promptfoo",
+        "testing",
+        "quality",
+        "goldset",
+        "binary-pass-fail",
+        "error-analysis"
+      ],
+      "verified": false,
+      "featured": true
+    },
+    "workflow": {
+      "id": "workflow",
+      "name": "Workflow Factory — Mission-Driven SDLC Automation",
+      "version": "2.0.0",
+      "bundled": true,
+      "preinstall": false,
+      "description": "Assess prompt complexity, generate a workflow YAML, and run it through the engine. Supports spec/change/quick routing, per-step model selection, cross-session resume, and draft persistence.",
+      "author": "Agentic SDLC Team",
+      "repository": "https://github.com/tikalk/agentic-sdlc-spec-kit",
+      "homepage": "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/workflow",
+      "download_url": "https://github.com/tikalk/agentic-sdlc-spec-kit/releases/download/{{VERSION}}/extension-workflow-{{VERSION}}.zip",
+      "license": "MIT",
+      "requires": {
+        "speckit_version": ">=0.8.5"
+      },
+      "commands": [
+        "adlc.workflow.mission",
+        "adlc.workflow.resume",
+        "adlc.workflow.persist"
+      ],
+      "tags": [
+        "workflow-factory",
+        "automation",
+        "mission-driven",
+        "converge",
+        "sdd"
+      ],
+      "verified": false,
+      "featured": true
+    }
+  }
+}

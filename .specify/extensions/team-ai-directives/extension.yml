@@ -1,0 +1,103 @@
+schema_version: "1.0"
+
+extension:
+  id: "team-ai-directives"
+  name: "Team AI Directives"
+  version: "4.3.3"
+  description: "Bundled governance extension for team-ai-directives: discover, curate, evolve, repair, verify, and manage team skills. Governance commands and skills are bundled here; domain skills remain in the external knowledge base."
+  author: "Agentic SDLC Team"
+  repository: "https://github.com/tikalk/agentic-sdlc-spec-kit"
+  homepage: "https://github.com/tikalk/agentic-sdlc-spec-kit/tree/main/extensions/team-ai-directives"
+  license: "MIT"
+
+requires:
+  speckit_version: ">=0.12.0"
+
+provides:
+  commands:
+    - name: "adlc.team-ai-directives.boot"
+      file: "commands/boot.md"
+      description: "Bootstrap session with team-ai-directives context — invoke before any task"
+      aliases: ["team.boot"]
+
+    - name: "adlc.team-ai-directives.discover"
+      file: "commands/discover.md"
+      description: "Discover relevant team-ai-directives context for the current feature"
+      aliases: ["team.discover"]
+
+    - name: "adlc.team-ai-directives.curate"
+      file: "commands/curate.md"
+      description: "Scan execution traces and propose new Context Directive Records (CDRs)"
+      aliases: ["team.curate"]
+
+    - name: "adlc.team-ai-directives.evolve"
+      file: "commands/evolve.md"
+      description: "Apply regression-gated CDRs to the team knowledge base"
+      aliases: ["team.evolve"]
+
+    - name: "adlc.team-ai-directives.repair"
+      file: "commands/repair.md"
+      description: "Re-index CDR.md, .skills.json, and AGENTS.md in the team-ai-directives knowledge base"
+      aliases: ["team.repair"]
+
+    - name: "adlc.team-ai-directives.skills"
+      file: "commands/skills.md"
+      description: "Browse, search, and install team skills from the knowledge base"
+      aliases: ["team.skills"]
+
+    - name: "adlc.team-ai-directives.verify"
+      file: "commands/verify.md"
+      description: "Verify team-ai-directives installation and health"
+      aliases: ["team.verify"]
+
+handoffs:
+  team.boot:
+    - label: "Discover team context"
+      agent: "team.discover"
+      prompt: "Run discovery to find relevant rules, personas, and examples for the current task"
+      send: false
+  team.discover:
+    - label: "Curate new CDRs"
+      agent: "team.curate"
+      prompt: "Review discovered context and propose new CDRs from execution traces"
+      send: false
+  team.curate:
+    - label: "Evolve CDRs"
+      agent: "team.evolve"
+      prompt: "Apply regression-gated CDRs to the team knowledge base"
+      send: false
+  team.repair:
+    - label: "Verify health"
+      agent: "team.verify"
+      prompt: "Run health checks on the repaired knowledge base"
+      send: false
+
+hooks:
+  before_specify:
+    command: adlc.team-ai-directives.discover
+    optional: false
+    description: "Discover team context before specification"
+  before_plan:
+    command: adlc.team-ai-directives.discover
+    optional: false
+    description: "Discover team context before planning"
+
+tags:
+  - "team-ai-directives"
+  - "governance"
+  - "context-modules"
+  - "cdr"
+  - "skills"
+  - "discovery"
+  - "curation"
+  - "evolution"
+  - "verification"
+  - "repair"
+
+defaults:
+  team_directives:
+    env_var: "SPECIFY_TEAM_DIRECTIVES"
+  state:
+    enabled: true
+    location: ".specify/team-ai-directives/state.json"
+    version: "1.0.0"
