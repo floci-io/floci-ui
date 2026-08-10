@@ -9,6 +9,7 @@ export type KnownCloudServiceType =
     | 'networking'
     | 'serverless'
     | 'secrets'
+    | 'iac'
 
 /**
  * Deliberately open where the API's own type is closed.
@@ -26,6 +27,7 @@ export type ServiceGroup =
     | 'Databases'
     | 'Networking'
     | 'Integration'
+    | 'Provisioning'
     | 'Security'
     | 'Observability'
 

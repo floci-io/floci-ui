@@ -26,6 +26,14 @@ describe('SERVICE_CATALOG', () => {
         expect(new Set(SERVICE_TYPES).size).toBe(SERVICE_TYPES.length)
     })
 
+    test('registers the iac category under the Provisioning group', () => {
+        expect(SERVICE_GROUP_ORDER).toContain('Provisioning')
+        const iac = catalogEntry('iac')!
+        expect(iac.group).toBe('Provisioning')
+        expect(isServiceType('iac')).toBe(true)
+        expect(displayNameFor(iac, 'aws')).toBe('CloudFormation')
+    })
+
     test('orders entries by group then in-group order', () => {
         const positions = SERVICE_CATALOG_ENTRIES.map((entry) => [
             SERVICE_GROUP_ORDER.indexOf(entry.group),

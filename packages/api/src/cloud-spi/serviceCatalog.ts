@@ -20,6 +20,7 @@ export type ServiceGroup =
     | 'Databases'
     | 'Networking'
     | 'Integration'
+    | 'Provisioning'
     | 'Security'
     | 'Observability'
 
@@ -29,6 +30,7 @@ export const SERVICE_GROUP_ORDER: ServiceGroup[] = [
     'Databases',
     'Networking',
     'Integration',
+    'Provisioning',
     'Security',
     'Observability',
 ]
@@ -84,6 +86,13 @@ export const SERVICE_CATALOG = {
         // Migration debt: the AWS Secrets Manager page still lives outside Cloud
         // Explorer, so there is no adapter to derive availability from.
         legacyAvailability: {aws: 'available'},
+    },
+    iac: {
+        displayName: 'Infrastructure as Code',
+        displayNameByCloud: {aws: 'CloudFormation'},
+        iconKey: 'iac',
+        group: 'Provisioning',
+        order: 10,
     },
 } as const satisfies Record<string, ServiceCatalogMetadata>
 
