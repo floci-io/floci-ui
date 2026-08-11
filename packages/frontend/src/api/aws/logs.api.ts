@@ -24,6 +24,53 @@ export async function listLogGroups(
   return res.data;
 }
 
+export type LogStream = {
+  name: string;
+  arn?: string;
+  creationTime?: string;
+  firstEventTimestamp?: string;
+  lastEventTimestamp?: string;
+  storedBytes?: number;
+};
+
+export async function listLogStreams(
+  group: string,
+  signal?: AbortSignal,
+): Promise<LogStream[]> {
+  const res = await apiClient.call<{ streams: LogStream[] }>(
+    apiEndpointKeys.aws.logs.streams.list,
+    { signal, params: { group } },
+  );
+
+  return res.data.streams;
+}
+
+export type LogEvent = {
+  timestamp?: string;
+  message: string;
+};
+
+export type LogEventsPage = {
+  events: LogEvent[];
+  nextToken?: string;
+};
+
+export async function listLogEvents(
+  group: string,
+  stream: string,
+  nextToken?: string,
+  signal?: AbortSignal,
+): Promise<LogEventsPage> {
+  const res = await apiClient.call<LogEventsPage>(
+    apiEndpointKeys.aws.logs.events.list,
+    { signal, params: { group, stream, nextToken } },
+  );
+
+  return res.data;
+}
+
 export const logsClient = {
   listGroups: listLogGroups,
+  listStreams: listLogStreams,
+  listEvents: listLogEvents,
 };

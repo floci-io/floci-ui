@@ -168,6 +168,12 @@ export const apiEndpointKeys = {
       groups: {
         list: "aws.logs.groups.list",
       },
+      streams: {
+        list: "aws.logs.streams.list",
+      },
+      events: {
+        list: "aws.logs.events.list",
+      },
     },
   },
 } as const;
@@ -590,6 +596,22 @@ export const endpointRegistry: EndpointRegistry = new Map([
     apiEndpointKeys.aws.logs.groups.list,
     {
       path: "/logs/groups",
+      method: "GET",
+      telemetry: { provider: "aws", service: "logs" },
+    },
+  ],
+  [
+    apiEndpointKeys.aws.logs.streams.list,
+    {
+      path: "/logs/streams",
+      method: "GET",
+      telemetry: { provider: "aws", service: "logs" },
+    },
+  ],
+  [
+    apiEndpointKeys.aws.logs.events.list,
+    {
+      path: "/logs/events",
       method: "GET",
       telemetry: { provider: "aws", service: "logs" },
     },
