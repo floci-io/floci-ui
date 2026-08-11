@@ -3,9 +3,17 @@ import { RefreshCw, ScrollText, Search } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { useLogGroupsQuery } from "@/api/aws/logs.queries";
 import { timeAgo } from "@/lib/utils";
+import { LogStreamsPanel } from "./LogStreamsPanel";
+import { LogEventsPanel } from "./LogEventsPanel";
+
+type View =
+  | { kind: "groups" }
+  | { kind: "streams"; group: string }
+  | { kind: "events"; group: string; stream: string };
 
 export function LogGroupsPage() {
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<View>({ kind: "groups" });
   const query = useLogGroupsQuery();
 
   const groups = useMemo(() => {
@@ -14,6 +22,26 @@ export function LogGroupsPage() {
     const q = search.toLowerCase();
     return all.filter((g) => g.name.toLowerCase().includes(q));
   }, [query.data, search]);
+
+  if (view.kind === "streams") {
+    return (
+      <LogStreamsPanel
+        group={view.group}
+        onBack={() => setView({ kind: "groups" })}
+        onSelectStream={(stream) => setView({ kind: "events", group: view.group, stream })}
+      />
+    );
+  }
+
+  if (view.kind === "events") {
+    return (
+      <LogEventsPanel
+        group={view.group}
+        stream={view.stream}
+        onBack={() => setView({ kind: "streams", group: view.group })}
+      />
+    );
+  }
 
   return (
     <>
@@ -76,7 +104,11 @@ export function LogGroupsPage() {
               </thead>
               <tbody>
                 {groups.map((group) => (
-                  <tr key={group.arn ?? group.name}>
+                  <tr
+                    key={group.arn ?? group.name}
+                    onClick={() => setView({ kind: "streams", group: group.name })}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td className="mono" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <ScrollText size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
                       {group.name}

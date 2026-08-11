@@ -118,4 +118,76 @@ describe("LogGroupsPage", () => {
     // Typing filtered in place; it never re-fetched.
     expect(callMock).toHaveBeenCalledTimes(1);
   });
+
+  it("shows a group's streams when its row is clicked, and returns to groups when back is clicked", async () => {
+    callMock.mockImplementation((key: string) => {
+      if (key === "aws.logs.groups.list") {
+        return Promise.resolve({ data: [{ name: "/aws/lambda/foo" }] });
+      }
+      if (key === "aws.logs.streams.list") {
+        return Promise.resolve({
+          data: { streams: [{ name: "2024/01/01/[$LATEST]abc123" }] },
+        });
+      }
+      return Promise.reject(new Error(`unexpected endpoint: ${key}`));
+    });
+
+    renderPage();
+    const user = userEvent.setup();
+
+    const groupRow = await screen.findByText("/aws/lambda/foo");
+    await user.click(groupRow);
+
+    expect(await screen.findByText("2024/01/01/[$LATEST]abc123")).toBeInTheDocument();
+    expect(callMock).toHaveBeenCalledWith(
+      "aws.logs.streams.list",
+      expect.objectContaining({ params: { group: "/aws/lambda/foo" } }),
+    );
+    // The groups table (with its Retention column) is no longer shown.
+    expect(screen.queryByText("Retention")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /log groups/i }));
+
+    expect(await screen.findByText("Retention")).toBeInTheDocument();
+    expect(screen.queryByText("2024/01/01/[$LATEST]abc123")).not.toBeInTheDocument();
+  });
+
+  it("shows a stream's events when its row is clicked from the streams view, and returns to streams when back is clicked", async () => {
+    callMock.mockImplementation((key: string) => {
+      if (key === "aws.logs.groups.list") {
+        return Promise.resolve({ data: [{ name: "/aws/lambda/foo" }] });
+      }
+      if (key === "aws.logs.streams.list") {
+        return Promise.resolve({
+          data: { streams: [{ name: "2024/01/01/[$LATEST]abc123" }] },
+        });
+      }
+      if (key === "aws.logs.events.list") {
+        return Promise.resolve({
+          data: { events: [{ timestamp: new Date(1700000000000).toISOString(), message: "hello from the stream" }] },
+        });
+      }
+      return Promise.reject(new Error(`unexpected endpoint: ${key}`));
+    });
+
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText("/aws/lambda/foo"));
+    const streamRow = await screen.findByText("2024/01/01/[$LATEST]abc123");
+    await user.click(streamRow);
+
+    expect(await screen.findByText("hello from the stream")).toBeInTheDocument();
+    expect(callMock).toHaveBeenCalledWith(
+      "aws.logs.events.list",
+      expect.objectContaining({
+        params: { group: "/aws/lambda/foo", stream: "2024/01/01/[$LATEST]abc123" },
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: /log streams/i }));
+
+    expect(await screen.findByText("2024/01/01/[$LATEST]abc123")).toBeInTheDocument();
+    expect(screen.queryByText("hello from the stream")).not.toBeInTheDocument();
+  });
 });
