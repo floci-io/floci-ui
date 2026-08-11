@@ -11,7 +11,7 @@ import {serviceIcon} from '@/components/serviceIcons'
 import type {CloudProvider, CloudServiceDescriptor} from '@/types/cloud'
 
 /** Matches today's service count, so the real nav causes no layout jump. */
-const SKELETON_ROWS = 7
+const SKELETON_ROWS = 8
 
 function NavItem({to, icon, label}: { to: string; icon: React.ElementType; label: string }) {
     const Icon = icon

@@ -1,13 +1,19 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { RefreshCw, ScrollText, Search } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { useLogGroupsQuery } from "@/api/aws/logs.queries";
 import { timeAgo } from "@/lib/utils";
 
 export function LogGroupsPage() {
-  const [prefix, setPrefix] = useState("");
-  const query = useLogGroupsQuery(prefix || undefined);
-  const groups = query.data ?? [];
+  const [search, setSearch] = useState("");
+  const query = useLogGroupsQuery();
+
+  const groups = useMemo(() => {
+    const all = query.data ?? [];
+    if (!search) return all;
+    const q = search.toLowerCase();
+    return all.filter((g) => g.name.toLowerCase().includes(q));
+  }, [query.data, search]);
 
   return (
     <>
@@ -28,9 +34,9 @@ export function LogGroupsPage() {
         <Search size={14} color="#8d9cad" />
         <input
           className="input"
-          value={prefix}
-          onChange={(e) => setPrefix(e.target.value)}
-          placeholder="Filter by log group name prefix…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search log groups…"
         />
       </div>
 
@@ -52,10 +58,10 @@ export function LogGroupsPage() {
           ) : groups.length === 0 ? (
             <EmptyState
               icon={ScrollText}
-              title={prefix ? "No log groups match that prefix" : "No log groups"}
+              title={search ? "No log groups match your search" : "No log groups"}
               description={
-                prefix
-                  ? "Try a different prefix."
+                search
+                  ? "Try a different name."
                   : "Log groups created in this account will appear here."
               }
             />

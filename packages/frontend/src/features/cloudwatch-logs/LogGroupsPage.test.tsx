@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -96,18 +96,26 @@ describe("LogGroupsPage", () => {
     expect(await screen.findByText("/aws/lambda/recovered")).toBeInTheDocument();
   });
 
-  it("forwards the search box value to the query as a name prefix", async () => {
-    callMock.mockResolvedValue({ data: [] });
+  it("filters the loaded groups client-side by search text, without issuing a new request per keystroke", async () => {
+    callMock.mockResolvedValue({
+      data: [
+        { name: "/aws/lambda/foo" },
+        { name: "/aws/lambda/bar" },
+        { name: "/ecs/other" },
+      ],
+    });
 
     renderPage();
-    await waitFor(() => expect(callMock).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("/aws/lambda/foo")).toBeInTheDocument();
+    expect(callMock).toHaveBeenCalledTimes(1);
 
     const user = userEvent.setup();
-    await user.type(screen.getByPlaceholderText(/prefix/i), "/aws/lambda/");
+    await user.type(screen.getByPlaceholderText(/search/i), "lambda");
 
-    await waitFor(() => {
-      const lastCall = callMock.mock.calls[callMock.mock.calls.length - 1];
-      expect(lastCall[1].params).toEqual({ prefix: "/aws/lambda/" });
-    });
+    expect(await screen.findByText("/aws/lambda/foo")).toBeInTheDocument();
+    expect(screen.getByText("/aws/lambda/bar")).toBeInTheDocument();
+    expect(screen.queryByText("/ecs/other")).not.toBeInTheDocument();
+    // Typing filtered in place; it never re-fetched.
+    expect(callMock).toHaveBeenCalledTimes(1);
   });
 });
