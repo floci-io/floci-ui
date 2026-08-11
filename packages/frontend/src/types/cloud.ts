@@ -9,6 +9,7 @@ export type KnownCloudServiceType =
     | 'networking'
     | 'serverless'
     | 'secrets'
+    | 'logs'
 
 /**
  * Deliberately open where the API's own type is closed.

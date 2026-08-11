@@ -1,6 +1,7 @@
 import {BrowserRouter, Navigate, Route, Routes} from 'react-router-dom'
 import {Layout} from '@/components/Layout'
 import {SecretsManagerPage} from '@/features/secretsmanager/SecretsManagerPage'
+import {LogGroupsPage} from '@/features/cloudwatch-logs/LogGroupsPage'
 import {CloudExplorerPage} from '@/pages/CloudExplorerPage'
 import {CloudConsoleHomePage} from '@/pages/CloudConsoleHomePage'
 
@@ -16,6 +17,7 @@ export default function App() {
                     <Route path="/cloud-explorer" element={<Navigate to="/cloud-explorer/aws/storage" replace/>}/>
                     <Route path="/cloud-explorer/:cloud/:service" element={<CloudExplorerPage/>}/>
                     <Route path="/secretsmanager" element={<SecretsManagerPage/>}/>
+                    <Route path="/logs" element={<LogGroupsPage/>}/>
                     <Route path="*" element={<Navigate to="/console/aws" replace/>}/>
                 </Route>
             </Routes>
