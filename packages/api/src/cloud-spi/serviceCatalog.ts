@@ -85,6 +85,13 @@ export const SERVICE_CATALOG = {
         // Explorer, so there is no adapter to derive availability from.
         legacyAvailability: {aws: 'available'},
     },
+    logs: {
+        displayName: 'Logs',
+        displayNameByCloud: {aws: 'CloudWatch Logs'},
+        iconKey: 'logs',
+        group: 'Observability',
+        order: 10,
+    },
 } as const satisfies Record<string, ServiceCatalogMetadata>
 
 export type CloudServiceType = keyof typeof SERVICE_CATALOG

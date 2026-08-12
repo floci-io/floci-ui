@@ -95,3 +95,33 @@ describe('mapAwsSdkError', () => {
         expect(mapAwsSdkError(sdkError('MysteryFailure'))?.status).toBe(502)
     })
 })
+
+/**
+ * CloudWatch Logs returns both of these with HTTP 400, verified against the
+ * runtime on 2026-07-28:
+ *   DescribeLogStreams on a missing group -> 400 ResourceNotFoundException
+ *   duplicate CreateLogGroup             -> 400 ResourceAlreadyExistsException
+ *
+ * Both already map correctly, because the name tables run ahead of the
+ * `$metadata.httpStatusCode` floor. Nothing pinned that ordering against a
+ * 400-carrying not-found, and an unpinned ordering is how #168 shipped a green
+ * suite over a 400-instead-of-404 bug.
+ */
+describe('logs errors carry HTTP 400 and must not fall through to it', () => {
+    test('a not-found keeps its 404 despite the 400 status', () => {
+        const mapped = mapAwsSdkError(
+            sdkError('ResourceNotFoundException', {$metadata: {httpStatusCode: 400}}),
+        )
+
+        expect(mapped?.status).toBe(404)
+        expect(mapped?.code).toBe('resource_not_found')
+    })
+
+    test('an already-exists keeps its 409 despite the 400 status', () => {
+        const mapped = mapAwsSdkError(
+            sdkError('ResourceAlreadyExistsException', {$metadata: {httpStatusCode: 400}}),
+        )
+
+        expect(mapped?.status).toBe(409)
+    })
+})

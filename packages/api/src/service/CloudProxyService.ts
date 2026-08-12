@@ -18,6 +18,14 @@ import type {
     StorageObjectDownload,
     StorageObjectList,
 } from '../cloud-spi/types'
+import type {
+    ChildCollection,
+    ChildItem,
+    CollectionPage,
+    DocumentStoreAdapter,
+    ItemStoreAdapter,
+    PageQuery,
+} from '../cloud-spi/childCollections'
 import {NotSupportedError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {SERVICE_CATALOG_ENTRIES, displayNameFor, routeFor} from '../cloud-spi/serviceCatalog'
@@ -241,6 +249,82 @@ async invokeResource(
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.copyObject) throw new NotSupportedError(`Object copy is not supported for ${cloud}/${service}`)
         await adapter.copyObject(srcResourceId, srcKey, destKey, destResourceId)
+    }
+
+    // Child collections. `requireDocuments`/`requireItems` reject the wrong
+    // shape rather than the missing method, so a flat store asked for
+    // collections gets a 501 that names the actual problem.
+
+    async listChildCollections(cloud: CloudProvider, service: CloudServiceType, resourceId: string, page: PageQuery): Promise<CollectionPage<ChildCollection>> {
+        return this.requireDocuments(cloud, service).listCollections(resourceId, page)
+    }
+
+    async createChildCollection(cloud: CloudProvider, service: CloudServiceType, resourceId: string, input: CreateResourceInput): Promise<ChildCollection> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.createCollection) throw new NotSupportedError(`Creating collections is not supported for ${cloud}/${service}`)
+        return documents.createCollection(resourceId, input)
+    }
+
+    async deleteChildCollection(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string): Promise<void> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.deleteCollection) throw new NotSupportedError(`Deleting collections is not supported for ${cloud}/${service}`)
+        await documents.deleteCollection(resourceId, collectionId)
+    }
+
+    async listCollectionItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, page: PageQuery): Promise<CollectionPage<ChildItem>> {
+        return this.requireDocuments(cloud, service).listItems(resourceId, collectionId, page)
+    }
+
+    async putCollectionItem(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, body: Record<string, unknown>): Promise<ChildItem> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.putItem) throw new NotSupportedError(`Writing items is not supported for ${cloud}/${service}`)
+        return documents.putItem(resourceId, collectionId, body)
+    }
+
+    async deleteCollectionItem(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, itemId: string, partitionKey?: string | null): Promise<void> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.deleteItem) throw new NotSupportedError(`Deleting items is not supported for ${cloud}/${service}`)
+        await documents.deleteItem(resourceId, collectionId, itemId, partitionKey)
+    }
+
+    async queryCollectionItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, query: string): Promise<CollectionPage<ChildItem>> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.queryItems) throw new NotSupportedError(`Querying items is not supported for ${cloud}/${service}`)
+        return documents.queryItems(resourceId, collectionId, query)
+    }
+
+    async listFlatItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, page: PageQuery): Promise<CollectionPage<ChildItem>> {
+        return this.requireItems(cloud, service).listItems(resourceId, page)
+    }
+
+    async putFlatItem(cloud: CloudProvider, service: CloudServiceType, resourceId: string, body: Record<string, unknown>): Promise<ChildItem> {
+        const items = this.requireItems(cloud, service)
+        if (!items.putItem) throw new NotSupportedError(`Writing items is not supported for ${cloud}/${service}`)
+        return items.putItem(resourceId, body)
+    }
+
+    async deleteFlatItem(cloud: CloudProvider, service: CloudServiceType, resourceId: string, itemId: string, partitionKey?: string | null): Promise<void> {
+        const items = this.requireItems(cloud, service)
+        if (!items.deleteItem) throw new NotSupportedError(`Deleting items is not supported for ${cloud}/${service}`)
+        await items.deleteItem(resourceId, itemId, partitionKey)
+    }
+
+    async queryFlatItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, query: string): Promise<CollectionPage<ChildItem>> {
+        const items = this.requireItems(cloud, service)
+        if (!items.queryItems) throw new NotSupportedError(`Querying items is not supported for ${cloud}/${service}`)
+        return items.queryItems(resourceId, query)
+    }
+
+    private requireDocuments(cloud: CloudProvider, service: CloudServiceType): DocumentStoreAdapter {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.documents) throw new NotSupportedError(`Nested collections are not supported for ${cloud}/${service}`)
+        return adapter.documents
+    }
+
+    private requireItems(cloud: CloudProvider, service: CloudServiceType): ItemStoreAdapter {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.items) throw new NotSupportedError(`Flat items are not supported for ${cloud}/${service}`)
+        return adapter.items
     }
 
     async listCosmosContainers(cloud: CloudProvider, databaseId: string): Promise<CosmosContainer[]> {

@@ -1,5 +1,6 @@
 import {describe, expect, test} from 'bun:test'
 import {createCloudAdapterRegistry} from './cloudProxy'
+import {checkChildCapabilities} from './cloud-spi/childCapabilities'
 import {isServiceType} from './cloud-spi/serviceCatalog'
 import type {CloudProvider, CloudServiceAdapter, CloudServiceType, ResourceActionName} from './cloud-spi/types'
 
@@ -83,10 +84,16 @@ describe('registered adapters honour their schema', () => {
             }
         })
 
+        test(`${label} child collections match their advertised capabilities`, () => {
+            expect(checkChildCapabilities(adapter), `${label} child capability mismatch`).toEqual([])
+        })
+
         test(`${label} explains every capability it does not fully support`, () => {
             const capabilities = [
                 ...(adapter.schema().capabilities?.resourceActions ?? []),
                 ...(adapter.schema().capabilities?.objectActions ?? []),
+                ...(adapter.schema().capabilities?.collectionActions ?? []),
+                ...(adapter.schema().capabilities?.itemActions ?? []),
             ]
 
             for (const capability of capabilities) {

@@ -4,6 +4,7 @@ import { EKSClient } from "@aws-sdk/client-eks";
 import { EC2Client } from "@aws-sdk/client-ec2";
 import { RDSClient } from "@aws-sdk/client-rds";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { CloudWatchLogsClient } from "@aws-sdk/client-cloudwatch-logs";
 
 const endpoint = process.env.FLOCI_ENDPOINT;
 const region = process.env.AWS_REGION || "us-east-1";
@@ -39,6 +40,7 @@ export type AwsClients = {
   ec2: EC2Client;
   rds: RDSClient;
   secretsManager: SecretsManagerClient;
+  logs: CloudWatchLogsClient;
 };
 
 export type AwsClientName = keyof AwsClients;
@@ -58,6 +60,7 @@ function buildClients(accountId: string): AwsClients {
     ec2: new EC2Client(base),
     rds: new RDSClient(base),
     secretsManager: new SecretsManagerClient(base),
+    logs: new CloudWatchLogsClient(base),
   };
 }
 

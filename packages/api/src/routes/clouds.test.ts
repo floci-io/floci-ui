@@ -1,6 +1,13 @@
 import {describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
 import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
+import type {
+    ChildCollection,
+    ChildItem,
+    CollectionPage,
+    DocumentStoreAdapter,
+    ItemStoreAdapter,
+} from '../cloud-spi/childCollections'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput} from '../cloud-spi/types'
@@ -589,5 +596,148 @@ describe('per-service status', () => {
     test('rejects an unknown service slug', async () => {
         const res = await appWithRoutes().request('/api/clouds/aws/services/queue/status')
         expect(res.status).toBe(404)
+    })
+})
+
+const stubCollections: CollectionPage<ChildCollection> = {
+    items: [{id: 'stream-a', name: 'stream-a', parentId: 'group-1', createdAt: null, metadata: {}}],
+    nextCursor: 'cursor-2',
+}
+
+const stubItems: CollectionPage<ChildItem> = {
+    items: [{id: 'event-1', collectionId: 'stream-a', timestamp: null, body: {message: 'hello'}, metadata: {}}],
+    nextCursor: null,
+}
+
+const documentsStub: DocumentStoreAdapter = {
+    listCollections: async () => stubCollections,
+    createCollection: async (resourceId, input) => ({
+        id: String(input.values.name),
+        name: String(input.values.name),
+        parentId: resourceId,
+        createdAt: null,
+        metadata: {},
+    }),
+    deleteCollection: async () => {},
+    listItems: async () => stubItems,
+}
+
+const itemsStub: ItemStoreAdapter = {
+    listItems: async () => stubItems,
+}
+
+describe('child collection routes', () => {
+    test('lists collections and returns the cursor', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {documents: documentsStub})])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/group-1/collections')
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({
+            items: [{id: 'stream-a', name: 'stream-a', parentId: 'group-1', createdAt: null, metadata: {}}],
+            nextCursor: 'cursor-2',
+        })
+    })
+
+    test('creates a collection', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {documents: documentsStub})])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/group-1/collections', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'stream-b'}),
+        })
+
+        expect(res.status).toBe(201)
+        expect(await res.json()).toMatchObject({id: 'stream-b', parentId: 'group-1'})
+    })
+
+    test('lists items under a collection', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {documents: documentsStub})])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/group-1/collections/stream-a/items')
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({items: stubItems.items, nextCursor: null})
+    })
+
+    test('lists flat items', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {items: itemsStub})])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/table-1/items')
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({items: stubItems.items, nextCursor: null})
+    })
+
+    // A documents-only adapter has no flat shape, and vice versa.
+    test('501s when the adapter has the other shape', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {documents: documentsStub})])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/group-1/items')
+
+        expect(res.status).toBe(501)
+    })
+
+    test('501s when the adapter implements no child store', async () => {
+        const app = appWithRoutes([mockAdapter('aws')])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/group-1/collections')
+
+        expect(res.status).toBe(501)
+    })
+
+    test('501s for a write the store does not implement', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {documents: documentsStub})])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/group-1/collections/stream-a/items', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({message: 'nope'}),
+        })
+
+        expect(res.status).toBe(501)
+    })
+
+    test('rejects an out-of-range limit', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {documents: documentsStub})])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/group-1/collections?limit=5000')
+
+        expect(res.status).toBe(400)
+    })
+
+    test('passes cursor and limit through to the adapter', async () => {
+        let seen: unknown
+        const app = appWithRoutes([
+            mockAdapter('aws', {
+                documents: {
+                    ...documentsStub,
+                    listCollections: async (_resourceId, page) => {
+                        seen = page
+                        return stubCollections
+                    },
+                },
+            }),
+        ])
+        await app.request('/api/clouds/aws/services/storage/resources/group-1/collections?cursor=abc&limit=25')
+
+        expect(seen).toEqual({cursor: 'abc', limit: 25})
+    })
+
+    // Registration-order regression: the literal `database` segment must keep
+    // beating the new `:service` param, or the Cosmos panel silently breaks.
+    test('the existing Cosmos container routes still resolve', async () => {
+        const app = appWithRoutes([
+            mockAdapter('azure', {
+                service: 'database',
+                schema: azureDatabaseSchema,
+                listCosmosContainers: async (): Promise<CosmosContainer[]> => [{
+                    id: 'items',
+                    name: 'items',
+                    databaseId: 'appdb',
+                    partitionKeyPath: '/pk',
+                    createdAt: null,
+                    metadata: {},
+                }],
+            }),
+        ])
+
+        const res = await app.request('/api/clouds/azure/services/database/resources/appdb/containers')
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toMatchObject([{id: 'items', databaseId: 'appdb'}])
     })
 })

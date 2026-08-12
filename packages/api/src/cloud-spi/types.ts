@@ -1,6 +1,12 @@
 // Derived from SERVICE_CATALOG so a new catalog row is a new service type.
 // This type-only cycle with serviceCatalog.ts is erased at compile time.
 import type {CloudServiceType, ServiceGroup} from './serviceCatalog'
+import type {
+    CollectionActionName,
+    DocumentStoreAdapter,
+    ItemActionName,
+    ItemStoreAdapter,
+} from './childCollections'
 
 export type {CloudServiceType, ServiceGroup}
 
@@ -142,6 +148,11 @@ export interface ServiceSchema {
     capabilities?: {
         resourceActions?: CapabilitySchema<ResourceActionName>[]
         objectActions?: CapabilitySchema<ObjectActionName>[]
+        // Child levels advertise separately from the resource level because a
+        // store can be readable at the leaf and writable at the collection —
+        // CloudWatch Logs creates streams but cannot delete an event.
+        collectionActions?: CapabilitySchema<CollectionActionName>[]
+        itemActions?: CapabilitySchema<ItemActionName>[]
     }
     filters: FieldSchema[]
     columns: TableColumnSchema[]
@@ -152,7 +163,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret'
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret' | 'log-group'
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -262,6 +273,14 @@ export interface CloudServiceAdapter {
      */
     health?(): Promise<void>
     copyObject?(srcResourceId: string, srcKey: string, destKey: string, destResourceId?: string): Promise<void>
+    /**
+     * Child collections. An adapter implements at most one: `documents` when the
+     * resource holds collections that hold items, `items` when the resource is
+     * itself the collection. Both is a contract violation — the flat item routes
+     * would be ambiguous — and cloudProxy.test.ts enforces that.
+     */
+    documents?: DocumentStoreAdapter
+    items?: ItemStoreAdapter
     listCosmosContainers?(databaseId: string): Promise<CosmosContainer[]>
     createCosmosContainer?(databaseId: string, input: CreateResourceInput): Promise<CosmosContainer>
     deleteCosmosContainer?(databaseId: string, containerId: string): Promise<void>
