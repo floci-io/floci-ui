@@ -19,7 +19,7 @@ const SKELETON_ROWS = 7
 function NavItem({to, icon, label}: { to: string; icon: React.ElementType; label: string }) {
     const Icon = icon
     return (
-        <NavLink className="nav-link" to={to}>
+        <NavLink className="nav-link" to={to} title={label}>
             <Icon size={14}/>
             <span>{label}</span>
         </NavLink>
@@ -46,7 +46,7 @@ function CloudServiceNav() {
         return (
             <div className="nav-section cloud-service-nav">
                 <span className="nav-label">Cloud Services · {cloudLabel}</span>
-                <div className="nav-link disabled nav-error">
+                <div className="nav-link disabled nav-error" title="Services unavailable">
                     <AlertTriangle size={14}/>
                     <span>Services unavailable</span>
                 </div>
@@ -86,7 +86,10 @@ function CloudServiceNavItem({cloud, service}: {cloud: CloudProvider; service: C
 
     // The server explains why, so the chip is no longer a bare "Soon".
     return (
-        <div className="nav-link disabled" title={service.reason}>
+        <div
+            className="nav-link disabled"
+            title={service.reason ? `${service.displayName} — ${service.reason}` : service.displayName}
+        >
             <Icon size={14}/>
             <span>{service.displayName}</span>
             <span className="nav-soon">Soon</span>

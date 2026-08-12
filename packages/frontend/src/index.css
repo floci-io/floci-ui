@@ -192,8 +192,9 @@ pre,
     width: var(--sidebar-rail-w);
 }
 
-/* :focus-within is load-bearing — without it the flyout is keyboard-unreachable. */
-[data-sidebar="collapsed"] .sidebar:hover .sidebar-inner,
+/* The rail does NOT expand on hover — hovering a link shows its native title
+   tooltip instead. :focus-within is kept because tooltips do not appear on
+   keyboard focus, so without it the rail would be unreadable to keyboard users. */
 [data-sidebar="collapsed"] .sidebar:focus-within .sidebar-inner {
     width: var(--sidebar-w);
     z-index: 30;
@@ -201,7 +202,7 @@ pre,
 }
 
 /* Rail: collapsed and not hovered. Hovering restores every label below. */
-[data-sidebar="collapsed"] .sidebar:not(:hover):not(:focus-within) :is(
+[data-sidebar="collapsed"] .sidebar:not(:focus-within) :is(
     .nav-label,
     .nav-group-label,
     .nav-retry,
@@ -214,38 +215,38 @@ pre,
     display: none;
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:hover):not(:focus-within) .brand-mark {
+[data-sidebar="collapsed"] .sidebar:not(:focus-within) .brand-mark {
     display: block;
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:hover):not(:focus-within) .brand {
+[data-sidebar="collapsed"] .sidebar:not(:focus-within) .brand {
     align-items: center;
     padding: 12px 0;
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:hover):not(:focus-within) .nav-link {
+[data-sidebar="collapsed"] .sidebar:not(:focus-within) .nav-link {
     justify-content: center;
     padding: 7px 0;
 }
 
 /* With labels hidden the divider is the only grouping cue, so it uses the
    structural --border weight rather than --border-faint (1.17:1). */
-[data-sidebar="collapsed"] .sidebar:not(:hover):not(:focus-within) .nav-group + .nav-group {
+[data-sidebar="collapsed"] .sidebar:not(:focus-within) .nav-group + .nav-group {
     border-top: 1px solid var(--border);
     padding-top: 5px;
 }
 
 /* The active tint is ~1.2:1 in both themes and never carried active state on
    its own — the label did. Without a label, the accent inset does the work. */
-[data-sidebar="collapsed"] .sidebar:not(:hover):not(:focus-within) .nav-link.active {
+[data-sidebar="collapsed"] .sidebar:not(:focus-within) .nav-link.active {
     box-shadow: inset 3px 0 var(--accent);
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:hover):not(:focus-within) .skeleton-bar {
+[data-sidebar="collapsed"] .sidebar:not(:focus-within) .skeleton-bar {
     width: 20px;
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:hover):not(:focus-within) .sidebar-footer {
+[data-sidebar="collapsed"] .sidebar:not(:focus-within) .sidebar-footer {
     justify-content: center;
     padding: 8px;
 }
