@@ -61,6 +61,14 @@ describe('SERVICE_CATALOG', () => {
         // No override -> the shared display name.
         expect(displayNameFor(catalogEntry('storage')!, 'gcp')).toBe('Storage')
     })
+
+    test('logs is a legacy AWS-only page in the Observability group, like Secrets Manager', () => {
+        const logs = catalogEntry('logs')!
+        expect(logs).toBeDefined()
+        expect(logs.group).toBe('Observability')
+        expect(routeFor(logs)).toBe('/logs')
+        expect(logs.legacyAvailability?.aws).toBe('available')
+    })
 })
 
 describe('isServiceType', () => {

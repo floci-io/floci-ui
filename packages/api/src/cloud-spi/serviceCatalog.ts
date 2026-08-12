@@ -85,6 +85,17 @@ export const SERVICE_CATALOG = {
         // Explorer, so there is no adapter to derive availability from.
         legacyAvailability: {aws: 'available'},
     },
+    logs: {
+        displayName: 'CloudWatch Logs',
+        iconKey: 'logs',
+        group: 'Observability',
+        order: 10,
+        route: '/logs',
+        // Groups/streams/events drill-in is a standalone page like Secrets
+        // Manager, not a generic CloudResource table, so there is no adapter
+        // to derive availability from.
+        legacyAvailability: {aws: 'available'},
+    },
 } as const satisfies Record<string, ServiceCatalogMetadata>
 
 export type CloudServiceType = keyof typeof SERVICE_CATALOG

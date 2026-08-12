@@ -8,6 +8,7 @@ import rds from "./routes/rds";
 import ec2 from "./routes/ec2";
 import secretsmanager from "./routes/secretsmanager";
 import clouds from "./routes/clouds";
+import logs from "./routes/logs";
 const app = new Hono();
 
 // The Secrets Manager routes read and delete secret values with server-side
@@ -46,6 +47,7 @@ app.route("/api/rds", rds);
 app.route("/api/ec2", ec2);
 app.route("/api/secretsmanager", secretsmanager);
 app.route("/api/clouds", clouds);
+app.route("/api/logs", logs);
 
 // Serve static frontend files when public/ directory is present (production)
 app.use("*", serveStatic({ root: "./public" }));

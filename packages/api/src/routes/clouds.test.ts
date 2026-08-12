@@ -486,6 +486,20 @@ describe('service descriptors', () => {
         expect(secretsFor(aws)).toMatchObject({availability: 'available', route: '/secretsmanager'})
         expect(secretsFor(gcp)).toMatchObject({availability: 'coming_soon'})
     })
+
+    test('surfaces the legacy CloudWatch Logs page in the nav on AWS only', async () => {
+        const aws = await (await appWithRoutes().request('/api/clouds/aws/services')).json()
+        const azure = await (await appWithRoutes().request('/api/clouds/azure/services')).json()
+        const logsFor = (body: Array<{service: string}>) => body.find((d) => d.service === 'logs')
+
+        expect(logsFor(aws)).toMatchObject({
+            availability: 'available',
+            route: '/logs',
+            group: 'Observability',
+        })
+        // No adapter and no Azure override, so it degrades like Secrets Manager does on GCP.
+        expect(logsFor(azure)).toMatchObject({availability: 'coming_soon'})
+    })
 })
 
 describe('per-service status', () => {

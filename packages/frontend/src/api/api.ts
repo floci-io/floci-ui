@@ -164,6 +164,17 @@ export const apiEndpointKeys = {
       instanceTypes: "aws.ec2.instance-types",
       vpcWizard: "aws.ec2.vpc-wizard",
     },
+    logs: {
+      groups: {
+        list: "aws.logs.groups.list",
+      },
+      streams: {
+        list: "aws.logs.streams.list",
+      },
+      events: {
+        list: "aws.logs.events.list",
+      },
+    },
   },
 } as const;
 
@@ -579,6 +590,32 @@ export const endpointRegistry: EndpointRegistry = new Map([
   [apiEndpointKeys.aws.ec2.availabilityZones, { path: "/ec2/availability-zones", method: "GET", telemetry: { provider: "aws", service: "ec2" } }],
   [apiEndpointKeys.aws.ec2.instanceTypes,     { path: "/ec2/instance-types", method: "GET", telemetry: { provider: "aws", service: "ec2" } }],
   [apiEndpointKeys.aws.ec2.vpcWizard,         { path: "/ec2/vpc-wizard", method: "POST", telemetry: { provider: "aws", service: "ec2" } }],
+
+  // AWS CloudWatch Logs
+  [
+    apiEndpointKeys.aws.logs.groups.list,
+    {
+      path: "/logs/groups",
+      method: "GET",
+      telemetry: { provider: "aws", service: "logs" },
+    },
+  ],
+  [
+    apiEndpointKeys.aws.logs.streams.list,
+    {
+      path: "/logs/streams",
+      method: "GET",
+      telemetry: { provider: "aws", service: "logs" },
+    },
+  ],
+  [
+    apiEndpointKeys.aws.logs.events.list,
+    {
+      path: "/logs/events",
+      method: "GET",
+      telemetry: { provider: "aws", service: "logs" },
+    },
+  ],
 
 ]);
 
