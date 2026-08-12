@@ -1,8 +1,11 @@
 import {NavLink, Outlet, useLocation} from 'react-router-dom'
-import {AlertTriangle, LayoutDashboard, Moon, Search, Sun} from 'lucide-react'
+import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Moon, Search, Sun} from 'lucide-react'
 import flociWhite from '@/assets/floci-white.svg'
 import flociBlack from '@/assets/floci-black.svg'
+import flociMarkWhite from '@/assets/floci-mark-white.svg'
+import flociMarkBlack from '@/assets/floci-mark-black.svg'
 import {useTheme} from '@/lib/useTheme'
+import {useSidebar} from '@/lib/useSidebar'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus} from '@/api/cloudProxyClient'
 import {useCloudServicesQuery} from '@/api/queries/cloudQueries'
@@ -119,6 +122,8 @@ export function Layout() {
     const location = useLocation()
     const activeCloud = activeCloudFromPath(location.pathname)
     const {theme, toggle} = useTheme()
+    const {collapsed, toggle: toggleSidebar} = useSidebar()
+    const isDark = theme === 'dark'
     const {data, isError} = useQuery({
         queryKey: ['cloud-status', activeCloud],
         queryFn: ({signal}) => getCloudStatus(activeCloud, signal),
@@ -132,20 +137,35 @@ export function Layout() {
     return (
         <div className="app">
             <aside className="sidebar">
-                <div className="brand">
-                    <img className="brand-logo" src={theme === 'dark' ? flociWhite : flociBlack} alt="Floci"/>
-                    <p>Local Cloud</p>
-                </div>
-
-                <nav className="nav">
-                    <div className="nav-section">
-                        <span className="nav-label">General</span>
-                        <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home"/>
+                <div className="sidebar-inner">
+                    <div className="brand">
+                        <img className="brand-logo" src={isDark ? flociWhite : flociBlack} alt="Floci"/>
+                        <img className="brand-mark" src={isDark ? flociMarkWhite : flociMarkBlack} alt="" aria-hidden="true"/>
+                        <p>Local Cloud</p>
                     </div>
-                    <CloudServiceNav/>
-                </nav>
 
-                <div className="sidebar-footer">Floci DevTools · Local</div>
+                    <nav className="nav">
+                        <div className="nav-section">
+                            <span className="nav-label">General</span>
+                            <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home"/>
+                        </div>
+                        <CloudServiceNav/>
+                    </nav>
+
+                    <div className="sidebar-footer">
+                        <span className="sidebar-footer-text">Floci DevTools · Local</span>
+                        <button
+                            className="icon-btn"
+                            type="button"
+                            onClick={toggleSidebar}
+                            aria-expanded={!collapsed}
+                            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        >
+                            {collapsed ? <ChevronsRight size={14}/> : <ChevronsLeft size={14}/>}
+                        </button>
+                    </div>
+                </div>
             </aside>
 
             <div className="shell">
@@ -156,7 +176,7 @@ export function Layout() {
                         <span className="kbd">/</span>
                     </div>
                     <button className="icon-btn" onClick={toggle} title="Toggle theme">
-                        {theme === 'dark' ? <Sun size={14}/> : <Moon size={14}/>}
+                        {isDark ? <Sun size={14}/> : <Moon size={14}/>}
                     </button>
                     <div id="topbar-status" className="topbar-status"/>
                     <AccountSwitcher/>
