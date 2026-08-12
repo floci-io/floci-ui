@@ -161,7 +161,7 @@ export function Layout() {
                     <div id="topbar-status" className="topbar-status"/>
                     <AccountSwitcher/>
                     <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
-                        <span className={`dot ${status}`}/>
+                        <span className={`dot ${isConnected ? 'healthy' : 'unavailable'}`}/>
                         <span className="connection-state">{connectionLabel}</span>
                         <span className="connection-target">{connectionTarget}</span>
                     </div>
