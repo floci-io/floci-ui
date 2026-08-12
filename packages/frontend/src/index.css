@@ -226,7 +226,14 @@ pre,
 
 [data-sidebar="collapsed"] .sidebar:not(:focus-within) .nav-link {
     justify-content: center;
-    padding: 7px 0;
+    padding: 8px 0;
+}
+
+/* The 14px chrome size is too small once the icon is the only thing naming a
+   service. CSS overrides lucide's width/height attributes. */
+[data-sidebar="collapsed"] .sidebar:not(:focus-within) .nav-link svg {
+    width: 18px;
+    height: 18px;
 }
 
 /* With labels hidden the divider is the only grouping cue, so it uses the
