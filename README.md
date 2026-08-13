@@ -58,6 +58,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Databases | Database | Yes (list, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Networking | Networking | Yes (list) | No | No |
+| Integration | Messaging | Yes (list, create, delete, inspect) | No | No |
 | Provisioning | CloudFormation / Infrastructure as Code | No | No | No |
 | Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
 

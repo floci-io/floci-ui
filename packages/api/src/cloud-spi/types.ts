@@ -72,6 +72,7 @@ export interface FieldSchema {
     label: string
     type: FieldType
     required: boolean
+    requiredWhen?: {field: string; equals: string}
     description?: string
     group?: string
     span?: boolean
@@ -79,6 +80,7 @@ export interface FieldSchema {
         pattern?: string
         minLength?: number
         maxLength?: number
+        maxLengthWhen?: {field: string; equals: string; value: number; message?: string}
         message?: string
     }
     options?: Array<{label: string; value: string}>
@@ -152,7 +154,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret'
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret' | 'event-bus' | 'schedule'
     region: string | null
     createdAt: string | null
     status?: string | null

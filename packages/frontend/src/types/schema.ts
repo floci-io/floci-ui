@@ -31,6 +31,7 @@ export interface FieldSchema {
     label: string
     type: FieldType
     required: boolean
+    requiredWhen?: {field: string; equals: string}
     description?: string
     group?: string
     span?: boolean
@@ -38,6 +39,7 @@ export interface FieldSchema {
         pattern?: string
         minLength?: number
         maxLength?: number
+        maxLengthWhen?: {field: string; equals: string; value: number; message?: string}
         message?: string
     }
     options?: Array<{label: string; value: string}>
