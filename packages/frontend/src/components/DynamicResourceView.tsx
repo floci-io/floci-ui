@@ -31,6 +31,7 @@ import type { CloudResource, StorageObject } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { CosmosNoSqlPanel } from "@/components/CosmosNoSqlPanel";
 import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
+import { DynamoDbTableExplorer } from "@/components/DynamoDbTableExplorer";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -329,6 +330,13 @@ export function DynamicResourceView({
     runtimeReachable={canUseRuntime}
   />
 )}
+      {service === "nosql" && cloud === "aws" && (
+        <DynamoDbTableExplorer
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
     </div>
   );
 }
@@ -359,6 +367,8 @@ function resourceCreateLabel(schema: ServiceSchema): string {
     return "Create container";
   if (schema.cloud === "azure" && schema.service === "database")
     return "Create database";
+  if (schema.cloud === "aws" && schema.service === "nosql")
+    return "Create table";
   if (schema.cloud === "azure" && schema.service === "secrets")
     return "Create secret";
   return "Create resource";

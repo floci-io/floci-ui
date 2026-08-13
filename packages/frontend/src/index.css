@@ -1545,6 +1545,28 @@ pre,
     font-size: 11px;
 }
 
+.dynamodb-explorer {
+    display: grid;
+    grid-template-columns: minmax(520px, 1.5fr) minmax(340px, 1fr);
+    gap: 10px;
+    min-height: 300px;
+}
+
+.dynamodb-explorer > .empty {
+    grid-column: 1 / -1;
+}
+
+.dynamodb-document {
+    max-height: 420px;
+    overflow: auto;
+    margin: 0;
+    color: var(--text);
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
 .launch-form {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2435,6 +2457,10 @@ button.console-service-card {
 
     .resource-inspector {
         position: static;
+    }
+
+    .dynamodb-explorer {
+        grid-template-columns: 1fr;
     }
 
     .input {
