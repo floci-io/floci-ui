@@ -1,6 +1,6 @@
 import {Hono} from 'hono'
 import type {Context} from 'hono'
-import type {CloudProvider, CloudServiceType} from '../cloud-spi/types'
+import type {CloudProvider, CloudServiceType, SqlConnectionInput} from '../cloud-spi/types'
 import {toHttpError} from '../cloud-spi/errors'
 import {isServiceType} from '../cloud-spi/serviceCatalog'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
@@ -66,7 +66,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
-    app.get('/:cloud/services/database/resources/:id/containers', async (c) => {
+    app.get('/:cloud/services/nosql/resources/:id/containers', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
@@ -76,7 +76,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
-    app.post('/:cloud/services/database/resources/:id/containers', async (c) => {
+    app.post('/:cloud/services/nosql/resources/:id/containers', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
@@ -87,7 +87,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
-    app.delete('/:cloud/services/database/resources/:id/containers/:containerId', async (c) => {
+    app.delete('/:cloud/services/nosql/resources/:id/containers/:containerId', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
@@ -97,7 +97,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
-    app.get('/:cloud/services/database/resources/:id/containers/:containerId/items', async (c) => {
+    app.get('/:cloud/services/nosql/resources/:id/containers/:containerId/items', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
@@ -107,7 +107,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
-    app.post('/:cloud/services/database/resources/:id/containers/:containerId/items', async (c) => {
+    app.post('/:cloud/services/nosql/resources/:id/containers/:containerId/items', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
@@ -118,7 +118,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
-    app.delete('/:cloud/services/database/resources/:id/containers/:containerId/items/:itemId', async (c) => {
+    app.delete('/:cloud/services/nosql/resources/:id/containers/:containerId/items/:itemId', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
@@ -128,13 +128,47 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
-    app.post('/:cloud/services/database/resources/:id/containers/:containerId/query', async (c) => {
+    app.post('/:cloud/services/nosql/resources/:id/containers/:containerId/query', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
 
         return withRuntime(c, async () => {
             const body = await c.req.json<{query?: string}>()
             const result = await svc(c).queryCosmosItems(cloud, c.req.param('id'), c.req.param('containerId'), body.query ?? '')
+            return c.json(result)
+        })
+    })
+
+    app.post('/:cloud/services/database/resources/:id/sql/databases', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const connection = await c.req.json<SqlConnectionInput>()
+            const databases = await svc(c).listSqlDatabases(cloud, c.req.param('id'), connection)
+            return c.json(databases)
+        })
+    })
+
+    app.post('/:cloud/services/database/resources/:id/sql/tables', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const connection = await c.req.json<SqlConnectionInput>()
+            const tables = await svc(c).listSqlTables(cloud, c.req.param('id'), connection)
+            return c.json(tables)
+        })
+    })
+
+    app.post('/:cloud/services/database/resources/:id/sql/query', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const body = await c.req.json<SqlConnectionInput & {query?: string}>()
+            const {query = '', ...connection} = body
+            const result = await svc(c).querySql(cloud, c.req.param('id'), connection, query)
             return c.json(result)
         })
     })

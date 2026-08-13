@@ -1545,6 +1545,256 @@ pre,
     font-size: 11px;
 }
 
+.sql-panel {
+    display: grid;
+    gap: 10px;
+}
+
+.sql-connection-bar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.45fr) minmax(180px, 0.6fr) auto;
+    gap: 8px 12px;
+    align-items: end;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--elevated);
+}
+
+.sql-connection-title,
+.sql-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+
+.sql-connection-title svg,
+.sql-panel-header svg {
+    flex: 0 0 auto;
+    color: var(--link);
+}
+
+.sql-connection-title span,
+.sql-panel-header span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.sql-connection-title small,
+.sql-panel-header small,
+.sql-connection-bar label > span {
+    color: var(--text-3);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sql-connection-title strong,
+.sql-panel-header strong {
+    overflow: hidden;
+    color: var(--text-bright);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sql-connection-title em,
+.sql-panel-header em {
+    overflow: hidden;
+    color: var(--text-3);
+    font-size: 10px;
+    font-style: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sql-connection-bar label {
+    display: grid;
+    gap: 5px;
+}
+
+.sql-credential-note {
+    grid-column: 2 / 4;
+    color: var(--text-3);
+    font-size: 10px;
+}
+
+.sql-connection-bar > .form-error {
+    grid-column: 1 / -1;
+}
+
+.sql-connect-empty {
+    min-height: 180px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--elevated);
+}
+
+.sql-explorer {
+    display: grid;
+    grid-template-columns: minmax(210px, 0.7fr) minmax(240px, 0.8fr) minmax(480px, 1.8fr);
+    gap: 10px;
+    min-height: 440px;
+}
+
+.sql-column {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--elevated);
+    overflow: hidden;
+}
+
+.sql-panel-header {
+    min-height: 58px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sql-panel-header span {
+    flex: 1;
+}
+
+.sql-list {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.sql-list-row {
+    display: flex;
+    width: 100%;
+    min-height: 52px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--border-faint);
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+}
+
+.sql-list-row:hover,
+.sql-list-row.selected {
+    background: var(--hover-md);
+}
+
+.sql-list-row span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.sql-list-row strong {
+    overflow: hidden;
+    color: var(--text-bright);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sql-list-row small,
+.sql-list-row em {
+    color: var(--text-3);
+    font-size: 10px;
+    font-style: normal;
+}
+
+.sql-list-row em {
+    flex: 0 0 auto;
+}
+
+.sql-workspace {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.sql-query-editor {
+    display: grid;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--raised);
+}
+
+.sql-query-editor .button {
+    justify-self: end;
+}
+
+.sql-results-empty {
+    min-height: 180px;
+}
+
+.sql-results {
+    min-width: 0;
+    overflow: auto;
+}
+
+.sql-results-summary,
+.sql-result-set-label {
+    display: flex;
+    gap: 14px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-2);
+    font-size: 10px;
+}
+
+.sql-result-set-label {
+    background: var(--raised);
+    color: var(--text-bright);
+    font-weight: 600;
+}
+
+.sql-result-table-wrap {
+    max-height: 280px;
+    overflow: auto;
+}
+
+.sql-result-table {
+    min-width: max-content;
+}
+
+.sql-result-table th small {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-3);
+    font-size: 9px;
+    font-weight: 400;
+    text-transform: none;
+}
+
+.sql-result-table td {
+    max-width: 280px;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .sql-connection-bar {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .sql-credential-note {
+        grid-column: 1 / -1;
+    }
+
+    .sql-explorer {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .sql-workspace {
+        grid-column: 1 / -1;
+    }
+}
+
 .launch-form {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1952,12 +2202,12 @@ pre,
 }
 
 .metadata-table code {
-    overflow: hidden;
+    min-width: 0;
     color: var(--text);
     font-family: var(--mono);
     font-size: 11px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
 }
 
 .object-browser {

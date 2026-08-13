@@ -103,7 +103,7 @@ function FieldInput({field, value, invalid, onChange}: {field: FieldSchema; valu
 }
 
 function defaultValues(fields: FieldSchema[]): Record<string, string> {
-    return Object.fromEntries(fields.map((field) => [field.name, '']))
+    return Object.fromEntries(fields.map((field) => [field.name, field.defaultValue ?? '']))
 }
 
 function validateValues(fields: FieldSchema[], values: Record<string, string>): Record<string, string> {

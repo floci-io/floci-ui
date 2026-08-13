@@ -57,6 +57,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Databases | Database | Yes (list, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
+| Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | No | Yes (list, create, delete, inspect) | No |
 | Networking | Networking | Yes (list) | No | No |
 | Provisioning | CloudFormation / Infrastructure as Code | No | No | No |
 | Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |

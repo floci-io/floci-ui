@@ -5,7 +5,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | "azure-function" | 'gcp-function' | 'secret';
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'sql-server' | 'postgres-flexible-server' | 'instance' | 'image' | 'vpc' | 'lambda' | "azure-function" | 'gcp-function' | 'secret';
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -51,4 +51,46 @@ export interface CosmosItem {
 export interface CosmosQueryResult {
     items: Array<Record<string, unknown> | string | number | boolean | null>
     count: number
+}
+
+export interface SqlCredentials {
+    username: string
+    password: string
+}
+
+export type SqlEngine = 'azure-sql' | 'postgresql'
+
+export interface SqlDatabase {
+    name: string
+    state: string
+    createdAt: string | null
+    isSystem: boolean
+}
+
+export interface SqlTable {
+    schema: string
+    name: string
+    type: 'table' | 'view'
+    rowCount: number | null
+}
+
+export interface SqlColumn {
+    name: string
+    type: string
+}
+
+export interface SqlResultSet {
+    columns: SqlColumn[]
+    rows: Array<Record<string, unknown>>
+    truncated: boolean
+}
+
+export interface SqlQueryResult {
+    // `resultSets` holds only the statements that returned columns, while `rowsAffected`
+    // has one entry per executed statement. On a multi-statement script the two arrays
+    // therefore have different lengths — treat `rowsAffected` as a total, never as an
+    // index-for-index companion to `resultSets`.
+    resultSets: SqlResultSet[]
+    rowsAffected: number[]
+    durationMs: number
 }

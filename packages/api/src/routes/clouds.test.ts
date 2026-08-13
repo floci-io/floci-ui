@@ -2,6 +2,7 @@ import {describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
 import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
+import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
@@ -100,7 +101,21 @@ describe('cloud schema routes', () => {
         expect(res.status).toBe(200)
         expect(body.cloud).toBe('azure')
         expect(body.service).toBe('database')
-        expect(body.displayName).toBe('Cosmos DB')
+        // Cosmos moved to the nosql category; database now covers Azure SQL and PostgreSQL.
+        expect(body.displayName).toBe('Azure Databases')
+    })
+
+    test('returns Azure Cosmos NoSQL schema when the adapter is registered', async () => {
+        const app = appWithRoutes([mockAdapter('azure', {
+            service: 'nosql',
+            schema: azureNoSqlSchema,
+        })])
+        const res = await app.request('/api/clouds/azure/services/nosql/schema')
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(body.service).toBe('nosql')
+        expect(body.displayName).toBe('Azure Cosmos DB NoSQL')
     })
 
     test('returns GCP storage schema when the adapter is registered', async () => {
@@ -186,10 +201,10 @@ describe('cloud schema routes', () => {
         expect(body.objects[0].name).toBe('object.txt')
     })
 
-    test('lists Cosmos containers through the cloud database adapter', async () => {
+    test('lists Cosmos containers through the cloud NoSQL adapter', async () => {
         const app = appWithRoutes([mockAdapter('azure', {
-            service: 'database',
-            schema: azureDatabaseSchema,
+            service: 'nosql',
+            schema: azureNoSqlSchema,
             listCosmosContainers: async (databaseId: string): Promise<CosmosContainer[]> => [{
                 id: 'items',
                 name: 'items',
@@ -200,7 +215,7 @@ describe('cloud schema routes', () => {
             }],
         })])
 
-        const res = await app.request('/api/clouds/azure/services/database/resources/appdb/containers')
+        const res = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers')
         const body = await res.json()
 
         expect(res.status).toBe(200)
@@ -208,16 +223,16 @@ describe('cloud schema routes', () => {
         expect(body[0].name).toBe('items')
     })
 
-    test('creates and deletes Cosmos databases through the cloud database adapter', async () => {
+    test('creates and deletes Cosmos databases through the cloud NoSQL adapter', async () => {
         const deleted: string[] = []
         const app = appWithRoutes([mockAdapter('azure', {
-            service: 'database',
-            schema: azureDatabaseSchema,
+            service: 'nosql',
+            schema: azureNoSqlSchema,
             create: async (input: CreateResourceInput): Promise<CloudResource> => ({
                 id: String(input.values.databaseName),
                 name: String(input.values.databaseName),
                 cloud: 'azure',
-                service: 'database',
+                service: 'nosql',
                 type: 'cosmos-database',
                 region: null,
                 createdAt: null,
@@ -228,12 +243,12 @@ describe('cloud schema routes', () => {
             },
         })])
 
-        const createRes = await app.request('/api/clouds/azure/services/database/resources', {
+        const createRes = await app.request('/api/clouds/azure/services/nosql/resources', {
             method: 'POST',
             body: JSON.stringify({databaseName: 'appdb'}),
         })
         const created = await createRes.json()
-        const deleteRes = await app.request('/api/clouds/azure/services/database/resources/appdb', {method: 'DELETE'})
+        const deleteRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb', {method: 'DELETE'})
 
         expect(createRes.status).toBe(201)
         expect(created.type).toBe('cosmos-database')
@@ -242,11 +257,11 @@ describe('cloud schema routes', () => {
         expect(deleted).toEqual(['appdb'])
     })
 
-    test('creates and deletes Cosmos containers through the cloud database adapter', async () => {
+    test('creates and deletes Cosmos containers through the cloud NoSQL adapter', async () => {
         const deleted: Array<{databaseId: string; containerId: string}> = []
         const app = appWithRoutes([mockAdapter('azure', {
-            service: 'database',
-            schema: azureDatabaseSchema,
+            service: 'nosql',
+            schema: azureNoSqlSchema,
             createCosmosContainer: async (databaseId: string, input: CreateResourceInput): Promise<CosmosContainer> => ({
                 id: String(input.values.containerName),
                 name: String(input.values.containerName),
@@ -260,12 +275,12 @@ describe('cloud schema routes', () => {
             },
         })])
 
-        const createRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers', {
+        const createRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers', {
             method: 'POST',
             body: JSON.stringify({containerName: 'items', partitionKeyPath: '/category'}),
         })
         const created = await createRes.json()
-        const deleteRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers/items', {method: 'DELETE'})
+        const deleteRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers/items', {method: 'DELETE'})
 
         expect(createRes.status).toBe(201)
         expect(created.databaseId).toBe('appdb')
@@ -274,11 +289,11 @@ describe('cloud schema routes', () => {
         expect(deleted).toEqual([{databaseId: 'appdb', containerId: 'items'}])
     })
 
-    test('upserts, deletes, and queries Cosmos items through the cloud database adapter', async () => {
+    test('upserts, deletes, and queries Cosmos items through the cloud NoSQL adapter', async () => {
         const deleted: Array<{databaseId: string; containerId: string; itemId: string; partitionKey?: string | null}> = []
         const app = appWithRoutes([mockAdapter('azure', {
-            service: 'database',
-            schema: azureDatabaseSchema,
+            service: 'nosql',
+            schema: azureNoSqlSchema,
             upsertCosmosItem: async (databaseId: string, containerId: string, document: Record<string, unknown>): Promise<CosmosItem> => ({
                 id: String(document.id),
                 databaseId,
@@ -297,17 +312,17 @@ describe('cloud schema routes', () => {
             }),
         })])
 
-        const upsertRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers/items/items', {
+        const upsertRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers/items/items', {
             method: 'POST',
             body: JSON.stringify({id: 'item-1', category: 'demo'}),
         })
         const upserted = await upsertRes.json()
-        const queryRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers/items/query', {
+        const queryRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers/items/query', {
             method: 'POST',
             body: JSON.stringify({query: 'SELECT * FROM c'}),
         })
         const queryBody = await queryRes.json()
-        const deleteRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers/items/items/item-1?partitionKey=demo', {method: 'DELETE'})
+        const deleteRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers/items/items/item-1?partitionKey=demo', {method: 'DELETE'})
 
         expect(upsertRes.status).toBe(201)
         expect(upserted.partitionKey).toBe('demo')

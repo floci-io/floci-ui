@@ -350,11 +350,15 @@ function MetadataPanel({ metadata }: { metadata: Record<string, unknown> }) {
       {rows.map(([key, value]) => (
         <div key={key}>
           <span>{humanizeKey(key)}</span>
-          <code>{String(value)}</code>
+          <code>{formatMetadataValue(value)}</code>
         </div>
       ))}
     </div>
   );
+}
+
+function formatMetadataValue(value: unknown): string {
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
 }
 
 function humanizeKey(value: string): string {
