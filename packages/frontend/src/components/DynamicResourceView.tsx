@@ -352,16 +352,20 @@ function TopbarServiceInfo({ onOpenInfo }: { onOpenInfo: () => void }) {
   );
 }
 
+const GENERIC_CREATE_LABEL = "Create resource";
+
 function resourceCreateLabel(schema: ServiceSchema): string {
+  const fromSchema = schema.capabilities?.resourceActions?.find(
+    (action) => typeof action !== "string" && action.name === "create",
+  );
+  const label = typeof fromSchema === "string" ? undefined : fromSchema?.label;
+  if (label && label !== GENERIC_CREATE_LABEL) return label;
+
   if (schema.cloud === "aws" && schema.service === "storage")
     return "Create bucket";
   if (schema.cloud === "azure" && schema.service === "storage")
     return "Create container";
-  if (schema.cloud === "azure" && schema.service === "database")
-    return "Create database";
-  if (schema.cloud === "azure" && schema.service === "secrets")
-    return "Create secret";
-  return "Create resource";
+  return GENERIC_CREATE_LABEL;
 }
 
 function StatusTile({

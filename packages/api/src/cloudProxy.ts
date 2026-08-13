@@ -5,6 +5,7 @@ import {AwsDatabaseAdapter} from './adapter-aws/AwsDatabaseAdapter'
 import {AwsEksAdapter} from './adapter-aws/AwsEksAdapter'
 import {AwsStorageAdapter} from './adapter-aws/AwsStorageAdapter'
 import {AzureDatabaseAdapter} from './adapter-azure/AzureDatabaseAdapter'
+import {AzureServiceBusAdapter} from './adapter-azure/AzureServiceBusAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
 import {GcpStorageAdapter} from './adapter-gcp/GcpStorageAdapter'
 import {GcpCloudFunctionsAdapter} from './adapter-gcp/GcpCloudFunctionsAdapter'
@@ -40,6 +41,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsNetworkingAdapter(ec2Service),
         new AwsServerlessAdapter(clients.lambda),
         new AzureStorageAdapter(),
+        new AzureServiceBusAdapter(),
         new AzureDatabaseAdapter(),
         new GcpStorageAdapter(),
         new GcpCloudFunctionsAdapter(),
