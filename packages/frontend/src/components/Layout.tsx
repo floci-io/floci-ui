@@ -8,7 +8,24 @@ import {getCloudStatus} from '@/api/cloudProxyClient'
 import {useCloudServicesQuery} from '@/api/queries/cloudQueries'
 import {AccountSwitcher} from '@/components/AccountSwitcher'
 import {serviceIcon} from '@/components/serviceIcons'
-import type {CloudProvider, CloudServiceDescriptor} from '@/types/cloud'
+import type {CloudProvider, CloudServiceDescriptor, RuntimeReachability} from '@/types/cloud'
+
+/** The runtime's reachability, plus the state before the status query answers. */
+type ConnectionStatus = RuntimeReachability | 'unknown'
+
+/**
+ * Only a definitive answer gets a colour.
+ *
+ * `unknown` (status query still in flight — which is first paint and every
+ * cloud switch) and `coming_soon` (runtime not wired) keep the neutral base
+ * grey. Colouring anything that is not `reachable` red made the dot flash
+ * green → red → green on each switch, and start red on load.
+ */
+function connectionDotClass(status: ConnectionStatus): string {
+    if (status === 'reachable') return 'dot healthy'
+    if (status === 'unavailable') return 'dot unavailable'
+    return 'dot'
+}
 
 /** Matches today's service count, so the real nav causes no layout jump. */
 const SKELETON_ROWS = 7
@@ -124,7 +141,7 @@ export function Layout() {
         queryFn: ({signal}) => getCloudStatus(activeCloud, signal),
         refetchInterval: 5000
     })
-    const status = isError ? 'unavailable' : data?.runtime ?? 'unknown'
+    const status: ConnectionStatus = isError ? 'unavailable' : data?.runtime ?? 'unknown'
     const isConnected = status === 'reachable'
     const connectionLabel = isConnected ? 'Connected' : 'Not connected'
     const connectionTarget = data?.endpoint ?? activeCloud
@@ -161,7 +178,7 @@ export function Layout() {
                     <div id="topbar-status" className="topbar-status"/>
                     <AccountSwitcher/>
                     <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
-                        <span className={`dot ${isConnected ? 'healthy' : 'unavailable'}`}/>
+                        <span className={connectionDotClass(status)}/>
                         <span className="connection-state">{connectionLabel}</span>
                         <span className="connection-target">{connectionTarget}</span>
                     </div>
