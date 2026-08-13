@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 
 type SidebarPref = 'expanded' | 'collapsed'
 
@@ -20,6 +20,15 @@ function matchesNarrow(): boolean {
     return window.matchMedia(NARROW_QUERY).matches
 }
 
+/**
+ * True when focus sits inside the sidebar nav — the state that holds the rail
+ * open via the `.sidebar:has(.nav:focus-within)` rule in index.css.
+ */
+function navHasFocus(): boolean {
+    const active = document.activeElement
+    return active instanceof HTMLElement && active.closest('.sidebar .nav') !== null
+}
+
 /** The shortcut must not fire while the user is typing in the topbar search. */
 function isTypingTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false
@@ -37,11 +46,24 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export function useSidebar() {
     const [pref, setPref] = useState<SidebarPref | null>(getStored)
     const [narrow, setNarrow] = useState(matchesNarrow)
+    /** Attach to the footer toggle so the shortcut can park focus outside .nav. */
+    const toggleRef = useRef<HTMLButtonElement>(null)
 
     const collapsed = pref !== null ? pref === 'collapsed' : narrow
 
     const toggle = useCallback(() => {
-        setPref(collapsed ? 'expanded' : 'collapsed')
+        const next: SidebarPref = collapsed ? 'expanded' : 'collapsed'
+        setPref(next)
+
+        // Collapsing while focus sits in the nav leaves
+        // `.sidebar:has(.nav:focus-within)` matching, which holds the panel at
+        // full width — so the shortcut looks like it did nothing. Park focus on
+        // the toggle instead: it is outside .nav, stays visible in the rail, and
+        // is one Shift+Tab from where the user was. Blurring would drop them
+        // back to the start of the document.
+        if (next === 'collapsed' && navHasFocus()) {
+            toggleRef.current?.focus({preventScroll: true})
+        }
     }, [collapsed])
 
     useEffect(() => {
@@ -77,5 +99,5 @@ export function useSidebar() {
         return () => window.removeEventListener('keydown', onKeyDown)
     }, [toggle])
 
-    return {collapsed, toggle}
+    return {collapsed, toggle, toggleRef}
 }

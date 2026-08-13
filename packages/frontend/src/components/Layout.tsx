@@ -125,7 +125,7 @@ export function Layout() {
     const location = useLocation()
     const activeCloud = activeCloudFromPath(location.pathname)
     const {theme, toggle} = useTheme()
-    const {collapsed, toggle: toggleSidebar} = useSidebar()
+    const {collapsed, toggle: toggleSidebar, toggleRef} = useSidebar()
     const isDark = theme === 'dark'
     const {data, isError} = useQuery({
         queryKey: ['cloud-status', activeCloud],
@@ -158,6 +158,7 @@ export function Layout() {
                     <div className="sidebar-footer">
                         <span className="sidebar-footer-text">Floci DevTools · Local</span>
                         <button
+                            ref={toggleRef}
                             className="icon-btn"
                             type="button"
                             onClick={toggleSidebar}
