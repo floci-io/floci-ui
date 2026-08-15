@@ -59,6 +59,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Databases | Database | Yes (list, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Networking | Networking | Yes (list) | No | No |
 | Integration | Messaging | No | Yes (list, create, delete, inspect) | No |
+| Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
 | Provisioning | CloudFormation / Infrastructure as Code | No | No | No |
 | Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
 
@@ -179,6 +180,21 @@ Current gaps:
   handled by the Networking panel, because they need dependent selectors that a
   flat generic form cannot express.
 - Advanced multi-cloud networking normalization is still pending.
+
+</details>
+
+<details>
+<summary><strong>API Gateway</strong></summary>
+
+AWS only, through the generic apigateway service category.
+
+- List and inspect REST APIs.
+- Create and delete REST APIs.
+
+Current gaps:
+
+- Resources, methods, deployments, and stages are not yet exposed.
+- No Azure or GCP API Gateway adapter yet.
 
 </details>
 
