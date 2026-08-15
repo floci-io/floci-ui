@@ -14,6 +14,7 @@ import {CloudProxyService} from './service/CloudProxyService'
 import {AzureServerlessAdapter} from './adapter-azure/AzureServerlessAdapter'
 import {AzureKeyVaultAdapter} from './adapter-azure/AzureKeyVaultAdapter'
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
+import {AwsKmsAdapter} from './adapter-aws/AwsKmsAdapter'
 import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
@@ -39,6 +40,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsComputeAdapter(ec2Service),
         new AwsNetworkingAdapter(ec2Service),
         new AwsServerlessAdapter(clients.lambda),
+        new AwsKmsAdapter(clients.kms),
         new AzureStorageAdapter(),
         new AzureDatabaseAdapter(),
         new GcpStorageAdapter(),

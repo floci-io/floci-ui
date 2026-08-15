@@ -73,6 +73,13 @@ export const SERVICE_CATALOG = {
     storage: {displayName: 'Storage', iconKey: 'storage', group: 'Storage', order: 10},
     database: {displayName: 'Database', iconKey: 'database', group: 'Databases', order: 10},
     networking: {displayName: 'Networking', iconKey: 'networking', group: 'Networking', order: 10},
+    kms: {
+        displayName: 'Key Management',
+        displayNameByCloud: {aws: 'KMS'},
+        iconKey: 'kms',
+        group: 'Security',
+        order: 20,
+    },
     secrets: {
         displayName: 'Secrets Manager',
         displayNameByCloud: {azure: 'Key Vault'},
