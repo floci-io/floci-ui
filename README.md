@@ -58,6 +58,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Databases | Database | Yes (list, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Networking | Networking | Yes (list) | No | No |
+| Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
 | Provisioning | CloudFormation / Infrastructure as Code | No | No | No |
 | Security | Identity | Yes (list, create, delete, inspect) | No | No |
 | Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
@@ -195,6 +196,21 @@ Current gaps:
 
 - Roles, groups, policies, access keys, and other advanced IAM workflows are not exposed yet.
 - No Azure or GCP identity adapter yet.
+
+</details>
+
+<details>
+<summary><strong>API Gateway</strong></summary>
+
+AWS only, through the generic apigateway service category.
+
+- List and inspect REST APIs.
+- Create and delete REST APIs.
+
+Current gaps:
+
+- Resources, methods, deployments, and stages are not yet exposed.
+- No Azure or GCP API Gateway adapter yet.
 
 </details>
 

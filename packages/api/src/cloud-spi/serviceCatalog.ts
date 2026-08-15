@@ -74,6 +74,7 @@ export const SERVICE_CATALOG = {
     database: {displayName: 'Database', iconKey: 'database', group: 'Databases', order: 10},
     networking: {displayName: 'Networking', iconKey: 'networking', group: 'Networking', order: 10},
     identity: {displayName: 'Identity', iconKey: 'iam', group: 'Security', order: 5},
+    apigateway: {displayName: 'API Gateway', iconKey: 'apigateway', group: 'Integration', order: 10},
     secrets: {
         displayName: 'Secrets Manager',
         displayNameByCloud: {azure: 'Key Vault'},
