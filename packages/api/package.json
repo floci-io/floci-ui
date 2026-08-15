@@ -16,6 +16,7 @@
     "@aws-sdk/client-rds": "^3.1076.0",
     "@aws-sdk/client-s3": "^3.1076.0",
     "@aws-sdk/client-secrets-manager": "^3.1076.0",
+    "@aws-sdk/client-ssm": "^3.1096.0",
     "dotenv": "^17.4.2",
     "hono": "^4.12.27"
   },
