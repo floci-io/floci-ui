@@ -70,6 +70,13 @@ export const SERVICE_CATALOG = {
         order: 20,
     },
     serverless: {displayName: 'Serverless', iconKey: 'serverless', group: 'Compute', order: 30},
+    containers: {
+        displayName: 'Containers',
+        displayNameByCloud: {gcp: 'Cloud Run'},
+        iconKey: 'containers',
+        group: 'Compute',
+        order: 40,
+    },
     storage: {displayName: 'Storage', iconKey: 'storage', group: 'Storage', order: 10},
     database: {displayName: 'Database', iconKey: 'database', group: 'Databases', order: 10},
     networking: {displayName: 'Networking', iconKey: 'networking', group: 'Networking', order: 10},

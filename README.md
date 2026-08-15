@@ -55,6 +55,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Compute | Compute | Yes (list, inspect, create, delete) | No | No |
 | Compute | EKS / AKS / GKE | Yes (list, inspect) | No | Yes (list, create, inspect, delete) |
 | Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) |
+| Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Databases | Database | Yes (list, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Networking | Networking | Yes (list) | No | No |
@@ -198,6 +199,30 @@ Current gaps:
 - GCP Cloud Functions invoke is not wired yet; the capability is advertised as
   `coming_soon` instead of being silently missing.
 - Old AWS Lambda page is gone; all future work should stay in the unified model.
+
+</details>
+
+<details>
+<summary><strong>Containers</strong></summary>
+
+GCP Cloud Run, through the unified shell.
+
+- List, inspect, deploy, and delete Cloud Run services.
+- Image, container port, URL, traffic split, and generation are surfaced.
+- Deploying really starts a container: the runtime launches the requested image.
+
+Readiness is reported honestly. A deploy settles at `PENDING` and then becomes
+`SUCCEEDED` or `FAILED`; the runtime's own explanation is kept in
+`metadata.terminalMessage`. The usual cause of `FAILED` is a container that does
+not listen on the port given by `$PORT` (8080 by default) — `nginx:alpine`
+listens on 80 and fails for exactly that reason, so the create form says so.
+
+Current gaps:
+
+- No AWS ECS or Azure Container Apps adapter yet.
+- No revision history, traffic splitting, or scaling controls.
+- Deleting a service while it is still `PENDING` can race the create; deleting a
+  settled service is durable.
 
 </details>
 

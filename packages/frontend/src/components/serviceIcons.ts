@@ -1,6 +1,7 @@
 import {
     Boxes,
     Circle,
+    Container,
     Database,
     HardDrive,
     KeyRound,
@@ -31,7 +32,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     nosql: Database,
     k8s: Boxes,
     compute: Server,
-    containers: Boxes,
+    containers: Container,
     networking: Network,
     serverless: Zap,
     secrets: KeyRound,
