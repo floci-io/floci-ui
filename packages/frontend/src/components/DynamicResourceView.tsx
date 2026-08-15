@@ -371,6 +371,8 @@ function resourceCreateLabel(schema: ServiceSchema): string {
     return "Create table";
   if (schema.cloud === "azure" && schema.service === "secrets")
     return "Create secret";
+  if (schema.cloud === "aws" && schema.service === "apigateway")
+    return "Create API";
   return "Create resource";
 }
 

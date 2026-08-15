@@ -13,6 +13,7 @@ import {
     ShieldCheck,
     SlidersHorizontal,
     Table2,
+    Waypoints,
     Zap,
     type LucideIcon,
 } from 'lucide-react'
@@ -33,6 +34,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     compute: Server,
     containers: Boxes,
     networking: Network,
+    apigateway: Waypoints,
     serverless: Zap,
     secrets: KeyRound,
     iac: Layers,
