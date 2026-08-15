@@ -3,7 +3,7 @@ import {Hono} from 'hono'
 import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
-import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput} from '../cloud-spi/types'
+import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput, FieldSchema, ResourceQuery} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
 import type {RuntimeProbe} from '../service/runtimeProbe'
@@ -67,6 +67,62 @@ function appWithRoutes(
     app.route('/api/clouds', createCloudRoutes(new CloudProxyService(registry, probes)))
     return app
 }
+
+describe('list query facets', () => {
+    /** Captures the ResourceQuery the route hands to the adapter. */
+    function capturingApp(
+        filters: FieldSchema[] = [{name: 'search', label: 'Search', type: 'text', required: false}],
+    ) {
+        const seen: ResourceQuery[] = []
+        const adapter = mockAdapter('aws', {
+            schema: () => ({...awsStorageSchema(), filters}),
+            list: async (query: ResourceQuery = {}) => {
+                seen.push(query)
+                return []
+            },
+        })
+        return {app: appWithRoutes([adapter]), seen}
+    }
+
+    const kindFilter: FieldSchema = {
+        name: 'kind',
+        label: 'Kind',
+        type: 'select',
+        required: false,
+        options: [{label: 'Roles', value: 'roles'}],
+    }
+
+    test('passes search through as before', async () => {
+        const {app, seen} = capturingApp()
+        await app.request('/api/clouds/aws/services/storage/resources?search=web')
+
+        expect(seen[0]?.search).toBe('web')
+        expect(seen[0]?.filters).toBeUndefined()
+    })
+
+    test('passes a facet the schema declares', async () => {
+        const {app, seen} = capturingApp([kindFilter])
+        await app.request('/api/clouds/aws/services/storage/resources?kind=roles')
+
+        expect(seen[0]?.filters).toEqual({kind: 'roles'})
+    })
+
+    test('ignores a query param the schema does not declare', async () => {
+        // Otherwise a stale or hand-crafted param would reach an adapter that
+        // never asked for it, and the adapter would have to defend itself.
+        const {app, seen} = capturingApp([kindFilter])
+        await app.request('/api/clouds/aws/services/storage/resources?kind=roles&sneaky=1')
+
+        expect(seen[0]?.filters).toEqual({kind: 'roles'})
+    })
+
+    test('omits filters entirely when a declared facet is absent or blank', async () => {
+        const {app, seen} = capturingApp([kindFilter])
+        await app.request('/api/clouds/aws/services/storage/resources?kind=')
+
+        expect(seen[0]?.filters).toBeUndefined()
+    })
+})
 
 describe('cloud schema routes', () => {
     test('returns AWS storage schema', async () => {

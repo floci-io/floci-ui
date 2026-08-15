@@ -152,7 +152,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret'
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret' | 'iam-user' | 'iam-role' | 'iam-policy'
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -208,6 +208,16 @@ export interface CosmosQueryResult {
 
 export interface ResourceQuery {
     search?: string
+    /**
+     * Values for the non-search facets a schema declares in `filters`.
+     *
+     * Needed because some services hold several kinds of resource in one category
+     * — IAM lists users, roles and policies — and a free-text search cannot
+     * express "only roles". The route populates this from query params, but only
+     * for names the service's own schema declares, so an unknown param is ignored
+     * rather than reaching an adapter that never asked for it.
+     */
+    filters?: Record<string, string>
 }
 
 export interface CreateResourceInput {
