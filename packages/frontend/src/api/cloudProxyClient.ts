@@ -26,6 +26,8 @@ type CloudPathParams = Record<string, string>;
 
 const AZURE_DATABASE_CREATE_TIMEOUT_MS = 5 * 60_000;
 const SQL_DATA_TIMEOUT_MS = 45_000;
+/** Cold starts pull a container image; measured at ~60s on a first invoke. */
+const INVOKE_TIMEOUT_MS = 120_000;
 
 export async function listClouds(
   signal?: AbortSignal,
@@ -170,7 +172,15 @@ export async function invokeCloudResource(
 ): Promise<ServerlessInvokeResult> {
   const res = await apiClient.call<ServerlessInvokeResult, { payload: string }>(
     apiEndpointKeys.clouds.resources.invoke,
-    requestOptions(cloud, service, { signal, body: { payload } }),
+    requestOptions(cloud, service, {
+      signal,
+      body: { payload },
+      // A cold invoke can exceed a minute while the runtime pulls and starts the
+      // function container, so the 10s default would abort a request that is
+      // working. The user-visible alternative is a timeout error for a function
+      // that in fact ran.
+      timeout: INVOKE_TIMEOUT_MS,
+    }),
     { cloud, service, id },
   );
   return res.data;
@@ -434,6 +444,7 @@ function requestOptions<TBody = unknown>(
     body?: TBody;
     rawBody?: BodyInit;
     headers?: HeadersInit;
+    /** Overrides the client default; needed for calls that can legitimately run long. */
     timeout?: number;
   } = {},
 ) {
