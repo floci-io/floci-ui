@@ -46,6 +46,11 @@
     --bulk-bar-border: #5c6bc0;
     --bulk-bar-text: #e8eaf6;
 
+    /* ── Sidebar geometry ── */
+    --sidebar-w: 220px;
+    --sidebar-rail-w: 52px;
+    --sidebar-overlay-shadow: 6px 0 32px rgba(0, 0, 0, 0.45);
+
     font-family: Sora, Inter, system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
@@ -98,6 +103,9 @@
     --bulk-bar-bg: rgba(57, 73, 171, 0.1);
     --bulk-bar-border: #3949ab;
     --bulk-bar-text: #1a237e;
+
+    /* 45% black at 32px blur is far too heavy under a white panel. */
+    --sidebar-overlay-shadow: 6px 0 28px rgba(38, 48, 82, 0.18);
 }
 
 * {
@@ -156,13 +164,105 @@ pre,
     overflow: hidden;
 }
 
+/* ─── Collapsible sidebar ────────────────────────────────────────────────── */
+/* The <aside> is only a space-reserving flex slot. .sidebar-inner is the panel
+   that animates, and that overlays the page when the rail is hovered. */
 .sidebar {
-    width: 220px;
-    flex: 0 0 220px;
+    position: relative;
+    flex: 0 0 var(--sidebar-w);
+}
+
+.sidebar-inner {
+    position: absolute;
+    inset: 0;
+    width: var(--sidebar-w);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     background: var(--surface);
     border-right: 1px solid var(--border);
+    transition: width 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-sidebar="collapsed"] .sidebar {
+    flex-basis: var(--sidebar-rail-w);
+}
+
+[data-sidebar="collapsed"] .sidebar-inner {
+    width: var(--sidebar-rail-w);
+}
+
+/* The rail does NOT expand on hover — hovering a link shows its native title
+   tooltip instead. Keyboard focus still expands it, because title tooltips do
+   not appear on focus and the rail would otherwise be unreadable without a
+   mouse.
+
+   Scoped to focus inside .nav specifically, not the whole sidebar: clicking the
+   footer toggle leaves that button focused, and a bare :focus-within would then
+   re-expand the panel the click just collapsed. The condition is duplicated as
+   :not(:has(.nav:focus-within)) on the rail rules below — the two must stay in
+   sync or focus will strip the rail's styling without changing its width. */
+[data-sidebar="collapsed"] .sidebar:has(.nav:focus-within) .sidebar-inner {
+    width: var(--sidebar-w);
+    z-index: 30;
+    box-shadow: var(--sidebar-overlay-shadow);
+}
+
+/* Rail: collapsed and not hovered. Hovering restores every label below. */
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) :is(
+    .nav-label,
+    .nav-group-label,
+    .nav-retry,
+    .nav-soon,
+    .brand p,
+    .brand-logo,
+    .sidebar-footer-text,
+    .nav-link > span:not(.skeleton-bar)
+) {
+    display: none;
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .brand-mark {
+    display: block;
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .brand {
+    align-items: center;
+    padding: 12px 0;
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link {
+    justify-content: center;
+    padding: 8px 0;
+}
+
+/* The 14px chrome size is too small once the icon is the only thing naming a
+   service. CSS overrides lucide's width/height attributes. */
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* With labels hidden the divider is the only grouping cue, so it uses the
+   structural --border weight rather than --border-faint (1.17:1). */
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-group + .nav-group {
+    border-top: 1px solid var(--border);
+    padding-top: 5px;
+}
+
+/* The active tint is ~1.2:1 in both themes and never carried active state on
+   its own — the label did. Without a label, the accent inset does the work. */
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link.active {
+    box-shadow: inset 3px 0 var(--accent);
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .skeleton-bar {
+    width: 20px;
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .sidebar-footer {
+    justify-content: center;
+    padding: 8px;
 }
 
 .brand {
@@ -179,6 +279,13 @@ pre,
     max-width: 150px;
     height: auto;
     display: block;
+}
+
+/* Shown only in the rail — see the collapsible sidebar section. */
+.brand-mark {
+    display: none;
+    width: 30px;
+    height: auto;
 }
 
 .service-icon {
@@ -272,7 +379,11 @@ pre,
 }
 
 .sidebar-footer {
-    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 8px 8px 16px;
     border-top: 1px solid var(--border);
     font-size: 11px;
     color: var(--text-3);
@@ -2392,11 +2503,6 @@ button.console-service-card {
 }
 
 @media (max-width: 980px) {
-    .sidebar {
-        width: 190px;
-        flex-basis: 190px;
-    }
-
     .grid.two,
     .grid.three,
     .grid.four,
@@ -3160,5 +3266,9 @@ button.console-service-card {
 @media (prefers-reduced-motion: reduce) {
     .skeleton-bar {
         animation: none;
+    }
+
+    .sidebar-inner {
+        transition: none;
     }
 }

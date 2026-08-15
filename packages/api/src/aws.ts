@@ -6,6 +6,7 @@ import { RDSClient } from "@aws-sdk/client-rds";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
 import { SchedulerClient } from "@aws-sdk/client-scheduler";
+import { APIGatewayClient } from "@aws-sdk/client-api-gateway";
 
 const endpoint = process.env.FLOCI_ENDPOINT;
 const region = process.env.AWS_REGION || "us-east-1";
@@ -43,6 +44,7 @@ export type AwsClients = {
   secretsManager: SecretsManagerClient;
   eventbridge: EventBridgeClient;
   scheduler: SchedulerClient;
+  apiGateway: APIGatewayClient;
 };
 
 export type AwsClientName = keyof AwsClients;
@@ -64,6 +66,7 @@ function buildClients(accountId: string): AwsClients {
     secretsManager: new SecretsManagerClient(base),
     eventbridge: new EventBridgeClient(base),
     scheduler: new SchedulerClient(base),
+    apiGateway: new APIGatewayClient(base),
   };
 }
 
@@ -97,3 +100,4 @@ export const rds = awsClients.rds;
 export const secretsManager = awsClients.secretsManager;
 export const eventbridge = awsClients.eventbridge;
 export const scheduler = awsClients.scheduler;
+export const apiGateway = awsClients.apiGateway;
