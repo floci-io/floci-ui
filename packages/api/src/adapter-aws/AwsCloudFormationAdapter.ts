@@ -43,8 +43,15 @@ export class AwsCloudFormationAdapter implements CloudServiceAdapter {
             const stack = describe.Stacks?.[0]
             if (!stack) return null
 
-            const resources = await this.cloudformation.send(new ListStackResourcesCommand({StackName: id}))
-            return stackToResource(stack, resources.StackResourceSummaries ?? [])
+            const resourceSummaries: StackResourceSummary[] = []
+            let nextToken: string | undefined
+            do {
+                const resources = await this.cloudformation.send(new ListStackResourcesCommand({StackName: id, NextToken: nextToken}))
+                resourceSummaries.push(...(resources.StackResourceSummaries ?? []))
+                nextToken = resources.NextToken
+            } while (nextToken)
+
+            return stackToResource(stack, resourceSummaries)
         } catch (error) {
             if (isStackNotFound(error)) return null
             throw error

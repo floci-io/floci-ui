@@ -98,6 +98,36 @@ describe('AwsCloudFormationAdapter', () => {
         }])
     })
 
+    test('paginates ListStackResources and combines resources from every page', async () => {
+        const adapter = new AwsCloudFormationAdapter(fakeClient((command) => {
+            if (command instanceof DescribeStacksCommand) return {Stacks: [ordersStack]}
+            if (command instanceof ListStackResourcesCommand) {
+                if (!command.input.NextToken) {
+                    return {StackResourceSummaries: [bucketResource], NextToken: 'next-page'}
+                }
+                return {StackResourceSummaries: [{...bucketResource, LogicalResourceId: 'OrdersQueue', PhysicalResourceId: 'orders-queue', ResourceType: 'AWS::SQS::Queue'}]}
+            }
+            throw new Error('Unexpected command')
+        }))
+
+        const result = await adapter.get('orders-stack')
+
+        expect(result?.metadata.resources).toEqual([
+            {
+                logicalId: 'OrdersBucket',
+                physicalId: 'orders-bucket',
+                resourceType: 'AWS::S3::Bucket',
+                status: 'CREATE_COMPLETE',
+            },
+            {
+                logicalId: 'OrdersQueue',
+                physicalId: 'orders-queue',
+                resourceType: 'AWS::SQS::Queue',
+                status: 'CREATE_COMPLETE',
+            },
+        ])
+    })
+
     test('returns null when CloudFormation reports a missing stack', async () => {
         const adapter = new AwsCloudFormationAdapter(fakeClient(() => {
             throw Object.assign(new Error('Stack with id missing-stack does not exist'), {name: 'ValidationError'})
