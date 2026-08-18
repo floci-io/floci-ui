@@ -60,6 +60,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | No | No |
 | Networking | Networking | Yes (list) | No | No |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
+| Integration | Cloud Scheduler | No | No | Yes (list, create, delete, inspect) |
 | Provisioning | CloudFormation / Infrastructure as Code | No | No | No |
 | Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
 
