@@ -4,6 +4,7 @@ import { EKSClient } from "@aws-sdk/client-eks";
 import { EC2Client } from "@aws-sdk/client-ec2";
 import { RDSClient } from "@aws-sdk/client-rds";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { APIGatewayClient } from "@aws-sdk/client-api-gateway";
 
 const endpoint = process.env.FLOCI_ENDPOINT;
@@ -40,6 +41,7 @@ export type AwsClients = {
   ec2: EC2Client;
   rds: RDSClient;
   secretsManager: SecretsManagerClient;
+  dynamodb: DynamoDBClient;
   apiGateway: APIGatewayClient;
 };
 
@@ -60,6 +62,7 @@ function buildClients(accountId: string): AwsClients {
     ec2: new EC2Client(base),
     rds: new RDSClient(base),
     secretsManager: new SecretsManagerClient(base),
+    dynamodb: new DynamoDBClient(base),
     apiGateway: new APIGatewayClient(base),
   };
 }
@@ -92,4 +95,5 @@ export const eks = awsClients.eks;
 export const ec2 = awsClients.ec2;
 export const rds = awsClients.rds;
 export const secretsManager = awsClients.secretsManager;
+export const dynamodb = awsClients.dynamodb;
 export const apiGateway = awsClients.apiGateway;

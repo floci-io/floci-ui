@@ -15,6 +15,7 @@ This document tracks the current architectural direction behind the new Floci UI
 - AWS Storage
 - AWS k8s
 - AWS Database
+- AWS DynamoDB
 - AWS Compute
 - AWS Networking
 - AWS Serverless
@@ -31,6 +32,7 @@ The frontend currently exposes:
 - `Cloud Explorer / storage`
 - `Cloud Explorer / k8s`
 - `Cloud Explorer / database`
+- `Cloud Explorer / nosql`
 - `Cloud Explorer / compute`
 - `Cloud Explorer / networking`
 - `Cloud Explorer / serverless`

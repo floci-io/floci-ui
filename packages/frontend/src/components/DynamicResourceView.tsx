@@ -31,6 +31,7 @@ import type { CloudResource, StorageObject } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { CosmosNoSqlPanel } from "@/components/CosmosNoSqlPanel";
 import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
+import { DynamoDbTableExplorer } from "@/components/DynamoDbTableExplorer";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -240,7 +241,15 @@ export function DynamicResourceView({
             </div>
             {canCreate && createOpen && (
               <div className="resource-create-inline">
-                {service === "compute" ? (
+                {/*
+                 * AWS only. LaunchInstanceForm is an EC2 form: it asks for an AMI id,
+                 * populates its dropdowns from the legacy /api/ec2 routes, and submits
+                 * imageId/instanceType. On any other cloud that is the wrong form
+                 * entirely — the Azure adapter rejects it with "resourceGroup is
+                 * required". Every other cloud falls through to DynamicFormRenderer,
+                 * which builds the right form from the adapter's own schema.
+                 */}
+                {service === "compute" && cloud === "aws" ? (
                   <LaunchInstanceForm
                     cloud={cloud}
                     selectedResource={activeSelected}
@@ -329,6 +338,13 @@ export function DynamicResourceView({
     runtimeReachable={canUseRuntime}
   />
 )}
+      {service === "nosql" && cloud === "aws" && (
+        <DynamoDbTableExplorer
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
     </div>
   );
 }

@@ -4,9 +4,11 @@ import {AwsNetworkingAdapter} from './adapter-aws/AwsNetworkingAdapter'
 import {AwsDatabaseAdapter} from './adapter-aws/AwsDatabaseAdapter'
 import {AwsEksAdapter} from './adapter-aws/AwsEksAdapter'
 import {AwsStorageAdapter} from './adapter-aws/AwsStorageAdapter'
+import {AwsDynamoDbAdapter} from './adapter-aws/AwsDynamoDbAdapter'
 import {AzureDatabaseAdapter} from './adapter-azure/AzureDatabaseAdapter'
 import {AzureServiceBusAdapter} from './adapter-azure/AzureServiceBusAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
+import {AzureComputeAdapter} from './adapter-azure/AzureComputeAdapter'
 import {GcpStorageAdapter} from './adapter-gcp/GcpStorageAdapter'
 import {GcpCloudFunctionsAdapter} from './adapter-gcp/GcpCloudFunctionsAdapter'
 import {GcpCloudSqlAdapter} from './adapter-gcp/GcpCloudSqlAdapter'
@@ -36,6 +38,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
 
     return new CloudAdapterRegistry([
         new AwsStorageAdapter(clients.s3),
+        new AwsDynamoDbAdapter(clients.dynamodb),
         new AwsEksAdapter(createEksService(clients.eks)),
         new AwsDatabaseAdapter(createRdsService(clients.rds), clients.rds),
         new AwsComputeAdapter(ec2Service),
@@ -45,6 +48,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AzureStorageAdapter(),
         new AzureServiceBusAdapter(),
         new AzureDatabaseAdapter(),
+        new AzureComputeAdapter(),
         new GcpStorageAdapter(),
         new GcpCloudFunctionsAdapter(),
         new GcpCloudSqlAdapter(),
