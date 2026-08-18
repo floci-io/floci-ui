@@ -2,8 +2,9 @@ import {describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
 import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
+import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
-import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput} from '../cloud-spi/types'
+import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput, NoSqlItem} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
 import type {RuntimeProbe} from '../service/runtimeProbe'
@@ -101,6 +102,20 @@ describe('cloud schema routes', () => {
         expect(body.cloud).toBe('azure')
         expect(body.service).toBe('database')
         expect(body.displayName).toBe('Cosmos DB')
+    })
+
+    test('returns AWS DynamoDB schema for the nosql service', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'nosql',
+            schema: awsDynamoDbSchema,
+        })])
+        const res = await app.request('/api/clouds/aws/services/nosql/schema')
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(body.cloud).toBe('aws')
+        expect(body.service).toBe('nosql')
+        expect(body.displayName).toBe('DynamoDB')
     })
 
     test('returns GCP storage schema when the adapter is registered', async () => {
@@ -206,6 +221,25 @@ describe('cloud schema routes', () => {
         expect(res.status).toBe(200)
         expect(body[0].databaseId).toBe('appdb')
         expect(body[0].name).toBe('items')
+    })
+
+    test('lists DynamoDB records through the nosql adapter', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'nosql',
+            schema: awsDynamoDbSchema,
+            listNoSqlItems: async (resourceId: string): Promise<NoSqlItem[]> => [{
+                id: '{"pk":"item-1"}',
+                key: {pk: 'item-1'},
+                document: {pk: 'item-1', name: 'First item', table: resourceId},
+            }],
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/nosql/resources/orders/items')
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(body[0].key).toEqual({pk: 'item-1'})
+        expect(body[0].document.table).toBe('orders')
     })
 
     test('creates and deletes Cosmos databases through the cloud database adapter', async () => {

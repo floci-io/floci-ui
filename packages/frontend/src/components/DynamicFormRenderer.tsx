@@ -29,7 +29,7 @@ export function DynamicFormRenderer({schema, isSubmitting, submitLabel = 'Create
     }
 
     return (
-        <form className="dynamic-form" onSubmit={submit}>
+        <form className="dynamic-form" onSubmit={submit} noValidate>
             {schema.fields.map((field) => (
                 <FieldRow
                     key={field.name}
@@ -52,7 +52,7 @@ export function DynamicFormRenderer({schema, isSubmitting, submitLabel = 'Create
                 <Plus size={14}/>
                 {isSubmitting ? pendingLabel : submitLabel}
             </button>
-            {submitError && <div className="form-error">{submitError}</div>}
+            {submitError && <div className="form-error" role="alert">{submitError}</div>}
         </form>
     )
 }
@@ -66,9 +66,9 @@ function FieldRow({field, required, maxLength, value, error, onChange}: {field: 
                     {field.label}
                     {required && <em className="field-required">*</em>}
                 </span>
-                <FieldInput field={field} required={required} maxLength={maxLength} value={value} invalid={Boolean(error)} onChange={onChange}/>
+                <FieldInput field={field} required={required} maxLength={maxLength} value={value} invalid={Boolean(error)} messageId={`${field.name}-message`} onChange={onChange}/>
                 {(error || field.description) && (
-                    <small className={error ? 'field-error' : undefined}>
+                    <small id={`${field.name}-message`} className={error ? 'field-error' : undefined}>
                         {error ?? field.description}
                     </small>
                 )}
@@ -77,10 +77,10 @@ function FieldRow({field, required, maxLength, value, error, onChange}: {field: 
     )
 }
 
-function FieldInput({field, required, maxLength, value, invalid, onChange}: {field: FieldSchema; required: boolean; maxLength?: number; value: string; invalid: boolean; onChange: (value: string) => void}) {
+function FieldInput({field, required, maxLength, value, invalid, messageId, onChange}: {field: FieldSchema; required: boolean; maxLength?: number; value: string; invalid: boolean; messageId: string; onChange: (value: string) => void}) {
     if (field.type === 'select') {
         return (
-            <select className={`input ${invalid ? 'invalid' : ''}`} value={value} required={required} onChange={(event) => onChange(event.target.value)}>
+            <select className={`input ${invalid ? 'invalid' : ''}`} value={value} required={required} aria-invalid={invalid || undefined} aria-describedby={invalid || field.description ? messageId : undefined} onChange={(event) => onChange(event.target.value)}>
                 <option value="">Default</option>
                 {(field.options ?? []).map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
@@ -95,6 +95,8 @@ function FieldInput({field, required, maxLength, value, invalid, onChange}: {fie
             className={`input ${invalid ? 'invalid' : ''}`}
             value={value}
             required={required}
+            aria-invalid={invalid || undefined}
+            aria-describedby={invalid || field.description ? messageId : undefined}
             minLength={field.validation?.minLength}
             maxLength={maxLength}
             pattern={field.validation?.pattern}

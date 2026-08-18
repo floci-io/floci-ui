@@ -6,6 +6,7 @@ import { RDSClient } from "@aws-sdk/client-rds";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
 import { SchedulerClient } from "@aws-sdk/client-scheduler";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { APIGatewayClient } from "@aws-sdk/client-api-gateway";
 
 const endpoint = process.env.FLOCI_ENDPOINT;
@@ -44,6 +45,7 @@ export type AwsClients = {
   secretsManager: SecretsManagerClient;
   eventbridge: EventBridgeClient;
   scheduler: SchedulerClient;
+  dynamodb: DynamoDBClient;
   apiGateway: APIGatewayClient;
 };
 
@@ -66,6 +68,7 @@ function buildClients(accountId: string): AwsClients {
     secretsManager: new SecretsManagerClient(base),
     eventbridge: new EventBridgeClient(base),
     scheduler: new SchedulerClient(base),
+    dynamodb: new DynamoDBClient(base),
     apiGateway: new APIGatewayClient(base),
   };
 }
@@ -100,4 +103,5 @@ export const rds = awsClients.rds;
 export const secretsManager = awsClients.secretsManager;
 export const eventbridge = awsClients.eventbridge;
 export const scheduler = awsClients.scheduler;
+export const dynamodb = awsClients.dynamodb;
 export const apiGateway = awsClients.apiGateway;
