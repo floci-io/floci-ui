@@ -12,6 +12,7 @@ import type {
   CosmosContainer,
   CosmosItem,
   CosmosQueryResult,
+  NoSqlItem,
   SqlCredentials,
   SqlDatabase,
   SqlEngine,
@@ -423,6 +424,19 @@ export async function querySql(
       timeout: SQL_DATA_TIMEOUT_MS,
     }),
     { cloud, id: serverId },
+  );
+  return res.data;
+}
+
+export async function listNoSqlItems(
+  cloud: CloudProvider,
+  resourceId: string,
+  signal?: AbortSignal,
+): Promise<NoSqlItem[]> {
+  const res = await apiClient.call<NoSqlItem[]>(
+    apiEndpointKeys.clouds.nosql.items.list,
+    requestOptions(cloud, "nosql", { signal }),
+    { cloud, id: resourceId },
   );
   return res.data;
 }

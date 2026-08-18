@@ -153,7 +153,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'sql-server' | 'postgres-flexible-server' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret' | 'rest-api'
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'dynamodb-table' | 'sql-server' | 'postgres-flexible-server' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret' | 'rest-api'
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -249,6 +249,12 @@ export interface SqlQueryResult {
     durationMs: number
 }
 
+export interface NoSqlItem {
+    id: string
+    key: Record<string, unknown>
+    document: Record<string, unknown>
+}
+
 export interface ResourceQuery {
     search?: string
 }
@@ -315,4 +321,5 @@ export interface CloudServiceAdapter {
     listSqlDatabases?(serverId: string, connection: SqlConnectionInput): Promise<SqlDatabase[]>
     listSqlTables?(serverId: string, connection: SqlConnectionInput): Promise<SqlTable[]>
     querySql?(serverId: string, connection: SqlConnectionInput, query: string): Promise<SqlQueryResult>
+    listNoSqlItems?(resourceId: string): Promise<NoSqlItem[]>
 }

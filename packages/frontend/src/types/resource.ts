@@ -5,7 +5,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'sql-server' | 'postgres-flexible-server' | 'instance' | 'image' | 'vpc' | 'lambda' | "azure-function" | 'gcp-function' | 'secret' | 'rest-api';
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'dynamodb-table' | 'sql-server' | 'postgres-flexible-server' | 'instance' | 'image' | 'vpc' | 'lambda' | "azure-function" | 'gcp-function' | 'secret' | 'rest-api';
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -93,4 +93,10 @@ export interface SqlQueryResult {
     resultSets: SqlResultSet[]
     rowsAffected: number[]
     durationMs: number
+}
+
+export interface NoSqlItem {
+    id: string
+    key: Record<string, unknown>
+    document: Record<string, unknown>
 }
