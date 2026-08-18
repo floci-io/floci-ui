@@ -72,6 +72,16 @@ export const SERVICE_CATALOG = {
     serverless: {displayName: 'Serverless', iconKey: 'serverless', group: 'Compute', order: 30},
     storage: {displayName: 'Storage', iconKey: 'storage', group: 'Storage', order: 10},
     database: {displayName: 'Database', iconKey: 'database', group: 'Databases', order: 10},
+    nosql: {
+        displayName: 'NoSQL',
+        // Both labels are declared even though each arrives with its own adapter,
+        // so this row reads the same whichever of the two lands first. A label for
+        // a cloud with no adapter is inert: availability comes from the registry.
+        displayNameByCloud: {aws: 'DynamoDB', azure: 'Cosmos DB NoSQL'},
+        iconKey: 'nosql',
+        group: 'Databases',
+        order: 20,
+    },
     networking: {displayName: 'Networking', iconKey: 'networking', group: 'Networking', order: 10},
     apigateway: {displayName: 'API Gateway', iconKey: 'apigateway', group: 'Integration', order: 10},
     secrets: {

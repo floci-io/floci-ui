@@ -1656,6 +1656,28 @@ pre,
     font-size: 11px;
 }
 
+.dynamodb-explorer {
+    display: grid;
+    grid-template-columns: minmax(520px, 1.5fr) minmax(340px, 1fr);
+    gap: 10px;
+    min-height: 300px;
+}
+
+.dynamodb-explorer > .empty {
+    grid-column: 1 / -1;
+}
+
+.dynamodb-document {
+    max-height: 420px;
+    overflow: auto;
+    margin: 0;
+    color: var(--text);
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
 .launch-form {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2543,6 +2565,10 @@ button.console-service-card {
         position: static;
     }
 
+    .dynamodb-explorer {
+        grid-template-columns: 1fr;
+    }
+
     .input {
         min-width: 0;
         width: 100%;
@@ -3072,6 +3098,98 @@ button.console-service-card {
     justify-content: flex-end;
 }
 
+/* ─── Object thumbnail (Storage image preview) ──────────────────────────── */
+.object-thumbnail {
+    width: 18px;
+    height: 18px;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface-2, var(--surface));
+}
+
+.image-preview-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    width: min(880px, 90vw);
+    max-height: 85vh;
+    overflow: hidden;
+}
+
+.image-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.image-preview-name {
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.image-preview-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.image-preview-body {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow: auto;
+    min-height: 160px;
+}
+
+.image-preview-body img,
+.image-preview-body video {
+    max-width: 100%;
+    max-height: calc(85vh - 90px);
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.object-text-preview {
+    width: 100%;
+    max-height: calc(85vh - 90px);
+    overflow: auto;
+    margin: 0;
+    padding: 12px;
+    background: var(--code-bg, var(--surface-2, var(--surface)));
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+}
+
+.image-preview-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-2);
+    padding: 24px;
+}
 /* ─── Table checkboxes ───────────────────────────────────────────────────── */
 .table input[type="checkbox"] {
     width: 14px;

@@ -5,7 +5,7 @@ export interface CloudResource {
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'instance' | 'image' | 'vpc' | 'lambda' | "azure-function" | 'gcp-function' | 'secret' | 'rest-api';
+    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'dynamodb-table' | 'instance' | 'image' | 'vpc' | 'lambda' | "azure-function" | 'gcp-function' | 'secret' | 'rest-api';
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -51,4 +51,10 @@ export interface CosmosItem {
 export interface CosmosQueryResult {
     items: Array<Record<string, unknown> | string | number | boolean | null>
     count: number
+}
+
+export interface NoSqlItem {
+    id: string
+    key: Record<string, unknown>
+    document: Record<string, unknown>
 }

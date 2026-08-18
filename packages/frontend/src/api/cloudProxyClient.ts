@@ -7,7 +7,7 @@ import type {
   CloudServiceType,
   CloudStatus,
 } from "@/types/cloud";
-import type { CloudResource, CosmosContainer, CosmosItem, CosmosQueryResult, StorageObjectList } from "@/types/resource";
+import type { CloudResource, CosmosContainer, CosmosItem, CosmosQueryResult, NoSqlItem, StorageObjectList } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { getAccountId } from "@/lib/accountStore";
 
@@ -130,14 +130,6 @@ export async function deleteCloudResource(
     { cloud, service, id },
   );
 }
-export interface ServerlessInvokeResult {
-  statusCode: number;
-  payload: string;
-  functionError?: string;
-  logResult?: string;
-  executionDuration?: number;
-}
-
 export interface ServerlessInvokeResult {
   statusCode: number;
   payload: string;
@@ -348,6 +340,19 @@ export async function queryCosmosItems(
     apiEndpointKeys.clouds.database.cosmos.items.query,
     requestOptions(cloud, "database", { signal, body: { query } }),
     { ...databasePathParams(cloud, databaseId), containerId },
+  );
+  return res.data;
+}
+
+export async function listNoSqlItems(
+  cloud: CloudProvider,
+  resourceId: string,
+  signal?: AbortSignal,
+): Promise<NoSqlItem[]> {
+  const res = await apiClient.call<NoSqlItem[]>(
+    apiEndpointKeys.clouds.nosql.items.list,
+    requestOptions(cloud, "nosql", { signal }),
+    { cloud, id: resourceId },
   );
   return res.data;
 }

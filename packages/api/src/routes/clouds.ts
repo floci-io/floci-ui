@@ -139,6 +139,16 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.get('/:cloud/services/nosql/resources/:id/items', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const items = await svc(c).listNoSqlItems(cloud, c.req.param('id'))
+            return c.json(items)
+        })
+    })
+
     app.get('/:cloud/services/:service/resources/:id', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType

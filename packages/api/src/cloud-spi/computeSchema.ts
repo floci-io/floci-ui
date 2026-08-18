@@ -80,6 +80,153 @@ const computeFields: FieldSchema[] = [
     },
 ]
 
+/**
+ * Azure VM images, keyed by the label offered in the create form.
+ *
+ * The ARM API wants a four-part `imageReference`; asking a user for four fields to
+ * launch a VM is worse than a short list of known-good images. Shared with the
+ * adapter so the form and the request cannot drift.
+ */
+export const AZURE_VM_IMAGES = {
+    'Ubuntu 20.04 LTS': {publisher: 'Canonical', offer: 'UbuntuServer', sku: '20.04-LTS', version: 'latest'},
+    'Ubuntu 22.04 LTS': {
+        publisher: 'Canonical',
+        offer: '0001-com-ubuntu-server-jammy',
+        sku: '22_04-lts',
+        version: 'latest',
+    },
+    'Debian 11': {publisher: 'Debian', offer: 'debian-11', sku: '11', version: 'latest'},
+    'Windows Server 2022': {
+        publisher: 'MicrosoftWindowsServer',
+        offer: 'WindowsServer',
+        sku: '2022-datacenter',
+        version: 'latest',
+    },
+} as const
+
+export const AZURE_VM_SIZES = [
+    'Standard_B1s',
+    'Standard_B2s',
+    'Standard_D2s_v3',
+    'Standard_D4s_v3',
+    'Standard_F2s_v2',
+] as const
+
+export const AZURE_LOCATIONS = ['eastus', 'eastus2', 'westus', 'westus2', 'westeurope', 'northeurope'] as const
+
+/** Azure VM names: 1-64 chars, letters, digits, hyphens, underscores and periods. */
+export const AZURE_VM_NAME_PATTERN = '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$'
+
+export function azureComputeSchema(): ServiceSchema {
+    return {
+        cloud: 'azure',
+        service: 'compute',
+        displayName: 'Azure Virtual Machines',
+        fields: [
+            {
+                name: 'name',
+                label: 'VM Name',
+                type: 'text',
+                required: true,
+                span: true,
+                group: 'Required',
+                validation: {
+                    pattern: AZURE_VM_NAME_PATTERN,
+                    minLength: 1,
+                    maxLength: 64,
+                    message: 'Start with a letter or digit; letters, digits, hyphens, underscores and periods only.',
+                },
+            },
+            {
+                name: 'resourceGroup',
+                label: 'Resource Group',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                description: 'Must already exist. Every Azure resource lives in a resource group.',
+            },
+            {
+                name: 'vmSize',
+                label: 'VM Size',
+                type: 'select',
+                required: true,
+                options: AZURE_VM_SIZES.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'image',
+                label: 'Image',
+                type: 'select',
+                required: true,
+                options: Object.keys(AZURE_VM_IMAGES).map((value) => ({label: value, value})),
+            },
+            {
+                name: 'location',
+                label: 'Location',
+                type: 'select',
+                required: false,
+                group: 'Optional',
+                description: "The VM's own location. Defaults to eastus.",
+                options: AZURE_LOCATIONS.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'adminUsername',
+                label: 'Admin Username',
+                type: 'text',
+                required: false,
+                group: 'Optional',
+                description: 'Defaults to azureuser.',
+            },
+        ],
+        actions: ['list', 'inspect', 'create', 'delete'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create VM', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete VM', enabled: true, status: 'available', runtimeRequired: true},
+                // The runtime and the adapter both do these — verified against
+                // floci-az, where powerOff/start/restart really change power state.
+                // There is no generic actions route yet (only invoke/objects), so
+                // the console cannot reach them; saying `coming_soon` with the
+                // reason beats advertising a control that cannot be called.
+                {
+                    name: 'start',
+                    label: 'Start',
+                    enabled: false,
+                    status: 'coming_soon',
+                    reason: 'The adapter implements start, but the generic resource actions route is not wired yet.',
+                    runtimeRequired: true,
+                },
+                {
+                    name: 'stop',
+                    label: 'Stop',
+                    enabled: false,
+                    status: 'coming_soon',
+                    reason: 'The adapter implements stop, but the generic resource actions route is not wired yet.',
+                    runtimeRequired: true,
+                },
+                {
+                    name: 'reboot',
+                    label: 'Restart',
+                    enabled: false,
+                    status: 'coming_soon',
+                    reason: 'The adapter implements reboot, but the generic resource actions route is not wired yet.',
+                    runtimeRequired: true,
+                },
+            ],
+        },
+        filters: computeFilters,
+        columns: [
+            {name: 'name', label: 'Name'},
+            {name: 'status', label: 'Power State'},
+            {name: 'instanceClass', label: 'Size'},
+            {name: 'region', label: 'Location'},
+            {name: 'resourceGroup', label: 'Resource Group', path: 'metadata.resourceGroup'},
+            {name: 'createdAt', label: 'Created', format: 'datetime'},
+        ],
+    }
+}
+
 export function awsComputeSchema(): ServiceSchema {
     return {
         cloud: 'aws',
