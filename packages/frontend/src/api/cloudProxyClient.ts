@@ -155,14 +155,6 @@ export interface ServerlessInvokeResult {
   executionDuration?: number;
 }
 
-export interface ServerlessInvokeResult {
-  statusCode: number;
-  payload: string;
-  functionError?: string;
-  logResult?: string;
-  executionDuration?: number;
-}
-
 export async function invokeCloudResource(
   cloud: CloudProvider,
   service: CloudServiceType,

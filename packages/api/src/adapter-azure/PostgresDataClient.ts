@@ -2,6 +2,7 @@ import {Client, types} from 'pg'
 import type {QueryResult} from 'pg'
 import type {SqlColumn, SqlQueryResult, SqlResultSet} from '../cloud-spi/types'
 import type {SqlDataConnection, SqlDataClient} from './MssqlDataClient'
+import {mapSqlDataError, type SqlDataPhase} from './sqlDataErrors'
 import {isLoopbackSqlHost} from './sqlTransport'
 import {normalizeSqlRow} from './sqlValues'
 
@@ -28,10 +29,13 @@ export class PostgresDataClient implements SqlDataClient {
             application_name: 'Floci UI',
         })
         const startedAt = performance.now()
+        let phase: SqlDataPhase = 'connect'
 
         try {
             await client.connect()
+            phase = 'query'
             const rawResult = await client.query<Record<string, unknown>>(query)
+            phase = 'result'
             const results = (Array.isArray(rawResult) ? rawResult : [rawResult]) as QueryResult<Record<string, unknown>>[]
             return {
                 resultSets: results.filter((result) => result.fields.length > 0).map(toResultSet),
@@ -39,8 +43,7 @@ export class PostgresDataClient implements SqlDataClient {
                 durationMs: Math.round(performance.now() - startedAt),
             }
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unknown PostgreSQL error'
-            throw new Error(`PostgreSQL data request failed: ${message}`, {cause: error})
+            throw mapSqlDataError('PostgreSQL', phase, error)
         } finally {
             await client.end().catch(() => undefined)
         }

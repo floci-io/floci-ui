@@ -1,6 +1,7 @@
 import sql from 'mssql'
 import type {config as MssqlConfig, IRecordSet} from 'mssql'
 import type {SqlColumn, SqlQueryResult, SqlResultSet} from '../cloud-spi/types'
+import {mapSqlDataError, type SqlDataPhase} from './sqlDataErrors'
 import {isLoopbackSqlHost} from './sqlTransport'
 import {normalizeSqlRow} from './sqlValues'
 
@@ -22,18 +23,20 @@ export class MssqlDataClient implements SqlDataClient {
     async query(connection: SqlDataConnection, query: string): Promise<SqlQueryResult> {
         const pool = new sql.ConnectionPool(connectionConfig(connection))
         const startedAt = performance.now()
+        let phase: SqlDataPhase = 'connect'
 
         try {
             await pool.connect()
+            phase = 'query'
             const result = await pool.request().query<Record<string, unknown>>(query)
+            phase = 'result'
             return {
                 resultSets: result.recordsets.map(toResultSet),
                 rowsAffected: result.rowsAffected,
                 durationMs: Math.round(performance.now() - startedAt),
             }
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unknown SQL Server error'
-            throw new Error(`Azure SQL data request failed: ${message}`, {cause: error})
+            throw mapSqlDataError('Azure SQL', phase, error)
         } finally {
             await pool.close().catch(() => undefined)
         }
