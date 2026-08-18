@@ -1,4 +1,4 @@
-import type {CapabilitySchema, CloudProvider, ResourceActionName, ServiceSchema} from './types'
+import type {CapabilitySchema, ResourceActionName, ServiceSchema} from './types'
 
 export const IAM_USER_NAME_PATTERN = '^[A-Za-z0-9_+=,.@-]{1,64}$'
 export const IAM_USER_NAME_MESSAGE = 'Use a valid IAM user name: 1-64 letters, numbers, and +=,.@_- characters.'

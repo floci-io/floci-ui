@@ -15,7 +15,7 @@ import {
     IAM_USER_NAME_MESSAGE,
     IAM_USER_NAME_PATTERN,
 } from '../cloud-spi/iamSchema'
-import {ConflictError, NotFoundError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import type {CloudResource, CloudServiceAdapter, CreateResourceInput, ResourceQuery, ServiceSchema} from '../cloud-spi/types'
 
 const MAX_LIST_PAGES = 50
@@ -68,7 +68,7 @@ export class AwsIamAdapter implements CloudServiceAdapter {
             UserName: userName,
             Path: path || undefined,
         }))
-        if (!res.User) throw new Error('AWS IAM did not return the created user')
+        if (!res.User) throw new RuntimeError('AWS IAM did not return the created user')
         return toResource(res.User)
     }
 

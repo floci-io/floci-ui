@@ -92,6 +92,15 @@ describe('AwsIamAdapter', () => {
         expect(result.id).toBe('alice')
     })
 
+    test('reports an empty create response as a runtime error', async () => {
+        const adapter = new AwsIamAdapter(fakeClient(() => ({})))
+
+        await expect(adapter.create({values: {userName: 'alice'}})).rejects.toMatchObject({
+            name: 'RuntimeError',
+            message: 'AWS IAM did not return the created user',
+        })
+    })
+
     test('rejects invalid user names before calling IAM', async () => {
         let called = false
         const adapter = new AwsIamAdapter(fakeClient(() => {
