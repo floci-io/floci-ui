@@ -15,6 +15,7 @@ import {
     Table2,
     Waypoints,
     Zap,
+    Clock,
     type LucideIcon,
 } from 'lucide-react'
 
@@ -44,6 +45,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     iam: ShieldCheck,
     kms: Lock,
     parameters: SlidersHorizontal,
+    scheduler: Clock,
 }
 
 const FALLBACK_ICON: LucideIcon = Circle

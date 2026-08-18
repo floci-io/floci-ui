@@ -10,6 +10,7 @@ export type KnownCloudServiceType =
     | 'serverless'
     | 'secrets'
     | 'iac'
+    | 'scheduler'
 
 /**
  * Deliberately open where the API's own type is closed.

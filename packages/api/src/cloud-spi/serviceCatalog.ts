@@ -95,6 +95,13 @@ export const SERVICE_CATALOG = {
         group: 'Provisioning',
         order: 10,
     },
+    scheduler: {
+        displayName: 'Cloud Scheduler',
+        displayNameByCloud: {gcp: 'Cloud Scheduler'},
+        iconKey: 'scheduler',
+        group: 'Integration',
+        order: 20,
+    },
 } as const satisfies Record<string, ServiceCatalogMetadata>
 
 export type CloudServiceType = keyof typeof SERVICE_CATALOG
