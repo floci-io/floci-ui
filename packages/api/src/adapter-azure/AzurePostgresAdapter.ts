@@ -19,6 +19,16 @@ import type {
 } from '../cloud-spi/types'
 import type {SqlDataClient, SqlDataConnection} from './MssqlDataClient'
 import {PostgresDataClient} from './PostgresDataClient'
+import {
+    filterBySearch,
+    isValidServerName,
+    numberValue,
+    rawStringValue,
+    recordValue,
+    stringValue,
+    tagList,
+    withApiVersion,
+} from './sqlAdapterUtils'
 
 const API_VERSION = '2025-08-01'
 const RESOURCE_ID_PREFIX = 'postgres-flexible-server:'
@@ -153,7 +163,7 @@ export class AzurePostgresAdapter implements CloudServiceAdapter {
     }
 
     private postgresFetch(path: string, init: RequestInit, emptyOnNotFound = false): Promise<Response | null> {
-        return this.client.fetch(withApiVersion(path), {
+        return this.client.fetch(withApiVersion(path, API_VERSION), {
             ...init,
             headers: {
                 'accept': 'application/json',
@@ -202,11 +212,6 @@ function postgresServerPath(serverName: string): string {
     return `${postgresServersPath()}/${encodeURIComponent(serverName)}`
 }
 
-function withApiVersion(path: string): string {
-    const separator = path.includes('?') ? '&' : '?'
-    return `${path}${separator}api-version=${API_VERSION}`
-}
-
 function postgresServerName(id: string): string {
     const name = isPostgresServerResourceId(id) ? id.slice(RESOURCE_ID_PREFIX.length) : id
     if (!name) throw new ValidationError('PostgreSQL flexible server id is required')
@@ -250,41 +255,9 @@ function toPostgresResource(server: AzurePostgresRecord): CloudResource {
     }
 }
 
-function filterBySearch(resources: CloudResource[], search?: string): CloudResource[] {
-    const normalized = search?.trim().toLowerCase()
-    if (!normalized) return resources
-    return resources.filter((resource) => resource.name.toLowerCase().includes(normalized))
-}
-
-function tagList(tags?: Record<string, string>): Array<{key: string; value: string}> {
-    return Object.entries(tags ?? {}).map(([key, value]) => ({key, value}))
-}
-
-function stringValue(value: unknown): string {
-    return typeof value === 'string' ? value.trim() : ''
-}
-
-function rawStringValue(value: unknown): string {
-    return typeof value === 'string' ? value : ''
-}
-
-function recordValue(value: unknown): Record<string, unknown> | null {
-    return value && typeof value === 'object' && !Array.isArray(value)
-        ? value as Record<string, unknown>
-        : null
-}
-
-function numberValue(value: unknown): number | null {
-    return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
 function integerValue(value: unknown): number | null {
     if (typeof value === 'number' && Number.isSafeInteger(value)) return value
     if (typeof value !== 'string' || !/^-?\d+$/.test(value)) return null
     const parsed = Number(value)
     return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null
-}
-
-function isValidServerName(value: string): boolean {
-    return value.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value)
 }
