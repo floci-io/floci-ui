@@ -109,6 +109,40 @@ describe('AwsEventBridgeAdapter', () => {
         })
     })
 
+    test('list follows pagination tokens for event buses and schedules', async () => {
+        const eventbridgeTokens: (string | undefined)[] = []
+        const schedulerTokens: (string | undefined)[] = []
+        const adapter = createAdapter(
+            async (command) => {
+                expect(command).toBeInstanceOf(ListEventBusesCommand)
+                const token = (command as ListEventBusesCommand).input.NextToken
+                eventbridgeTokens.push(token)
+                return token
+                    ? {EventBuses: [{Name: 'billing'}]}
+                    : {EventBuses: [{Name: 'orders'}], NextToken: 'event-buses-page-2'}
+            },
+            async (command) => {
+                expect(command).toBeInstanceOf(ListSchedulesCommand)
+                const token = (command as ListSchedulesCommand).input.NextToken
+                schedulerTokens.push(token)
+                return token
+                    ? {Schedules: [{Name: 'weekly', GroupName: 'reports'}]}
+                    : {Schedules: [{Name: 'nightly', GroupName: 'default'}], NextToken: 'schedules-page-2'}
+            },
+        )
+
+        const resources = await adapter.list()
+
+        expect(eventbridgeTokens).toEqual([undefined, 'event-buses-page-2'])
+        expect(schedulerTokens).toEqual([undefined, 'schedules-page-2'])
+        expect(resources.map((resource) => resource.id)).toEqual([
+            'event-bus:orders',
+            'event-bus:billing',
+            'schedule:default/nightly',
+            'schedule:reports/weekly',
+        ])
+    })
+
     test('list filters both resource kinds by name or type', async () => {
         const adapter = createAdapter(
             async () => ({EventBuses: [{Name: 'orders'}]}),
