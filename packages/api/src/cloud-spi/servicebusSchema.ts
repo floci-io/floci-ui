@@ -1,4 +1,4 @@
-import type {CapabilitySchema, CloudProvider, ResourceActionName, ServiceSchema} from './types'
+import type {CapabilitySchema, ResourceActionName, ServiceSchema} from './types'
 
 const resourceActions: CapabilitySchema<ResourceActionName>[] = [
     {name: 'list', label: 'List namespaces', enabled: true, status: 'available', runtimeRequired: true},
