@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Code2, Database, Play, Plug, RefreshCw, Table2, Unplug } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -31,6 +31,11 @@ interface AzureSqlPanelProps {
   runtimeReachable: boolean;
 }
 
+interface TablesRequest {
+  database: string;
+  requestId: number;
+}
+
 export function AzureSqlPanel({
   cloud,
   resource,
@@ -53,13 +58,18 @@ export function AzureSqlPanel({
   const [tables, setTables] = useState<SqlTable[]>([]);
   const [selectedTable, setSelectedTable] = useState<SqlTable>();
   const [queryText, setQueryText] = useState(defaultQuery);
+  const latestTablesRequestId = useRef(0);
 
   const credentials: SqlCredentials = { username, password };
 
   const tablesMut = useMutation({
-    mutationFn: (database: string) =>
+    mutationFn: ({ database }: TablesRequest) =>
       listSqlTables(cloud, serverId ?? "", engine, database, credentials),
-    onSuccess: setTables,
+    onSuccess: (items, request) => {
+      if (request.requestId === latestTablesRequestId.current) {
+        setTables(items);
+      }
+    },
   });
 
   const databasesMut = useMutation({
@@ -72,7 +82,7 @@ export function AzureSqlPanel({
         ? selectedDatabase
         : (items[0]?.name ?? defaultDatabase);
       setSelectedDatabase(database);
-      tablesMut.mutate(database);
+      loadTables(database);
     },
   });
 
@@ -82,6 +92,7 @@ export function AzureSqlPanel({
   });
 
   useEffect(() => {
+    latestTablesRequestId.current += 1;
     setUsername(administratorLogin);
     setPassword("");
     setConnected(false);
@@ -108,12 +119,14 @@ export function AzureSqlPanel({
   function connect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!username || !password) return;
+    latestTablesRequestId.current += 1;
     tablesMut.reset();
     queryMut.reset();
     databasesMut.mutate();
   }
 
   function disconnect() {
+    latestTablesRequestId.current += 1;
     setConnected(false);
     setPassword("");
     setDatabases([]);
@@ -129,7 +142,14 @@ export function AzureSqlPanel({
     setSelectedTable(undefined);
     setTables([]);
     queryMut.reset();
-    tablesMut.mutate(database.name);
+    loadTables(database.name);
+  }
+
+  function loadTables(database: string) {
+    tablesMut.mutate({
+      database,
+      requestId: ++latestTablesRequestId.current,
+    });
   }
 
   function previewTable(table: SqlTable) {
@@ -263,7 +283,7 @@ export function AzureSqlPanel({
                   type="button"
                   title="Refresh tables"
                   disabled={tablesMut.isPending}
-                  onClick={() => tablesMut.mutate(selectedDatabase)}
+                  onClick={() => loadTables(selectedDatabase)}
                 >
                   <RefreshCw size={13} />
                 </button>
