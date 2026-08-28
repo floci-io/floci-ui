@@ -8,6 +8,7 @@ import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
 import { SchedulerClient } from "@aws-sdk/client-scheduler";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { APIGatewayClient } from "@aws-sdk/client-api-gateway";
+import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
 
 const endpoint = process.env.FLOCI_ENDPOINT;
 const region = process.env.AWS_REGION || "us-east-1";
@@ -47,6 +48,7 @@ export type AwsClients = {
   scheduler: SchedulerClient;
   dynamodb: DynamoDBClient;
   apiGateway: APIGatewayClient;
+  cloudformation: CloudFormationClient;
 };
 
 export type AwsClientName = keyof AwsClients;
@@ -70,6 +72,7 @@ function buildClients(accountId: string): AwsClients {
     scheduler: new SchedulerClient(base),
     dynamodb: new DynamoDBClient(base),
     apiGateway: new APIGatewayClient(base),
+    cloudformation: new CloudFormationClient(base),
   };
 }
 
@@ -105,3 +108,4 @@ export const eventbridge = awsClients.eventbridge;
 export const scheduler = awsClients.scheduler;
 export const dynamodb = awsClients.dynamodb;
 export const apiGateway = awsClients.apiGateway;
+export const cloudformation = awsClients.cloudformation;

@@ -18,6 +18,7 @@ import {AzureKeyVaultAdapter} from './adapter-azure/AzureKeyVaultAdapter'
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
 import {AwsEventBridgeAdapter} from './adapter-aws/AwsEventBridgeAdapter'
 import {AwsApiGatewayAdapter} from './adapter-aws/AwsApiGatewayAdapter'
+import {AwsCloudFormationAdapter} from './adapter-aws/AwsCloudFormationAdapter'
 import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
@@ -46,6 +47,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsServerlessAdapter(clients.lambda),
         new AwsEventBridgeAdapter(clients.eventbridge, clients.scheduler),
         new AwsApiGatewayAdapter(clients.apiGateway),
+        new AwsCloudFormationAdapter(clients.cloudformation),
         new AzureStorageAdapter(),
         new AzureDatabaseAdapter(),
         new AzureComputeAdapter(),
