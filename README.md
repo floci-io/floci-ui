@@ -61,7 +61,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Networking | Networking | Yes (list) | No | No |
 | Integration | Messaging | No | Yes (list, create, delete, inspect) | No |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
-| Provisioning | CloudFormation / Infrastructure as Code | No | No | No |
+| Provisioning | CloudFormation / Infrastructure as Code | Yes (list, create, delete, inspect) | No | No |
 | Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
 
 Console Home is available for all three clouds.
