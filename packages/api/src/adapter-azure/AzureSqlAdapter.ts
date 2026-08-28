@@ -183,6 +183,7 @@ export class AzureSqlAdapter implements CloudServiceAdapter {
         const password = rawStringValue(input.password)
         const database = stringValue(input.database) || 'master'
         const minimalTlsVersion = stringValue(resource.metadata.minimalTlsVersion) || null
+        const hasLocalPort = endpoint?.port !== undefined && endpoint.port !== null
 
         // The endpoint comes from the resource the runtime returned, so a missing
         // address is a runtime problem rather than something the caller sent.
@@ -196,7 +197,7 @@ export class AzureSqlAdapter implements CloudServiceAdapter {
             database,
             username,
             password,
-            tlsMode: azureSqlTlsMode(server, minimalTlsVersion),
+            tlsMode: azureSqlTlsMode(server, minimalTlsVersion, hasLocalPort),
         }
     }
 }

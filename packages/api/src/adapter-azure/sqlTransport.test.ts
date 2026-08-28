@@ -25,12 +25,13 @@ describe('isLoopbackSqlHost', () => {
 
 describe('azureSqlTlsMode', () => {
     test('trusts the emulator certificate for container-network endpoints', () => {
-        expect(azureSqlTlsMode('floci-az-sql-app', 'None')).toBe('trust-server-certificate')
+        expect(azureSqlTlsMode('floci-az-sql-app', 'None', true)).toBe('trust-server-certificate')
     })
 
     test('keeps certificate verification for remote endpoints without the emulator hint', () => {
-        expect(azureSqlTlsMode('db.example.com', '1.2')).toBe('verify')
-        expect(azureSqlTlsMode('db.example.com', null)).toBe('verify')
+        expect(azureSqlTlsMode('db.example.com', 'None', false)).toBe('verify')
+        expect(azureSqlTlsMode('db.example.com', '1.2', true)).toBe('verify')
+        expect(azureSqlTlsMode('db.example.com', null, false)).toBe('verify')
     })
 })
 

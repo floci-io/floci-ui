@@ -9,9 +9,13 @@ export function isLoopbackSqlHost(host: string): boolean {
     return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(normalized)
 }
 
-export function azureSqlTlsMode(host: string, minimalTlsVersion: string | null): SqlTlsMode {
+export function azureSqlTlsMode(
+    host: string,
+    minimalTlsVersion: string | null,
+    hasLocalPort: boolean,
+): SqlTlsMode {
     if (isLoopbackSqlHost(host)) return 'disable'
-    if (minimalTlsVersion?.trim().toLowerCase() === 'none') return 'trust-server-certificate'
+    if (hasLocalPort && minimalTlsVersion?.trim().toLowerCase() === 'none') return 'trust-server-certificate'
     return 'verify'
 }
 
