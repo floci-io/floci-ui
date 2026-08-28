@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'bun:test'
-import {isLoopbackSqlHost} from './sqlTransport'
+import {azureSqlTlsMode, isLoopbackSqlHost, postgresTlsMode} from './sqlTransport'
 
 describe('isLoopbackSqlHost', () => {
     test('treats loopback addresses as local', () => {
@@ -20,5 +20,26 @@ describe('isLoopbackSqlHost', () => {
         ]) {
             expect(isLoopbackSqlHost(host)).toBe(false)
         }
+    })
+})
+
+describe('azureSqlTlsMode', () => {
+    test('trusts the emulator certificate for container-network endpoints', () => {
+        expect(azureSqlTlsMode('floci-az-sql-app', 'None')).toBe('trust-server-certificate')
+    })
+
+    test('keeps certificate verification for remote endpoints without the emulator hint', () => {
+        expect(azureSqlTlsMode('db.example.com', '1.2')).toBe('verify')
+        expect(azureSqlTlsMode('db.example.com', null)).toBe('verify')
+    })
+})
+
+describe('postgresTlsMode', () => {
+    test('disables TLS for the emulator local-port extension', () => {
+        expect(postgresTlsMode('floci-az-pg-app', true)).toBe('disable')
+    })
+
+    test('keeps certificate verification for remote endpoints without the emulator hint', () => {
+        expect(postgresTlsMode('db.example.com', false)).toBe('verify')
     })
 })

@@ -120,6 +120,7 @@ describe('AzurePostgresAdapter', () => {
             database: 'postgres',
             username: 'pgadmin',
             password: 'StrongPassw0rd!',
+            tlsMode: 'disable',
         })
         expect(dataCalls[1].connection.database).toBe('appdb')
         expect(dataCalls[2].query).toBe('SELECT * FROM orders')

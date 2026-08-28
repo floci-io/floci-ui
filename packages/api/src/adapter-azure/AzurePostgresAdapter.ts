@@ -19,6 +19,7 @@ import type {
 } from '../cloud-spi/types'
 import type {SqlDataClient, SqlDataConnection} from './MssqlDataClient'
 import {PostgresDataClient} from './PostgresDataClient'
+import {postgresTlsMode} from './sqlTransport'
 import {
     filterBySearch,
     isValidServerName,
@@ -189,6 +190,7 @@ export class AzurePostgresAdapter implements CloudServiceAdapter {
         const username = rawStringValue(input.username)
         const password = rawStringValue(input.password)
         const database = stringValue(input.database) || 'postgres'
+        const hasLocalPort = endpoint?.port !== undefined && endpoint.port !== null
 
         // The endpoint comes from the resource the runtime returned, so a missing
         // address is a runtime problem rather than something the caller sent.
@@ -196,7 +198,14 @@ export class AzurePostgresAdapter implements CloudServiceAdapter {
         if (!username) throw new ValidationError('PostgreSQL username is required')
         if (!password) throw new ValidationError('PostgreSQL password is required')
 
-        return {server, port, database, username, password}
+        return {
+            server,
+            port,
+            database,
+            username,
+            password,
+            tlsMode: postgresTlsMode(server, hasLocalPort),
+        }
     }
 }
 

@@ -18,6 +18,7 @@ import type {
     SqlTable,
 } from '../cloud-spi/types'
 import {MssqlDataClient, type SqlDataClient, type SqlDataConnection} from './MssqlDataClient'
+import {azureSqlTlsMode} from './sqlTransport'
 import {
     filterBySearch,
     isValidServerName,
@@ -181,6 +182,7 @@ export class AzureSqlAdapter implements CloudServiceAdapter {
         const username = rawStringValue(input.username)
         const password = rawStringValue(input.password)
         const database = stringValue(input.database) || 'master'
+        const minimalTlsVersion = stringValue(resource.metadata.minimalTlsVersion) || null
 
         // The endpoint comes from the resource the runtime returned, so a missing
         // address is a runtime problem rather than something the caller sent.
@@ -188,7 +190,14 @@ export class AzureSqlAdapter implements CloudServiceAdapter {
         if (!username) throw new ValidationError('SQL username is required')
         if (!password) throw new ValidationError('SQL password is required')
 
-        return {server, port, database, username, password}
+        return {
+            server,
+            port,
+            database,
+            username,
+            password,
+            tlsMode: azureSqlTlsMode(server, minimalTlsVersion),
+        }
     }
 }
 

@@ -2,7 +2,7 @@ import sql from 'mssql'
 import type {config as MssqlConfig, IRecordSet} from 'mssql'
 import type {SqlColumn, SqlQueryResult, SqlResultSet} from '../cloud-spi/types'
 import {mapSqlDataError, type SqlDataPhase} from './sqlDataErrors'
-import {isLoopbackSqlHost} from './sqlTransport'
+import type {SqlTlsMode} from './sqlTransport'
 import {normalizeSqlRow} from './sqlValues'
 
 const MAX_ROWS_PER_RESULT_SET = 500
@@ -13,6 +13,7 @@ export interface SqlDataConnection {
     database: string
     username: string
     password: string
+    tlsMode: SqlTlsMode
 }
 
 export interface SqlDataClient {
@@ -44,8 +45,6 @@ export class MssqlDataClient implements SqlDataClient {
 }
 
 function connectionConfig(connection: SqlDataConnection): MssqlConfig {
-    // A local emulator serves plain TCP, so TLS is relaxed only for loopback.
-    const local = isLoopbackSqlHost(connection.server)
     return {
         user: connection.username,
         password: connection.password,
@@ -56,8 +55,8 @@ function connectionConfig(connection: SqlDataConnection): MssqlConfig {
         requestTimeout: 30_000,
         pool: {min: 0, max: 1, idleTimeoutMillis: 5_000},
         options: {
-            encrypt: !local,
-            trustServerCertificate: local,
+            encrypt: connection.tlsMode !== 'disable',
+            trustServerCertificate: connection.tlsMode !== 'verify',
             appName: 'Floci UI',
         },
     }

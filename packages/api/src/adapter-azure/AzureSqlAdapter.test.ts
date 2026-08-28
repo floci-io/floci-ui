@@ -132,6 +132,7 @@ describe('AzureSqlAdapter', () => {
                 properties: {
                     fullyQualifiedDomainName: 'app-sql.local',
                     localPort: 1433,
+                    minimalTlsVersion: 'None',
                 },
             },
         }), dataClient)
@@ -160,6 +161,7 @@ describe('AzureSqlAdapter', () => {
             database: 'master',
             username: 'sa',
             password: 'LocalDev!2026',
+            tlsMode: 'trust-server-certificate',
         })
         expect(dataCalls[1].connection.database).toBe('ordersdb')
         expect(dataCalls[2].query).toBe('SELECT * FROM dbo.orders')

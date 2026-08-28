@@ -3,7 +3,6 @@ import type {QueryResult} from 'pg'
 import type {SqlColumn, SqlQueryResult, SqlResultSet} from '../cloud-spi/types'
 import type {SqlDataConnection, SqlDataClient} from './MssqlDataClient'
 import {mapSqlDataError, type SqlDataPhase} from './sqlDataErrors'
-import {isLoopbackSqlHost} from './sqlTransport'
 import {normalizeSqlRow} from './sqlValues'
 
 const MAX_ROWS_PER_RESULT_SET = 500
@@ -21,8 +20,9 @@ export class PostgresDataClient implements SqlDataClient {
             database: connection.database,
             user: connection.username,
             password: connection.password,
-            // A local emulator serves plain TCP, so TLS is relaxed only for loopback.
-            ssl: isLoopbackSqlHost(connection.server) ? false : {rejectUnauthorized: true},
+            ssl: connection.tlsMode === 'disable'
+                ? false
+                : {rejectUnauthorized: connection.tlsMode === 'verify'},
             connectionTimeoutMillis: 10_000,
             query_timeout: 30_000,
             statement_timeout: 30_000,
