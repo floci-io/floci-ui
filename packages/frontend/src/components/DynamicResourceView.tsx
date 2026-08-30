@@ -381,6 +381,16 @@ function resourceCreateLabel(schema: ServiceSchema): string {
     return "Create bucket";
   if (schema.cloud === "azure" && schema.service === "storage")
     return "Create container";
+  if (schema.cloud === "azure" && schema.service === "database")
+    return "Create database";
+  if (schema.cloud === "aws" && schema.service === "identity")
+    return "Create user";
+  if (schema.cloud === "aws" && schema.service === "nosql")
+    return "Create table";
+  if (schema.cloud === "azure" && schema.service === "secrets")
+    return "Create secret";
+  if (schema.cloud === "aws" && schema.service === "apigateway")
+    return "Create API";
   return GENERIC_CREATE_LABEL;
 }
 
