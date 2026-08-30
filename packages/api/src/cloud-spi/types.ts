@@ -147,12 +147,27 @@ export interface ServiceSchema {
     columns: TableColumnSchema[]
 }
 
+export type KnownResourceType =
+    | 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database'
+    | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function'
+    | 'dynamodb-table' | 'secret' | 'iam-user' | 'servicebus-namespace'
+    | 'queue' | 'fifo-queue' | 'topic' | 'rest-api' | 'stack' | 'email'
+
 export interface CloudResource {
     id: string
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'dynamodb-table' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret' | 'rest-api' | 'stack' | 'email'
+    /**
+     * Provider resource kind, kebab-case (`bucket`, `db-instance`, `fifo-queue`).
+     *
+     * Deliberately open where `CloudServiceType` is closed: nothing dispatches
+     * exhaustively on it — it is rendered as a table cell and used for a handful
+     * of `type === 'cluster'` style checks — so a closed union would mean editing
+     * two packages for every new adapter and buy no safety. `KnownResourceType`
+     * documents the established values and keeps autocompletion.
+     */
+    type: KnownResourceType | (string & {})
     region: string | null
     createdAt: string | null
     status?: string | null

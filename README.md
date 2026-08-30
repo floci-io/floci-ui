@@ -61,7 +61,9 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Networking | Networking | Yes (list) | No | No |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
 | Integration | SES Mailbox / Email | Yes (list, inspect) | No | No |
+| Integration | SQS / Service Bus / Pub/Sub | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Provisioning | CloudFormation / Infrastructure as Code | Yes (list, create, delete, inspect) | No | No |
+| Security | Identity | Yes (list, create, delete, inspect) | No | No |
 | Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
 
 Console Home is available for all three clouds.
@@ -181,6 +183,22 @@ Current gaps:
   handled by the Networking panel, because they need dependent selectors that a
   flat generic form cannot express.
 - Advanced multi-cloud networking normalization is still pending.
+
+</details>
+
+<details>
+<summary><strong>Identity</strong></summary>
+
+AWS only, through the generic identity service category.
+
+- List and inspect IAM users.
+- Create and delete IAM users.
+- IAM user paths are supported during creation.
+
+Current gaps:
+
+- Roles, groups, policies, access keys, and other advanced IAM workflows are not exposed yet.
+- No Azure or GCP identity adapter yet.
 
 </details>
 

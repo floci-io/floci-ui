@@ -56,6 +56,7 @@ const CONFLICT_NAMES = new Set([
     'DBInstanceAlreadyExistsFault',
     'ConcurrentModificationException',
     'IncorrectState',
+    'DeleteConflictException',
 ])
 
 const ACCESS_DENIED_NAMES = new Set([
@@ -94,6 +95,7 @@ const NOT_FOUND_NAMES = new Set([
     'NoSuchBucket',
     'NoSuchKey',
     'NoSuchEntity',
+    'NoSuchEntityException',
     'NotFound',
     'NotFoundException',
     'ResourceNotFoundException',
