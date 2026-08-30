@@ -342,5 +342,6 @@ function errorMessage(error: unknown) {
 
 function invalidateK8sQueries(queryClient: ReturnType<typeof useQueryClient>, cloud: CloudProvider, clusterName: string) {
     void queryClient.invalidateQueries({queryKey: ['k8s', cloud, clusterName]})
+    void queryClient.invalidateQueries({queryKey: ['cloud-resources', cloud, 'k8s']})
     void queryClient.invalidateQueries({queryKey: cloudQueryKeys.resources(cloud, 'k8s')})
 }
