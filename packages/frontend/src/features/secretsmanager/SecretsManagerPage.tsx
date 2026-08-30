@@ -99,7 +99,7 @@ function serializeKeyValueEntries(entries: SecretKeyValueEntry[]): SerializedKey
   const output: Record<string, JsonValue> = Object.create(null) as Record<string, JsonValue>
 
   for (const entry of entries) {
-    const key = entry.key.trim()
+    const key = entry.key
     if (!key) return { error: 'Every entry needs a key.' }
     if (Object.prototype.hasOwnProperty.call(output, key)) return { error: `Duplicate key: ${key}` }
 
