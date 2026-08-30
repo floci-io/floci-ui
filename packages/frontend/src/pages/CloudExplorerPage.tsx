@@ -127,6 +127,7 @@ function ServiceInfoDialog({
                 normalizeCapabilities([
                     ...(schema.capabilities.resourceActions ?? []),
                     ...(schema.capabilities.objectActions ?? []),
+                    ...(schema.capabilities.kubernetesActions ?? []),
                 ]),
                 status?.runtime === 'reachable',
             ),

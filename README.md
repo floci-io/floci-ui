@@ -112,7 +112,10 @@ Current gaps:
 AWS only, through the unified shell.
 
 - EKS clusters can be listed and inspected.
-- Cluster metadata, node groups, and related details are surfaced when returned by Floci AWS Core.
+- A selected cluster lists its managed nodegroups and Fargate profiles.
+- Create and delete managed nodegroups, including role, subnets, instance types, and scaling configuration.
+- Create and delete Fargate profiles, including pod execution role, selectors, labels, and optional subnets.
+- These nested EKS operations use the unified Cloud Proxy, not the legacy `/api/eks/*` routes.
 
 Current gaps:
 

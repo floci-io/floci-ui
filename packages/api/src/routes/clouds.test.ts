@@ -3,6 +3,7 @@ import {Hono} from 'hono'
 import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
+import {awsEksSchema} from '../cloud-spi/eksSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput, NoSqlItem} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
@@ -623,5 +624,65 @@ describe('per-service status', () => {
     test('rejects an unknown service slug', async () => {
         const res = await appWithRoutes().request('/api/clouds/aws/services/queue/status')
         expect(res.status).toBe(404)
+    })
+
+    test('routes nested EKS nodegroup and Fargate actions through the cloud adapter', async () => {
+        const calls: string[] = []
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'k8s',
+            schema: awsEksSchema,
+            listKubernetesNodegroups: async (clusterId) => [{
+                id: 'workers', name: 'workers', clusterId, arn: null, status: 'ACTIVE', version: null,
+                releaseVersion: null, createdAt: null, modifiedAt: null, capacityType: null,
+                instanceTypes: ['t3.medium'], subnets: ['subnet-a'], nodeRole: null,
+                scalingConfig: null, labels: {}, tags: {},
+            }],
+            createKubernetesNodegroup: async (clusterId, input) => {
+                calls.push(`create-nodegroup:${clusterId}:${input.name}`)
+                return {
+                    id: input.name, name: input.name, clusterId, arn: null, status: null, version: null,
+                    releaseVersion: null, createdAt: null, modifiedAt: null, capacityType: null,
+                    instanceTypes: [], subnets: input.subnets, nodeRole: input.nodeRole,
+                    scalingConfig: null, labels: {}, tags: {},
+                }
+            },
+            deleteKubernetesNodegroup: async (clusterId, nodegroupId) => {
+                calls.push(`delete-nodegroup:${clusterId}:${nodegroupId}`)
+            },
+            listKubernetesFargateProfiles: async (clusterId) => [{
+                id: 'default', name: 'default', clusterId, arn: null, status: 'ACTIVE', createdAt: null,
+                podExecutionRoleArn: null, subnets: [], selectors: [], tags: {},
+            }],
+            createKubernetesFargateProfile: async (clusterId, input) => {
+                calls.push(`create-fargate:${clusterId}:${input.name}`)
+                return {
+                    id: input.name, name: input.name, clusterId, arn: null, status: null, createdAt: null,
+                    podExecutionRoleArn: input.podExecutionRoleArn, subnets: input.subnets ?? [], selectors: [], tags: {},
+                }
+            },
+            deleteKubernetesFargateProfile: async (clusterId, profileId) => {
+                calls.push(`delete-fargate:${clusterId}:${profileId}`)
+            },
+        })])
+
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/nodegroups')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/nodegroups', {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'workers', nodeRole: 'role', subnets: ['subnet-a']}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/nodegroups/workers', {method: 'DELETE'})).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/fargate-profiles')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/fargate-profiles', {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'default', podExecutionRoleArn: 'role', selectors: [{namespace: 'default'}]}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/fargate-profiles/default', {method: 'DELETE'})).status).toBe(200)
+
+        expect(calls).toEqual([
+            'create-nodegroup:demo:workers',
+            'delete-nodegroup:demo:workers',
+            'create-fargate:demo:default',
+            'delete-fargate:demo:default',
+        ])
     })
 })
