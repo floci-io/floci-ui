@@ -332,6 +332,12 @@ async invokeResource(
         await adapter.deleteKubernetesFargateProfile(clusterId, profileId)
     }
 
+    async clearEmailInbox(cloud: CloudProvider): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'email')
+        if (!adapter.clearEmailInbox) throw new NotSupportedError(`Inbox clearing is not supported for ${cloud}/email`)
+        await adapter.clearEmailInbox()
+    }
+
     private requireAdapter(cloud: CloudProvider, service: CloudServiceType) {
         const adapter = this.registry.get(cloud, service)
         if (!adapter) throw new NotSupportedError(`No adapter registered for ${cloud}/${service}`)

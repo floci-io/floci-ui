@@ -39,6 +39,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     secrets: KeyRound,
     iac: Layers,
     messaging: MessageSquare,
+    email: MessageSquare,
     queue: MessageSquare,
     logs: ScrollText,
     iam: ShieldCheck,

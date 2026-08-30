@@ -63,6 +63,11 @@ export const apiEndpointKeys = {
         delete: "clouds.services.k8s.fargate-profiles.delete",
       },
     },
+    email: {
+      inbox: {
+        clear: "clouds.services.email.inbox.clear",
+      },
+    },
   },
   aws: {
     eks: {
@@ -426,6 +431,14 @@ export const endpointRegistry: EndpointRegistry = new Map([
     apiEndpointKeys.clouds.k8s.fargateProfiles.delete,
     {
       path: "/clouds/:cloud/services/k8s/resources/:id/fargate-profiles/:profileId",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.email.inbox.clear,
+    {
+      path: "/clouds/:cloud/services/email/inbox",
       method: "DELETE",
       telemetry: { service: "cloud-proxy" },
     },

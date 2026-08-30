@@ -1,11 +1,18 @@
 import type {CloudProvider, CloudServiceType} from './cloud'
 
+export type KnownResourceType =
+    | 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database'
+    | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function'
+    | 'dynamodb-table' | 'secret' | 'iam-user' | 'servicebus-namespace'
+    | 'queue' | 'fifo-queue' | 'topic' | 'rest-api' | 'stack' | 'email';
+
 export interface CloudResource {
     id: string
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'dynamodb-table' | 'instance' | 'image' | 'vpc' | 'lambda' | "azure-function" | 'gcp-function' | 'secret' | 'rest-api' | 'stack';
+    /** Provider resource kind. Open by design — see the API's CloudResource. */
+    type: KnownResourceType | (string & {});
     region: string | null
     createdAt: string | null
     status?: string | null

@@ -341,4 +341,6 @@ export interface CloudServiceAdapter {
     listKubernetesFargateProfiles?(clusterId: string): Promise<KubernetesFargateProfile[]>
     createKubernetesFargateProfile?(clusterId: string, input: CreateKubernetesFargateProfileInput): Promise<KubernetesFargateProfile>
     deleteKubernetesFargateProfile?(clusterId: string, profileId: string): Promise<void>
+    /** Clears the provider's locally captured email inbox, if it exposes one. */
+    clearEmailInbox?(): Promise<void>
 }
