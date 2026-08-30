@@ -60,6 +60,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | No | No |
 | Networking | Networking | Yes (list) | No | No |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
+| Integration | SES Mailbox / Email | Yes (list, inspect) | No | No |
 | Provisioning | CloudFormation / Infrastructure as Code | Yes (list, create, delete, inspect) | No | No |
 | Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
 
@@ -195,6 +196,47 @@ Current gaps:
 
 - Resources, methods, deployments, and stages are not yet exposed.
 - No Azure or GCP API Gateway adapter yet.
+
+</details>
+
+<details>
+<summary><strong>Email / SES Mailbox</strong></summary>
+
+AWS SES email capture through the unified Cloud Explorer.
+
+- Lists emails actually captured by Floci SES.
+- Filters by subject, sender, and recipient.
+- Inspects sender, recipients, timestamp, and message type.
+- Displays HTML in a sandboxed preview, text bodies, and captured raw MIME data.
+- Clears the captured inbox after an explicit confirmation.
+
+Manual verification with the AWS CLI:
+
+```bash
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1
+
+aws ses send-email \
+  --endpoint-url http://localhost:4566 \
+  --from sender@example.test \
+  --destination 'ToAddresses=recipient@example.test' \
+  --message 'Subject={Data="Floci SES test",Charset=utf-8},Body={Text={Data="Plain-text test email.",Charset=utf-8},Html={Data="<h1>Hello from Floci</h1><p>This should render in the SES preview.</p>",Charset=utf-8}}'
+```
+
+The email is captured by the local Floci runtime; it is not delivered externally. Open
+`/cloud-explorer/aws/email` and refresh the mailbox to inspect its Preview, Text, and
+Raw views. You can also inspect the captured messages directly with:
+
+```bash
+curl http://localhost:4566/_aws/ses
+```
+
+Current gaps:
+
+- Sending a test email from the UI is not wired yet; applications continue to send through their AWS SES SDK.
+- SES identities, templates, bulk email, configuration sets, and suppression lists are not exposed yet.
+- No Azure or GCP email adapter yet.
 
 </details>
 

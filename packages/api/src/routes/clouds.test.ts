@@ -4,6 +4,7 @@ import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} 
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
+import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
 import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput, NoSqlItem} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
@@ -240,6 +241,23 @@ describe('cloud schema routes', () => {
         expect(res.status).toBe(200)
         expect(body[0].key).toEqual({pk: 'item-1'})
         expect(body[0].document.table).toBe('orders')
+    })
+
+    test('clears the SES mailbox through the email adapter', async () => {
+        let cleared = false
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'email',
+            schema: awsSesEmailSchema,
+            clearEmailInbox: async () => {
+                cleared = true
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/email/inbox', {method: 'DELETE'})
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({ok: true})
+        expect(cleared).toBeTrue()
     })
 
     test('creates and deletes Cosmos databases through the cloud database adapter', async () => {

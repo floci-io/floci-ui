@@ -130,6 +130,17 @@ export async function deleteCloudResource(
     { cloud, service, id },
   );
 }
+
+export async function clearEmailInbox(
+  cloud: CloudProvider,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.email.inbox.clear,
+    requestOptions(cloud, "email", { signal }),
+    { cloud },
+  );
+}
 export interface ServerlessInvokeResult {
   statusCode: number;
   payload: string;

@@ -51,6 +51,11 @@ export const apiEndpointKeys = {
         list: "clouds.services.nosql.items.list",
       },
     },
+    email: {
+      inbox: {
+        clear: "clouds.services.email.inbox.clear",
+      },
+    },
   },
   aws: {
     eks: {
@@ -367,6 +372,14 @@ export const endpointRegistry: EndpointRegistry = new Map([
     {
       path: "/clouds/:cloud/services/nosql/resources/:id/items",
       method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.email.inbox.clear,
+    {
+      path: "/clouds/:cloud/services/email/inbox",
+      method: "DELETE",
       telemetry: { service: "cloud-proxy" },
     },
   ],

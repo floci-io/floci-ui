@@ -149,6 +149,16 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.delete('/:cloud/services/email/inbox', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            await svc(c).clearEmailInbox(cloud)
+            return c.json({ok: true})
+        })
+    })
+
     app.get('/:cloud/services/:service/resources/:id', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType

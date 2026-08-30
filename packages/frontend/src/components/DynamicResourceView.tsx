@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCloudResource,
+  clearEmailInbox,
   deleteCloudResource,
   getServiceSchema,
   listCloudResources,
@@ -60,6 +61,7 @@ export function DynamicResourceView({
     StorageObject | undefined
   >();
   const [createOpen, setCreateOpen] = useState(false);
+  const [clearConfirm, setClearConfirm] = useState(false);
   const resourcesKey = useMemo(
     () => ["cloud-resources", cloud, service, search],
     [cloud, service, search],
@@ -102,10 +104,22 @@ export function DynamicResourceView({
     },
   });
 
+  const clearInboxMut = useMutation({
+    mutationFn: () => clearEmailInbox(cloud),
+    onSuccess: () => {
+      setSelected(undefined);
+      setClearConfirm(false);
+      void qc.invalidateQueries({
+        queryKey: ["cloud-resources", cloud, service],
+      });
+    },
+  });
+
   useEffect(() => {
     setSelected(undefined);
     setSelectedObject(undefined);
     setCreateOpen(false);
+    setClearConfirm(false);
     setSearch("");
   }, [cloud, service]);
 
@@ -213,21 +227,51 @@ export function DynamicResourceView({
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Filter resources"
                 />
-                <button
-                  className="button"
-                  type="button"
-                  disabled={!canCreateResource}
-                  title={createCapability?.reason}
-                  onClick={() => setCreateOpen((open) => !open)}
-                >
-                  <Plus size={14} />
-                  {createResourceLabel}
-                  {createOpen ? (
-                    <ChevronUp size={13} />
+                {service === "email" && (
+                  clearConfirm ? (
+                    <>
+                      <button
+                        className="button danger"
+                        type="button"
+                        disabled={!canUseRuntime || clearInboxMut.isPending}
+                        onClick={() => clearInboxMut.mutate()}
+                      >
+                        <Trash2 size={14} />
+                        {clearInboxMut.isPending ? "Clearing" : "Confirm clear"}
+                      </button>
+                      <button className="button" type="button" disabled={clearInboxMut.isPending} onClick={() => setClearConfirm(false)}>
+                        Cancel
+                      </button>
+                    </>
                   ) : (
-                    <ChevronDown size={13} />
-                  )}
-                </button>
+                    <button
+                      className="button danger"
+                      type="button"
+                      disabled={!canUseRuntime}
+                      onClick={() => setClearConfirm(true)}
+                    >
+                      <Trash2 size={14} />
+                      Clear inbox
+                    </button>
+                  )
+                )}
+                {canCreate && (
+                  <button
+                    className="button"
+                    type="button"
+                    disabled={!canCreateResource}
+                    title={createCapability?.reason}
+                    onClick={() => setCreateOpen((open) => !open)}
+                  >
+                    <Plus size={14} />
+                    {createResourceLabel}
+                    {createOpen ? (
+                      <ChevronUp size={13} />
+                    ) : (
+                      <ChevronDown size={13} />
+                    )}
+                  </button>
+                )}
                 <button
                   className="button"
                   type="button"
@@ -239,6 +283,13 @@ export function DynamicResourceView({
                 </button>
               </div>
             </div>
+            {service === "email" && clearInboxMut.isError && (
+              <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
+                {clearInboxMut.error instanceof Error
+                  ? clearInboxMut.error.message
+                  : "Unable to clear the inbox."}
+              </p>
+            )}
             {canCreate && createOpen && (
               <div className="resource-create-inline">
                 {/*

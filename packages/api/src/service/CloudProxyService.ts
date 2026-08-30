@@ -292,6 +292,12 @@ async invokeResource(
         return adapter.listNoSqlItems(resourceId)
     }
 
+    async clearEmailInbox(cloud: CloudProvider): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'email')
+        if (!adapter.clearEmailInbox) throw new NotSupportedError(`Inbox clearing is not supported for ${cloud}/email`)
+        await adapter.clearEmailInbox()
+    }
+
     private requireAdapter(cloud: CloudProvider, service: CloudServiceType) {
         const adapter = this.registry.get(cloud, service)
         if (!adapter) throw new NotSupportedError(`No adapter registered for ${cloud}/${service}`)
@@ -308,4 +314,3 @@ function unavailableReason(
     if (availability === 'available') return undefined
     return `No ${cloud.toUpperCase()} adapter is registered for ${displayName} yet.`
 }
-
