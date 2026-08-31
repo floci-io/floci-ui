@@ -66,3 +66,28 @@ export function azureSecretsSchema(): ServiceSchema {
     }
 }
 
+// AWS list/describe return metadata only; the value is deliberately never read,
+// so this schema advertises no value field and no create action.
+const awsSecretsColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Secret Name'},
+    {name: 'status', label: 'Status'},
+    {name: 'createdAt', label: 'Created At', format: 'datetime'},
+]
+
+export function awsSecretsSchema(): ServiceSchema {
+    return {
+        cloud: 'aws',
+        service: 'secrets',
+        displayName: 'AWS Secrets Manager',
+        fields: [],
+        actions: ['list', 'inspect'],
+        filters: secretsFilters,
+        columns: awsSecretsColumns,
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List secrets', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect metadata', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+    }
+}

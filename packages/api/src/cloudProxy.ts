@@ -7,18 +7,25 @@ import {AwsStorageAdapter} from './adapter-aws/AwsStorageAdapter'
 import {AzureNoSqlAdapter} from './adapter-azure/AzureNoSqlAdapter'
 import {AwsDynamoDbAdapter} from './adapter-aws/AwsDynamoDbAdapter'
 import {AzureDatabaseAdapter} from './adapter-azure/AzureDatabaseAdapter'
+import {AzureServiceBusAdapter} from './adapter-azure/AzureServiceBusAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
 import {AzureComputeAdapter} from './adapter-azure/AzureComputeAdapter'
 import {GcpStorageAdapter} from './adapter-gcp/GcpStorageAdapter'
 import {GcpCloudFunctionsAdapter} from './adapter-gcp/GcpCloudFunctionsAdapter'
 import {GcpCloudSqlAdapter} from './adapter-gcp/GcpCloudSqlAdapter'
 import {GcpGkeAdapter} from './adapter-gcp/GcpGkeAdapter'
+import {GcpPubSubAdapter} from './adapter-gcp/GcpPubSubAdapter'
+import {AwsSqsAdapter} from './adapter-aws/AwsSqsAdapter'
 import {CloudProxyService} from './service/CloudProxyService'
 import {AzureServerlessAdapter} from './adapter-azure/AzureServerlessAdapter'
 import {AzureKeyVaultAdapter} from './adapter-azure/AzureKeyVaultAdapter'
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
+import {AwsEventBridgeAdapter} from './adapter-aws/AwsEventBridgeAdapter'
+import {AwsIamAdapter} from './adapter-aws/AwsIamAdapter'
 import {AwsApiGatewayAdapter} from './adapter-aws/AwsApiGatewayAdapter'
 import {AwsCloudFormationAdapter} from './adapter-aws/AwsCloudFormationAdapter'
+import {AwsSecretsAdapter} from './adapter-aws/AwsSecretsAdapter'
+import {AwsSesAdapter} from './adapter-aws/AwsSesAdapter'
 import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
@@ -45,9 +52,14 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsComputeAdapter(ec2Service),
         new AwsNetworkingAdapter(ec2Service),
         new AwsServerlessAdapter(clients.lambda),
+        new AwsEventBridgeAdapter(clients.eventbridge),
+        new AwsIamAdapter(clients.iam),
         new AwsApiGatewayAdapter(clients.apiGateway),
         new AwsCloudFormationAdapter(clients.cloudformation),
+        new AwsSecretsAdapter(clients.secretsManager),
+        new AwsSesAdapter(),
         new AzureStorageAdapter(),
+        new AzureServiceBusAdapter(),
         new AzureDatabaseAdapter(),
         new AzureNoSqlAdapter(),
         new AzureComputeAdapter(),
@@ -55,6 +67,8 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new GcpCloudFunctionsAdapter(),
         new GcpCloudSqlAdapter(),
         new GcpGkeAdapter(),
+        new GcpPubSubAdapter(),
+        new AwsSqsAdapter(clients.sqs),
         new AzureServerlessAdapter(),
         new AzureKeyVaultAdapter(),
     ])

@@ -15,6 +15,13 @@ export type ResourceActionName =
     | 'reboot'
     | 'updateTags'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
+export type KubernetesActionName =
+    | 'listNodegroups'
+    | 'createNodegroup'
+    | 'deleteNodegroup'
+    | 'listFargateProfiles'
+    | 'createFargateProfile'
+    | 'deleteFargateProfile'
 export type CapabilityStatus = 'available' | 'blocked' | 'partial' | 'coming_soon'
 
 export interface CapabilitySchema<TAction extends string> {
@@ -31,6 +38,7 @@ export interface FieldSchema {
     label: string
     type: FieldType
     required: boolean
+    requiredWhen?: {field: string; equals: string}
     description?: string
     group?: string
     span?: boolean
@@ -39,6 +47,7 @@ export interface FieldSchema {
         pattern?: string
         minLength?: number
         maxLength?: number
+        maxLengthWhen?: {field: string; equals: string; value: number; message?: string}
         message?: string
     }
     options?: Array<{label: string; value: string}>
@@ -65,6 +74,7 @@ export interface ServiceSchema {
     capabilities?: {
         resourceActions?: Array<CapabilitySchema<ResourceActionName> | ResourceActionName>
         objectActions?: Array<CapabilitySchema<ObjectActionName> | ObjectActionName>
+        kubernetesActions?: Array<CapabilitySchema<KubernetesActionName> | KubernetesActionName>
     }
     filters: FieldSchema[]
     columns: TableColumnSchema[]

@@ -83,7 +83,29 @@ export const SERVICE_CATALOG = {
         order: 20,
     },
     networking: {displayName: 'Networking', iconKey: 'networking', group: 'Networking', order: 10},
+    messaging: {
+        displayName: 'Messaging',
+        displayNameByCloud: {aws: 'SQS', gcp: 'Pub/Sub'},
+        iconKey: 'messaging',
+        group: 'Integration',
+        order: 10,
+    },
+    events: {
+        displayName: 'Events',
+        displayNameByCloud: {aws: 'EventBridge'},
+        iconKey: 'events',
+        group: 'Integration',
+        order: 15,
+    },
+    identity: {displayName: 'Identity', iconKey: 'iam', group: 'Security', order: 5},
     apigateway: {displayName: 'API Gateway', iconKey: 'apigateway', group: 'Integration', order: 10},
+    email: {
+        displayName: 'Email',
+        displayNameByCloud: {aws: 'SES Mailbox'},
+        iconKey: 'email',
+        group: 'Integration',
+        order: 20,
+    },
     secrets: {
         displayName: 'Secrets Manager',
         displayNameByCloud: {azure: 'Key Vault'},
@@ -94,9 +116,6 @@ export const SERVICE_CATALOG = {
         // Azure Key Vault is a normal Cloud Explorer service, so it uses the catalog
         // slug rather than the legacy standalone page AWS still points at.
         routeByCloud: {azure: 'secrets'},
-        // Migration debt: the AWS Secrets Manager page still lives outside Cloud
-        // Explorer, so there is no adapter to derive availability from.
-        legacyAvailability: {aws: 'available'},
     },
     iac: {
         displayName: 'Infrastructure as Code',
