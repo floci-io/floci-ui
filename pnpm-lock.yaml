@@ -69,8 +69,8 @@ importers:
         specifier: ^12.3.0
         version: 12.3.0
       '@types/node':
-        specifier: ^25.9.4
-        version: 25.9.4
+        specifier: ^26.1.2
+        version: 26.1.2
       '@types/pg':
         specifier: ^8.20.0
         version: 8.23.1
@@ -118,8 +118,8 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.6.0(jiti@1.21.7))
       '@types/node':
-        specifier: ^25.9.4
-        version: 25.9.4
+        specifier: ^26.1.2
+        version: 26.1.2
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.17
@@ -128,7 +128,7 @@ importers:
         version: 19.2.3(@types/react@19.2.17)
       '@vitejs/plugin-react':
         specifier: ^6.0.2
-        version: 6.0.3(vite@8.1.3(@types/node@25.9.4)(jiti@1.21.7))
+        version: 6.0.3(vite@8.1.3(@types/node@26.1.2)(jiti@1.21.7))
       autoprefixer:
         specifier: ^10.5.2
         version: 10.5.2(postcss@8.5.16)
@@ -158,7 +158,7 @@ importers:
         version: 8.62.1(eslint@10.6.0(jiti@1.21.7))(typescript@6.0.3)
       vite:
         specifier: ^8.1.3
-        version: 8.1.3(@types/node@25.9.4)(jiti@1.21.7)
+        version: 8.1.3(@types/node@26.1.2)(jiti@1.21.7)
 
 packages:
 
@@ -964,8 +964,8 @@ packages:
   '@types/mssql@12.3.0':
     resolution: {integrity: sha512-+jy+AJtfuTDI5+nhh0hDNcir1p8P+pf+qsHXpUpYvg7EikxUUePBe+a+Kr6j/Xs89o4EbHlVzrh0HOxbqWM31Q==}
 
-  '@types/node@25.9.4':
-    resolution: {integrity: sha512-dszCsrKb5U7ZsVZBWiHFklTloVl0mSEnWH/iZXfZUlI4rzCUnsvGmgqfuVRHL54ugE7/wRuxEIXRa2iMZ+BG6g==}
+  '@types/node@26.1.2':
+    resolution: {integrity: sha512-Vu4a5UFA9rIIFJ7rB/Vaafh9lrCQszopTCx6KjFboXTGQbPNasehVR5TEiithSDGyd1DEiUByggTZsg8jukeIg==}
 
   '@types/pg@8.23.1':
     resolution: {integrity: sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==}
@@ -1788,8 +1788,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@7.24.6:
-    resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
+  undici-types@8.3.0:
+    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
   update-browserslist-db@1.2.3:
     resolution: {integrity: sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w==}
@@ -3254,19 +3254,19 @@ snapshots:
 
   '@types/mssql@12.3.0':
     dependencies:
-      '@types/node': 25.9.4
+      '@types/node': 26.1.2
       tarn: 3.1.2
       tedious: 20.0.0
     transitivePeerDependencies:
       - supports-color
 
-  '@types/node@25.9.4':
+  '@types/node@26.1.2':
     dependencies:
-      undici-types: 7.24.6
+      undici-types: 8.3.0
 
   '@types/pg@8.23.1':
     dependencies:
-      '@types/node': 25.9.4
+      '@types/node': 26.1.2
       pg-protocol: 1.16.0
       pg-types: 2.2.0
 
@@ -3280,7 +3280,7 @@ snapshots:
 
   '@types/readable-stream@4.0.24':
     dependencies:
-      '@types/node': 25.9.4
+      '@types/node': 26.1.2
 
   '@typescript-eslint/eslint-plugin@8.62.1(@typescript-eslint/parser@8.62.1(eslint@10.6.0(jiti@1.21.7))(typescript@6.0.3))(eslint@10.6.0(jiti@1.21.7))(typescript@6.0.3)':
     dependencies:
@@ -3381,10 +3381,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitejs/plugin-react@6.0.3(vite@8.1.3(@types/node@25.9.4)(jiti@1.21.7))':
+  '@vitejs/plugin-react@6.0.3(vite@8.1.3(@types/node@26.1.2)(jiti@1.21.7))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.1.3(@types/node@25.9.4)(jiti@1.21.7)
+      vite: 8.1.3(@types/node@26.1.2)(jiti@1.21.7)
 
   abort-controller@3.0.0:
     dependencies:
@@ -3450,7 +3450,7 @@ snapshots:
 
   bun-types@1.3.14:
     dependencies:
-      '@types/node': 25.9.4
+      '@types/node': 26.1.2
 
   bundle-name@4.1.0:
     dependencies:
@@ -4025,7 +4025,7 @@ snapshots:
       '@azure/identity': 4.13.1
       '@azure/keyvault-keys': 4.10.2
       '@js-joda/core': 6.1.0
-      '@types/node': 25.9.4
+      '@types/node': 26.1.2
       bl: 6.1.6
       iconv-lite: 0.7.3
       js-md4: 0.3.2
@@ -4062,7 +4062,7 @@ snapshots:
 
   typescript@6.0.3: {}
 
-  undici-types@7.24.6: {}
+  undici-types@8.3.0: {}
 
   update-browserslist-db@1.2.3(browserslist@4.28.4):
     dependencies:
@@ -4079,7 +4079,7 @@ snapshots:
       react: 19.2.7
     optional: true
 
-  vite@8.1.3(@types/node@25.9.4)(jiti@1.21.7):
+  vite@8.1.3(@types/node@26.1.2)(jiti@1.21.7):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.5
@@ -4087,7 +4087,7 @@ snapshots:
       rolldown: 1.1.4
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 25.9.4
+      '@types/node': 26.1.2
       fsevents: 2.3.3
       jiti: 1.21.7
 
