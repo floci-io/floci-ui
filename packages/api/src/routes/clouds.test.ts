@@ -3,7 +3,9 @@ import {Hono} from 'hono'
 import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
+import {awsEksSchema} from '../cloud-spi/eksSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
+import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
 import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput, NoSqlItem} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
@@ -240,6 +242,23 @@ describe('cloud schema routes', () => {
         expect(res.status).toBe(200)
         expect(body[0].key).toEqual({pk: 'item-1'})
         expect(body[0].document.table).toBe('orders')
+    })
+
+    test('clears the SES mailbox through the email adapter', async () => {
+        let cleared = false
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'email',
+            schema: awsSesEmailSchema,
+            clearEmailInbox: async () => {
+                cleared = true
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/email/inbox', {method: 'DELETE'})
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({ok: true})
+        expect(cleared).toBeTrue()
     })
 
     test('creates and deletes Cosmos databases through the cloud database adapter', async () => {
@@ -512,12 +531,18 @@ describe('service descriptors', () => {
         expect(serverless.reason).toContain('501')
     })
 
-    test('keeps the legacy Secrets Manager page available on AWS only', async () => {
-        const aws = await (await appWithRoutes().request('/api/clouds/aws/services')).json()
+    test('keeps the Secrets Manager page route while taking availability from the adapter', async () => {
+        // Availability now comes from adapter registration like every other service,
+        // but the absolute route is kept so the card still links to the standalone
+        // page instead of Cloud Explorer. Without an adapter it reads coming_soon.
+        const withAdapter = appWithRoutes([mockAdapter('aws'), mockAdapter('aws', {service: 'secrets'})])
+        const aws = await (await withAdapter.request('/api/clouds/aws/services')).json()
+        const bare = await (await appWithRoutes().request('/api/clouds/aws/services')).json()
         const gcp = await (await appWithRoutes().request('/api/clouds/gcp/services')).json()
         const secretsFor = (body: Array<{service: string}>) => body.find((d) => d.service === 'secrets')
 
         expect(secretsFor(aws)).toMatchObject({availability: 'available', route: '/secretsmanager'})
+        expect(secretsFor(bare)).toMatchObject({availability: 'coming_soon'})
         expect(secretsFor(gcp)).toMatchObject({availability: 'coming_soon'})
     })
 })
@@ -623,5 +648,65 @@ describe('per-service status', () => {
     test('rejects an unknown service slug', async () => {
         const res = await appWithRoutes().request('/api/clouds/aws/services/queue/status')
         expect(res.status).toBe(404)
+    })
+
+    test('routes nested EKS nodegroup and Fargate actions through the cloud adapter', async () => {
+        const calls: string[] = []
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'k8s',
+            schema: awsEksSchema,
+            listKubernetesNodegroups: async (clusterId) => [{
+                id: 'workers', name: 'workers', clusterId, arn: null, status: 'ACTIVE', version: null,
+                releaseVersion: null, createdAt: null, modifiedAt: null, capacityType: null,
+                instanceTypes: ['t3.medium'], subnets: ['subnet-a'], nodeRole: null,
+                scalingConfig: null, labels: {}, tags: {},
+            }],
+            createKubernetesNodegroup: async (clusterId, input) => {
+                calls.push(`create-nodegroup:${clusterId}:${input.name}`)
+                return {
+                    id: input.name, name: input.name, clusterId, arn: null, status: null, version: null,
+                    releaseVersion: null, createdAt: null, modifiedAt: null, capacityType: null,
+                    instanceTypes: [], subnets: input.subnets, nodeRole: input.nodeRole,
+                    scalingConfig: null, labels: {}, tags: {},
+                }
+            },
+            deleteKubernetesNodegroup: async (clusterId, nodegroupId) => {
+                calls.push(`delete-nodegroup:${clusterId}:${nodegroupId}`)
+            },
+            listKubernetesFargateProfiles: async (clusterId) => [{
+                id: 'default', name: 'default', clusterId, arn: null, status: 'ACTIVE', createdAt: null,
+                podExecutionRoleArn: null, subnets: [], selectors: [], tags: {},
+            }],
+            createKubernetesFargateProfile: async (clusterId, input) => {
+                calls.push(`create-fargate:${clusterId}:${input.name}`)
+                return {
+                    id: input.name, name: input.name, clusterId, arn: null, status: null, createdAt: null,
+                    podExecutionRoleArn: input.podExecutionRoleArn, subnets: input.subnets ?? [], selectors: [], tags: {},
+                }
+            },
+            deleteKubernetesFargateProfile: async (clusterId, profileId) => {
+                calls.push(`delete-fargate:${clusterId}:${profileId}`)
+            },
+        })])
+
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/nodegroups')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/nodegroups', {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'workers', nodeRole: 'role', subnets: ['subnet-a']}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/nodegroups/workers', {method: 'DELETE'})).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/fargate-profiles')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/fargate-profiles', {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'default', podExecutionRoleArn: 'role', selectors: [{namespace: 'default'}]}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/fargate-profiles/default', {method: 'DELETE'})).status).toBe(200)
+
+        expect(calls).toEqual([
+            'create-nodegroup:demo:workers',
+            'delete-nodegroup:demo:workers',
+            'create-fargate:demo:default',
+            'delete-fargate:demo:default',
+        ])
     })
 })

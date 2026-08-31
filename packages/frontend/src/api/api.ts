@@ -51,6 +51,23 @@ export const apiEndpointKeys = {
         list: "clouds.services.nosql.items.list",
       },
     },
+    k8s: {
+      nodegroups: {
+        list: "clouds.services.k8s.nodegroups.list",
+        create: "clouds.services.k8s.nodegroups.create",
+        delete: "clouds.services.k8s.nodegroups.delete",
+      },
+      fargateProfiles: {
+        list: "clouds.services.k8s.fargate-profiles.list",
+        create: "clouds.services.k8s.fargate-profiles.create",
+        delete: "clouds.services.k8s.fargate-profiles.delete",
+      },
+    },
+    email: {
+      inbox: {
+        clear: "clouds.services.email.inbox.clear",
+      },
+    },
   },
   aws: {
     eks: {
@@ -367,6 +384,62 @@ export const endpointRegistry: EndpointRegistry = new Map([
     {
       path: "/clouds/:cloud/services/nosql/resources/:id/items",
       method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.nodegroups.list,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/nodegroups",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.nodegroups.create,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/nodegroups",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.nodegroups.delete,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/nodegroups/:nodegroupId",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.fargateProfiles.list,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/fargate-profiles",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.fargateProfiles.create,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/fargate-profiles",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.fargateProfiles.delete,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/fargate-profiles/:profileId",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.email.inbox.clear,
+    {
+      path: "/clouds/:cloud/services/email/inbox",
+      method: "DELETE",
       telemetry: { service: "cloud-proxy" },
     },
   ],

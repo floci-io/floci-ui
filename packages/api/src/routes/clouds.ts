@@ -149,6 +149,76 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.delete('/:cloud/services/email/inbox', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            await svc(c).clearEmailInbox(cloud)
+            return c.json({ok: true})
+        })
+    })
+
+    app.get('/:cloud/services/k8s/resources/:id/nodegroups', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const nodegroups = await svc(c).listKubernetesNodegroups(cloud, c.req.param('id'))
+            return c.json(nodegroups)
+        })
+    })
+
+    app.post('/:cloud/services/k8s/resources/:id/nodegroups', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const nodegroup = await svc(c).createKubernetesNodegroup(cloud, c.req.param('id'), await c.req.json())
+            return c.json(nodegroup, 201)
+        })
+    })
+
+    app.delete('/:cloud/services/k8s/resources/:id/nodegroups/:nodegroupId', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            await svc(c).deleteKubernetesNodegroup(cloud, c.req.param('id'), c.req.param('nodegroupId'))
+            return c.json({ok: true})
+        })
+    })
+
+    app.get('/:cloud/services/k8s/resources/:id/fargate-profiles', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const profiles = await svc(c).listKubernetesFargateProfiles(cloud, c.req.param('id'))
+            return c.json(profiles)
+        })
+    })
+
+    app.post('/:cloud/services/k8s/resources/:id/fargate-profiles', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const profile = await svc(c).createKubernetesFargateProfile(cloud, c.req.param('id'), await c.req.json())
+            return c.json(profile, 201)
+        })
+    })
+
+    app.delete('/:cloud/services/k8s/resources/:id/fargate-profiles/:profileId', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            await svc(c).deleteKubernetesFargateProfile(cloud, c.req.param('id'), c.req.param('profileId'))
+            return c.json({ok: true})
+        })
+    })
+
     app.get('/:cloud/services/:service/resources/:id', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType

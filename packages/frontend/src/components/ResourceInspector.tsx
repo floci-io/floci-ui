@@ -1,3 +1,4 @@
+import {useState} from 'react'
 import { useCreateRdsSnapshotMutation } from "@/api/aws/rds.mutations";
 import { useRdsSnapshotsQuery } from "@/api/aws/rds.queries";
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
@@ -46,6 +47,10 @@ export function ResourceInspector({
         <MetadataPanel metadata={object.metadata} />
       </aside>
     );
+  }
+
+  if (resource.type === 'email') {
+    return <EmailInspector key={resource.id} resource={resource} />
   }
 
   const tags = getTags(resource.metadata.tags);
@@ -175,6 +180,63 @@ export function ResourceInspector({
       <MetadataPanel metadata={resource.metadata} />
     </aside>
   );
+}
+
+function EmailInspector({resource}: {resource: CloudResource}) {
+  const [tab, setTab] = useState<'preview' | 'text' | 'raw'>('preview')
+  const source = getStringMetadata(resource.metadata.source) ?? '-'
+  const toAddresses = getStringList(resource.metadata.toAddresses)
+  const ccAddresses = getStringList(resource.metadata.ccAddresses)
+  const bccAddresses = getStringList(resource.metadata.bccAddresses)
+  const replyToAddresses = getStringList(resource.metadata.replyToAddresses)
+  const textBody = getStringMetadata(resource.metadata.textBody)
+  const htmlBody = getStringMetadata(resource.metadata.htmlBody)
+  const rawData = getStringMetadata(resource.metadata.rawData)
+  const hasPreview = Boolean(htmlBody || textBody)
+  const activeTab = tab === 'preview' && !hasPreview ? (rawData ? 'raw' : 'text') : tab
+
+  return (
+    <aside className="resource-inspector">
+      <div className="widget-header">
+        <h3 title={resource.name}>{resource.name}</h3>
+        <span className="badge neutral">{getStringMetadata(resource.metadata.messageType) ?? 'email'}</span>
+      </div>
+      <div className="inspector-grid">
+        <InspectorItem label="From" value={source} />
+        <InspectorItem label="To" value={toAddresses.join(', ') || '-'} />
+        {ccAddresses.length > 0 && <InspectorItem label="Cc" value={ccAddresses.join(', ')} />}
+        {bccAddresses.length > 0 && <InspectorItem label="Bcc" value={bccAddresses.join(', ')} />}
+        {replyToAddresses.length > 0 && <InspectorItem label="Reply-To" value={replyToAddresses.join(', ')} />}
+        <InspectorItem label="Captured At" value={resource.createdAt ?? '-'} />
+      </div>
+      <section className="inspector-section">
+        <div className="drawer-tabs" style={{marginBottom: 10}}>
+          <button className={`drawer-tab ${activeTab === 'preview' ? 'active' : ''}`} disabled={!hasPreview} onClick={() => setTab('preview')}>Preview</button>
+          <button className={`drawer-tab ${activeTab === 'text' ? 'active' : ''}`} disabled={!textBody} onClick={() => setTab('text')}>Text</button>
+          <button className={`drawer-tab ${activeTab === 'raw' ? 'active' : ''}`} disabled={!rawData} onClick={() => setTab('raw')}>Raw</button>
+        </div>
+        {activeTab === 'preview' && htmlBody ? (
+          <iframe
+            title="Email HTML preview"
+            sandbox=""
+            referrerPolicy="no-referrer"
+            srcDoc={safeEmailDocument(htmlBody)}
+            style={{width: '100%', minHeight: 260, border: '1px solid var(--border)', borderRadius: 4, background: '#fff'}}
+          />
+        ) : activeTab === 'preview' ? (
+          <pre className="metadata-block" style={{whiteSpace: 'pre-wrap', margin: 0}}>{textBody ?? 'No preview content captured.'}</pre>
+        ) : activeTab === 'text' ? (
+          <pre className="metadata-block" style={{whiteSpace: 'pre-wrap', margin: 0}}>{textBody ?? 'No text body captured.'}</pre>
+        ) : (
+          <pre className="metadata-block" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0}}>{rawData ?? 'No raw MIME data captured.'}</pre>
+        )}
+      </section>
+    </aside>
+  )
+}
+
+function safeEmailDocument(html: string): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"></head><body>${html}</body></html>`
 }
 
 function ProviderDatabaseSection({ cloud }: { cloud: string }) {
@@ -367,6 +429,12 @@ function humanizeKey(value: string): string {
 
 function getStringMetadata(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function getStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
 }
 
 function getBooleanMetadata(value: unknown): boolean | null {

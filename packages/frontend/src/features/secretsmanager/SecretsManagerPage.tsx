@@ -30,6 +30,89 @@ import {
 } from '@/api/aws/secretsmanager.mutations'
 import { timeAgo } from '@/lib/utils'
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+type JsonValueKind = 'string' | 'number' | 'boolean' | 'null' | 'json'
+
+type SecretKeyValueEntry = {
+  id: string
+  key: string
+  value: string
+  kind: JsonValueKind
+}
+
+type SerializedKeyValueEntries =
+  | { secretString: string }
+  | { error: string }
+
+function valueKind(value: JsonValue): JsonValueKind {
+  if (value === null) return 'null'
+  if (Array.isArray(value) || typeof value === 'object') return 'json'
+  if (typeof value === 'number') return 'number'
+  if (typeof value === 'boolean') return 'boolean'
+  return 'string'
+}
+
+function valueText(value: JsonValue): string {
+  return typeof value === 'string' ? value : JSON.stringify(value)
+}
+
+function parseKeyValueEntries(secretString: string): SecretKeyValueEntry[] | null {
+  try {
+    const parsed: unknown = JSON.parse(secretString)
+    if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') return null
+
+    return Object.entries(parsed as Record<string, JsonValue>).map(([key, value], index) => ({
+      id: `${index}-${key}`,
+      key,
+      value: valueText(value),
+      kind: valueKind(value),
+    }))
+  } catch {
+    return null
+  }
+}
+
+function parseEntryValue(entry: SecretKeyValueEntry): JsonValue | undefined {
+  if (entry.kind === 'string') return entry.value
+
+  if (entry.kind === 'number') {
+    const value = Number(entry.value)
+    return Number.isFinite(value) ? value : undefined
+  }
+
+  if (entry.kind === 'boolean') {
+    if (entry.value === 'true') return true
+    if (entry.value === 'false') return false
+    return undefined
+  }
+
+  try {
+    const value: unknown = JSON.parse(entry.value)
+    if (entry.kind === 'null') return value === null ? null : undefined
+    return value as JsonValue
+  } catch {
+    return undefined
+  }
+}
+
+function serializeKeyValueEntries(entries: SecretKeyValueEntry[]): SerializedKeyValueEntries {
+  const output: Record<string, JsonValue> = Object.create(null) as Record<string, JsonValue>
+
+  for (const entry of entries) {
+    const key = entry.key
+    if (!key) return { error: 'Every entry needs a key.' }
+    if (Object.prototype.hasOwnProperty.call(output, key)) return { error: `Duplicate key: ${key}` }
+
+    const value = parseEntryValue(entry)
+    if (value === undefined) {
+      return { error: `Invalid ${entry.kind} value for ${key}.` }
+    }
+    output[key] = value
+  }
+
+  return { secretString: JSON.stringify(output, null, 2) }
+}
+
 // ─── Create secret form ─────────────────────────────────────────────────────────
 
 function CreateSecretForm({ onClose }: { onClose: () => void }) {
@@ -116,6 +199,10 @@ function SecretDrawer({
   const [revealed, setRevealed] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draftValue, setDraftValue] = useState('')
+  const [valueViewMode, setValueViewMode] = useState<'key-value' | 'raw'>('raw')
+  const [editorMode, setEditorMode] = useState<'key-value' | 'raw'>('raw')
+  const [keyValueEntries, setKeyValueEntries] = useState<SecretKeyValueEntry[]>([])
+  const [editorError, setEditorError] = useState('')
   const [copied, setCopied] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [forceDelete, setForceDelete] = useState(false)
@@ -127,6 +214,10 @@ function SecretDrawer({
     setRevealed(false)
     setEditing(false)
     setDraftValue('')
+    setValueViewMode('raw')
+    setEditorMode('raw')
+    setKeyValueEntries([])
+    setEditorError('')
     setCopied(false)
     setDeleteConfirm(false)
     setForceDelete(false)
@@ -144,6 +235,10 @@ function SecretDrawer({
     setRevealed(false)
     setEditing(false)
     setDraftValue('')
+    setValueViewMode('raw')
+    setEditorMode('raw')
+    setKeyValueEntries([])
+    setEditorError('')
     qc.removeQueries({ queryKey: secretsManagerQueryKeys.value(secretId) })
   }, [tab, secretId, qc])
 
@@ -173,6 +268,12 @@ function SecretDrawer({
   // A binary secret has no SecretString. The API only writes SecretString, so
   // editing one here would overwrite the binary value with text — block it.
   const isBinary = Boolean(value && value.secretString === undefined && value.secretBinary !== undefined)
+  const valueEntries = value?.secretString === undefined ? null : parseKeyValueEntries(value.secretString)
+
+  useEffect(() => {
+    if (!revealed || tab !== 'value' || editing) return
+    setValueViewMode(parseKeyValueEntries(value?.secretString ?? '') ? 'key-value' : 'raw')
+  }, [editing, revealed, tab, value?.secretString])
 
   // Hiding must evict the fetched plaintext from the cache, not merely flip the
   // reveal flag — otherwise the value lingers in memory (DevTools, extensions,
@@ -185,12 +286,85 @@ function SecretDrawer({
   function cancelEditing() {
     setEditing(false)
     setDraftValue('')
+    setEditorMode('raw')
+    setKeyValueEntries([])
+    setEditorError('')
   }
 
   function startEditing() {
     if (isBinary) return
-    setDraftValue(value?.secretString ?? '')
+    const secretString = value?.secretString ?? ''
+    const entries = parseKeyValueEntries(secretString)
+    setDraftValue(secretString)
+    setKeyValueEntries(entries ?? [])
+    setEditorMode(valueViewMode === 'key-value' && entries ? 'key-value' : 'raw')
+    setEditorError('')
     setEditing(true)
+  }
+
+  function switchEditorMode(mode: 'key-value' | 'raw') {
+    if (mode === editorMode) return
+
+    if (mode === 'key-value') {
+      const entries = parseKeyValueEntries(draftValue)
+      if (!entries) {
+        setEditorError('Key-value editing is available only for a JSON object.')
+        return
+      }
+      setKeyValueEntries(entries)
+      setEditorError('')
+      setEditorMode('key-value')
+      return
+    }
+
+    const serialized = serializeKeyValueEntries(keyValueEntries)
+    if ('error' in serialized) {
+      setEditorError(serialized.error)
+      return
+    }
+    setDraftValue(serialized.secretString)
+    setEditorError('')
+    setEditorMode('raw')
+  }
+
+  function updateKeyValueEntry(id: string, field: 'key' | 'value', nextValue: string) {
+    setKeyValueEntries((entries) => entries.map((entry) => (
+      entry.id === id ? { ...entry, [field]: nextValue } : entry
+    )))
+    setEditorError('')
+  }
+
+  function addKeyValueEntry() {
+    setKeyValueEntries((entries) => [
+      ...entries,
+      { id: crypto.randomUUID(), key: '', value: '', kind: 'string' },
+    ])
+    setEditorError('')
+  }
+
+  function removeKeyValueEntry(id: string) {
+    setKeyValueEntries((entries) => entries.filter((entry) => entry.id !== id))
+    setEditorError('')
+  }
+
+  function saveValue() {
+    let secretString = draftValue
+
+    if (editorMode === 'key-value') {
+      const serialized = serializeKeyValueEntries(keyValueEntries)
+      if ('error' in serialized) {
+        setEditorError(serialized.error)
+        return
+      }
+      secretString = serialized.secretString
+    }
+
+    if (!secretString) {
+      setEditorError('Secret value is required.')
+      return
+    }
+
+    putMut.mutate({ id: secretId!, secretString })
   }
 
   async function copyValue() {
@@ -318,18 +492,72 @@ function SecretDrawer({
               </button>
             ) : editing ? (
               <>
-                <p style={{ fontSize: 11, color: '#5f7080', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-                  New secret value
-                </p>
-                <textarea
-                  className="json-editor"
-                  style={{ minHeight: 140 }}
-                  value={draftValue}
-                  onChange={(e) => setDraftValue(e.target.value)}
-                  spellCheck={false}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <p style={{ fontSize: 11, color: '#5f7080', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                    New secret value
+                  </p>
+                  <div className="drawer-tabs" style={{ marginLeft: 'auto' }}>
+                    <button
+                      className={`drawer-tab ${editorMode === 'key-value' ? 'active' : ''}`}
+                      onClick={() => switchEditorMode('key-value')}
+                    >
+                      Key-value
+                    </button>
+                    <button
+                      className={`drawer-tab ${editorMode === 'raw' ? 'active' : ''}`}
+                      onClick={() => switchEditorMode('raw')}
+                    >
+                      Plain text
+                    </button>
+                  </div>
+                </div>
+                {editorMode === 'key-value' ? (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 32px', gap: 6, padding: '7px 8px', borderBottom: '1px solid var(--border)', color: '#5f7080', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      <span>Key</span>
+                      <span>Value</span>
+                      <span />
+                    </div>
+                    {keyValueEntries.map((entry) => (
+                      <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 32px', gap: 6, padding: 8, borderBottom: '1px solid var(--border)' }}>
+                        <input
+                          className="input"
+                          aria-label="Secret key"
+                          value={entry.key}
+                          onChange={(e) => updateKeyValueEntry(entry.id, 'key', e.target.value)}
+                          placeholder="Key"
+                        />
+                        <input
+                          className="input"
+                          aria-label={`Value for ${entry.key || 'new key'}`}
+                          value={entry.value}
+                          onChange={(e) => updateKeyValueEntry(entry.id, 'value', e.target.value)}
+                          placeholder="Value"
+                        />
+                        <button className="icon-btn" title="Delete entry" aria-label={`Delete ${entry.key || 'entry'}`} onClick={() => removeKeyValueEntry(entry.id)}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    <div style={{ padding: 8 }}>
+                      <button className="button" onClick={addKeyValueEntry}>
+                        <Plus size={13} />
+                        Add key-value pair
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <textarea
+                    className="json-editor"
+                    style={{ minHeight: 180 }}
+                    value={draftValue}
+                    onChange={(e) => { setDraftValue(e.target.value); setEditorError('') }}
+                    spellCheck={false}
+                  />
+                )}
+                {editorError && <span style={{ fontSize: 12, color: '#f87171' }}>{editorError}</span>}
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="button primary" disabled={putMut.isPending || !draftValue} onClick={() => putMut.mutate({ id: secretId!, secretString: draftValue })}>
+                  <button className="button primary" disabled={putMut.isPending} onClick={saveValue}>
                     {putMut.isPending ? <Loader2 size={13} className="spin" /> : <Save size={13} />}
                     Save new version
                   </button>
@@ -355,9 +583,36 @@ function SecretDrawer({
                     {copied ? <Check size={13} color="#4ade80" /> : <Copy size={13} />}
                   </button>
                 </div>
-                <pre className="json-editor" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
-                  {value?.secretString ?? value?.secretBinary ?? '(empty)'}
-                </pre>
+                {!isBinary && valueEntries && (
+                  <div className="drawer-tabs" style={{ alignSelf: 'flex-start' }}>
+                    <button className={`drawer-tab ${valueViewMode === 'key-value' ? 'active' : ''}`} onClick={() => setValueViewMode('key-value')}>
+                      Key-value
+                    </button>
+                    <button className={`drawer-tab ${valueViewMode === 'raw' ? 'active' : ''}`} onClick={() => setValueViewMode('raw')}>
+                      Plain text
+                    </button>
+                  </div>
+                )}
+                {valueViewMode === 'key-value' && valueEntries ? (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '7px 8px', borderBottom: '1px solid var(--border)', color: '#5f7080', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      <span>Key</span>
+                      <span>Value</span>
+                    </div>
+                    {valueEntries.length === 0 ? (
+                      <p style={{ margin: 0, padding: 10, color: '#8d9cad', fontSize: 12 }}>Empty JSON object</p>
+                    ) : valueEntries.map((entry, index) => (
+                      <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: 8, borderBottom: index < valueEntries.length - 1 ? '1px solid var(--border)' : undefined }}>
+                        <span className="mono" style={{ color: '#fbbf24', fontSize: 12, overflowWrap: 'anywhere' }}>{entry.key}</span>
+                        <span className="mono" style={{ color: '#d1d1d1', fontSize: 12, overflowWrap: 'anywhere' }}>{entry.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <pre className="json-editor" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
+                    {value?.secretString ?? value?.secretBinary ?? '(empty)'}
+                  </pre>
+                )}
                 {value?.versionId && (
                   <span style={{ fontSize: 11, color: '#5f7080' }}>Version: {value.versionId}</span>
                 )}

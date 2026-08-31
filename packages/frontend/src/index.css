@@ -2012,6 +2012,14 @@ pre,
     font-size: 11px;
 }
 
+.snapshot-row .inline-actions {
+    display: flex;
+    flex: none;
+    gap: 6px;
+    overflow: visible;
+    white-space: normal;
+}
+
 .error-text {
     color: #f87171;
 }

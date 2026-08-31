@@ -5,7 +5,8 @@ import { EC2Client } from "@aws-sdk/client-ec2";
 import { RDSClient } from "@aws-sdk/client-rds";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
-import { SchedulerClient } from "@aws-sdk/client-scheduler";
+import { SQSClient } from "@aws-sdk/client-sqs";
+import { IAMClient } from "@aws-sdk/client-iam";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { APIGatewayClient } from "@aws-sdk/client-api-gateway";
 import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
@@ -45,7 +46,8 @@ export type AwsClients = {
   rds: RDSClient;
   secretsManager: SecretsManagerClient;
   eventbridge: EventBridgeClient;
-  scheduler: SchedulerClient;
+  sqs: SQSClient;
+  iam: IAMClient;
   dynamodb: DynamoDBClient;
   apiGateway: APIGatewayClient;
   cloudformation: CloudFormationClient;
@@ -69,7 +71,8 @@ function buildClients(accountId: string): AwsClients {
     rds: new RDSClient(base),
     secretsManager: new SecretsManagerClient(base),
     eventbridge: new EventBridgeClient(base),
-    scheduler: new SchedulerClient(base),
+    sqs: new SQSClient(base),
+    iam: new IAMClient(base),
     dynamodb: new DynamoDBClient(base),
     apiGateway: new APIGatewayClient(base),
     cloudformation: new CloudFormationClient(base),
@@ -105,7 +108,8 @@ export const ec2 = awsClients.ec2;
 export const rds = awsClients.rds;
 export const secretsManager = awsClients.secretsManager;
 export const eventbridge = awsClients.eventbridge;
-export const scheduler = awsClients.scheduler;
+export const sqs = awsClients.sqs;
+export const iam = awsClients.iam;
 export const dynamodb = awsClients.dynamodb;
 export const apiGateway = awsClients.apiGateway;
 export const cloudformation = awsClients.cloudformation;

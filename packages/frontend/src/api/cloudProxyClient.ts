@@ -7,7 +7,18 @@ import type {
   CloudServiceType,
   CloudStatus,
 } from "@/types/cloud";
-import type { CloudResource, CosmosContainer, CosmosItem, CosmosQueryResult, NoSqlItem, StorageObjectList } from "@/types/resource";
+import type {
+  CloudResource,
+  CosmosContainer,
+  CosmosItem,
+  CosmosQueryResult,
+  CreateKubernetesFargateProfileInput,
+  CreateKubernetesNodegroupInput,
+  KubernetesFargateProfile,
+  KubernetesNodegroup,
+  NoSqlItem,
+  StorageObjectList,
+} from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { getAccountId } from "@/lib/accountStore";
 
@@ -128,6 +139,17 @@ export async function deleteCloudResource(
     apiEndpointKeys.clouds.resources.delete,
     requestOptions(cloud, service, { signal }),
     { cloud, service, id },
+  );
+}
+
+export async function clearEmailInbox(
+  cloud: CloudProvider,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.email.inbox.clear,
+    requestOptions(cloud, "email", { signal }),
+    { cloud },
   );
 }
 export interface ServerlessInvokeResult {
@@ -355,6 +377,82 @@ export async function listNoSqlItems(
     { cloud, id: resourceId },
   );
   return res.data;
+}
+
+export async function listKubernetesNodegroups(
+  cloud: CloudProvider,
+  clusterId: string,
+  signal?: AbortSignal,
+): Promise<KubernetesNodegroup[]> {
+  const res = await apiClient.call<KubernetesNodegroup[]>(
+    apiEndpointKeys.clouds.k8s.nodegroups.list,
+    requestOptions(cloud, "k8s", {signal}),
+    {cloud, id: clusterId},
+  )
+  return res.data
+}
+
+export async function createKubernetesNodegroup(
+  cloud: CloudProvider,
+  clusterId: string,
+  input: CreateKubernetesNodegroupInput,
+): Promise<KubernetesNodegroup> {
+  const res = await apiClient.call<KubernetesNodegroup, CreateKubernetesNodegroupInput>(
+    apiEndpointKeys.clouds.k8s.nodegroups.create,
+    requestOptions(cloud, "k8s", {body: input}),
+    {cloud, id: clusterId},
+  )
+  return res.data
+}
+
+export async function deleteKubernetesNodegroup(
+  cloud: CloudProvider,
+  clusterId: string,
+  nodegroupId: string,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.k8s.nodegroups.delete,
+    requestOptions(cloud, "k8s"),
+    {cloud, id: clusterId, nodegroupId},
+  )
+}
+
+export async function listKubernetesFargateProfiles(
+  cloud: CloudProvider,
+  clusterId: string,
+  signal?: AbortSignal,
+): Promise<KubernetesFargateProfile[]> {
+  const res = await apiClient.call<KubernetesFargateProfile[]>(
+    apiEndpointKeys.clouds.k8s.fargateProfiles.list,
+    requestOptions(cloud, "k8s", {signal}),
+    {cloud, id: clusterId},
+  )
+  return res.data
+}
+
+export async function createKubernetesFargateProfile(
+  cloud: CloudProvider,
+  clusterId: string,
+  input: CreateKubernetesFargateProfileInput,
+): Promise<KubernetesFargateProfile> {
+  const res = await apiClient.call<KubernetesFargateProfile, CreateKubernetesFargateProfileInput>(
+    apiEndpointKeys.clouds.k8s.fargateProfiles.create,
+    requestOptions(cloud, "k8s", {body: input}),
+    {cloud, id: clusterId},
+  )
+  return res.data
+}
+
+export async function deleteKubernetesFargateProfile(
+  cloud: CloudProvider,
+  clusterId: string,
+  profileId: string,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.k8s.fargateProfiles.delete,
+    requestOptions(cloud, "k8s"),
+    {cloud, id: clusterId, profileId},
+  )
 }
 
 function requestOptions<TBody = unknown>(

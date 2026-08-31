@@ -72,7 +72,6 @@ export interface FieldSchema {
     label: string
     type: FieldType
     required: boolean
-    requiredWhen?: {field: string; equals: string}
     description?: string
     group?: string
     span?: boolean
@@ -80,7 +79,6 @@ export interface FieldSchema {
         pattern?: string
         minLength?: number
         maxLength?: number
-        maxLengthWhen?: {field: string; equals: string; value: number; message?: string}
         message?: string
     }
     options?: Array<{label: string; value: string}>
@@ -103,6 +101,13 @@ export type ResourceActionName =
     | 'reboot'
     | 'updateTags'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
+export type KubernetesActionName =
+    | 'listNodegroups'
+    | 'createNodegroup'
+    | 'deleteNodegroup'
+    | 'listFargateProfiles'
+    | 'createFargateProfile'
+    | 'deleteFargateProfile'
 export type CapabilityStatus = 'available' | 'blocked' | 'partial' | 'coming_soon'
 
 export interface CapabilitySchema<TAction extends string> {
@@ -144,17 +149,25 @@ export interface ServiceSchema {
     capabilities?: {
         resourceActions?: CapabilitySchema<ResourceActionName>[]
         objectActions?: CapabilitySchema<ObjectActionName>[]
+        kubernetesActions?: CapabilitySchema<KubernetesActionName>[]
     }
     filters: FieldSchema[]
     columns: TableColumnSchema[]
 }
+
+export type KnownResourceType =
+    | 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'dynamodb-table'
+    | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function'
+    | 'secret' | 'iam-user' | 'servicebus-namespace' | 'queue' | 'fifo-queue'
+    | 'topic' | 'event-bus' | 'rest-api' | 'stack' | 'email'
 
 export interface CloudResource {
     id: string
     name: string
     cloud: CloudProvider
     service: CloudServiceType
-    type: 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'dynamodb-table' | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function' | 'secret' | 'event-bus' | 'schedule' | 'rest-api' | 'stack'
+    /** Provider resource kind. Open so adapters can evolve independently. */
+    type: KnownResourceType | (string & {})
     region: string | null
     createdAt: string | null
     status?: string | null
@@ -212,6 +225,57 @@ export interface NoSqlItem {
     id: string
     key: Record<string, unknown>
     document: Record<string, unknown>
+}
+
+/** Provider-neutral representation of a managed Kubernetes node pool. */
+export interface KubernetesNodegroup {
+    id: string
+    name: string
+    clusterId: string
+    arn: string | null
+    status: string | null
+    version: string | null
+    releaseVersion: string | null
+    createdAt: string | null
+    modifiedAt: string | null
+    capacityType: string | null
+    instanceTypes: string[]
+    subnets: string[]
+    nodeRole: string | null
+    scalingConfig: {minSize?: number; maxSize?: number; desiredSize?: number} | null
+    labels: Record<string, string>
+    tags: Record<string, string>
+}
+
+export interface CreateKubernetesNodegroupInput {
+    name: string
+    nodeRole: string
+    subnets: string[]
+    instanceTypes?: string[]
+    scalingConfig?: {minSize?: number; maxSize?: number; desiredSize?: number}
+    labels?: Record<string, string>
+    tags?: Record<string, string>
+}
+
+export interface KubernetesFargateProfile {
+    id: string
+    name: string
+    clusterId: string
+    arn: string | null
+    status: string | null
+    createdAt: string | null
+    podExecutionRoleArn: string | null
+    subnets: string[]
+    selectors: Array<{namespace: string | null; labels: Record<string, string>}>
+    tags: Record<string, string>
+}
+
+export interface CreateKubernetesFargateProfileInput {
+    name: string
+    podExecutionRoleArn: string
+    subnets?: string[]
+    selectors: Array<{namespace: string; labels?: Record<string, string>}>
+    tags?: Record<string, string>
 }
 
 export interface ResourceQuery {
@@ -278,4 +342,12 @@ export interface CloudServiceAdapter {
     deleteCosmosItem?(databaseId: string, containerId: string, itemId: string, partitionKey?: string | null): Promise<void>
     queryCosmosItems?(databaseId: string, containerId: string, query: string): Promise<CosmosQueryResult>
     listNoSqlItems?(resourceId: string): Promise<NoSqlItem[]>
+    listKubernetesNodegroups?(clusterId: string): Promise<KubernetesNodegroup[]>
+    createKubernetesNodegroup?(clusterId: string, input: CreateKubernetesNodegroupInput): Promise<KubernetesNodegroup>
+    deleteKubernetesNodegroup?(clusterId: string, nodegroupId: string): Promise<void>
+    listKubernetesFargateProfiles?(clusterId: string): Promise<KubernetesFargateProfile[]>
+    createKubernetesFargateProfile?(clusterId: string, input: CreateKubernetesFargateProfileInput): Promise<KubernetesFargateProfile>
+    deleteKubernetesFargateProfile?(clusterId: string, profileId: string): Promise<void>
+    /** Clears the provider's locally captured email inbox, if it exposes one. */
+    clearEmailInbox?(): Promise<void>
 }

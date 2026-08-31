@@ -1,19 +1,25 @@
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {useState} from 'react'
 import {Plus, Trash2} from 'lucide-react'
-import type {EksFargateProfile, EksNodegroup} from '@/api/aws/eks.api'
 import {
-    useCreateEksFargateProfileMutation,
-    useCreateEksNodegroupMutation,
-    useDeleteEksFargateProfileMutation,
-    useDeleteEksNodegroupMutation,
-} from '@/api/aws/eks.mutations'
+    createKubernetesFargateProfile,
+    createKubernetesNodegroup,
+    deleteKubernetesFargateProfile,
+    deleteKubernetesNodegroup,
+    listKubernetesFargateProfiles,
+    listKubernetesNodegroups,
+} from '@/api/cloudProxyClient'
+import {cloudQueryKeys} from '@/api/queries/cloudQueries'
 import {
-    useEksFargateProfilesQuery,
-    useEksNodegroupsQuery,
-} from '@/api/aws/eks.queries'
+    type CreateKubernetesFargateProfileInput,
+    type CreateKubernetesNodegroupInput,
+    type KubernetesFargateProfile,
+    type KubernetesNodegroup,
+} from '@/types/resource'
+import type {CloudProvider} from '@/types/cloud'
 
 interface K8sEngineDetailsProps {
-    cloud: string
+    cloud: CloudProvider
     clusterName: string
 }
 
@@ -29,16 +35,29 @@ export function K8sEngineDetails({cloud, clusterName}: K8sEngineDetailsProps) {
 
     return (
         <>
-            <EksNodegroupsSection clusterName={clusterName}/>
-            <EksFargateProfilesSection clusterName={clusterName}/>
+            <EksNodegroupsSection cloud={cloud} clusterName={clusterName}/>
+            <EksFargateProfilesSection cloud={cloud} clusterName={clusterName}/>
         </>
     )
 }
 
-function EksNodegroupsSection({clusterName}: {clusterName: string}) {
-    const nodegroupsQuery = useEksNodegroupsQuery(clusterName)
-    const createNodegroup = useCreateEksNodegroupMutation()
-    const deleteNodegroup = useDeleteEksNodegroupMutation()
+function EksNodegroupsSection({cloud, clusterName}: {cloud: CloudProvider; clusterName: string}) {
+    const queryClient = useQueryClient()
+    const queryKey = ['k8s', cloud, clusterName, 'nodegroups'] as const
+    const nodegroupsQuery = useQuery({
+        queryKey,
+        queryFn: ({signal}) => listKubernetesNodegroups(cloud, clusterName, signal),
+        refetchInterval: 30_000,
+    })
+    const createNodegroup = useMutation({
+        mutationFn: (input: CreateKubernetesNodegroupInput) => createKubernetesNodegroup(cloud, clusterName, input),
+        onSuccess: () => invalidateK8sQueries(queryClient, cloud, clusterName),
+    })
+    const deleteNodegroup = useMutation({
+        mutationFn: (nodegroupId: string) => deleteKubernetesNodegroup(cloud, clusterName, nodegroupId),
+        onSuccess: () => invalidateK8sQueries(queryClient, cloud, clusterName),
+    })
+    const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null)
     const [form, setForm] = useState({
         name: '',
         nodeRole: '',
@@ -65,17 +84,14 @@ function EksNodegroupsSection({clusterName}: {clusterName: string}) {
                     if (!canCreate) return
 
                     createNodegroup.mutate({
-                        clusterName,
-                        nodegroup: {
-                            name: form.name.trim(),
-                            nodeRole: form.nodeRole.trim(),
-                            subnets: parseCsv(form.subnets),
-                            instanceTypes: parseCsv(form.instanceTypes),
-                            scalingConfig: {
-                                minSize: Number(form.minSize),
-                                desiredSize: Number(form.desiredSize),
-                                maxSize: Number(form.maxSize),
-                            },
+                        name: form.name.trim(),
+                        nodeRole: form.nodeRole.trim(),
+                        subnets: parseCsv(form.subnets),
+                        instanceTypes: parseCsv(form.instanceTypes),
+                        scalingConfig: {
+                            minSize: Number(form.minSize),
+                            desiredSize: Number(form.desiredSize),
+                            maxSize: Number(form.maxSize),
                         },
                     })
                 }}
@@ -95,20 +111,39 @@ function EksNodegroupsSection({clusterName}: {clusterName: string}) {
             {createNodegroup.isError && <p className="error-text compact-text">{errorMessage(createNodegroup.error)}</p>}
             {deleteNodegroup.isError && <p className="error-text compact-text">{errorMessage(deleteNodegroup.error)}</p>}
             <NodegroupsList
-                deletingName={deleteNodegroup.variables?.nodegroupName}
+                deleteCandidate={deleteCandidate}
+                deletingName={deleteNodegroup.variables}
                 isError={nodegroupsQuery.isError}
                 isLoading={nodegroupsQuery.isLoading}
                 nodegroups={nodegroupsQuery.data ?? []}
-                onDelete={(nodegroupName) => deleteNodegroup.mutate({clusterName, nodegroupName})}
+                onCancelDelete={() => setDeleteCandidate(null)}
+                onConfirmDelete={(nodegroupName) => {
+                    deleteNodegroup.mutate(nodegroupName)
+                    setDeleteCandidate(null)
+                }}
+                onRequestDelete={setDeleteCandidate}
             />
         </section>
     )
 }
 
-function EksFargateProfilesSection({clusterName}: {clusterName: string}) {
-    const profilesQuery = useEksFargateProfilesQuery(clusterName)
-    const createProfile = useCreateEksFargateProfileMutation()
-    const deleteProfile = useDeleteEksFargateProfileMutation()
+function EksFargateProfilesSection({cloud, clusterName}: {cloud: CloudProvider; clusterName: string}) {
+    const queryClient = useQueryClient()
+    const queryKey = ['k8s', cloud, clusterName, 'fargate-profiles'] as const
+    const profilesQuery = useQuery({
+        queryKey,
+        queryFn: ({signal}) => listKubernetesFargateProfiles(cloud, clusterName, signal),
+        refetchInterval: 30_000,
+    })
+    const createProfile = useMutation({
+        mutationFn: (input: CreateKubernetesFargateProfileInput) => createKubernetesFargateProfile(cloud, clusterName, input),
+        onSuccess: () => invalidateK8sQueries(queryClient, cloud, clusterName),
+    })
+    const deleteProfile = useMutation({
+        mutationFn: (profileId: string) => deleteKubernetesFargateProfile(cloud, clusterName, profileId),
+        onSuccess: () => invalidateK8sQueries(queryClient, cloud, clusterName),
+    })
+    const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null)
     const [form, setForm] = useState({
         name: '',
         roleArn: '',
@@ -133,16 +168,13 @@ function EksFargateProfilesSection({clusterName}: {clusterName: string}) {
                     if (!canCreate) return
 
                     createProfile.mutate({
-                        clusterName,
-                        profile: {
-                            name: form.name.trim(),
-                            podExecutionRoleArn: form.roleArn.trim(),
-                            subnets: parseCsv(form.subnets),
-                            selectors: [{
-                                namespace: form.namespace.trim(),
-                                labels: parseKeyValueCsv(form.labels),
-                            }],
-                        },
+                        name: form.name.trim(),
+                        podExecutionRoleArn: form.roleArn.trim(),
+                        subnets: parseCsv(form.subnets),
+                        selectors: [{
+                            namespace: form.namespace.trim(),
+                            labels: parseKeyValueCsv(form.labels),
+                        }],
                     })
                 }}
             >
@@ -159,11 +191,17 @@ function EksFargateProfilesSection({clusterName}: {clusterName: string}) {
             {createProfile.isError && <p className="error-text compact-text">{errorMessage(createProfile.error)}</p>}
             {deleteProfile.isError && <p className="error-text compact-text">{errorMessage(deleteProfile.error)}</p>}
             <FargateProfilesList
-                deletingName={deleteProfile.variables?.profileName}
+                deleteCandidate={deleteCandidate}
+                deletingName={deleteProfile.variables}
                 isError={profilesQuery.isError}
                 isLoading={profilesQuery.isLoading}
                 profiles={profilesQuery.data ?? []}
-                onDelete={(profileName) => deleteProfile.mutate({clusterName, profileName})}
+                onCancelDelete={() => setDeleteCandidate(null)}
+                onConfirmDelete={(profileName) => {
+                    deleteProfile.mutate(profileName)
+                    setDeleteCandidate(null)
+                }}
+                onRequestDelete={setDeleteCandidate}
             />
         </section>
     )
@@ -174,13 +212,19 @@ function NodegroupsList({
     isLoading,
     isError,
     deletingName,
-    onDelete,
+    deleteCandidate,
+    onRequestDelete,
+    onConfirmDelete,
+    onCancelDelete,
 }: {
-    nodegroups: EksNodegroup[]
+    nodegroups: KubernetesNodegroup[]
     isLoading: boolean
     isError: boolean
     deletingName?: string
-    onDelete: (nodegroupName: string) => void
+    deleteCandidate: string | null
+    onRequestDelete: (nodegroupName: string) => void
+    onConfirmDelete: (nodegroupName: string) => void
+    onCancelDelete: () => void
 }) {
     if (isLoading) return <p className="muted compact-text">Loading nodegroups.</p>
     if (isError) return <p className="error-text compact-text">Failed to load nodegroups.</p>
@@ -194,15 +238,22 @@ function NodegroupsList({
                         <strong>{nodegroup.name}</strong>
                         <span>{nodegroup.instanceTypes.join(', ') || 'No instance types'} · {formatScaling(nodegroup)}</span>
                     </div>
-                    <button
-                        aria-label={`Delete ${nodegroup.name}`}
-                        className="icon-btn danger"
-                        type="button"
-                        disabled={deletingName === nodegroup.name}
-                        onClick={() => onDelete(nodegroup.name)}
-                    >
-                        <Trash2 size={13}/>
-                    </button>
+                    {deleteCandidate === nodegroup.name ? (
+                        <span className="inline-actions">
+                            <button className="button compact danger" type="button" onClick={() => onConfirmDelete(nodegroup.name)}>Delete</button>
+                            <button className="button compact" type="button" onClick={onCancelDelete}>Cancel</button>
+                        </span>
+                    ) : (
+                        <button
+                            aria-label={`Delete ${nodegroup.name}`}
+                            className="icon-btn danger"
+                            type="button"
+                            disabled={deletingName === nodegroup.name}
+                            onClick={() => onRequestDelete(nodegroup.name)}
+                        >
+                            <Trash2 size={13}/>
+                        </button>
+                    )}
                 </div>
             ))}
         </div>
@@ -214,13 +265,19 @@ function FargateProfilesList({
     isLoading,
     isError,
     deletingName,
-    onDelete,
+    deleteCandidate,
+    onRequestDelete,
+    onConfirmDelete,
+    onCancelDelete,
 }: {
-    profiles: EksFargateProfile[]
+    profiles: KubernetesFargateProfile[]
     isLoading: boolean
     isError: boolean
     deletingName?: string
-    onDelete: (profileName: string) => void
+    deleteCandidate: string | null
+    onRequestDelete: (profileName: string) => void
+    onConfirmDelete: (profileName: string) => void
+    onCancelDelete: () => void
 }) {
     if (isLoading) return <p className="muted compact-text">Loading Fargate profiles.</p>
     if (isError) return <p className="error-text compact-text">Failed to load Fargate profiles.</p>
@@ -234,15 +291,22 @@ function FargateProfilesList({
                         <strong>{profile.name}</strong>
                         <span>{profile.selectors.map((selector) => selector.namespace ?? '*').join(', ') || 'No selectors'}</span>
                     </div>
-                    <button
-                        aria-label={`Delete ${profile.name}`}
-                        className="icon-btn danger"
-                        type="button"
-                        disabled={deletingName === profile.name}
-                        onClick={() => onDelete(profile.name)}
-                    >
-                        <Trash2 size={13}/>
-                    </button>
+                    {deleteCandidate === profile.name ? (
+                        <span className="inline-actions">
+                            <button className="button compact danger" type="button" onClick={() => onConfirmDelete(profile.name)}>Delete</button>
+                            <button className="button compact" type="button" onClick={onCancelDelete}>Cancel</button>
+                        </span>
+                    ) : (
+                        <button
+                            aria-label={`Delete ${profile.name}`}
+                            className="icon-btn danger"
+                            type="button"
+                            disabled={deletingName === profile.name}
+                            onClick={() => onRequestDelete(profile.name)}
+                        >
+                            <Trash2 size={13}/>
+                        </button>
+                    )}
                 </div>
             ))}
         </div>
@@ -265,7 +329,7 @@ function parseKeyValueCsv(value: string) {
     )
 }
 
-function formatScaling(nodegroup: EksNodegroup) {
+function formatScaling(nodegroup: KubernetesNodegroup) {
     const scaling = nodegroup.scalingConfig
     if (!scaling) return 'No scaling config'
     return `${scaling.minSize ?? '?'}/${scaling.desiredSize ?? '?'}/${scaling.maxSize ?? '?'}`
@@ -274,4 +338,10 @@ function formatScaling(nodegroup: EksNodegroup) {
 function errorMessage(error: unknown) {
     if (error instanceof Error) return error.message
     return 'The EKS operation failed.'
+}
+
+function invalidateK8sQueries(queryClient: ReturnType<typeof useQueryClient>, cloud: CloudProvider, clusterName: string) {
+    void queryClient.invalidateQueries({queryKey: ['k8s', cloud, clusterName]})
+    void queryClient.invalidateQueries({queryKey: ['cloud-resources', cloud, 'k8s']})
+    void queryClient.invalidateQueries({queryKey: cloudQueryKeys.resources(cloud, 'k8s')})
 }
