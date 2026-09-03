@@ -1,5 +1,6 @@
-import {NavLink, Outlet, useLocation} from 'react-router-dom'
+import {NavLink, Outlet, useLocation, useSearchParams} from 'react-router-dom'
 import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Moon, Search, Sun} from 'lucide-react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import flociWhite from '@/assets/floci-white.svg'
 import flociBlack from '@/assets/floci-black.svg'
 import flociMarkWhite from '@/assets/floci-mark-white.svg'
@@ -191,11 +192,7 @@ export function Layout() {
 
             <div className="shell">
                 <header className="topbar">
-                    <div className="search">
-                        <Search size={14}/>
-                        <input placeholder="Search services, features, docs, and more"/>
-                        <span className="kbd">/</span>
-                    </div>
+                    <TopbarSearch/>
                     <button className="icon-btn" onClick={toggle} title="Toggle theme">
                         {isDark ? <Sun size={14}/> : <Moon size={14}/>}
                     </button>
@@ -211,6 +208,88 @@ export function Layout() {
                     <Outlet/>
                 </main>
             </div>
+        </div>
+    )
+}
+
+/**
+ * Topbar search bar.
+ *
+ * Reads the initial value from the `search` URL query parameter so the input
+ * survives page refreshes and back/forward navigation. Writes back with a
+ * 300 ms debounce so the URL is not updated on every keystroke.
+ *
+ * Pressing `/` when no other focusable input is active focuses this bar,
+ * matching the keyboard hint shown in the widget.
+ */
+function TopbarSearch() {
+    const [searchParams, setSearchParams] = useSearchParams()
+    const initialQuery = searchParams.get('search') ?? ''
+    const [draft, setDraft] = useState(initialQuery)
+    const inputRef = useRef<HTMLInputElement>(null)
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    const commit = useCallback((value: string) => {
+        setSearchParams(
+            (prev) => {
+                const next = new URLSearchParams(prev)
+                if (value) {
+                    next.set('search', value)
+                } else {
+                    next.delete('search')
+                }
+                return next
+            },
+            {replace: true},
+        )
+    }, [setSearchParams])
+
+    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setDraft(value)
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        debounceRef.current = setTimeout(() => commit(value), 300)
+    }
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Escape') {
+            setDraft('')
+            commit('')
+            inputRef.current?.blur()
+        }
+    }
+
+    /** Focus on `/` when no other input/textarea/select is active. */
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== '/') return
+            const tag = (event.target as HTMLElement).tagName
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
+            event.preventDefault()
+            inputRef.current?.focus()
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [])
+
+    /** Keep local draft in sync if the param changes externally (e.g. nav). */
+    useEffect(() => {
+        const external = searchParams.get('search') ?? ''
+        setDraft((prev) => (prev === external ? prev : external))
+    }, [searchParams])
+
+    return (
+        <div className="search">
+            <Search size={14}/>
+            <input
+                ref={inputRef}
+                value={draft}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Search services, features, docs, and more"
+                aria-label="Search services, features, docs, and more"
+            />
+            <span className="kbd" aria-hidden="true">/</span>
         </div>
     )
 }
