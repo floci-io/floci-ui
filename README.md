@@ -538,6 +538,18 @@ When adding new UI surface:
 - Keep placeholders explicit instead of inventing fake data.
 - Update this README when the visible UI surface changes.
 
+## Community Projects
+
+Floci UI is the first-party console, but it is not the only one. The community builds
+consoles for Floci too:
+
+- [floci-dash](https://github.com/ofsazib/floci-dash) — an AWS-Console-style dashboard
+  for the Floci AWS runtime built on Cloudscape Design. It ships as a single Docker image
+  and includes an EC2 web terminal. It targets the AWS runtime only, while Floci UI also
+  covers Azure and GCP, so pick whichever fits your stack.
+
+Building something for Floci? Open a PR to add it here.
+
 ## License
 
 [MIT](LICENSE) — part of the [Floci](https://floci.io) ecosystem.
