@@ -4,6 +4,7 @@ import {
     CreateBucketCommand,
     DeleteBucketCommand,
     DeleteObjectCommand,
+    GetBucketTaggingCommand,
     GetObjectCommand,
     ListBucketsCommand,
     ListObjectsV2Command,
@@ -34,7 +35,7 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const res = await this.s3.send(new ListBucketsCommand({}))
-        const resources = (res.Buckets ?? []).map((bucket): CloudResource => ({
+        const resources = await Promise.all((res.Buckets ?? []).map(async (bucket): Promise<CloudResource> => ({
             id: bucket.Name ?? '',
             name: bucket.Name ?? '',
             cloud: 'aws',
@@ -45,10 +46,24 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
             metadata: {
                 provider: 'aws',
                 storageService: 's3',
+                tags: await this.bucketTags(bucket.Name ?? ''),
             },
-        }))
+        })))
 
         return filterBySearch(resources, query.search)
+    }
+
+    private async bucketTags(bucketName: string): Promise<Array<{key: string; value: string}>> {
+        if (!bucketName) return []
+        try {
+            const res = await this.s3.send(new GetBucketTaggingCommand({Bucket: bucketName}))
+            return (res.TagSet ?? []).map((tag) => ({key: tag.Key ?? '', value: tag.Value ?? ''}))
+        } catch {
+            // Tag enrichment is best-effort: an untagged bucket (NoSuchTagSet), a bucket we lack
+            // GetBucketTagging permission on, or a transient failure should all just mean "no
+            // tags shown" for that one bucket — never fail listing every other bucket over it.
+            return []
+        }
     }
 
     async get(id: string): Promise<CloudResource | null> {
