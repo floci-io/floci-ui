@@ -42,4 +42,15 @@ describe('AwsStorageAdapter', () => {
 
         expect(result[0].metadata.tags).toEqual([])
     })
+
+    test('list does not fail entirely when tag fetch is denied for a bucket', async () => {
+        const error = new Error('Access Denied')
+        error.name = 'AccessDenied'
+        const adapter = new AwsStorageAdapter(fakeS3({taggingError: error}))
+
+        const result = await adapter.list()
+
+        expect(result).toHaveLength(1)
+        expect(result[0].metadata.tags).toEqual([])
+    })
 })
