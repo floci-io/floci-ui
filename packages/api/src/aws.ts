@@ -4,6 +4,11 @@ import { EKSClient } from "@aws-sdk/client-eks";
 import { EC2Client } from "@aws-sdk/client-ec2";
 import { RDSClient } from "@aws-sdk/client-rds";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { SFNClient } from "@aws-sdk/client-sfn";
+import { ElasticLoadBalancingV2Client } from "@aws-sdk/client-elastic-load-balancing-v2";
+import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
+import { SQSClient } from "@aws-sdk/client-sqs";
+import { IAMClient } from "@aws-sdk/client-iam";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { APIGatewayClient } from "@aws-sdk/client-api-gateway";
 import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
@@ -42,6 +47,11 @@ export type AwsClients = {
   ec2: EC2Client;
   rds: RDSClient;
   secretsManager: SecretsManagerClient;
+  sfn: SFNClient;
+  elbv2: ElasticLoadBalancingV2Client;
+  eventbridge: EventBridgeClient;
+  sqs: SQSClient;
+  iam: IAMClient;
   dynamodb: DynamoDBClient;
   apiGateway: APIGatewayClient;
   cloudformation: CloudFormationClient;
@@ -64,6 +74,11 @@ function buildClients(accountId: string): AwsClients {
     ec2: new EC2Client(base),
     rds: new RDSClient(base),
     secretsManager: new SecretsManagerClient(base),
+    sfn: new SFNClient(base),
+    elbv2: new ElasticLoadBalancingV2Client(base),
+    eventbridge: new EventBridgeClient(base),
+    sqs: new SQSClient(base),
+    iam: new IAMClient(base),
     dynamodb: new DynamoDBClient(base),
     apiGateway: new APIGatewayClient(base),
     cloudformation: new CloudFormationClient(base),
@@ -98,6 +113,9 @@ export const eks = awsClients.eks;
 export const ec2 = awsClients.ec2;
 export const rds = awsClients.rds;
 export const secretsManager = awsClients.secretsManager;
+export const eventbridge = awsClients.eventbridge;
+export const sqs = awsClients.sqs;
+export const iam = awsClients.iam;
 export const dynamodb = awsClients.dynamodb;
 export const apiGateway = awsClients.apiGateway;
 export const cloudformation = awsClients.cloudformation;

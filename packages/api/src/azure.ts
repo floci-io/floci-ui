@@ -57,6 +57,14 @@ export function azureAccountName(): string {
     return process.env.FLOCI_AZURE_ACCOUNT_NAME ?? 'devstoreaccount1'
 }
 
+export function azureSubscriptionId(): string {
+    return process.env.FLOCI_AZURE_SUBSCRIPTION_ID ?? '00000000-0000-0000-0000-000000000000'
+}
+
+export function azureResourceGroup(): string {
+    return process.env.FLOCI_AZURE_RESOURCE_GROUP ?? 'floci-local'
+}
+
 export const azure = new AzureRestRuntimeClient()
 
 function errorMessage(error: unknown): string {

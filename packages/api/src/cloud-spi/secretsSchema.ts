@@ -66,3 +66,73 @@ export function azureSecretsSchema(): ServiceSchema {
     }
 }
 
+const awsSecretsColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Secret Name'},
+    {name: 'status', label: 'Status'},
+    {name: 'createdAt', label: 'Created At', format: 'datetime'},
+]
+
+const gcpSecretsColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'createdAt', label: 'Created At', format: 'datetime'},
+    {name: 'replication', label: 'Replication', path: 'metadata.replication'},
+]
+
+export function awsSecretsSchema(): ServiceSchema {
+    return {
+        cloud: 'aws',
+        service: 'secrets',
+        displayName: 'AWS Secrets Manager',
+        fields: [
+            {name: 'secretName', label: 'Secret Name', type: 'text', required: true},
+            {name: 'description', label: 'Description', type: 'text', required: false},
+            {
+                name: 'secretValue',
+                label: 'Secret Value',
+                type: 'password',
+                required: false,
+                description: 'Optional initial value. Stored by the runtime and never read back into the console.',
+                span: true,
+            },
+        ],
+        actions: ['list', 'create', 'inspect', 'delete'],
+        filters: secretsFilters,
+        columns: awsSecretsColumns,
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List secrets', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create secret', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete secret', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect metadata', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+    }
+}
+
+export function gcpSecretsSchema(): ServiceSchema {
+    return {
+        cloud: 'gcp',
+        service: 'secrets',
+        displayName: 'Secret Manager',
+        fields: [
+            {
+                name: 'secretName',
+                label: 'Secret Name',
+                type: 'text',
+                required: true,
+                description: 'Letters, numbers, hyphens, and underscores.',
+            },
+        ],
+        actions: ['list', 'create', 'inspect', 'delete'],
+        filters: secretsFilters,
+        columns: gcpSecretsColumns,
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List secrets', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create secret', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete secret', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect metadata', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+    }
+}

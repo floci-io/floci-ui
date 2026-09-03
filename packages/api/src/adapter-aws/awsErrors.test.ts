@@ -36,6 +36,8 @@ describe('mapAwsSdkError', () => {
         ['BucketAlreadyExists', 409, 'resource_conflict'],
         ['BucketAlreadyOwnedByYou', 409, 'resource_conflict'],
         ['EntityAlreadyExists', 409, 'resource_conflict'],
+        ['ResourceExistsException', 409, 'resource_conflict'],
+        ['StateMachineAlreadyExists', 409, 'resource_conflict'],
         ['ResourceInUseException', 409, 'resource_conflict'],
         ['QueueNameExists', 409, 'resource_conflict'],
         // access

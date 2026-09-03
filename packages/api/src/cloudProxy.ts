@@ -4,20 +4,31 @@ import {AwsNetworkingAdapter} from './adapter-aws/AwsNetworkingAdapter'
 import {AwsDatabaseAdapter} from './adapter-aws/AwsDatabaseAdapter'
 import {AwsEksAdapter} from './adapter-aws/AwsEksAdapter'
 import {AwsStorageAdapter} from './adapter-aws/AwsStorageAdapter'
+import {AzureNoSqlAdapter} from './adapter-azure/AzureNoSqlAdapter'
 import {AwsDynamoDbAdapter} from './adapter-aws/AwsDynamoDbAdapter'
 import {AzureDatabaseAdapter} from './adapter-azure/AzureDatabaseAdapter'
+import {AzureServiceBusAdapter} from './adapter-azure/AzureServiceBusAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
 import {AzureComputeAdapter} from './adapter-azure/AzureComputeAdapter'
 import {GcpStorageAdapter} from './adapter-gcp/GcpStorageAdapter'
 import {GcpCloudFunctionsAdapter} from './adapter-gcp/GcpCloudFunctionsAdapter'
 import {GcpCloudSqlAdapter} from './adapter-gcp/GcpCloudSqlAdapter'
 import {GcpGkeAdapter} from './adapter-gcp/GcpGkeAdapter'
+import {GcpPubSubAdapter} from './adapter-gcp/GcpPubSubAdapter'
+import {GcpSecretManagerAdapter} from './adapter-gcp/GcpSecretManagerAdapter'
+import {AwsSqsAdapter} from './adapter-aws/AwsSqsAdapter'
 import {CloudProxyService} from './service/CloudProxyService'
 import {AzureServerlessAdapter} from './adapter-azure/AzureServerlessAdapter'
 import {AzureKeyVaultAdapter} from './adapter-azure/AzureKeyVaultAdapter'
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
+import {AwsStepFunctionsAdapter} from './adapter-aws/AwsStepFunctionsAdapter'
+import {AwsLoadBalancingAdapter} from './adapter-aws/AwsLoadBalancingAdapter'
+import {AwsEventBridgeAdapter} from './adapter-aws/AwsEventBridgeAdapter'
+import {AwsIamAdapter} from './adapter-aws/AwsIamAdapter'
 import {AwsApiGatewayAdapter} from './adapter-aws/AwsApiGatewayAdapter'
 import {AwsCloudFormationAdapter} from './adapter-aws/AwsCloudFormationAdapter'
+import {AwsSecretsAdapter} from './adapter-aws/AwsSecretsAdapter'
+import {AwsSesAdapter} from './adapter-aws/AwsSesAdapter'
 import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
@@ -44,15 +55,26 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsComputeAdapter(ec2Service),
         new AwsNetworkingAdapter(ec2Service),
         new AwsServerlessAdapter(clients.lambda),
+        new AwsStepFunctionsAdapter(clients.sfn),
+        new AwsLoadBalancingAdapter(clients.elbv2),
+        new AwsEventBridgeAdapter(clients.eventbridge),
+        new AwsIamAdapter(clients.iam),
         new AwsApiGatewayAdapter(clients.apiGateway),
         new AwsCloudFormationAdapter(clients.cloudformation),
+        new AwsSecretsAdapter(clients.secretsManager),
+        new AwsSesAdapter(),
         new AzureStorageAdapter(),
+        new AzureServiceBusAdapter(),
         new AzureDatabaseAdapter(),
+        new AzureNoSqlAdapter(),
         new AzureComputeAdapter(),
         new GcpStorageAdapter(),
         new GcpCloudFunctionsAdapter(),
         new GcpCloudSqlAdapter(),
         new GcpGkeAdapter(),
+        new GcpPubSubAdapter(),
+        new GcpSecretManagerAdapter(),
+        new AwsSqsAdapter(clients.sqs),
         new AzureServerlessAdapter(),
         new AzureKeyVaultAdapter(),
     ])

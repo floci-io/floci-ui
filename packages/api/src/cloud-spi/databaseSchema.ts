@@ -38,36 +38,73 @@ export function azureDatabaseSchema(): ServiceSchema {
     return {
         cloud: 'azure',
         service: 'database',
-        displayName: 'Cosmos DB',
+        displayName: 'Azure Databases',
         fields: [
             {
-                name: 'databaseName',
-                label: 'Database Name',
+                name: 'engine',
+                label: 'Database Engine',
+                type: 'select',
+                required: true,
+                defaultValue: 'azure-sql',
+                options: [
+                    {label: 'Azure SQL Database', value: 'azure-sql'},
+                    {label: 'Azure Database for PostgreSQL', value: 'postgresql'},
+                ],
+            },
+            {
+                name: 'serverName',
+                label: 'Server Name',
                 type: 'text',
                 required: true,
                 validation: {
                     minLength: 1,
-                    maxLength: 255,
-                    pattern: '^[A-Za-z0-9._-]+$',
-                    message: 'Use letters, numbers, dot, underscore, or dash.',
+                    maxLength: 63,
+                    pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$',
+                    message: 'Use 1-63 lowercase letters, numbers, or hyphens.',
+                },
+            },
+            {
+                name: 'location',
+                label: 'Location',
+                type: 'text',
+                required: true,
+                defaultValue: 'eastus',
+            },
+            {
+                name: 'administratorLogin',
+                label: 'Administrator Login',
+                type: 'text',
+                required: true,
+                defaultValue: 'sa',
+            },
+            {
+                name: 'administratorLoginPassword',
+                label: 'Administrator Password',
+                type: 'password',
+                required: true,
+                span: true,
+                description: 'Required by the local database runtime. The value is not returned by the API.',
+                validation: {
+                    minLength: 8,
+                    message: 'Use at least 8 characters.',
                 },
             },
         ],
         actions: ['list', 'create', 'delete', 'inspect'],
         capabilities: {
             resourceActions: [
-                {name: 'list', label: 'List databases', enabled: true, status: 'available', runtimeRequired: true},
-                {name: 'create', label: 'Create database', enabled: true, status: 'available', runtimeRequired: true},
-                {name: 'delete', label: 'Delete database', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'list', label: 'List database servers', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create database server', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete database server', enabled: true, status: 'available', runtimeRequired: true},
                 {name: 'inspect', label: 'Inspect metadata', enabled: true, status: 'available', runtimeRequired: true},
             ],
         },
         filters: databaseFilters,
         columns: [
-            {name: 'name', label: 'Database'},
+            {name: 'name', label: 'Name'},
             {name: 'engine', label: 'Engine'},
             {name: 'status', label: 'Status'},
-            {name: 'createdAt', label: 'Created At'},
+            {name: 'region', label: 'Region'},
         ],
     }
 }
@@ -125,11 +162,4 @@ export function gcpDatabaseSchema(): ServiceSchema {
             ],
         },
     }
-}
-
-export function databaseSchemaFor(cloud: CloudProvider): ServiceSchema | null {
-    if (cloud === 'aws') return awsDatabaseSchema()
-    if (cloud === 'azure') return azureDatabaseSchema()
-    if (cloud === 'gcp') return gcpDatabaseSchema()
-    return null
 }

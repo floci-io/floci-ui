@@ -1,7 +1,7 @@
 import {describe, expect, test} from 'bun:test'
 import {createCloudAdapterRegistry} from './cloudProxy'
 import {isServiceType} from './cloud-spi/serviceCatalog'
-import type {CloudProvider, CloudServiceAdapter, CloudServiceType, ResourceActionName} from './cloud-spi/types'
+import type {CloudProvider, CloudServiceAdapter, CloudServiceType, KubernetesActionName, ResourceActionName} from './cloud-spi/types'
 
 /**
  * Guards the schema-to-implementation contract for every registered adapter.
@@ -27,6 +27,15 @@ const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> =
     stop: 'stop',
     reboot: 'reboot',
     updateTags: 'updateTags',
+}
+
+const METHOD_FOR_KUBERNETES_ACTION: Record<KubernetesActionName, keyof CloudServiceAdapter> = {
+    listNodegroups: 'listKubernetesNodegroups',
+    createNodegroup: 'createKubernetesNodegroup',
+    deleteNodegroup: 'deleteKubernetesNodegroup',
+    listFargateProfiles: 'listKubernetesFargateProfiles',
+    createFargateProfile: 'createKubernetesFargateProfile',
+    deleteFargateProfile: 'deleteKubernetesFargateProfile',
 }
 
 const registry = createCloudAdapterRegistry()
@@ -81,12 +90,23 @@ describe('registered adapters honour their schema', () => {
                     `${label} advertises ${capability.name} as available but has no ${String(method)}()`,
                 ).toBe('function')
             }
+
+            const kubernetesCapabilities = adapter.schema().capabilities?.kubernetesActions ?? []
+            const kubernetesClaims = kubernetesCapabilities.filter((capability) => capability.status === 'available')
+            for (const capability of kubernetesClaims) {
+                const method = METHOD_FOR_KUBERNETES_ACTION[capability.name]
+                expect(
+                    typeof adapter[method],
+                    `${label} advertises ${capability.name} as available but has no ${String(method)}()`,
+                ).toBe('function')
+            }
         })
 
         test(`${label} explains every capability it does not fully support`, () => {
             const capabilities = [
                 ...(adapter.schema().capabilities?.resourceActions ?? []),
                 ...(adapter.schema().capabilities?.objectActions ?? []),
+                ...(adapter.schema().capabilities?.kubernetesActions ?? []),
             ]
 
             for (const capability of capabilities) {

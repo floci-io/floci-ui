@@ -19,6 +19,7 @@ This document tracks the current architectural direction behind the new Floci UI
 - AWS Compute
 - AWS Networking
 - AWS Serverless
+- AWS EventBridge and EventBridge Scheduler
 - Azure Storage
 - Azure Database
 - Azure Serverless
@@ -36,6 +37,7 @@ The frontend currently exposes:
 - `Cloud Explorer / compute`
 - `Cloud Explorer / networking`
 - `Cloud Explorer / serverless`
+- `Cloud Explorer / messaging`
 - `/secretsmanager`
 
 Not every registered adapter is already promoted into the visible sidebar for every provider. The README reflects the user-visible surface, not only what is registered in the backend.
