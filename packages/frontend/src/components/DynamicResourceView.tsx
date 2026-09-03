@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCloudResource,
+  clearEmailInbox,
   deleteCloudResource,
   getServiceSchema,
   listCloudResources,
@@ -30,6 +31,7 @@ import type {
 import type { CloudResource, StorageObject } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { CosmosNoSqlPanel } from "@/components/CosmosNoSqlPanel";
+import { AzureSqlPanel } from "@/components/AzureSqlPanel";
 import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
 import { DynamoDbTableExplorer } from "@/components/DynamoDbTableExplorer";
 
@@ -60,6 +62,7 @@ export function DynamicResourceView({
     StorageObject | undefined
   >();
   const [createOpen, setCreateOpen] = useState(false);
+  const [clearConfirm, setClearConfirm] = useState(false);
   const resourcesKey = useMemo(
     () => ["cloud-resources", cloud, service, search],
     [cloud, service, search],
@@ -102,10 +105,22 @@ export function DynamicResourceView({
     },
   });
 
+  const clearInboxMut = useMutation({
+    mutationFn: () => clearEmailInbox(cloud),
+    onSuccess: () => {
+      setSelected(undefined);
+      setClearConfirm(false);
+      void qc.invalidateQueries({
+        queryKey: ["cloud-resources", cloud, service],
+      });
+    },
+  });
+
   useEffect(() => {
     setSelected(undefined);
     setSelectedObject(undefined);
     setCreateOpen(false);
+    setClearConfirm(false);
     setSearch("");
   }, [cloud, service]);
 
@@ -185,7 +200,7 @@ export function DynamicResourceView({
     serviceAvailability,
   );
   const createCapability = capabilityFor(resourceCapabilities, "create");
-  const createResourceLabel = resourceCreateLabel(schema);
+  const createResourceLabel = createCapability?.label ?? "Create resource";
   const canUseRuntime = runtimeReachable && adapterAvailable;
   const canCreateResource =
     canUseRuntime && capabilityEnabled(createCapability);
@@ -213,21 +228,51 @@ export function DynamicResourceView({
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Filter resources"
                 />
-                <button
-                  className="button"
-                  type="button"
-                  disabled={!canCreateResource}
-                  title={createCapability?.reason}
-                  onClick={() => setCreateOpen((open) => !open)}
-                >
-                  <Plus size={14} />
-                  {createResourceLabel}
-                  {createOpen ? (
-                    <ChevronUp size={13} />
+                {service === "email" && (
+                  clearConfirm ? (
+                    <>
+                      <button
+                        className="button danger"
+                        type="button"
+                        disabled={!canUseRuntime || clearInboxMut.isPending}
+                        onClick={() => clearInboxMut.mutate()}
+                      >
+                        <Trash2 size={14} />
+                        {clearInboxMut.isPending ? "Clearing" : "Confirm clear"}
+                      </button>
+                      <button className="button" type="button" disabled={clearInboxMut.isPending} onClick={() => setClearConfirm(false)}>
+                        Cancel
+                      </button>
+                    </>
                   ) : (
-                    <ChevronDown size={13} />
-                  )}
-                </button>
+                    <button
+                      className="button danger"
+                      type="button"
+                      disabled={!canUseRuntime}
+                      onClick={() => setClearConfirm(true)}
+                    >
+                      <Trash2 size={14} />
+                      Clear inbox
+                    </button>
+                  )
+                )}
+                {canCreate && (
+                  <button
+                    className="button"
+                    type="button"
+                    disabled={!canCreateResource}
+                    title={createCapability?.reason}
+                    onClick={() => setCreateOpen((open) => !open)}
+                  >
+                    <Plus size={14} />
+                    {createResourceLabel}
+                    {createOpen ? (
+                      <ChevronUp size={13} />
+                    ) : (
+                      <ChevronDown size={13} />
+                    )}
+                  </button>
+                )}
                 <button
                   className="button"
                   type="button"
@@ -239,6 +284,13 @@ export function DynamicResourceView({
                 </button>
               </div>
             </div>
+            {service === "email" && clearInboxMut.isError && (
+              <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
+                {clearInboxMut.error instanceof Error
+                  ? clearInboxMut.error.message
+                  : "Unable to clear the inbox."}
+              </p>
+            )}
             {canCreate && createOpen && (
               <div className="resource-create-inline">
                 {/*
@@ -324,20 +376,30 @@ export function DynamicResourceView({
           runtimeReachable={runtimeReachable}
         />
       )}
-      {service === "database" && cloud === "azure" && (
+      {service === "nosql" && cloud === "azure" && activeSelected?.type === "cosmos-database" && (
         <CosmosNoSqlPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}
         />
       )}
+      {service === "database" &&
+        cloud === "azure" &&
+        (activeSelected?.type === "sql-server" ||
+          activeSelected?.type === "postgres-flexible-server") && (
+        <AzureSqlPanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
       {service === "serverless" && (
-  <ServerlessInvokePanel
-    cloud={cloud}
-    resource={activeSelected}
-    runtimeReachable={canUseRuntime}
-  />
-)}
+        <ServerlessInvokePanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
       {service === "nosql" && cloud === "aws" && (
         <DynamoDbTableExplorer
           cloud={cloud}
@@ -366,22 +428,6 @@ function TopbarServiceInfo({ onOpenInfo }: { onOpenInfo: () => void }) {
     </button>,
     slot,
   );
-}
-
-function resourceCreateLabel(schema: ServiceSchema): string {
-  if (schema.cloud === "aws" && schema.service === "storage")
-    return "Create bucket";
-  if (schema.cloud === "azure" && schema.service === "storage")
-    return "Create container";
-  if (schema.cloud === "azure" && schema.service === "database")
-    return "Create database";
-  if (schema.cloud === "aws" && schema.service === "nosql")
-    return "Create table";
-  if (schema.cloud === "azure" && schema.service === "secrets")
-    return "Create secret";
-  if (schema.cloud === "aws" && schema.service === "apigateway")
-    return "Create API";
-  return "Create resource";
 }
 
 function StatusTile({

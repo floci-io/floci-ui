@@ -2,8 +2,11 @@ import {describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
 import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
+import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
+import {awsEksSchema} from '../cloud-spi/eksSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
+import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
 import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput, NoSqlItem} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
@@ -101,7 +104,21 @@ describe('cloud schema routes', () => {
         expect(res.status).toBe(200)
         expect(body.cloud).toBe('azure')
         expect(body.service).toBe('database')
-        expect(body.displayName).toBe('Cosmos DB')
+        // Cosmos moved to the nosql category; database now covers Azure SQL and PostgreSQL.
+        expect(body.displayName).toBe('Azure Databases')
+    })
+
+    test('returns Azure Cosmos NoSQL schema when the adapter is registered', async () => {
+        const app = appWithRoutes([mockAdapter('azure', {
+            service: 'nosql',
+            schema: azureNoSqlSchema,
+        })])
+        const res = await app.request('/api/clouds/azure/services/nosql/schema')
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(body.service).toBe('nosql')
+        expect(body.displayName).toBe('Azure Cosmos DB NoSQL')
     })
 
     test('returns AWS DynamoDB schema for the nosql service', async () => {
@@ -201,10 +218,10 @@ describe('cloud schema routes', () => {
         expect(body.objects[0].name).toBe('object.txt')
     })
 
-    test('lists Cosmos containers through the cloud database adapter', async () => {
+    test('lists Cosmos containers through the cloud NoSQL adapter', async () => {
         const app = appWithRoutes([mockAdapter('azure', {
-            service: 'database',
-            schema: azureDatabaseSchema,
+            service: 'nosql',
+            schema: azureNoSqlSchema,
             listCosmosContainers: async (databaseId: string): Promise<CosmosContainer[]> => [{
                 id: 'items',
                 name: 'items',
@@ -215,7 +232,7 @@ describe('cloud schema routes', () => {
             }],
         })])
 
-        const res = await app.request('/api/clouds/azure/services/database/resources/appdb/containers')
+        const res = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers')
         const body = await res.json()
 
         expect(res.status).toBe(200)
@@ -242,16 +259,33 @@ describe('cloud schema routes', () => {
         expect(body[0].document.table).toBe('orders')
     })
 
-    test('creates and deletes Cosmos databases through the cloud database adapter', async () => {
+    test('clears the SES mailbox through the email adapter', async () => {
+        let cleared = false
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'email',
+            schema: awsSesEmailSchema,
+            clearEmailInbox: async () => {
+                cleared = true
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/email/inbox', {method: 'DELETE'})
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({ok: true})
+        expect(cleared).toBeTrue()
+    })
+
+    test('creates and deletes Cosmos databases through the cloud NoSQL adapter', async () => {
         const deleted: string[] = []
         const app = appWithRoutes([mockAdapter('azure', {
-            service: 'database',
-            schema: azureDatabaseSchema,
+            service: 'nosql',
+            schema: azureNoSqlSchema,
             create: async (input: CreateResourceInput): Promise<CloudResource> => ({
                 id: String(input.values.databaseName),
                 name: String(input.values.databaseName),
                 cloud: 'azure',
-                service: 'database',
+                service: 'nosql',
                 type: 'cosmos-database',
                 region: null,
                 createdAt: null,
@@ -262,12 +296,12 @@ describe('cloud schema routes', () => {
             },
         })])
 
-        const createRes = await app.request('/api/clouds/azure/services/database/resources', {
+        const createRes = await app.request('/api/clouds/azure/services/nosql/resources', {
             method: 'POST',
             body: JSON.stringify({databaseName: 'appdb'}),
         })
         const created = await createRes.json()
-        const deleteRes = await app.request('/api/clouds/azure/services/database/resources/appdb', {method: 'DELETE'})
+        const deleteRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb', {method: 'DELETE'})
 
         expect(createRes.status).toBe(201)
         expect(created.type).toBe('cosmos-database')
@@ -276,11 +310,11 @@ describe('cloud schema routes', () => {
         expect(deleted).toEqual(['appdb'])
     })
 
-    test('creates and deletes Cosmos containers through the cloud database adapter', async () => {
+    test('creates and deletes Cosmos containers through the cloud NoSQL adapter', async () => {
         const deleted: Array<{databaseId: string; containerId: string}> = []
         const app = appWithRoutes([mockAdapter('azure', {
-            service: 'database',
-            schema: azureDatabaseSchema,
+            service: 'nosql',
+            schema: azureNoSqlSchema,
             createCosmosContainer: async (databaseId: string, input: CreateResourceInput): Promise<CosmosContainer> => ({
                 id: String(input.values.containerName),
                 name: String(input.values.containerName),
@@ -294,12 +328,12 @@ describe('cloud schema routes', () => {
             },
         })])
 
-        const createRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers', {
+        const createRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers', {
             method: 'POST',
             body: JSON.stringify({containerName: 'items', partitionKeyPath: '/category'}),
         })
         const created = await createRes.json()
-        const deleteRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers/items', {method: 'DELETE'})
+        const deleteRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers/items', {method: 'DELETE'})
 
         expect(createRes.status).toBe(201)
         expect(created.databaseId).toBe('appdb')
@@ -308,11 +342,11 @@ describe('cloud schema routes', () => {
         expect(deleted).toEqual([{databaseId: 'appdb', containerId: 'items'}])
     })
 
-    test('upserts, deletes, and queries Cosmos items through the cloud database adapter', async () => {
+    test('upserts, deletes, and queries Cosmos items through the cloud NoSQL adapter', async () => {
         const deleted: Array<{databaseId: string; containerId: string; itemId: string; partitionKey?: string | null}> = []
         const app = appWithRoutes([mockAdapter('azure', {
-            service: 'database',
-            schema: azureDatabaseSchema,
+            service: 'nosql',
+            schema: azureNoSqlSchema,
             upsertCosmosItem: async (databaseId: string, containerId: string, document: Record<string, unknown>): Promise<CosmosItem> => ({
                 id: String(document.id),
                 databaseId,
@@ -331,17 +365,17 @@ describe('cloud schema routes', () => {
             }),
         })])
 
-        const upsertRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers/items/items', {
+        const upsertRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers/items/items', {
             method: 'POST',
             body: JSON.stringify({id: 'item-1', category: 'demo'}),
         })
         const upserted = await upsertRes.json()
-        const queryRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers/items/query', {
+        const queryRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers/items/query', {
             method: 'POST',
             body: JSON.stringify({query: 'SELECT * FROM c'}),
         })
         const queryBody = await queryRes.json()
-        const deleteRes = await app.request('/api/clouds/azure/services/database/resources/appdb/containers/items/items/item-1?partitionKey=demo', {method: 'DELETE'})
+        const deleteRes = await app.request('/api/clouds/azure/services/nosql/resources/appdb/containers/items/items/item-1?partitionKey=demo', {method: 'DELETE'})
 
         expect(upsertRes.status).toBe(201)
         expect(upserted.partitionKey).toBe('demo')
@@ -512,13 +546,23 @@ describe('service descriptors', () => {
         expect(serverless.reason).toContain('501')
     })
 
-    test('keeps the legacy Secrets Manager page available on AWS only', async () => {
-        const aws = await (await appWithRoutes().request('/api/clouds/aws/services')).json()
-        const gcp = await (await appWithRoutes().request('/api/clouds/gcp/services')).json()
+    test('routes AWS secrets to its bespoke page and GCP to the generic explorer', async () => {
+        // Availability now comes from adapter registration like every other service,
+        // but the absolute route is kept so the card still links to the standalone
+        // page instead of Cloud Explorer. Without an adapter it reads coming_soon.
+        const withAdapter = appWithRoutes([
+            mockAdapter('aws'),
+            mockAdapter('aws', {service: 'secrets'}),
+            mockAdapter('gcp', {service: 'secrets'}),
+        ])
+        const aws = await (await withAdapter.request('/api/clouds/aws/services')).json()
+        const bare = await (await appWithRoutes().request('/api/clouds/aws/services')).json()
+        const gcp = await (await withAdapter.request('/api/clouds/gcp/services')).json()
         const secretsFor = (body: Array<{service: string}>) => body.find((d) => d.service === 'secrets')
 
         expect(secretsFor(aws)).toMatchObject({availability: 'available', route: '/secretsmanager'})
-        expect(secretsFor(gcp)).toMatchObject({availability: 'coming_soon'})
+        expect(secretsFor(bare)).toMatchObject({availability: 'coming_soon'})
+        expect(secretsFor(gcp)).toMatchObject({availability: 'available', route: 'secrets'})
     })
 })
 
@@ -623,5 +667,65 @@ describe('per-service status', () => {
     test('rejects an unknown service slug', async () => {
         const res = await appWithRoutes().request('/api/clouds/aws/services/queue/status')
         expect(res.status).toBe(404)
+    })
+
+    test('routes nested EKS nodegroup and Fargate actions through the cloud adapter', async () => {
+        const calls: string[] = []
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'k8s',
+            schema: awsEksSchema,
+            listKubernetesNodegroups: async (clusterId) => [{
+                id: 'workers', name: 'workers', clusterId, arn: null, status: 'ACTIVE', version: null,
+                releaseVersion: null, createdAt: null, modifiedAt: null, capacityType: null,
+                instanceTypes: ['t3.medium'], subnets: ['subnet-a'], nodeRole: null,
+                scalingConfig: null, labels: {}, tags: {},
+            }],
+            createKubernetesNodegroup: async (clusterId, input) => {
+                calls.push(`create-nodegroup:${clusterId}:${input.name}`)
+                return {
+                    id: input.name, name: input.name, clusterId, arn: null, status: null, version: null,
+                    releaseVersion: null, createdAt: null, modifiedAt: null, capacityType: null,
+                    instanceTypes: [], subnets: input.subnets, nodeRole: input.nodeRole,
+                    scalingConfig: null, labels: {}, tags: {},
+                }
+            },
+            deleteKubernetesNodegroup: async (clusterId, nodegroupId) => {
+                calls.push(`delete-nodegroup:${clusterId}:${nodegroupId}`)
+            },
+            listKubernetesFargateProfiles: async (clusterId) => [{
+                id: 'default', name: 'default', clusterId, arn: null, status: 'ACTIVE', createdAt: null,
+                podExecutionRoleArn: null, subnets: [], selectors: [], tags: {},
+            }],
+            createKubernetesFargateProfile: async (clusterId, input) => {
+                calls.push(`create-fargate:${clusterId}:${input.name}`)
+                return {
+                    id: input.name, name: input.name, clusterId, arn: null, status: null, createdAt: null,
+                    podExecutionRoleArn: input.podExecutionRoleArn, subnets: input.subnets ?? [], selectors: [], tags: {},
+                }
+            },
+            deleteKubernetesFargateProfile: async (clusterId, profileId) => {
+                calls.push(`delete-fargate:${clusterId}:${profileId}`)
+            },
+        })])
+
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/nodegroups')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/nodegroups', {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'workers', nodeRole: 'role', subnets: ['subnet-a']}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/nodegroups/workers', {method: 'DELETE'})).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/fargate-profiles')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/fargate-profiles', {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'default', podExecutionRoleArn: 'role', selectors: [{namespace: 'default'}]}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/k8s/resources/demo/fargate-profiles/default', {method: 'DELETE'})).status).toBe(200)
+
+        expect(calls).toEqual([
+            'create-nodegroup:demo:workers',
+            'delete-nodegroup:demo:workers',
+            'create-fargate:demo:default',
+            'delete-fargate:demo:default',
+        ])
     })
 })

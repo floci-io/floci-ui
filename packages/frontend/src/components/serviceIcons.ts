@@ -1,6 +1,7 @@
 import {
     Boxes,
     Circle,
+    Clock,
     Database,
     HardDrive,
     KeyRound,
@@ -8,14 +9,16 @@ import {
     Lock,
     MessageSquare,
     Network,
+    Radio,
     ScrollText,
+    Scale,
     Server,
     ShieldCheck,
     SlidersHorizontal,
     Table2,
+    Workflow,
     Waypoints,
     Zap,
-    Clock,
     type LucideIcon,
 } from 'lucide-react'
 
@@ -40,12 +43,16 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     secrets: KeyRound,
     iac: Layers,
     messaging: MessageSquare,
+    events: Radio,
+    email: MessageSquare,
     queue: MessageSquare,
     logs: ScrollText,
     iam: ShieldCheck,
     kms: Lock,
+    loadbalancing: Scale,
     parameters: SlidersHorizontal,
     scheduler: Clock,
+    workflows: Workflow,
 }
 
 const FALLBACK_ICON: LucideIcon = Circle

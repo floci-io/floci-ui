@@ -46,6 +46,7 @@ const CONFLICT_NAMES = new Set([
     'BucketAlreadyOwnedByYou',
     'EntityAlreadyExists',
     'EntityAlreadyExistsException',
+    'ResourceExistsException',
     'ResourceInUseException',
     'ResourceConflictException',
     'ConditionalCheckFailedException',
@@ -56,6 +57,7 @@ const CONFLICT_NAMES = new Set([
     'DBInstanceAlreadyExistsFault',
     'ConcurrentModificationException',
     'IncorrectState',
+    'DeleteConflictException',
 ])
 
 const ACCESS_DENIED_NAMES = new Set([
@@ -94,6 +96,7 @@ const NOT_FOUND_NAMES = new Set([
     'NoSuchBucket',
     'NoSuchKey',
     'NoSuchEntity',
+    'NoSuchEntityException',
     'NotFound',
     'NotFoundException',
     'ResourceNotFoundException',
@@ -102,6 +105,12 @@ const NOT_FOUND_NAMES = new Set([
     'DBInstanceNotFoundFault',
     'ParameterNotFound',
     'QueueDoesNotExist',
+    'StateMachineDoesNotExist',
+    'ExecutionDoesNotExist',
+    'LoadBalancerNotFound',
+    'LoadBalancerNotFoundException',
+    'TargetGroupNotFound',
+    'TargetGroupNotFoundException',
     'SecretNotFoundException',
     'NoSuchLogGroup',
     'NoSuchResourceException',

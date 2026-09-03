@@ -57,12 +57,18 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Databases | Database | Yes (list, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
-| Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | No | No |
+| Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No |
 | Networking | Networking | Yes (list) | No | No |
+| Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No |
+| Integration | SQS / Messaging / Pub/Sub | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
+| Integration | EventBridge / Events | Yes (list, create, delete, inspect) | No | No |
+| Integration | SES Mailbox / Email | Yes (list, inspect) | No | No |
 | Integration | Cloud Scheduler | No | No | Yes (list, create, delete, inspect) |
-| Provisioning | CloudFormation / Infrastructure as Code | No | No | No |
-| Security | Secrets Manager / Key Vault | Yes (legacy page) | Yes (list, create, delete, inspect) | No |
+| Integration | Step Functions / Workflows | Yes (list, create, delete, inspect) | No | No |
+| Provisioning | CloudFormation / Infrastructure as Code | Yes (list, create, delete, inspect) | No | No |
+| Security | Identity | Yes (list, create, delete, inspect) | No | No |
+| Security | Secrets Manager / Key Vault / Secret Manager | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 
 Console Home is available for all three clouds.
 
@@ -113,7 +119,10 @@ Current gaps:
 AWS only, through the unified shell.
 
 - EKS clusters can be listed and inspected.
-- Cluster metadata, node groups, and related details are surfaced when returned by Floci AWS Core.
+- A selected cluster lists its managed nodegroups and Fargate profiles.
+- Create and delete managed nodegroups, including role, subnets, instance types, and scaling configuration.
+- Create and delete Fargate profiles, including pod execution role, selectors, labels, and optional subnets.
+- These nested EKS operations use the unified Cloud Proxy, not the legacy `/api/eks/*` routes.
 
 Current gaps:
 
@@ -185,6 +194,22 @@ Current gaps:
 </details>
 
 <details>
+<summary><strong>Identity</strong></summary>
+
+AWS only, through the generic identity service category.
+
+- List and inspect IAM users.
+- Create and delete IAM users.
+- IAM user paths are supported during creation.
+
+Current gaps:
+
+- Roles, groups, policies, access keys, and other advanced IAM workflows are not exposed yet.
+- No Azure or GCP identity adapter yet.
+
+</details>
+
+<details>
 <summary><strong>API Gateway</strong></summary>
 
 AWS only, through the generic apigateway service category.
@@ -196,6 +221,47 @@ Current gaps:
 
 - Resources, methods, deployments, and stages are not yet exposed.
 - No Azure or GCP API Gateway adapter yet.
+
+</details>
+
+<details>
+<summary><strong>Email / SES Mailbox</strong></summary>
+
+AWS SES email capture through the unified Cloud Explorer.
+
+- Lists emails actually captured by Floci SES.
+- Filters by subject, sender, and recipient.
+- Inspects sender, recipients, timestamp, and message type.
+- Displays HTML in a sandboxed preview, text bodies, and captured raw MIME data.
+- Clears the captured inbox after an explicit confirmation.
+
+Manual verification with the AWS CLI:
+
+```bash
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1
+
+aws ses send-email \
+  --endpoint-url http://localhost:4566 \
+  --from sender@example.test \
+  --destination 'ToAddresses=recipient@example.test' \
+  --message 'Subject={Data="Floci SES test",Charset=utf-8},Body={Text={Data="Plain-text test email.",Charset=utf-8},Html={Data="<h1>Hello from Floci</h1><p>This should render in the SES preview.</p>",Charset=utf-8}}'
+```
+
+The email is captured by the local Floci runtime; it is not delivered externally. Open
+`/cloud-explorer/aws/email` and refresh the mailbox to inspect its Preview, Text, and
+Raw views. You can also inspect the captured messages directly with:
+
+```bash
+curl http://localhost:4566/_aws/ses
+```
+
+Current gaps:
+
+- Sending a test email from the UI is not wired yet; applications continue to send through their AWS SES SDK.
+- SES identities, templates, bulk email, configuration sets, and suppression lists are not exposed yet.
+- No Azure or GCP email adapter yet.
 
 </details>
 

@@ -33,10 +33,12 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
     const status = statusQuery.data
     const services = useMemo(() => servicesQuery.data ?? [], [servicesQuery.data])
 
-    // Services on their own route are counted through the generic list endpoint;
-    // a legacy absolute-route page has no such endpoint, so it shows no count.
+    // Availability is derived from adapter registration, so an available service
+    // always has the generic list endpoint. Route shape only decides where the
+    // card links, not whether it can be counted -- a legacy absolute-route page
+    // (AWS Secrets Manager) is still counted through its adapter.
     const countable = useMemo(
-        () => services.filter((service) => service.availability === 'available' && !service.route.startsWith('/')),
+        () => services.filter((service) => service.availability === 'available'),
         [services],
     )
 

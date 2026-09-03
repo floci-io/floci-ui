@@ -31,24 +31,46 @@ export const apiEndpointKeys = {
         copy: "clouds.services.storage.objects.copy",
       },
     },
-    database: {
+    nosql: {
       cosmos: {
         containers: {
-          list: "clouds.services.database.cosmos.containers.list",
-          create: "clouds.services.database.cosmos.containers.create",
-          delete: "clouds.services.database.cosmos.containers.delete",
+          list: "clouds.services.nosql.cosmos.containers.list",
+          create: "clouds.services.nosql.cosmos.containers.create",
+          delete: "clouds.services.nosql.cosmos.containers.delete",
         },
         items: {
-          list: "clouds.services.database.cosmos.items.list",
-          upsert: "clouds.services.database.cosmos.items.upsert",
-          delete: "clouds.services.database.cosmos.items.delete",
-          query: "clouds.services.database.cosmos.items.query",
+          list: "clouds.services.nosql.cosmos.items.list",
+          upsert: "clouds.services.nosql.cosmos.items.upsert",
+          delete: "clouds.services.nosql.cosmos.items.delete",
+          query: "clouds.services.nosql.cosmos.items.query",
         },
       },
-    },
-    nosql: {
       items: {
         list: "clouds.services.nosql.items.list",
+      },
+    },
+    database: {
+      sql: {
+        databases: "clouds.services.database.sql.databases.list",
+        tables: "clouds.services.database.sql.tables.list",
+        query: "clouds.services.database.sql.query",
+      },
+    },
+    k8s: {
+      nodegroups: {
+        list: "clouds.services.k8s.nodegroups.list",
+        create: "clouds.services.k8s.nodegroups.create",
+        delete: "clouds.services.k8s.nodegroups.delete",
+      },
+      fargateProfiles: {
+        list: "clouds.services.k8s.fargate-profiles.list",
+        create: "clouds.services.k8s.fargate-profiles.create",
+        delete: "clouds.services.k8s.fargate-profiles.delete",
+      },
+    },
+    email: {
+      inbox: {
+        clear: "clouds.services.email.inbox.clear",
       },
     },
   },
@@ -307,57 +329,81 @@ export const endpointRegistry: EndpointRegistry = new Map([
     },
   ],
   [
-    apiEndpointKeys.clouds.database.cosmos.containers.list,
+    apiEndpointKeys.clouds.nosql.cosmos.containers.list,
     {
-      path: "/clouds/:cloud/services/database/resources/:id/containers",
+      path: "/clouds/:cloud/services/nosql/resources/:id/containers",
       method: "GET",
       telemetry: { service: "cloud-proxy" },
     },
   ],
   [
-    apiEndpointKeys.clouds.database.cosmos.containers.create,
+    apiEndpointKeys.clouds.nosql.cosmos.containers.create,
     {
-      path: "/clouds/:cloud/services/database/resources/:id/containers",
+      path: "/clouds/:cloud/services/nosql/resources/:id/containers",
       method: "POST",
       telemetry: { service: "cloud-proxy" },
     },
   ],
   [
-    apiEndpointKeys.clouds.database.cosmos.containers.delete,
+    apiEndpointKeys.clouds.nosql.cosmos.containers.delete,
     {
-      path: "/clouds/:cloud/services/database/resources/:id/containers/:containerId",
+      path: "/clouds/:cloud/services/nosql/resources/:id/containers/:containerId",
       method: "DELETE",
       telemetry: { service: "cloud-proxy" },
     },
   ],
   [
-    apiEndpointKeys.clouds.database.cosmos.items.list,
+    apiEndpointKeys.clouds.nosql.cosmos.items.list,
     {
-      path: "/clouds/:cloud/services/database/resources/:id/containers/:containerId/items",
+      path: "/clouds/:cloud/services/nosql/resources/:id/containers/:containerId/items",
       method: "GET",
       telemetry: { service: "cloud-proxy" },
     },
   ],
   [
-    apiEndpointKeys.clouds.database.cosmos.items.upsert,
+    apiEndpointKeys.clouds.nosql.cosmos.items.upsert,
     {
-      path: "/clouds/:cloud/services/database/resources/:id/containers/:containerId/items",
+      path: "/clouds/:cloud/services/nosql/resources/:id/containers/:containerId/items",
       method: "POST",
       telemetry: { service: "cloud-proxy" },
     },
   ],
   [
-    apiEndpointKeys.clouds.database.cosmos.items.delete,
+    apiEndpointKeys.clouds.nosql.cosmos.items.delete,
     {
-      path: "/clouds/:cloud/services/database/resources/:id/containers/:containerId/items/:itemId",
+      path: "/clouds/:cloud/services/nosql/resources/:id/containers/:containerId/items/:itemId",
       method: "DELETE",
       telemetry: { service: "cloud-proxy" },
     },
   ],
   [
-    apiEndpointKeys.clouds.database.cosmos.items.query,
+    apiEndpointKeys.clouds.nosql.cosmos.items.query,
     {
-      path: "/clouds/:cloud/services/database/resources/:id/containers/:containerId/query",
+      path: "/clouds/:cloud/services/nosql/resources/:id/containers/:containerId/query",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.database.sql.databases,
+    {
+      path: "/clouds/:cloud/services/database/resources/:id/sql/databases",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.database.sql.tables,
+    {
+      path: "/clouds/:cloud/services/database/resources/:id/sql/tables",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.database.sql.query,
+    {
+      path: "/clouds/:cloud/services/database/resources/:id/sql/query",
       method: "POST",
       telemetry: { service: "cloud-proxy" },
     },
@@ -367,6 +413,62 @@ export const endpointRegistry: EndpointRegistry = new Map([
     {
       path: "/clouds/:cloud/services/nosql/resources/:id/items",
       method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.nodegroups.list,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/nodegroups",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.nodegroups.create,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/nodegroups",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.nodegroups.delete,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/nodegroups/:nodegroupId",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.fargateProfiles.list,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/fargate-profiles",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.fargateProfiles.create,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/fargate-profiles",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.k8s.fargateProfiles.delete,
+    {
+      path: "/clouds/:cloud/services/k8s/resources/:id/fargate-profiles/:profileId",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.email.inbox.clear,
+    {
+      path: "/clouds/:cloud/services/email/inbox",
+      method: "DELETE",
       telemetry: { service: "cloud-proxy" },
     },
   ],
