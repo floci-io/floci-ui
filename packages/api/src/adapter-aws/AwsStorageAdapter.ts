@@ -58,10 +58,11 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
         try {
             const res = await this.s3.send(new GetBucketTaggingCommand({Bucket: bucketName}))
             return (res.TagSet ?? []).map((tag) => ({key: tag.Key ?? '', value: tag.Value ?? ''}))
-        } catch (error) {
-            // Untagged buckets return NoSuchTagSet — that's not a real error, just "no tags".
-            if (error instanceof Error && error.name === 'NoSuchTagSet') return []
-            throw error
+        } catch {
+            // Tag enrichment is best-effort: an untagged bucket (NoSuchTagSet), a bucket we lack
+            // GetBucketTagging permission on, or a transient failure should all just mean "no
+            // tags shown" for that one bucket — never fail listing every other bucket over it.
+            return []
         }
     }
 
