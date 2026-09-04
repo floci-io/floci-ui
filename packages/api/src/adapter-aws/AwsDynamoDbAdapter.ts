@@ -195,6 +195,9 @@ function marshalDocument(document: Record<string, unknown>, keys: KeyAttribute[]
             throw new ValidationError(`Key attribute ${name} is required.`)
         }
     }
+    const marshalledKeys = Object.fromEntries(
+        keys.map((key) => [key.name, marshalKey(key, document[key.name])]),
+    )
 
     let item: Record<string, AttributeValue>
     try {
@@ -203,12 +206,14 @@ function marshalDocument(document: Record<string, unknown>, keys: KeyAttribute[]
         throw new ValidationError(error instanceof Error ? error.message : 'Item contains a value DynamoDB cannot store.', {cause: error})
     }
 
-    for (const key of keys) item[key.name] = marshalKey(key, document[key.name])
-    return item
+    return {...item, ...marshalledKeys}
 }
 
 function marshalKey(key: KeyAttribute, value: unknown): AttributeValue {
     if (key.type === 'N') {
+        if (typeof value === 'number' && Number.isInteger(value) && !Number.isSafeInteger(value)) {
+            throw new ValidationError(`Key attribute ${key.name} must quote integers outside JavaScript's safe range.`)
+        }
         const number = typeof value === 'number' || typeof value === 'string' ? String(value) : ''
         if (!isDynamoNumber(number)) throw new ValidationError(`Key attribute ${key.name} must be a number.`)
         return {N: number}

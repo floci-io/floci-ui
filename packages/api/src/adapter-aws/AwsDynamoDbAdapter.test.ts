@@ -328,6 +328,7 @@ describe('AwsDynamoDbAdapter', () => {
 
         await expect(adapter.putNoSqlItem('orders', {})).rejects.toThrow('Key attribute id is required')
         await expect(adapter.putNoSqlItem('orders', {id: 'not-a-number'})).rejects.toThrow('Key attribute id must be a number')
+        await expect(adapter.putNoSqlItem('orders', {id: 9007199254740992})).rejects.toThrow('must quote integers outside JavaScript\'s safe range')
         expect(putCalls).toBe(0)
     })
 
