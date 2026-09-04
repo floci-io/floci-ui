@@ -253,11 +253,25 @@ function TopbarSearch() {
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Escape') {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current)
+                debounceRef.current = null
+            }
             setDraft('')
             commit('')
             inputRef.current?.blur()
         }
     }
+
+    /** Clean up pending debounce timer on unmount. */
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current)
+                debounceRef.current = null
+            }
+        }
+    }, [])
 
     /** Focus on `/` when no other input/textarea/select is active. */
     useEffect(() => {
