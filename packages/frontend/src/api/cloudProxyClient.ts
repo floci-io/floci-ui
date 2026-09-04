@@ -456,6 +456,20 @@ export async function listNoSqlItems(
   return res.data;
 }
 
+export async function putNoSqlItem(
+  cloud: CloudProvider,
+  resourceId: string,
+  document: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<NoSqlItem> {
+  const res = await apiClient.call<NoSqlItem, Record<string, unknown>>(
+    apiEndpointKeys.clouds.nosql.items.put,
+    requestOptions(cloud, "nosql", { signal, body: document }),
+    { cloud, id: resourceId },
+  );
+  return res.data;
+}
+
 export async function listKubernetesNodegroups(
   cloud: CloudProvider,
   clusterId: string,

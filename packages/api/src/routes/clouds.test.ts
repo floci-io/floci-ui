@@ -259,6 +259,29 @@ describe('cloud schema routes', () => {
         expect(body[0].document.table).toBe('orders')
     })
 
+    test('puts a DynamoDB record through the nosql adapter', async () => {
+        const calls: Array<{resourceId: string; document: Record<string, unknown>}> = []
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'nosql',
+            schema: awsDynamoDbSchema,
+            putNoSqlItem: async (resourceId, document): Promise<NoSqlItem> => {
+                calls.push({resourceId, document})
+                return {id: JSON.stringify({pk: document.pk}), key: {pk: document.pk}, document}
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/nosql/resources/orders/items', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({pk: 'item-1', name: 'First item'}),
+        })
+        const body = await res.json()
+
+        expect(res.status).toBe(201)
+        expect(body.key).toEqual({pk: 'item-1'})
+        expect(calls).toEqual([{resourceId: 'orders', document: {pk: 'item-1', name: 'First item'}}])
+    })
+
     test('clears the SES mailbox through the email adapter', async () => {
         let cleared = false
         const app = appWithRoutes([mockAdapter('aws', {

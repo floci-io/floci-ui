@@ -183,6 +183,17 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.post('/:cloud/services/nosql/resources/:id/items', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const document = await c.req.json<Record<string, unknown>>()
+            const item = await svc(c).putNoSqlItem(cloud, c.req.param('id'), document)
+            return c.json(item, 201)
+        })
+    })
+
     app.delete('/:cloud/services/email/inbox', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
