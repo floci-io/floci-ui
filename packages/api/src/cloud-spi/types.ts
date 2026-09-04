@@ -389,6 +389,7 @@ export interface CloudServiceAdapter {
     listSqlTables?(serverId: string, connection: SqlConnectionInput): Promise<SqlTable[]>
     querySql?(serverId: string, connection: SqlConnectionInput, query: string): Promise<SqlQueryResult>
     listNoSqlItems?(resourceId: string): Promise<NoSqlItem[]>
+    putNoSqlItem?(resourceId: string, document: Record<string, unknown>): Promise<NoSqlItem>
     listKubernetesNodegroups?(clusterId: string): Promise<KubernetesNodegroup[]>
     createKubernetesNodegroup?(clusterId: string, input: CreateKubernetesNodegroupInput): Promise<KubernetesNodegroup>
     deleteKubernetesNodegroup?(clusterId: string, nodegroupId: string): Promise<void>

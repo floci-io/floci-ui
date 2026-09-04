@@ -4,12 +4,13 @@ import {
     DeleteTableCommand,
     DescribeTableCommand,
     ListTablesCommand,
+    PutItemCommand,
     ScanCommand,
     type DynamoDBClient,
 } from '@aws-sdk/client-dynamodb'
 import {AwsDynamoDbAdapter} from './AwsDynamoDbAdapter'
 
-type Command = CreateTableCommand | DeleteTableCommand | DescribeTableCommand | ListTablesCommand | ScanCommand
+type Command = CreateTableCommand | DeleteTableCommand | DescribeTableCommand | ListTablesCommand | PutItemCommand | ScanCommand
 
 function fakeClient(send: (command: Command) => Promise<unknown>): DynamoDBClient {
     return {send} as unknown as DynamoDBClient
@@ -247,6 +248,87 @@ describe('AwsDynamoDbAdapter', () => {
 
         expect(result).toHaveLength(100)
         expect(scanCount).toBe(1)
+    })
+
+    test('puts a record using the table key types', async () => {
+        let captured: PutItemCommand | undefined
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {
+                    KeySchema: [
+                        {AttributeName: 'accountId', KeyType: 'HASH'},
+                        {AttributeName: 'sequence', KeyType: 'RANGE'},
+                    ],
+                    AttributeDefinitions: [
+                        {AttributeName: 'accountId', AttributeType: 'S'},
+                        {AttributeName: 'sequence', AttributeType: 'N'},
+                    ],
+                }}
+            }
+            if (command instanceof PutItemCommand) {
+                captured = command
+                return {}
+            }
+            throw new Error('Unexpected command')
+        })
+
+        const result = await new AwsDynamoDbAdapter(client).putNoSqlItem('orders', {
+            accountId: 'acct-1',
+            sequence: '9007199254740993',
+            active: true,
+        })
+
+        expect(captured?.input).toEqual({
+            TableName: 'orders',
+            Item: {
+                accountId: {S: 'acct-1'},
+                sequence: {N: '9007199254740993'},
+                active: {BOOL: true},
+            },
+        })
+        expect(result).toEqual({
+            id: '{"accountId":"acct-1","sequence":"9007199254740993"}',
+            key: {accountId: 'acct-1', sequence: '9007199254740993'},
+            document: {accountId: 'acct-1', sequence: '9007199254740993', active: true},
+        })
+    })
+
+    test('accepts base64 for binary keys', async () => {
+        let captured: PutItemCommand | undefined
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {
+                    KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}],
+                    AttributeDefinitions: [{AttributeName: 'id', AttributeType: 'B'}],
+                }}
+            }
+            captured = command as PutItemCommand
+            return {}
+        })
+
+        const result = await new AwsDynamoDbAdapter(client).putNoSqlItem('blobs', {id: 'aGVsbG8=', name: 'hello'})
+
+        expect(captured?.input.Item?.id.B).toEqual(Buffer.from('hello'))
+        expect(result.key).toEqual({id: 'aGVsbG8='})
+    })
+
+    test('validates required and typed keys before putting a record', async () => {
+        let putCalls = 0
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {
+                    KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}],
+                    AttributeDefinitions: [{AttributeName: 'id', AttributeType: 'N'}],
+                }}
+            }
+            putCalls += 1
+            return {}
+        })
+        const adapter = new AwsDynamoDbAdapter(client)
+
+        await expect(adapter.putNoSqlItem('orders', {})).rejects.toThrow('Key attribute id is required')
+        await expect(adapter.putNoSqlItem('orders', {id: 'not-a-number'})).rejects.toThrow('Key attribute id must be a number')
+        expect(putCalls).toBe(0)
     })
 
     test('returns the AWS DynamoDB schema', () => {

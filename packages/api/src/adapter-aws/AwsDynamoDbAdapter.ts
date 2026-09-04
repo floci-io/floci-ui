@@ -3,6 +3,7 @@ import {
     DeleteTableCommand,
     DescribeTableCommand,
     ListTablesCommand,
+    PutItemCommand,
     ScanCommand,
     type AttributeDefinition,
     type AttributeValue,
@@ -11,8 +12,8 @@ import {
     type ScalarAttributeType,
     type TableDescription,
 } from '@aws-sdk/client-dynamodb'
-import {unmarshall} from '@aws-sdk/util-dynamodb'
-import {ValidationError} from '../cloud-spi/errors'
+import {marshall, unmarshall} from '@aws-sdk/util-dynamodb'
+import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {dynamodb as defaultDynamoDb} from '../aws'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import type {
@@ -104,11 +105,8 @@ export class AwsDynamoDbAdapter implements CloudServiceAdapter {
     }
 
     async listNoSqlItems(resourceId: string): Promise<NoSqlItem[]> {
-        const description = await this.dynamodb.send(new DescribeTableCommand({TableName: resourceId}))
-        if (!description.Table) throw new Error(`DynamoDB did not return a description for table ${resourceId}`)
-        const keyNames = (description.Table.KeySchema ?? [])
-            .map((key) => key.AttributeName)
-            .filter((name): name is string => Boolean(name))
+        const table = await this.describeTable(resourceId)
+        const keyNames = keyAttributes(table).map(({name}) => name)
         const items: NoSqlItem[] = []
         let exclusiveStartKey: Record<string, AttributeValue> | undefined
 
@@ -130,6 +128,25 @@ export class AwsDynamoDbAdapter implements CloudServiceAdapter {
         return items
     }
 
+    async putNoSqlItem(resourceId: string, document: Record<string, unknown>): Promise<NoSqlItem> {
+        if (!document || typeof document !== 'object' || Array.isArray(document)) {
+            throw new ValidationError('Item must be a JSON object.')
+        }
+
+        const table = await this.describeTable(resourceId)
+        const keys = keyAttributes(table)
+        if (keys.length === 0) throw new RuntimeError(`DynamoDB table ${resourceId} has no key schema`)
+        const untypedKey = keys.find(({type}) => !type)
+        if (untypedKey) throw new RuntimeError(`DynamoDB table ${resourceId} has no type definition for key ${untypedKey.name}`)
+
+        const item = marshalDocument(document, keys)
+        await this.dynamodb.send(new PutItemCommand({TableName: resourceId, Item: item}))
+
+        const normalizedDocument = normalizeDocument(unmarshall(item, {wrapNumbers: normalizeNumber}))
+        const key = Object.fromEntries(keys.map(({name}) => [name, normalizedDocument[name]]))
+        return {id: JSON.stringify(key), key, document: normalizedDocument}
+    }
+
     private async listTableNames(): Promise<string[]> {
         const tableNames: string[] = []
         let exclusiveStartTableName: string | undefined
@@ -146,10 +163,72 @@ export class AwsDynamoDbAdapter implements CloudServiceAdapter {
     }
 
     private async describe(tableName: string): Promise<CloudResource> {
-        const response = await this.dynamodb.send(new DescribeTableCommand({TableName: tableName}))
-        if (!response.Table) throw new Error(`DynamoDB did not return a description for table ${tableName}`)
-        return toResource(response.Table)
+        return toResource(await this.describeTable(tableName))
     }
+
+    private async describeTable(tableName: string): Promise<TableDescription> {
+        const response = await this.dynamodb.send(new DescribeTableCommand({TableName: tableName}))
+        if (!response.Table) throw new RuntimeError(`DynamoDB did not return a description for table ${tableName}`)
+        return response.Table
+    }
+}
+
+interface KeyAttribute {
+    name: string
+    type?: ScalarAttributeType
+}
+
+function keyAttributes(table: TableDescription): KeyAttribute[] {
+    const attributeTypes = new Map(
+        (table.AttributeDefinitions ?? [])
+            .filter((definition): definition is AttributeDefinition & {AttributeName: string} => Boolean(definition.AttributeName))
+            .map((definition) => [definition.AttributeName, definition.AttributeType]),
+    )
+    return (table.KeySchema ?? [])
+        .filter((key): key is KeySchemaElement & {AttributeName: string} => Boolean(key.AttributeName))
+        .map((key) => ({name: key.AttributeName, type: attributeTypes.get(key.AttributeName)}))
+}
+
+function marshalDocument(document: Record<string, unknown>, keys: KeyAttribute[]): Record<string, AttributeValue> {
+    for (const {name} of keys) {
+        if (!Object.prototype.hasOwnProperty.call(document, name)) {
+            throw new ValidationError(`Key attribute ${name} is required.`)
+        }
+    }
+
+    let item: Record<string, AttributeValue>
+    try {
+        item = marshall(document)
+    } catch (error) {
+        throw new ValidationError(error instanceof Error ? error.message : 'Item contains a value DynamoDB cannot store.', {cause: error})
+    }
+
+    for (const key of keys) item[key.name] = marshalKey(key, document[key.name])
+    return item
+}
+
+function marshalKey(key: KeyAttribute, value: unknown): AttributeValue {
+    if (key.type === 'N') {
+        const number = typeof value === 'number' || typeof value === 'string' ? String(value) : ''
+        if (!isDynamoNumber(number)) throw new ValidationError(`Key attribute ${key.name} must be a number.`)
+        return {N: number}
+    }
+    if (key.type === 'B') {
+        if (typeof value !== 'string' || !isBase64(value)) {
+            throw new ValidationError(`Binary key attribute ${key.name} must be a non-empty base64 string.`)
+        }
+        return {B: Buffer.from(value, 'base64')}
+    }
+    if (typeof value !== 'string' || !value) throw new ValidationError(`Key attribute ${key.name} must be a non-empty string.`)
+    return {S: value}
+}
+
+function isDynamoNumber(value: string): boolean {
+    return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?$/.test(value)
+}
+
+function isBase64(value: string): boolean {
+    return value.length > 0 && value.length % 4 === 0 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)
 }
 
 function normalizeDocument(document: Record<string, unknown>): Record<string, unknown> {

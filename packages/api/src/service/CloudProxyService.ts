@@ -318,6 +318,12 @@ async invokeResource(
         return adapter.listNoSqlItems(resourceId)
     }
 
+    async putNoSqlItem(cloud: CloudProvider, resourceId: string, document: Record<string, unknown>): Promise<NoSqlItem> {
+        const adapter = this.requireAdapter(cloud, 'nosql')
+        if (!adapter.putNoSqlItem) throw new NotSupportedError(`Item creation is not supported for ${cloud}/nosql`)
+        return adapter.putNoSqlItem(resourceId, document)
+    }
+
     async listKubernetesNodegroups(cloud: CloudProvider, clusterId: string): Promise<KubernetesNodegroup[]> {
         const adapter = this.requireAdapter(cloud, 'k8s')
         if (!adapter.listKubernetesNodegroups) throw new NotSupportedError(`Nodegroups are not supported for ${cloud}/k8s`)

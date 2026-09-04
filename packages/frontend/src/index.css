@@ -3536,6 +3536,49 @@ button.console-service-card {
     justify-content: flex-end;
 }
 
+.record-modal {
+    width: min(640px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    display: grid;
+    gap: 14px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+}
+
+.record-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.record-modal-header h3,
+.record-modal-header p {
+    margin: 0;
+}
+
+.record-modal-header h3 {
+    color: var(--text-bright);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.record-modal-header p {
+    margin-top: 5px;
+    color: var(--text-2);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.record-modal-editor {
+    min-height: 300px;
+    resize: vertical;
+}
+
 /* ─── Shared drawer tabs ─────────────────────────────────────────────────── */
 .sns-tabs {
     display: flex;
