@@ -274,12 +274,14 @@ function TopbarSearch() {
         }
     }, [])
 
-    /** Clear pending debounce when switching views/routes so stale search doesn't overwrite new route. */
+    /** Clear pending debounce and restore draft from destination URL search param on route change. */
     useEffect(() => {
         if (debounceRef.current) {
             clearTimeout(debounceRef.current)
             debounceRef.current = null
         }
+        const urlSearch = searchParams.get('search') ?? ''
+        setDraft(urlSearch)
     }, [location.pathname])
 
     /** Focus on `/` when no other input/textarea/select is active. */
