@@ -12,8 +12,10 @@ import type {
   CosmosContainer,
   CosmosItem,
   CosmosQueryResult,
+  CreateDatabaseSnapshotInput,
   CreateKubernetesFargateProfileInput,
   CreateKubernetesNodegroupInput,
+  DatabaseSnapshot,
   KubernetesFargateProfile,
   KubernetesNodegroup,
   NoSqlItem,
@@ -29,7 +31,7 @@ import { getAccountId } from "@/lib/accountStore";
 
 type CloudPathParams = Record<string, string>;
 
-const AZURE_DATABASE_CREATE_TIMEOUT_MS = 5 * 60_000;
+const DATABASE_MUTATION_TIMEOUT_MS = 5 * 60_000;
 const SQL_DATA_TIMEOUT_MS = 45_000;
 /** Cold starts pull a container image; measured at ~60s on a first invoke. */
 const INVOKE_TIMEOUT_MS = 120_000;
@@ -129,13 +131,32 @@ export async function createCloudResource(
   signal?: AbortSignal,
 ): Promise<CloudResource> {
   const timeout =
-    cloud === "azure" && service === "database"
-      ? AZURE_DATABASE_CREATE_TIMEOUT_MS
+    (cloud === "azure" || cloud === "aws") && service === "database"
+      ? DATABASE_MUTATION_TIMEOUT_MS
       : undefined;
   const res = await apiClient.call<CloudResource, Record<string, unknown>>(
     apiEndpointKeys.clouds.resources.create,
     requestOptions(cloud, service, { signal, body: values, timeout }),
     { cloud, service },
+  );
+  return res.data;
+}
+
+export async function updateCloudResource(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  values: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<CloudResource> {
+  const timeout =
+    (cloud === "azure" || cloud === "aws") && service === "database"
+      ? DATABASE_MUTATION_TIMEOUT_MS
+      : undefined;
+  const res = await apiClient.call<CloudResource, Record<string, unknown>>(
+    apiEndpointKeys.clouds.resources.update,
+    requestOptions(cloud, service, { signal, body: values, timeout }),
+    { cloud, service, id },
   );
   return res.data;
 }
@@ -439,6 +460,51 @@ export async function querySql(
       timeout: SQL_DATA_TIMEOUT_MS,
     }),
     { cloud, id: serverId },
+  );
+  return res.data;
+}
+
+export async function listDatabaseSnapshots(
+  cloud: CloudProvider,
+  instanceIdentifier?: string,
+  signal?: AbortSignal,
+): Promise<DatabaseSnapshot[]> {
+  const res = await apiClient.call<DatabaseSnapshot[]>(
+    apiEndpointKeys.clouds.database.snapshots.list,
+    requestOptions(cloud, "database", {
+      signal,
+      params: instanceIdentifier ? { instanceIdentifier } : undefined,
+    }),
+    { cloud },
+  );
+  return res.data;
+}
+
+export async function createDatabaseSnapshot(
+  cloud: CloudProvider,
+  input: CreateDatabaseSnapshotInput,
+  signal?: AbortSignal,
+): Promise<DatabaseSnapshot> {
+  const res = await apiClient.call<DatabaseSnapshot, CreateDatabaseSnapshotInput>(
+    apiEndpointKeys.clouds.database.snapshots.create,
+    requestOptions(cloud, "database", { signal, body: input }),
+    { cloud },
+  );
+  return res.data;
+}
+
+export async function listDatabaseOrderableClasses(
+  cloud: CloudProvider,
+  engine?: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const res = await apiClient.call<string[]>(
+    apiEndpointKeys.clouds.database.orderableClasses.list,
+    requestOptions(cloud, "database", {
+      signal,
+      params: engine ? { engine } : undefined,
+    }),
+    { cloud },
   );
   return res.data;
 }

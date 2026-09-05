@@ -1,13 +1,14 @@
-import type {CapabilitySchema, CapabilityStatus, KubernetesActionName, ObjectActionName, ResourceActionName} from '@/types/schema'
+import type {CapabilitySchema, CapabilityStatus, DatabaseActionName, KubernetesActionName, ObjectActionName, ResourceActionName} from '@/types/schema'
 import type {CloudAvailability} from '@/types/cloud'
 
-export type CapabilityActionName = ResourceActionName | ObjectActionName | KubernetesActionName
+export type CapabilityActionName = ResourceActionName | ObjectActionName | KubernetesActionName | DatabaseActionName
 export type AnyCapability = CapabilitySchema<CapabilityActionName>
 export type CapabilityInput<TAction extends CapabilityActionName> = CapabilitySchema<TAction> | TAction
 
 const actionLabels: Record<CapabilityActionName, string> = {
     list: 'List',
     create: 'Create',
+    update: 'Update',
     delete: 'Delete',
     inspect: 'Inspect',
     upload: 'Upload',
@@ -19,6 +20,8 @@ const actionLabels: Record<CapabilityActionName, string> = {
     stop: 'Stop',
     reboot: 'Reboot',
     updateTags: 'Edit tags',
+    listSnapshots: 'List DB snapshots',
+    createSnapshot: 'Create DB snapshot',
     listNodegroups: 'List nodegroups',
     createNodegroup: 'Create nodegroup',
     deleteNodegroup: 'Delete nodegroup',

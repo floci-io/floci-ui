@@ -1,28 +1,39 @@
-import {FormEvent, useEffect, useState} from 'react'
+import {FormEvent, useState} from 'react'
 import {Plus} from 'lucide-react'
 import type {FieldSchema, ServiceSchema} from '@/types/schema'
 
 interface DynamicFormRendererProps {
     schema: ServiceSchema
+    fields?: FieldSchema[]
+    initialValues?: Record<string, unknown>
     isSubmitting: boolean
     submitLabel?: string
     pendingLabel?: string
     submitError?: string | null
+    onCancel?: () => void
     onSubmit: (values: Record<string, unknown>) => void
 }
 
-export function DynamicFormRenderer({schema, isSubmitting, submitLabel = 'Create', pendingLabel = 'Creating', submitError, onSubmit}: DynamicFormRendererProps) {
-    const [values, setValues] = useState<Record<string, string>>({})
+export function DynamicFormRenderer({
+    schema,
+    fields,
+    initialValues,
+    isSubmitting,
+    submitLabel = 'Create',
+    pendingLabel = 'Creating',
+    submitError,
+    onCancel,
+    onSubmit,
+}: DynamicFormRendererProps) {
+    const activeFields = fields ?? schema.fields
+    const [values, setValues] = useState<Record<string, string>>(() =>
+        getInitialFormValues(activeFields, initialValues),
+    )
     const [errors, setErrors] = useState<Record<string, string>>({})
-
-    useEffect(() => {
-        setValues(defaultValues(schema.fields))
-        setErrors({})
-    }, [schema])
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
-        const nextErrors = validateValues(schema.fields, values)
+        const nextErrors = validateValues(activeFields, values)
         setErrors(nextErrors)
         if (Object.keys(nextErrors).length > 0) return
         onSubmit(values)
@@ -30,7 +41,7 @@ export function DynamicFormRenderer({schema, isSubmitting, submitLabel = 'Create
 
     return (
         <form className="dynamic-form" onSubmit={submit} noValidate>
-            {schema.fields.map((field) => (
+            {activeFields.map((field) => (
                 <FieldRow
                     key={field.name}
                     field={field}
@@ -48,10 +59,17 @@ export function DynamicFormRenderer({schema, isSubmitting, submitLabel = 'Create
                     }}
                 />
             ))}
-            <button className="button primary" type="submit" disabled={isSubmitting}>
-                <Plus size={14}/>
-                {isSubmitting ? pendingLabel : submitLabel}
-            </button>
+            <div style={{gridColumn: '1 / -1', justifySelf: 'end', display: 'flex', gap: '8px', alignItems: 'center', marginTop: 4}}>
+                {onCancel && (
+                    <button className="button" type="button" disabled={isSubmitting} onClick={onCancel}>
+                        Cancel
+                    </button>
+                )}
+                <button className="button primary" type="submit" disabled={isSubmitting}>
+                    {submitLabel === 'Create' && <Plus size={14}/>}
+                    {isSubmitting ? pendingLabel : submitLabel}
+                </button>
+            </div>
             {submitError && <div className="form-error" role="alert">{submitError}</div>}
         </form>
     )
@@ -122,6 +140,21 @@ function FieldInput({field, required, maxLength, value, invalid, messageId, onCh
             placeholder={field.label}
         />
     )
+}
+
+function getInitialFormValues(
+    fields: FieldSchema[],
+    initialValues?: Record<string, unknown>,
+): Record<string, string> {
+    const defaults = defaultValues(fields)
+    if (initialValues) {
+        for (const [key, val] of Object.entries(initialValues)) {
+            if (val !== undefined && val !== null) {
+                defaults[key] = String(val)
+            }
+        }
+    }
+    return defaults
 }
 
 function defaultValues(fields: FieldSchema[]): Record<string, string> {

@@ -75,6 +75,7 @@ export interface FieldSchema {
     description?: string
     group?: string
     span?: boolean
+    valuePath?: string
     defaultValue?: string
     validation?: {
         pattern?: string
@@ -90,10 +91,11 @@ export interface FieldSchema {
  * generic view renders; `ResourceActionName` additionally covers lifecycle verbs
  * that a capability block can describe but that are not table-level controls.
  */
-export type ActionSchema = 'list' | 'create' | 'delete' | 'inspect'
+export type ActionSchema = 'list' | 'create' | 'update' | 'delete' | 'inspect'
 export type ResourceActionName =
     | 'list'
     | 'create'
+    | 'update'
     | 'delete'
     | 'inspect'
     | 'invoke'
@@ -102,6 +104,7 @@ export type ResourceActionName =
     | 'reboot'
     | 'updateTags'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
+export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'
 export type KubernetesActionName =
     | 'listNodegroups'
     | 'createNodegroup'
@@ -150,10 +153,12 @@ export interface ServiceSchema {
     capabilities?: {
         resourceActions?: CapabilitySchema<ResourceActionName>[]
         objectActions?: CapabilitySchema<ObjectActionName>[]
+        databaseActions?: CapabilitySchema<DatabaseActionName>[]
         kubernetesActions?: CapabilitySchema<KubernetesActionName>[]
     }
     filters: FieldSchema[]
     columns: TableColumnSchema[]
+    updateFields?: FieldSchema[]
 }
 
 export type KnownResourceType =
@@ -177,6 +182,22 @@ export interface CloudResource {
     engine?: string | null
     instanceClass?: string | null
     metadata: Record<string, unknown>
+}
+
+export interface DatabaseSnapshot {
+    id: string
+    name: string
+    instanceIdentifier: string | null
+    status: string | null
+    engine: string | null
+    version: string | null
+    createdAt: string | null
+    metadata: Record<string, unknown>
+}
+
+export interface CreateDatabaseSnapshotInput {
+    instanceIdentifier: string
+    snapshotIdentifier: string
 }
 
 export interface StorageObject {
@@ -329,6 +350,10 @@ export interface ResourceQuery {
 export interface CreateResourceInput {
     values: Record<string, unknown>
 }
+
+export interface UpdateResourceInput {
+    values: Record<string, unknown>
+}
 export interface ServerlessInvokeResult {
     statusCode: number
     payload: string
@@ -359,11 +384,15 @@ export interface CloudServiceAdapter {
     list(query?: ResourceQuery): Promise<CloudResource[]>
     get(id: string): Promise<CloudResource | null>
     create(input: CreateResourceInput): Promise<CloudResource>
+    update?(id: string, input: UpdateResourceInput): Promise<CloudResource>
     delete(id: string): Promise<void>
     listObjects?(resourceId: string, prefix?: string): Promise<StorageObjectList>
     putObject?(resourceId: string, key: string, body: Uint8Array, contentType: string): Promise<void>
     getObject?(resourceId: string, key: string): Promise<StorageObjectDownload>
     deleteObject?(resourceId: string, key: string): Promise<void>
+    listDatabaseSnapshots?(instanceIdentifier?: string): Promise<DatabaseSnapshot[]>
+    createDatabaseSnapshot?(input: CreateDatabaseSnapshotInput): Promise<DatabaseSnapshot>
+    listDatabaseOrderableInstanceClasses?(engine?: string): Promise<string[]>
     invoke?(id: string, payload: string): Promise<ServerlessInvokeResult>
     // Lifecycle verbs. Optional because most categories have no notion of them;
     // an adapter that advertises one in `capabilities` must implement it, which

@@ -1,17 +1,23 @@
-import {NotSupportedError} from '../cloud-spi/errors'
-import {ListTagsForResourceCommand, type RDSClient} from '@aws-sdk/client-rds'
+import {ValidationError} from '../cloud-spi/errors'
+import {ListTagsForResourceCommand, type ModifyDBInstanceCommandInput, type RDSClient} from '@aws-sdk/client-rds'
 import {rds as defaultRds} from '../aws'
 import {awsDatabaseSchema} from '../cloud-spi/databaseSchema'
 import type {
     CloudResource,
     CloudServiceAdapter,
+    CreateDatabaseSnapshotInput,
     CreateResourceInput,
+    DatabaseSnapshot,
     ResourceQuery,
     ServiceSchema,
+    UpdateResourceInput,
 } from '../cloud-spi/types'
-import {rdsService, type RdsInstance} from '../services/rds'
+import {rdsService, type RdsInstance, type RdsSnapshot} from '../services/rds'
 
-type RdsServiceShape = Pick<typeof rdsService, 'listInstances' | 'describeInstance'>
+type RdsServiceShape = Pick<
+    typeof rdsService,
+    'listInstances' | 'describeInstance' | 'createInstance' | 'modifyInstance' | 'deleteInstance' | 'listSnapshots' | 'createSnapshot' | 'listOrderableInstanceClasses'
+>
 
 export class AwsDatabaseAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
@@ -41,46 +47,134 @@ export class AwsDatabaseAdapter implements CloudServiceAdapter {
         }
     }
 
-    async create(_input: CreateResourceInput): Promise<CloudResource> {
-        throw new NotSupportedError('Database creation is not supported from the dynamic Cloud Explorer.')
+    async create(input: CreateResourceInput): Promise<CloudResource> {
+        const values = input.values
+        const dbInstanceIdentifier = instanceIdentifier(values.dbInstanceIdentifier)
+        const engine = databaseEngine(values.engine)
+        const masterUserPassword = password(values.masterUserPassword)
+        const dbInstanceClass = stringValue(values.dbInstanceClass) || 'db.t3.micro'
+        const allocatedStorage = storageSize(values.allocatedStorage)
+        const masterUsername = stringValue(values.masterUsername) || 'root'
+        const dbName = stringValue(values.dbName) || undefined
+        const engineVersion = stringValue(values.engineVersion) || undefined
+        const vpcSecurityGroupIds = securityGroupIds(values.securityGroupIds ?? values.vpcSecurityGroupIds)
+
+        const instance = await this.rdsService_.createInstance({
+            DBInstanceIdentifier: dbInstanceIdentifier,
+            Engine: engine,
+            MasterUserPassword: masterUserPassword,
+            DBInstanceClass: dbInstanceClass,
+            AllocatedStorage: allocatedStorage,
+            MasterUsername: masterUsername,
+            DBName: dbName,
+            EngineVersion: engineVersion,
+            VpcSecurityGroupIds: vpcSecurityGroupIds,
+        })
+        return this.toResource(instance)
     }
 
-    async delete(_id: string): Promise<void> {
-        throw new NotSupportedError('Database deletion is not supported from the dynamic Cloud Explorer.')
+    async update(id: string, input: UpdateResourceInput): Promise<CloudResource> {
+        const values = input.values ?? {}
+        const MasterUserPassword = optionalPassword(values.masterUserPassword)
+        const EnableIAMDatabaseAuthentication = optionalBoolean(
+            values.enableIamDatabaseAuthentication,
+            'enableIamDatabaseAuthentication',
+        )
+        const DBSubnetGroupName = optionalString(values.dbSubnetGroupName)
+        const VpcSecurityGroupIds = optionalCsvList(values.vpcSecurityGroupIds)
+        const OptionGroupName = optionalString(values.optionGroupName)
+        const AutoMinorVersionUpgrade = optionalBoolean(
+            values.autoMinorVersionUpgrade,
+            'autoMinorVersionUpgrade',
+        )
+
+        const hasAnyUpdate =
+            MasterUserPassword !== undefined ||
+            EnableIAMDatabaseAuthentication !== undefined ||
+            DBSubnetGroupName !== undefined ||
+            VpcSecurityGroupIds !== undefined ||
+            OptionGroupName !== undefined ||
+            AutoMinorVersionUpgrade !== undefined
+
+        if (!hasAnyUpdate) {
+            throw new ValidationError('At least one supported field must be updated')
+        }
+
+        const modifyInput: ModifyDBInstanceCommandInput = {
+            DBInstanceIdentifier: id,
+            ...(MasterUserPassword !== undefined && {MasterUserPassword}),
+            ...(EnableIAMDatabaseAuthentication !== undefined && {EnableIAMDatabaseAuthentication}),
+            ...(DBSubnetGroupName !== undefined && {DBSubnetGroupName}),
+            ...(VpcSecurityGroupIds !== undefined && {VpcSecurityGroupIds}),
+            ...(OptionGroupName !== undefined && {OptionGroupName}),
+            ...(AutoMinorVersionUpgrade !== undefined && {AutoMinorVersionUpgrade}),
+        }
+
+        const updated = await this.rdsService_.modifyInstance(modifyInput)
+        return this.toResource(updated)
+    }
+
+    async delete(id: string): Promise<void> {
+        await this.rdsService_.deleteInstance(id)
+    }
+
+    async listDatabaseSnapshots(instanceIdentifier?: string): Promise<DatabaseSnapshot[]> {
+        const normalizedIdentifier = stringValue(instanceIdentifier) || undefined
+        return (await this.rdsService_.listSnapshots(normalizedIdentifier)).map(snapshotToDatabaseSnapshot)
+    }
+
+    async createDatabaseSnapshot(input: CreateDatabaseSnapshotInput): Promise<DatabaseSnapshot> {
+        const sourceIdentifier = instanceIdentifier(input.instanceIdentifier)
+        const snapshotIdentifier = databaseSnapshotIdentifier(input.snapshotIdentifier)
+        return snapshotToDatabaseSnapshot(
+            await this.rdsService_.createSnapshot(sourceIdentifier, snapshotIdentifier),
+        )
+    }
+
+    async listDatabaseOrderableInstanceClasses(engine?: string): Promise<string[]> {
+        const normalizedEngine = stringValue(engine) || 'postgres'
+        return await this.rdsService_.listOrderableInstanceClasses(normalizedEngine)
     }
 
     private async toResource(instance: RdsInstance): Promise<CloudResource> {
         const tags = instance.arn ? await this.getTags(instance.arn) : []
+        const vpcSecurityGroupIds = (instance.vpcSecurityGroups ?? [])
+            .map((group) => group.id)
+            .filter((id): id is string => Boolean(id))
+            .join(', ')
 
         return {
-        id: instance.identifier,
-        name: instance.identifier,
-        cloud: 'aws',
-        service: 'database',
-        type: 'db-instance',
-        region: instance.availabilityZone ?? null,
-        createdAt: instance.createdAt ?? null,
-        status: instance.status ?? null,
-        version: instance.engineVersion ?? null,
-        engine: instance.engine ?? null,
-        instanceClass: instance.instanceClass ?? null,
-        metadata: {
-            arn: instance.arn,
-            resourceId: instance.resourceId,
-            dbName: instance.dbName,
-            masterUsername: instance.masterUsername,
-            allocatedStorage: instance.allocatedStorage,
-            storageType: instance.storageType,
-            endpoint: instance.endpoint,
-            multiAz: instance.multiAz,
-            publiclyAccessible: instance.publiclyAccessible,
-            iamDatabaseAuthenticationEnabled: instance.iamDatabaseAuthenticationEnabled,
-            preferredBackupWindow: instance.preferredBackupWindow,
-            preferredMaintenanceWindow: instance.preferredMaintenanceWindow,
-            vpcSecurityGroups: instance.vpcSecurityGroups,
-            subnetGroup: instance.subnetGroup,
-            tags,
-        },
+            id: instance.identifier,
+            name: instance.identifier,
+            cloud: 'aws',
+            service: 'database',
+            type: 'db-instance',
+            region: instance.availabilityZone ?? null,
+            createdAt: instance.createdAt ?? null,
+            status: instance.status ?? null,
+            version: instance.engineVersion ?? null,
+            engine: instance.engine ?? null,
+            instanceClass: instance.instanceClass ?? null,
+            metadata: {
+                arn: instance.arn,
+                resourceId: instance.resourceId,
+                dbName: instance.dbName,
+                masterUsername: instance.masterUsername,
+                allocatedStorage: instance.allocatedStorage,
+                storageType: instance.storageType,
+                endpoint: instance.endpoint,
+                multiAz: instance.multiAz,
+                publiclyAccessible: instance.publiclyAccessible,
+                iamDatabaseAuthenticationEnabled: instance.iamDatabaseAuthenticationEnabled,
+                preferredBackupWindow: instance.preferredBackupWindow,
+                preferredMaintenanceWindow: instance.preferredMaintenanceWindow,
+                vpcSecurityGroups: instance.vpcSecurityGroups,
+                vpcSecurityGroupIds,
+                subnetGroup: instance.subnetGroup,
+                optionGroupName: instance.optionGroupName,
+                autoMinorVersionUpgrade: instance.autoMinorVersionUpgrade,
+                tags,
+            },
         }
     }
 
@@ -98,6 +192,91 @@ export class AwsDatabaseAdapter implements CloudServiceAdapter {
     }
 }
 
+const INSTANCE_IDENTIFIER_PATTERN = /^(?!.*--)[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+const SNAPSHOT_IDENTIFIER_PATTERN = /^(?!.*--)[A-Za-z](?:[A-Za-z0-9-]{0,253}[A-Za-z0-9])?$/
+
+function instanceIdentifier(value: unknown): string {
+    const identifier = stringValue(value)
+    if (!INSTANCE_IDENTIFIER_PATTERN.test(identifier)) {
+        throw new ValidationError('dbInstanceIdentifier must be 1-63 lowercase letters, numbers, or hyphens, begin with a letter, and not end with or repeat a hyphen')
+    }
+    return identifier
+}
+
+function databaseSnapshotIdentifier(value: unknown): string {
+    const identifier = stringValue(value)
+    if (!SNAPSHOT_IDENTIFIER_PATTERN.test(identifier)) {
+        throw new ValidationError('snapshotIdentifier must be 1-255 letters, numbers, or hyphens, begin with a letter, and not end with or repeat a hyphen')
+    }
+    return identifier
+}
+
+function databaseEngine(value: unknown): 'postgres' | 'mysql' | 'mariadb' {
+    const engine = stringValue(value)
+    if (engine === 'postgres' || engine === 'mysql' || engine === 'mariadb') return engine
+    throw new ValidationError('engine must be postgres, mysql, or mariadb')
+}
+
+function password(value: unknown): string {
+    if (typeof value !== 'string' || value.length < 8 || value.length > 128) {
+        throw new ValidationError('masterUserPassword must be 8-128 characters')
+    }
+    return value
+}
+
+function storageSize(value: unknown): number {
+    if (value === undefined || (typeof value === 'string' && !value.trim())) return 20
+
+    const normalized = typeof value === 'string' ? value.trim() : value
+    const hasValidSyntax = typeof normalized === 'number'
+        || (typeof normalized === 'string' && /^[1-9][0-9]*$/.test(normalized))
+    if (!hasValidSyntax) {
+        throw new ValidationError('allocatedStorage must be a positive integer')
+    }
+
+    const storage = Number(normalized)
+    if (!Number.isSafeInteger(storage) || storage <= 0) {
+        throw new ValidationError('allocatedStorage must be a positive integer')
+    }
+    return storage
+}
+
+function stringValue(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : ''
+}
+
+function securityGroupIds(value: unknown): string[] | undefined {
+    if (Array.isArray(value)) {
+        const list = value.map(stringValue).filter(Boolean)
+        return list.length > 0 ? list : undefined
+    }
+    if (typeof value === 'string') {
+        const list = value.split(',').map((s) => s.trim()).filter(Boolean)
+        return list.length > 0 ? list : undefined
+    }
+    return undefined
+}
+
+function snapshotToDatabaseSnapshot(snapshot: RdsSnapshot): DatabaseSnapshot {
+    return {
+        id: snapshot.identifier,
+        name: snapshot.identifier,
+        instanceIdentifier: snapshot.instanceIdentifier ?? null,
+        status: snapshot.status ?? null,
+        engine: snapshot.engine ?? null,
+        version: snapshot.engineVersion ?? null,
+        createdAt: snapshot.createdAt ?? null,
+        metadata: {
+            arn: snapshot.arn,
+            allocatedStorage: snapshot.allocatedStorage,
+            snapshotType: snapshot.snapshotType,
+            port: snapshot.port,
+            availabilityZone: snapshot.availabilityZone,
+            vpcId: snapshot.vpcId,
+        },
+    }
+}
+
 function filterBySearch(resources: CloudResource[], search?: string): CloudResource[] {
     const normalized = search?.trim().toLowerCase()
     if (!normalized) return resources
@@ -108,4 +287,44 @@ function hasHttpStatus(error: unknown, status: number): boolean {
     if (typeof error !== 'object' || error === null) return false
     const metadata = (error as {$metadata?: {httpStatusCode?: number}}).$metadata
     return metadata?.httpStatusCode === status
+}
+
+function optionalPassword(value: unknown): string | undefined {
+    if (value === undefined || value === null) return undefined
+    const str = String(value)
+    if (str === '') return undefined
+    if (str.length < 8 || str.length > 128) {
+        throw new ValidationError('masterUserPassword must be between 8 and 128 characters')
+    }
+    return str
+}
+
+function optionalBoolean(value: unknown, fieldName: string): boolean | undefined {
+    if (value === undefined || value === null) return undefined
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        if (trimmed === '') return undefined
+        if (trimmed === 'true') return true
+        if (trimmed === 'false') return false
+    }
+    throw new ValidationError(`${fieldName} must be a boolean (true or false)`)
+}
+
+function optionalString(value: unknown): string | undefined {
+    if (value === undefined || value === null) return undefined
+    const trimmed = String(value).trim()
+    return trimmed === '' ? undefined : trimmed
+}
+
+function optionalCsvList(value: unknown): string[] | undefined {
+    if (value === undefined || value === null) return undefined
+    if (Array.isArray(value)) {
+        const items = value.map((v) => String(v).trim()).filter(Boolean)
+        return items.length > 0 ? items : undefined
+    }
+    const str = String(value).trim()
+    if (!str) return undefined
+    const items = str.split(',').map((s) => s.trim()).filter(Boolean)
+    return items.length > 0 ? items : undefined
 }

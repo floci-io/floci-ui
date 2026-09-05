@@ -1,6 +1,11 @@
 import {Hono} from 'hono'
 import type {Context} from 'hono'
-import type {CloudProvider, CloudServiceType, SqlConnectionInput} from '../cloud-spi/types'
+import type {
+    CloudProvider,
+    CloudServiceType,
+    CreateDatabaseSnapshotInput,
+    SqlConnectionInput,
+} from '../cloud-spi/types'
 import {toHttpError} from '../cloud-spi/errors'
 import {isServiceType} from '../cloud-spi/serviceCatalog'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
@@ -53,6 +58,37 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         }
 
         return c.json(schema)
+    })
+
+    app.get('/:cloud/services/database/snapshots', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const snapshots = await svc(c).listDatabaseSnapshots(cloud, c.req.query('instanceIdentifier'))
+            return c.json(snapshots)
+        })
+    })
+
+    app.post('/:cloud/services/database/snapshots', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const input = await c.req.json<CreateDatabaseSnapshotInput>()
+            const snapshot = await svc(c).createDatabaseSnapshot(cloud, input)
+            return c.json(snapshot, 201)
+        })
+    })
+
+    app.get('/:cloud/services/database/orderable-classes', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const classes = await svc(c).listDatabaseOrderableInstanceClasses(cloud, c.req.query('engine'))
+            return c.json(classes)
+        })
     })
 
     app.get('/:cloud/services/:service/resources', async (c) => {
@@ -365,6 +401,18 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
             const values = await c.req.json<Record<string, unknown>>()
             const resource = await svc(c).createResource(cloud, serviceType, {values})
             return c.json(resource, 201)
+        })
+    })
+
+    app.patch('/:cloud/services/:service/resources/:id', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) return c.json({error: 'Unknown cloud or service'}, 404)
+
+        return withRuntime(c, async () => {
+            const values = await c.req.json<Record<string, unknown>>()
+            const resource = await svc(c).updateResource(cloud, serviceType, c.req.param('id'), {values})
+            return c.json(resource, 200)
         })
     })
 

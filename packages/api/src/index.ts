@@ -4,7 +4,6 @@ import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import eks from "./routes/eks";
-import rds from "./routes/rds";
 import ec2 from "./routes/ec2";
 import secretsmanager from "./routes/secretsmanager";
 import clouds from "./routes/clouds";
@@ -42,7 +41,6 @@ app.use(
 app.use("*", logger());
 
 app.route("/api/eks", eks);
-app.route("/api/rds", rds);
 app.route("/api/ec2", ec2);
 app.route("/api/secretsmanager", secretsmanager);
 app.route("/api/clouds", clouds);

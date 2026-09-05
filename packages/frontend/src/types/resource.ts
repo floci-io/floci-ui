@@ -23,6 +23,22 @@ export interface CloudResource {
     metadata: Record<string, unknown>
 }
 
+export interface DatabaseSnapshot {
+    id: string
+    name: string
+    instanceIdentifier: string | null
+    status: string | null
+    engine: string | null
+    version: string | null
+    createdAt: string | null
+    metadata: Record<string, unknown>
+}
+
+export interface CreateDatabaseSnapshotInput {
+    instanceIdentifier: string
+    snapshotIdentifier: string
+}
+
 export interface StorageObject {
     key: string
     name: string
