@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -56,7 +57,8 @@ export function DynamicResourceView({
   onOpenInfo,
 }: DynamicResourceViewProps) {
   const qc = useQueryClient();
-  const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const search = searchParams.get("search") ?? "";
   const [selected, setSelected] = useState<CloudResource | undefined>();
   const [selectedObject, setSelectedObject] = useState<
     StorageObject | undefined
@@ -121,7 +123,6 @@ export function DynamicResourceView({
     setSelectedObject(undefined);
     setCreateOpen(false);
     setClearConfirm(false);
-    setSearch("");
   }, [cloud, service]);
 
   useEffect(() => {
@@ -225,7 +226,21 @@ export function DynamicResourceView({
                 <input
                   className="input"
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSearchParams(
+                      (prev) => {
+                        const next = new URLSearchParams(prev);
+                        if (value) {
+                          next.set("search", value);
+                        } else {
+                          next.delete("search");
+                        }
+                        return next;
+                      },
+                      { replace: true }
+                    );
+                  }}
                   placeholder="Filter resources"
                 />
                 {service === "email" && (
