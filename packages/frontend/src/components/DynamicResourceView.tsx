@@ -57,7 +57,7 @@ export function DynamicResourceView({
   onOpenInfo,
 }: DynamicResourceViewProps) {
   const qc = useQueryClient();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get("search") ?? "";
   const [selected, setSelected] = useState<CloudResource | undefined>();
   const [selectedObject, setSelectedObject] = useState<
@@ -226,7 +226,21 @@ export function DynamicResourceView({
                 <input
                   className="input"
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSearchParams(
+                      (prev) => {
+                        const next = new URLSearchParams(prev);
+                        if (value) {
+                          next.set("search", value);
+                        } else {
+                          next.delete("search");
+                        }
+                        return next;
+                      },
+                      { replace: true }
+                    );
+                  }}
                   placeholder="Filter resources"
                 />
                 {service === "email" && (

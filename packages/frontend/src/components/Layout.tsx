@@ -223,6 +223,7 @@ export function Layout() {
  * matching the keyboard hint shown in the widget.
  */
 function TopbarSearch() {
+    const location = useLocation()
     const [searchParams, setSearchParams] = useSearchParams()
     const initialQuery = searchParams.get('search') ?? ''
     const [draft, setDraft] = useState(initialQuery)
@@ -273,6 +274,14 @@ function TopbarSearch() {
         }
     }, [])
 
+    /** Clear pending debounce when switching views/routes so stale search doesn't overwrite new route. */
+    useEffect(() => {
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current)
+            debounceRef.current = null
+        }
+    }, [location.pathname])
+
     /** Focus on `/` when no other input/textarea/select is active. */
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -286,10 +295,19 @@ function TopbarSearch() {
         return () => window.removeEventListener('keydown', onKeyDown)
     }, [])
 
-    /** Keep local draft in sync if the param changes externally (e.g. nav). */
+    /** Keep local draft in sync if the param changes externally (e.g. nav, browser history). */
     useEffect(() => {
         const external = searchParams.get('search') ?? ''
-        setDraft((prev) => (prev === external ? prev : external))
+        setDraft((prev) => {
+            if (prev !== external) {
+                if (debounceRef.current) {
+                    clearTimeout(debounceRef.current)
+                    debounceRef.current = null
+                }
+                return external
+            }
+            return prev
+        })
     }, [searchParams])
 
     return (
