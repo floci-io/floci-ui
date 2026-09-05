@@ -1,13 +1,24 @@
 import {describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
 import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
-import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
+import {awsDatabaseSchema, azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
-import type {CloudProvider, CloudResource, CloudServiceAdapter, CosmosContainer, CosmosItem, CosmosQueryResult, CreateResourceInput, NoSqlItem} from '../cloud-spi/types'
+import type {
+    CloudProvider,
+    CloudResource,
+    CloudServiceAdapter,
+    CosmosContainer,
+    CosmosItem,
+    CosmosQueryResult,
+    CreateDatabaseSnapshotInput,
+    CreateResourceInput,
+    DatabaseSnapshot,
+    NoSqlItem,
+} from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
 import type {RuntimeProbe} from '../service/runtimeProbe'
@@ -71,6 +82,151 @@ function appWithRoutes(
     app.route('/api/clouds', createCloudRoutes(new CloudProxyService(registry, probes)))
     return app
 }
+
+const databaseSnapshot: DatabaseSnapshot = {
+    id: 'orders-db-snapshot-1',
+    name: 'orders-db-snapshot-1',
+    instanceIdentifier: 'orders-db',
+    status: 'available',
+    engine: 'postgres',
+    version: '16.4',
+    createdAt: '2026-08-14T09:30:00.000Z',
+    metadata: {snapshotType: 'manual'},
+}
+
+describe('database snapshot routes', () => {
+    test('lists snapshots with the exact optional instance filter', async () => {
+        let delegatedIdentifier: string | undefined
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'database',
+            schema: awsDatabaseSchema,
+            listDatabaseSnapshots: async (instanceIdentifier) => {
+                delegatedIdentifier = instanceIdentifier
+                return [databaseSnapshot]
+            },
+        })])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/database/snapshots?instanceIdentifier=orders-db',
+        )
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual([databaseSnapshot])
+        expect(delegatedIdentifier).toBe('orders-db')
+    })
+
+    test('creates a snapshot with the raw two-field input', async () => {
+        let delegatedInput: CreateDatabaseSnapshotInput | undefined
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'database',
+            schema: awsDatabaseSchema,
+            createDatabaseSnapshot: async (input) => {
+                delegatedInput = input
+                return databaseSnapshot
+            },
+        })])
+        const input = {
+            instanceIdentifier: 'orders-db',
+            snapshotIdentifier: 'orders-db-snapshot-1',
+        }
+
+        const res = await app.request('/api/clouds/aws/services/database/snapshots', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify(input),
+        })
+
+        expect(res.status).toBe(201)
+        expect(await res.json()).toEqual(databaseSnapshot)
+        expect(delegatedInput).toEqual(input)
+    })
+
+    test('returns 501 when the database adapter lacks either snapshot method', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'database',
+            schema: awsDatabaseSchema,
+        })])
+
+        const listRes = await app.request('/api/clouds/aws/services/database/snapshots')
+        const createRes = await app.request('/api/clouds/aws/services/database/snapshots', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({
+                instanceIdentifier: 'orders-db',
+                snapshotIdentifier: 'orders-db-snapshot-1',
+            }),
+        })
+
+        expect(listRes.status).toBe(501)
+        expect((await listRes.json()).code).toBe('operation_not_supported')
+        expect(createRes.status).toBe(501)
+        expect((await createRes.json()).code).toBe('operation_not_supported')
+    })
+
+    test('maps adapter snapshot validation errors to 400', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'database',
+            schema: awsDatabaseSchema,
+            createDatabaseSnapshot: async () => {
+                throw new ValidationError('snapshotIdentifier is required')
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/database/snapshots', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({instanceIdentifier: 'orders-db', snapshotIdentifier: ''}),
+        })
+        expect(res.status).toBe(400)
+        const body = await res.json()
+
+        expect(body).toMatchObject({
+            code: 'invalid_request',
+            message: 'snapshotIdentifier is required',
+        })
+    })
+
+    test('maps AWS UnsupportedOperation snapshot errors through the shared mapper', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'database',
+            schema: awsDatabaseSchema,
+            listDatabaseSnapshots: async () => {
+                throw Object.assign(new Error('RDS snapshots are unavailable'), {
+                    name: 'UnsupportedOperation',
+                    $fault: 'client',
+                    $metadata: {httpStatusCode: 500},
+                })
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/database/snapshots')
+        expect(res.status).toBe(501)
+        const body = await res.json()
+
+        expect(body.code).toBe('operation_not_implemented')
+        expect(body.detail).toBe('RDS snapshots are unavailable')
+    })
+
+    test('lists orderable instance classes with engine filter', async () => {
+        let delegatedEngine: string | undefined
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'database',
+            schema: awsDatabaseSchema,
+            listDatabaseOrderableInstanceClasses: async (engine) => {
+                delegatedEngine = engine
+                return ['db.t3.micro', 'db.m8g.large']
+            },
+        })])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/database/orderable-classes?engine=postgres',
+        )
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual(['db.t3.micro', 'db.m8g.large'])
+        expect(delegatedEngine).toBe('postgres')
+    })
+})
 
 describe('cloud schema routes', () => {
     test('returns AWS storage schema', async () => {

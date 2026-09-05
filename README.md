@@ -56,7 +56,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Compute | EKS / AKS / GKE | Yes (list, inspect) | No | Yes (list, create, inspect, delete) |
 | Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
-| Databases | Database | Yes (list, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
+| Databases | Database | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No |
 | Networking | Networking | Yes (list) | No | No |
 | Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No |
@@ -134,12 +134,15 @@ Current gaps:
 <details>
 <summary><strong>Database</strong></summary>
 
-Two different database models are currently exposed under one category:
+Relational and document database workflows across providers:
 
-- AWS RDS: list and inspect oriented.
+- AWS RDS: list, inspect, create, and delete DB instances (PostgreSQL, MySQL, MariaDB) with provider defaults (class `db.t3.micro`, storage 20 GB, username `root`).
+- AWS RDS Snapshots: account-scoped Snapshots tab listing DB snapshots and supporting snapshot creation.
 - Azure Cosmos DB NoSQL: database, container, and document workflows.
+- Azure SQL and PostgreSQL Flexible Server: instance management and SQL query editor.
+- GCP Cloud SQL: list, inspect, create, and delete database instances.
 
-Cosmos DB currently includes:
+Cosmos DB includes:
 
 - List, create, and delete databases.
 - List, create, and delete containers.
@@ -148,8 +151,8 @@ Cosmos DB currently includes:
 
 Current gaps:
 
-- No unified cross-provider database contract beyond the shared category shell.
-- No GCP database adapter yet.
+- AWS RDS snapshot creation: the Cloud Proxy operation is available, but the current Floci runtime does not implement `CreateDBSnapshot` (returns a typed 501 `operation_not_implemented`). Snapshot listing returns a valid empty list.
+- AWS RDS instance stop/start and update operations are not implemented in the current local Floci runtime.
 - AWS DynamoDB is not rebuilt into the new Cloud Explorer model yet.
 
 </details>

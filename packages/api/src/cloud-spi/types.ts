@@ -102,6 +102,7 @@ export type ResourceActionName =
     | 'reboot'
     | 'updateTags'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
+export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'
 export type KubernetesActionName =
     | 'listNodegroups'
     | 'createNodegroup'
@@ -150,6 +151,7 @@ export interface ServiceSchema {
     capabilities?: {
         resourceActions?: CapabilitySchema<ResourceActionName>[]
         objectActions?: CapabilitySchema<ObjectActionName>[]
+        databaseActions?: CapabilitySchema<DatabaseActionName>[]
         kubernetesActions?: CapabilitySchema<KubernetesActionName>[]
     }
     filters: FieldSchema[]
@@ -177,6 +179,22 @@ export interface CloudResource {
     engine?: string | null
     instanceClass?: string | null
     metadata: Record<string, unknown>
+}
+
+export interface DatabaseSnapshot {
+    id: string
+    name: string
+    instanceIdentifier: string | null
+    status: string | null
+    engine: string | null
+    version: string | null
+    createdAt: string | null
+    metadata: Record<string, unknown>
+}
+
+export interface CreateDatabaseSnapshotInput {
+    instanceIdentifier: string
+    snapshotIdentifier: string
 }
 
 export interface StorageObject {
@@ -364,6 +382,9 @@ export interface CloudServiceAdapter {
     putObject?(resourceId: string, key: string, body: Uint8Array, contentType: string): Promise<void>
     getObject?(resourceId: string, key: string): Promise<StorageObjectDownload>
     deleteObject?(resourceId: string, key: string): Promise<void>
+    listDatabaseSnapshots?(instanceIdentifier?: string): Promise<DatabaseSnapshot[]>
+    createDatabaseSnapshot?(input: CreateDatabaseSnapshotInput): Promise<DatabaseSnapshot>
+    listDatabaseOrderableInstanceClasses?(engine?: string): Promise<string[]>
     invoke?(id: string, payload: string): Promise<ServerlessInvokeResult>
     // Lifecycle verbs. Optional because most categories have no notion of them;
     // an adapter that advertises one in `capabilities` must implement it, which

@@ -34,6 +34,8 @@ import { CosmosNoSqlPanel } from "@/components/CosmosNoSqlPanel";
 import { AzureSqlPanel } from "@/components/AzureSqlPanel";
 import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
 import { DynamoDbTableExplorer } from "@/components/DynamoDbTableExplorer";
+import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
+import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -57,12 +59,21 @@ export function DynamicResourceView({
 }: DynamicResourceViewProps) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [databaseTab, setDatabaseTab] = useState<"instances" | "snapshots">("instances");
   const [selected, setSelected] = useState<CloudResource | undefined>();
   const [selectedObject, setSelectedObject] = useState<
     StorageObject | undefined
   >();
   const [createOpen, setCreateOpen] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
+
+  const handleDatabaseTabChange = (tab: "instances" | "snapshots") => {
+    setDatabaseTab(tab);
+    if (tab === "snapshots") {
+      setSearch("");
+    }
+  };
+
   const resourcesKey = useMemo(
     () => ["cloud-resources", cloud, service, search],
     [cloud, service, search],
@@ -122,6 +133,7 @@ export function DynamicResourceView({
     setCreateOpen(false);
     setClearConfirm(false);
     setSearch("");
+    setDatabaseTab("instances");
   }, [cloud, service]);
 
   useEffect(() => {
@@ -201,19 +213,64 @@ export function DynamicResourceView({
   );
   const createCapability = capabilityFor(resourceCapabilities, "create");
   const createResourceLabel = createCapability?.label ?? "Create resource";
+  const databaseCapabilities = withServiceAvailability(
+    withRuntimeState(
+      normalizeCapabilities(schema.capabilities?.databaseActions),
+      runtimeReachable,
+    ),
+    serviceAvailability,
+  );
+  const listSnapshotCapability = capabilityFor(
+    databaseCapabilities,
+    "listSnapshots",
+  );
+  const createSnapshotCapability = capabilityFor(
+    databaseCapabilities,
+    "createSnapshot",
+  );
   const canUseRuntime = runtimeReachable && adapterAvailable;
   const canCreateResource =
     canUseRuntime && capabilityEnabled(createCapability);
+  const isAwsDatabase = cloud === "aws" && service === "database";
+  const showDatabaseSnapshots = isAwsDatabase && databaseTab === "snapshots";
 
   return (
     <div className="dynamic-resource-view">
       <TopbarServiceInfo onOpenInfo={onOpenInfo} />
 
       <div
-        className={`resource-workbench${activeSelected ? " with-inspector" : ""}`}
+        className={`resource-workbench${activeSelected && !showDatabaseSnapshots ? " with-inspector" : ""}`}
       >
         <section className="resource-main">
-          <section className="table-panel">
+          {isAwsDatabase && (
+            <div className="drawer-tabs" style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                className={`drawer-tab ${databaseTab === "instances" ? "active" : ""}`}
+                onClick={() => handleDatabaseTabChange("instances")}
+              >
+                Instances
+              </button>
+              <button
+                type="button"
+                className={`drawer-tab ${databaseTab === "snapshots" ? "active" : ""}`}
+                onClick={() => handleDatabaseTabChange("snapshots")}
+              >
+                Snapshots
+              </button>
+            </div>
+          )}
+
+          {showDatabaseSnapshots ? (
+            <DatabaseSnapshotsPanel
+              cloud={cloud}
+              instances={resources}
+              listCapability={listSnapshotCapability}
+              createCapability={createSnapshotCapability}
+              runtimeReachable={canUseRuntime}
+            />
+          ) : (
+            <section className="table-panel">
             <div className="input-row resource-table-bar">
               <div>
                 <p className="eyebrow">Resources</p>
@@ -311,6 +368,15 @@ export function DynamicResourceView({
                     }}
                     onCancel={() => setCreateOpen(false)}
                   />
+                ) : service === "database" && cloud === "aws" ? (
+                  <CreateRdsInstanceForm
+                    cloud={cloud}
+                    onSuccess={(resource) => {
+                      setSelected(resource);
+                      setCreateOpen(false);
+                    }}
+                    onCancel={() => setCreateOpen(false)}
+                  />
                 ) : (
                   <DynamicFormRenderer
                     schema={schema}
@@ -344,8 +410,9 @@ export function DynamicResourceView({
               onRetry: () => resourcesQuery.refetch(),
             })}
           </section>
+          )}
         </section>
-        {activeSelected && (
+        {activeSelected && !showDatabaseSnapshots && (
           <ResourceInspector
             resource={activeSelected}
             object={selectedObject}

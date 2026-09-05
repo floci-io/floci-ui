@@ -15,6 +15,7 @@ export type ResourceActionName =
     | 'reboot'
     | 'updateTags'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
+export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'
 export type KubernetesActionName =
     | 'listNodegroups'
     | 'createNodegroup'
@@ -74,6 +75,7 @@ export interface ServiceSchema {
     capabilities?: {
         resourceActions?: Array<CapabilitySchema<ResourceActionName> | ResourceActionName>
         objectActions?: Array<CapabilitySchema<ObjectActionName> | ObjectActionName>
+        databaseActions?: Array<CapabilitySchema<DatabaseActionName> | DatabaseActionName>
         kubernetesActions?: Array<CapabilitySchema<KubernetesActionName> | KubernetesActionName>
     }
     filters: FieldSchema[]

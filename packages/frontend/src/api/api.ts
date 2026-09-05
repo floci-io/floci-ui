@@ -55,6 +55,13 @@ export const apiEndpointKeys = {
         tables: "clouds.services.database.sql.tables.list",
         query: "clouds.services.database.sql.query",
       },
+      snapshots: {
+        list: "clouds.services.database.snapshots.list",
+        create: "clouds.services.database.snapshots.create",
+      },
+      orderableClasses: {
+        list: "clouds.services.database.orderable-classes.list",
+      },
     },
     k8s: {
       nodegroups: {
@@ -91,16 +98,6 @@ export const apiEndpointKeys = {
         describe: "aws.eks.fargate-profiles.describe",
         create: "aws.eks.fargate-profiles.create",
         delete: "aws.eks.fargate-profiles.delete",
-      },
-    },
-    rds: {
-      instances: {
-        list: "aws.rds.instances.list",
-        describe: "aws.rds.instances.describe",
-      },
-      snapshots: {
-        list: "aws.rds.snapshots.list",
-        create: "aws.rds.snapshots.create",
       },
     },
     secretsmanager: {
@@ -409,6 +406,30 @@ export const endpointRegistry: EndpointRegistry = new Map([
     },
   ],
   [
+    apiEndpointKeys.clouds.database.snapshots.list,
+    {
+      path: "/clouds/:cloud/services/database/snapshots",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.database.snapshots.create,
+    {
+      path: "/clouds/:cloud/services/database/snapshots",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.database.orderableClasses.list,
+    {
+      path: "/clouds/:cloud/services/database/orderable-classes",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
     apiEndpointKeys.clouds.nosql.items.list,
     {
       path: "/clouds/:cloud/services/nosql/resources/:id/items",
@@ -552,40 +573,6 @@ export const endpointRegistry: EndpointRegistry = new Map([
       path: "/eks/clusters/:name/fargate-profiles/:profile",
       method: "DELETE",
       telemetry: { provider: "aws", service: "eks" },
-    },
-  ],
-
-  // AWS RDS
-  [
-    apiEndpointKeys.aws.rds.instances.list,
-    {
-      path: "/rds/instances",
-      method: "GET",
-      telemetry: { provider: "aws", service: "rds" },
-    },
-  ],
-  [
-    apiEndpointKeys.aws.rds.instances.describe,
-    {
-      path: "/rds/instances/:identifier",
-      method: "GET",
-      telemetry: { provider: "aws", service: "rds" },
-    },
-  ],
-  [
-    apiEndpointKeys.aws.rds.snapshots.list,
-    {
-      path: "/rds/snapshots",
-      method: "GET",
-      telemetry: { provider: "aws", service: "rds" },
-    },
-  ],
-  [
-    apiEndpointKeys.aws.rds.snapshots.create,
-    {
-      path: "/rds/snapshots",
-      method: "POST",
-      telemetry: { provider: "aws", service: "rds" },
     },
   ],
 
