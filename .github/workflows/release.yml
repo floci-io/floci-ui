@@ -71,7 +71,7 @@ jobs:
         working-directory: packages/api
         run: |
           bun install
-          bun build --compile --minify --target=bun-linux-x64-musl \
+          bun build --compile --minify --target=bun-linux-x64-musl-baseline \
             src/index.ts --outfile "$GITHUB_WORKSPACE/native/amd64/server"
           bun build --compile --minify --target=bun-linux-arm64-musl \
             src/index.ts --outfile "$GITHUB_WORKSPACE/native/arm64/server"

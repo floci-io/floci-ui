@@ -14,16 +14,6 @@ import type { CloudResource } from "@/types/resource";
 
 const IDENTIFIER_PATTERN = /^(?!.*--)[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
-const DEFAULT_RDS_CLASSES = [
-  "db.t3.micro",
-  "db.t3.small",
-  "db.t3.medium",
-  "db.t3.large",
-  "db.m5.large",
-  "db.m5.xlarge",
-  "db.r5.large",
-];
-
 interface CreateRdsInstanceFormProps {
   cloud: CloudProvider;
   onSuccess: (resource: CloudResource) => void;
@@ -40,7 +30,7 @@ export function CreateRdsInstanceForm({
   // Instance configuration
   const [dbInstanceIdentifier, setDbInstanceIdentifier] = useState("");
   const [engine, setEngine] = useState("postgres");
-  const [dbInstanceClass, setDbInstanceClass] = useState("db.t3.micro");
+  const [dbInstanceClass, setDbInstanceClass] = useState("");
   const [masterUserPassword, setMasterUserPassword] = useState("");
 
   // Networking settings
@@ -61,6 +51,10 @@ export function CreateRdsInstanceForm({
   });
 
   const availableClasses = classesQuery.data ?? [];
+  const selectedClass =
+    dbInstanceClass && availableClasses.includes(dbInstanceClass)
+      ? dbInstanceClass
+      : (availableClasses[0] ?? "");
 
   // Fetch available security groups (AWS)
   const sgsQuery = useQuery({
@@ -86,12 +80,6 @@ export function CreateRdsInstanceForm({
     },
   });
 
-  const instanceClasses =
-    availableClasses.length > 0 ? availableClasses : DEFAULT_RDS_CLASSES;
-  const classOptions = instanceClasses.includes(dbInstanceClass)
-    ? instanceClasses
-    : [dbInstanceClass, ...instanceClasses];
-
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setValidationError(null);
@@ -109,6 +97,11 @@ export function CreateRdsInstanceForm({
       return;
     }
 
+    if (!selectedClass) {
+      setValidationError("DB Instance Class is required.");
+      return;
+    }
+
     if (masterUserPassword.length < 8) {
       setValidationError("Master User Password must be at least 8 characters.");
       return;
@@ -117,7 +110,7 @@ export function CreateRdsInstanceForm({
     createMut.mutate({
       dbInstanceIdentifier: trimmedIdentifier,
       engine,
-      dbInstanceClass: dbInstanceClass.trim() || "db.t3.micro",
+      dbInstanceClass: selectedClass,
       masterUserPassword,
       masterUsername: masterUsername.trim() || "root",
       allocatedStorage: allocatedStorage.trim() || "20",
@@ -160,6 +153,7 @@ export function CreateRdsInstanceForm({
           onChange={(e) => {
             const nextEngine = e.target.value;
             setEngine(nextEngine);
+            setDbInstanceClass("");
           }}
           required
         >
@@ -182,11 +176,29 @@ export function CreateRdsInstanceForm({
         </span>
         <select
           className="input"
-          value={dbInstanceClass}
+          value={selectedClass}
           onChange={(e) => setDbInstanceClass(e.target.value)}
+          disabled={classesQuery.isLoading || availableClasses.length === 0}
           required
         >
-          {classOptions.map((cls) => (
+          {classesQuery.isLoading && (
+            <option value="" disabled>
+              Loading available instance classes…
+            </option>
+          )}
+          {classesQuery.isError && (
+            <option value="" disabled>
+              Failed to load instance classes
+            </option>
+          )}
+          {!classesQuery.isLoading &&
+            !classesQuery.isError &&
+            availableClasses.length === 0 && (
+              <option value="" disabled>
+                No instance classes available
+              </option>
+            )}
+          {availableClasses.map((cls) => (
             <option key={cls} value={cls}>
               {cls}
             </option>
