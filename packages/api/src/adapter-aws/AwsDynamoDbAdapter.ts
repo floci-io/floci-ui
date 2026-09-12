@@ -265,11 +265,33 @@ function normalizeValue(value: unknown): unknown {
     return value
 }
 
-// Preserve DynamoDB's decimal text unless a safe JSON number reproduces it exactly.
+// Compare exact decimals so DynamoDB's formatting changes cannot change item IDs.
 function normalizeNumber(value: string): number | string {
-    const parsed = Number(value)
-    if (Number.isInteger(parsed) && !Number.isSafeInteger(parsed)) return value
-    return String(parsed) === value ? parsed : value
+    const canonical = canonicalDecimal(value)
+    const parsed = Number(canonical)
+    if (!Number.isFinite(parsed) || (Number.isInteger(parsed) && !Number.isSafeInteger(parsed))) return canonical
+    return canonicalDecimal(String(parsed)) === canonical ? parsed : canonical
+}
+
+function canonicalDecimal(value: string): string {
+    const [coefficient, exponent = '0'] = value.toLowerCase().split('e')
+    const sign = coefficient.startsWith('-') ? '-' : ''
+    const [integer, fraction = ''] = coefficient.replace(/^[+-]/, '').split('.')
+    const digits = (integer + fraction).replace(/^0+/, '')
+    if (!digits) return '0'
+
+    const point = BigInt(digits.length - fraction.length) + BigInt(exponent)
+    const significant = digits.replace(/0+$/, '')
+    if (point <= -6n || point > 21n) {
+        const tail = significant.slice(1)
+        const mantissa = significant[0] + (tail ? `.${tail}` : '')
+        return `${sign}${mantissa}e${point - 1n}`
+    }
+
+    const position = Number(point)
+    if (position <= 0) return `${sign}0.${'0'.repeat(-position)}${significant}`
+    if (position >= significant.length) return sign + significant.padEnd(position, '0')
+    return `${sign}${significant.slice(0, position)}.${significant.slice(position)}`
 }
 
 function toResource(table: TableDescription): CloudResource {

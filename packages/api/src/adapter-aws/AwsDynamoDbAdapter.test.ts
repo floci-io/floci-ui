@@ -382,6 +382,53 @@ describe('AwsDynamoDbAdapter', () => {
         expect(putCalls).toBe(0)
     })
 
+    test.each([
+        ['1.0', '1', 1],
+        ['1e3', '1000', 1000],
+        ['1000', '1E+3', 1000],
+        ['+0001.5000', '1.5', 1.5],
+        ['-0.00e10', '0', 0],
+        ['.00000100', '1E-6', 0.000001],
+        ['0.0000001', '1E-7', 1e-7],
+        ['9007199254740993.00', '9.007199254740993E15', '9007199254740993'],
+        ['-9007199254740993e0', '-9007199254740993', '-9007199254740993'],
+        ['1.000000000000000000100', '10000000000000000001E-19', '1.0000000000000000001'],
+        ['123456789.1234567890', '1.23456789123456789E8', '123456789.123456789'],
+        ['10e-131', '1E-130', 1e-130],
+        ['1e125', '10E124', '1e125'],
+    ] as const)('keeps create and refreshed IDs equal for %s and %s', async (input, stored, normalized) => {
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {
+                    KeySchema: [
+                        {AttributeName: 'accountId', KeyType: 'HASH'},
+                        {AttributeName: 'sequence', KeyType: 'RANGE'},
+                    ],
+                    AttributeDefinitions: [
+                        {AttributeName: 'accountId', AttributeType: 'S'},
+                        {AttributeName: 'sequence', AttributeType: 'N'},
+                    ],
+                }}
+            }
+            if (command instanceof PutItemCommand) {
+                expect(command.input.Item?.sequence).toEqual({N: input})
+                return {}
+            }
+            if (command instanceof ScanCommand) {
+                return {Items: [{accountId: {S: 'acct-1'}, sequence: {N: stored}}]}
+            }
+            throw new Error('Unexpected command')
+        })
+        const adapter = new AwsDynamoDbAdapter(client)
+
+        const created = await adapter.putNoSqlItem('orders', {accountId: 'acct-1', sequence: input})
+        const listed = await adapter.listNoSqlItems('orders')
+        const key = {accountId: 'acct-1', sequence: normalized}
+
+        expect(created).toEqual({id: JSON.stringify(key), key, document: key})
+        expect(listed).toEqual([created])
+    })
+
     test('preserves safe integers, fractions, and quoted large values in nested records', async () => {
         let captured: PutItemCommand | undefined
         const client = fakeClient(async (command) => {
