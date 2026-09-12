@@ -1,9 +1,15 @@
 import {
+  CreateDBInstanceCommand,
   CreateDBSnapshotCommand,
+  DeleteDBInstanceCommand,
   DescribeDBInstancesCommand,
   DescribeDBSnapshotsCommand,
+  DescribeOrderableDBInstanceOptionsCommand,
+  ModifyDBInstanceCommand,
+  type CreateDBInstanceCommandInput,
   type DBInstance,
   type DBSnapshot,
+  type ModifyDBInstanceCommandInput,
   type RDSClient,
 } from "@aws-sdk/client-rds";
 import { awsClients } from "../aws";
@@ -54,6 +60,8 @@ export type RdsInstance = {
   endpoint?: RdsEndpoint;
   vpcSecurityGroups: RdsVpcSecurityGroup[];
   subnetGroup?: RdsDbSubnetGroup;
+  optionGroupName?: string;
+  autoMinorVersionUpgrade?: boolean;
 };
 
 export type RdsSnapshot = {
@@ -114,6 +122,8 @@ function toRdsInstance(instance: DBInstance): RdsInstance {
           })),
         }
       : undefined,
+    optionGroupName: instance.OptionGroupMemberships?.[0]?.OptionGroupName,
+    autoMinorVersionUpgrade: instance.AutoMinorVersionUpgrade,
   };
 }
 
@@ -158,25 +168,46 @@ export function createRdsService(client: RDSClient = awsClients.rds) {
       return toRdsInstance(res.DBInstances?.[0] ?? {});
     },
 
+    async createInstance(input: CreateDBInstanceCommandInput): Promise<RdsInstance> {
+      const res = await client.send(new CreateDBInstanceCommand(input));
+      return toRdsInstance(res.DBInstance ?? {});
+    },
+
+    async modifyInstance(input: ModifyDBInstanceCommandInput): Promise<RdsInstance> {
+      const res = await client.send(new ModifyDBInstanceCommand(input));
+      return toRdsInstance(res.DBInstance ?? {});
+    },
+
+    async deleteInstance(
+      identifier: string,
+      skipFinalSnapshot = true,
+      finalDBSnapshotIdentifier?: string,
+    ): Promise<void> {
+      await client.send(
+        new DeleteDBInstanceCommand({
+          DBInstanceIdentifier: identifier,
+          SkipFinalSnapshot: skipFinalSnapshot,
+          ...(finalDBSnapshotIdentifier
+            ? { FinalDBSnapshotIdentifier: finalDBSnapshotIdentifier }
+            : {}),
+        }),
+      );
+    },
+
     async listSnapshots(instanceIdentifier?: string): Promise<RdsSnapshot[]> {
       const snapshots: RdsSnapshot[] = [];
       let marker: string | undefined;
 
-      try {
-        do {
-          const res = await client.send(
-            new DescribeDBSnapshotsCommand({
-              DBInstanceIdentifier: instanceIdentifier,
-              Marker: marker,
-            }),
-          );
-          snapshots.push(...(res.DBSnapshots ?? []).map(toRdsSnapshot));
-          marker = res.Marker;
-        } while (marker);
-      } catch (error) {
-        if (isUnsupportedOperation(error)) return [];
-        throw error;
-      }
+      do {
+        const res = await client.send(
+          new DescribeDBSnapshotsCommand({
+            DBInstanceIdentifier: instanceIdentifier,
+            Marker: marker,
+          }),
+        );
+        snapshots.push(...(res.DBSnapshots ?? []).map(toRdsSnapshot));
+        marker = res.Marker;
+      } while (marker);
 
       return snapshots;
     },
@@ -190,11 +221,29 @@ export function createRdsService(client: RDSClient = awsClients.rds) {
       );
       return toRdsSnapshot(res.DBSnapshot ?? {});
     },
-  };
-}
 
-function isUnsupportedOperation(error: unknown) {
-  return error instanceof Error && error.message.includes("is not supported");
+    async listOrderableInstanceClasses(engine: string): Promise<string[]> {
+      const classes = new Set<string>();
+      let marker: string | undefined;
+
+      do {
+        const res = await client.send(
+          new DescribeOrderableDBInstanceOptionsCommand({
+            Engine: engine,
+            Marker: marker,
+          }),
+        );
+        for (const option of res.OrderableDBInstanceOptions ?? []) {
+          if (option.DBInstanceClass) {
+            classes.add(option.DBInstanceClass);
+          }
+        }
+        marker = res.Marker;
+      } while (marker);
+
+      return Array.from(classes);
+    },
+  };
 }
 
 export const rdsService = createRdsService();

@@ -1300,6 +1300,15 @@ pre,
 .dynamic-field {
     display: grid;
     gap: 6px;
+    min-width: 0;
+}
+
+.dynamic-field .input,
+.dynamic-field .textarea,
+.dynamic-field select,
+.dynamic-field textarea {
+    width: 100%;
+    min-width: 0;
 }
 
 .dynamic-field span {
@@ -1321,6 +1330,11 @@ pre,
 
 .dynamic-field--span {
     grid-column: 1 / -1;
+}
+
+.create-table-modal .dynamic-form {
+    grid-template-columns: 1fr;
+    gap: 14px;
 }
 
 .dynamic-form-group {
@@ -1379,8 +1393,18 @@ pre,
 }
 
 .resource-main {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     min-height: 0;
+}
+
+.resource-main > .table-panel {
+    flex: 1;
+    min-height: 0;
+}
+
+.resource-main > .drawer-tabs {
+    padding: 0 4px;
 }
 
 .resource-table-bar {
@@ -3255,13 +3279,15 @@ button.console-service-card {
 /* ─── Drawer tabs ────────────────────────────────────────────────────────── */
 .drawer-tabs {
     display: flex;
+    align-items: flex-end;
     border-bottom: 1px solid var(--border);
     padding: 0 14px;
     flex-shrink: 0;
 }
 
 .drawer-tab {
-    padding: 8px 14px;
+    padding: 5px 12px;
+    line-height: 1.3;
     background: none;
     border: none;
     border-bottom: 2px solid transparent;

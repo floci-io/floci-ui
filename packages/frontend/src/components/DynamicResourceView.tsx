@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCloudResource,
@@ -8,6 +8,7 @@ import {
   deleteCloudResource,
   getServiceSchema,
   listCloudResources,
+  updateCloudResource,
 } from "@/api/cloudProxyClient";
 import { DynamicFormRenderer } from "@/components/DynamicFormRenderer";
 import { ResourceInspector } from "@/components/ResourceInspector";
@@ -15,6 +16,7 @@ import { ResourceTable } from "@/components/ResourceTable";
 import { StorageObjectBrowser } from "@/components/StorageObjectBrowser";
 import { ComputePanel, LaunchInstanceForm } from "@/components/ComputePanel";
 import { NetworkingPanel } from "@/components/NetworkingPanel";
+import { getPath } from "@/lib/resourcePath";
 import {
   capabilityEnabled,
   capabilityFor,
@@ -34,6 +36,8 @@ import { CosmosNoSqlPanel } from "@/components/CosmosNoSqlPanel";
 import { AzureSqlPanel } from "@/components/AzureSqlPanel";
 import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
 import { DynamoDbTableExplorer } from "@/components/DynamoDbTableExplorer";
+import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
+import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -57,12 +61,21 @@ export function DynamicResourceView({
 }: DynamicResourceViewProps) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [databaseTab, setDatabaseTab] = useState<"instances" | "snapshots">("instances");
   const [selected, setSelected] = useState<CloudResource | undefined>();
   const [selectedObject, setSelectedObject] = useState<
     StorageObject | undefined
   >();
   const [createOpen, setCreateOpen] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
+
+  const handleDatabaseTabChange = (tab: "instances" | "snapshots") => {
+    setDatabaseTab(tab);
+    if (tab === "snapshots") {
+      setSearch("");
+    }
+  };
+
   const resourcesKey = useMemo(
     () => ["cloud-resources", cloud, service, search],
     [cloud, service, search],
@@ -116,12 +129,90 @@ export function DynamicResourceView({
     },
   });
 
+  const [editingResource, setEditingResource] = useState<CloudResource | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (successToast) {
+      const timer = setTimeout(() => setSuccessToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [successToast]);
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, values }: { id: string; values: Record<string, unknown> }) =>
+      updateCloudResource(cloud, service, id, values),
+    onSuccess: (updatedResource) => {
+      setEditingResource(null);
+      setUpdateError(null);
+      setSelected(updatedResource);
+      setSuccessToast(`Successfully updated ${updatedResource.name || updatedResource.id}`);
+      void qc.invalidateQueries({
+        queryKey: ["cloud-resources", cloud, service],
+      });
+    },
+    onError: (err) => {
+      setUpdateError(err instanceof Error ? err.message : "Failed to update resource");
+    },
+  });
+
+  const initialEditValues = useMemo(() => {
+    if (!editingResource || !schemaQuery.data?.updateFields) return {};
+    const vals: Record<string, unknown> = {};
+    for (const field of schemaQuery.data.updateFields) {
+      const path = field.valuePath ?? field.name;
+      const currentVal = getPath(editingResource, path);
+      if (currentVal !== undefined && currentVal !== null) {
+        vals[field.name] = currentVal;
+      }
+    }
+    return vals;
+  }, [editingResource, schemaQuery.data?.updateFields]);
+
+  function handleEditSubmit(values: Record<string, unknown>) {
+    if (!editingResource || !schemaQuery.data?.updateFields) return;
+    setUpdateError(null);
+
+    const diff: Record<string, unknown> = {};
+    for (const field of schemaQuery.data.updateFields) {
+      const rawVal = values[field.name];
+      const initialVal = initialEditValues[field.name];
+
+      if (rawVal === undefined) continue;
+
+      if (typeof rawVal === "string") {
+        const trimmed = rawVal.trim();
+        if (!trimmed && !field.required) {
+          continue;
+        }
+        const initialStr =
+          initialVal !== undefined && initialVal !== null ? String(initialVal).trim() : "";
+        if (trimmed !== initialStr) {
+          diff[field.name] = trimmed;
+        }
+      } else if (rawVal !== initialVal) {
+        diff[field.name] = rawVal;
+      }
+    }
+
+    if (Object.keys(diff).length === 0) {
+      setUpdateError("No fields changed.");
+      return;
+    }
+
+    updateMut.mutate({ id: editingResource.id, values: diff });
+  }
+
   useEffect(() => {
     setSelected(undefined);
     setSelectedObject(undefined);
     setCreateOpen(false);
     setClearConfirm(false);
+    setEditingResource(null);
+    setUpdateError(null);
     setSearch("");
+    setDatabaseTab("instances");
   }, [cloud, service]);
 
   useEffect(() => {
@@ -201,19 +292,64 @@ export function DynamicResourceView({
   );
   const createCapability = capabilityFor(resourceCapabilities, "create");
   const createResourceLabel = createCapability?.label ?? "Create resource";
+  const databaseCapabilities = withServiceAvailability(
+    withRuntimeState(
+      normalizeCapabilities(schema.capabilities?.databaseActions),
+      runtimeReachable,
+    ),
+    serviceAvailability,
+  );
+  const listSnapshotCapability = capabilityFor(
+    databaseCapabilities,
+    "listSnapshots",
+  );
+  const createSnapshotCapability = capabilityFor(
+    databaseCapabilities,
+    "createSnapshot",
+  );
   const canUseRuntime = runtimeReachable && adapterAvailable;
   const canCreateResource =
     canUseRuntime && capabilityEnabled(createCapability);
+  const isAwsDatabase = cloud === "aws" && service === "database";
+  const showDatabaseSnapshots = isAwsDatabase && databaseTab === "snapshots";
 
   return (
     <div className="dynamic-resource-view">
       <TopbarServiceInfo onOpenInfo={onOpenInfo} />
 
       <div
-        className={`resource-workbench${activeSelected ? " with-inspector" : ""}`}
+        className={`resource-workbench${activeSelected && !showDatabaseSnapshots ? " with-inspector" : ""}`}
       >
         <section className="resource-main">
-          <section className="table-panel">
+          {isAwsDatabase && (
+            <div className="drawer-tabs" style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                className={`drawer-tab ${databaseTab === "instances" ? "active" : ""}`}
+                onClick={() => handleDatabaseTabChange("instances")}
+              >
+                Instances
+              </button>
+              <button
+                type="button"
+                className={`drawer-tab ${databaseTab === "snapshots" ? "active" : ""}`}
+                onClick={() => handleDatabaseTabChange("snapshots")}
+              >
+                Snapshots
+              </button>
+            </div>
+          )}
+
+          {showDatabaseSnapshots ? (
+            <DatabaseSnapshotsPanel
+              cloud={cloud}
+              instances={resources}
+              listCapability={listSnapshotCapability}
+              createCapability={createSnapshotCapability}
+              runtimeReachable={canUseRuntime}
+            />
+          ) : (
+            <section className="table-panel">
             <div className="input-row resource-table-bar">
               <div>
                 <p className="eyebrow">Resources</p>
@@ -311,8 +447,18 @@ export function DynamicResourceView({
                     }}
                     onCancel={() => setCreateOpen(false)}
                   />
+                ) : service === "database" && cloud === "aws" ? (
+                  <CreateRdsInstanceForm
+                    cloud={cloud}
+                    onSuccess={(resource) => {
+                      setSelected(resource);
+                      setCreateOpen(false);
+                    }}
+                    onCancel={() => setCreateOpen(false)}
+                  />
                 ) : (
                   <DynamicFormRenderer
+                    key={`${cloud}:${service}:create`}
                     schema={schema}
                     isSubmitting={createMut.isPending}
                     submitLabel={createResourceLabel}
@@ -322,6 +468,7 @@ export function DynamicResourceView({
                         ? createMut.error.message
                         : null
                     }
+                    onCancel={() => setCreateOpen(false)}
                     onSubmit={(values) => createMut.mutate(values)}
                   />
                 )}
@@ -340,12 +487,22 @@ export function DynamicResourceView({
               resourcesError: resourcesQuery.error,
               isRetrying: resourcesQuery.isFetching,
               onSelect: setSelected,
+              onEdit:
+                schema.updateFields &&
+                schema.updateFields.length > 0 &&
+                schema.actions.includes("update")
+                  ? (resource) => {
+                      setEditingResource(resource);
+                      setUpdateError(null);
+                    }
+                  : undefined,
               onDelete: (resource) => deleteMut.mutate(resource),
               onRetry: () => resourcesQuery.refetch(),
             })}
           </section>
+          )}
         </section>
-        {activeSelected && (
+        {activeSelected && !showDatabaseSnapshots && (
           <ResourceInspector
             resource={activeSelected}
             object={selectedObject}
@@ -407,6 +564,73 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
+      {editingResource && schema.updateFields && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            if (!updateMut.isPending) setEditingResource(null);
+          }}
+        >
+          <div
+            className="create-table-modal"
+            style={{ width: 520, maxWidth: "90vw" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="modal-header"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <h3 style={{ margin: 0 }}>
+                Edit {schema.displayName}: {editingResource.name || editingResource.id}
+              </h3>
+              <button
+                className="icon-btn"
+                type="button"
+                disabled={updateMut.isPending}
+                onClick={() => setEditingResource(null)}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <DynamicFormRenderer
+              key={editingResource.id}
+              schema={schema}
+              fields={schema.updateFields}
+              initialValues={initialEditValues}
+              isSubmitting={updateMut.isPending}
+              submitLabel="Save Changes"
+              pendingLabel="Saving"
+              submitError={updateError}
+              onCancel={() => setEditingResource(null)}
+              onSubmit={handleEditSubmit}
+            />
+          </div>
+        </div>
+      )}
+      {successToast && (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            background: "var(--accent, #3b82f6)",
+            color: "#fff",
+            padding: "10px 18px",
+            borderRadius: 6,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+            zIndex: 1000,
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          {successToast}
+        </div>
+      )}
     </div>
   );
 }
@@ -460,6 +684,7 @@ function renderResourceSurface({
   resourcesError,
   isRetrying,
   onSelect,
+  onEdit,
   onDelete,
   onRetry,
 }: {
@@ -475,6 +700,7 @@ function renderResourceSurface({
   resourcesError: unknown;
   isRetrying: boolean;
   onSelect: (resource: CloudResource) => void;
+  onEdit?: (resource: CloudResource) => void;
   onDelete: (resource: CloudResource) => void;
   onRetry?: () => void;
 }) {
@@ -543,6 +769,7 @@ function renderResourceSurface({
       selectedId={selectedId}
       deletingId={deletingId}
       onSelect={onSelect}
+      onEdit={onEdit}
       onDelete={onDelete}
     />
   );

@@ -1,12 +1,13 @@
 import type {CloudProvider, CloudServiceType} from './cloud'
 
 export type FieldType = 'text' | 'textarea' | 'password' | 'select'
-export type ActionSchema = 'list' | 'create' | 'delete' | 'inspect'
+export type ActionSchema = 'list' | 'create' | 'update' | 'delete' | 'inspect'
 // Mirrors packages/api/src/cloud-spi/types.ts. Lifecycle verbs can be advertised
 // in a capability block even though they are not table-level controls.
 export type ResourceActionName =
     | 'list'
     | 'create'
+    | 'update'
     | 'delete'
     | 'inspect'
     | 'invoke'
@@ -15,6 +16,7 @@ export type ResourceActionName =
     | 'reboot'
     | 'updateTags'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
+export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'
 export type KubernetesActionName =
     | 'listNodegroups'
     | 'createNodegroup'
@@ -42,6 +44,7 @@ export interface FieldSchema {
     description?: string
     group?: string
     span?: boolean
+    valuePath?: string
     defaultValue?: string
     validation?: {
         pattern?: string
@@ -74,8 +77,10 @@ export interface ServiceSchema {
     capabilities?: {
         resourceActions?: Array<CapabilitySchema<ResourceActionName> | ResourceActionName>
         objectActions?: Array<CapabilitySchema<ObjectActionName> | ObjectActionName>
+        databaseActions?: Array<CapabilitySchema<DatabaseActionName> | DatabaseActionName>
         kubernetesActions?: Array<CapabilitySchema<KubernetesActionName> | KubernetesActionName>
     }
     filters: FieldSchema[]
     columns: TableColumnSchema[]
+    updateFields?: FieldSchema[]
 }

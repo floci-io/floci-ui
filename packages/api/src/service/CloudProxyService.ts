@@ -10,9 +10,11 @@ import type {
     CosmosContainer,
     CosmosItem,
     CosmosQueryResult,
+    CreateDatabaseSnapshotInput,
     CreateKubernetesFargateProfileInput,
     CreateKubernetesNodegroupInput,
     CreateResourceInput,
+    DatabaseSnapshot,
     KubernetesFargateProfile,
     KubernetesNodegroup,
     NoSqlItem,
@@ -26,6 +28,7 @@ import type {
     ServiceSchema,
     StorageObjectDownload,
     StorageObjectList,
+    UpdateResourceInput,
 } from '../cloud-spi/types'
 import {NotSupportedError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
@@ -209,6 +212,12 @@ export class CloudProxyService {
         return this.requireAdapter(cloud, service).create(input)
     }
 
+    async updateResource(cloud: CloudProvider, service: CloudServiceType, id: string, input: UpdateResourceInput): Promise<CloudResource> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.update) throw new NotSupportedError(`Resource updates are not supported for ${cloud}/${service}`)
+        return adapter.update(id, input)
+    }
+
     async deleteResource(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<void> {
         await this.requireAdapter(cloud, service).delete(id)
     }
@@ -292,6 +301,24 @@ async invokeResource(
         const adapter = this.requireAdapter(cloud, 'nosql')
         if (!adapter.queryCosmosItems) throw new NotSupportedError(`Cosmos query is not supported for ${cloud}/database`)
         return adapter.queryCosmosItems(databaseId, containerId, query)
+    }
+
+    async listDatabaseSnapshots(cloud: CloudProvider, instanceIdentifier?: string): Promise<DatabaseSnapshot[]> {
+        const adapter = this.requireAdapter(cloud, 'database')
+        if (!adapter.listDatabaseSnapshots) throw new NotSupportedError(`Snapshot listing is not supported for ${cloud}/database`)
+        return adapter.listDatabaseSnapshots(instanceIdentifier)
+    }
+
+    async createDatabaseSnapshot(cloud: CloudProvider, input: CreateDatabaseSnapshotInput): Promise<DatabaseSnapshot> {
+        const adapter = this.requireAdapter(cloud, 'database')
+        if (!adapter.createDatabaseSnapshot) throw new NotSupportedError(`Snapshot creation is not supported for ${cloud}/database`)
+        return adapter.createDatabaseSnapshot(input)
+    }
+
+    async listDatabaseOrderableInstanceClasses(cloud: CloudProvider, engine?: string): Promise<string[]> {
+        const adapter = this.requireAdapter(cloud, 'database')
+        if (!adapter.listDatabaseOrderableInstanceClasses) throw new NotSupportedError(`Orderable instance class listing is not supported for ${cloud}/database`)
+        return adapter.listDatabaseOrderableInstanceClasses(engine)
     }
 
     async listSqlDatabases(cloud: CloudProvider, serverId: string, connection: SqlConnectionInput): Promise<SqlDatabase[]> {

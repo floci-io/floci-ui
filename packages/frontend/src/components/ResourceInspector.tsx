@@ -1,6 +1,4 @@
 import {useState} from 'react'
-import { useCreateRdsSnapshotMutation } from "@/api/aws/rds.mutations";
-import { useRdsSnapshotsQuery } from "@/api/aws/rds.queries";
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
 import type { CloudResource, StorageObject } from "@/types/resource";
 import {formatBytes} from "@/lib/format";
@@ -134,9 +132,6 @@ export function ResourceInspector({
         <DatabaseConnectionsSection metadata={resource.metadata} />
       )}
       {isAwsDatabase && <DatabaseLifecycleSection status={resource.status} />}
-      {isAwsDatabase && (
-        <DatabaseSnapshotsSection instanceIdentifier={resource.name} />
-      )}
       {isDatabase && !isAwsDatabase && (
         <ProviderDatabaseSection cloud={resource.cloud} />
       )}
@@ -323,67 +318,6 @@ function DatabaseLifecycleSection({ status }: { status?: string | null }) {
   );
 }
 
-function DatabaseSnapshotsSection({
-  instanceIdentifier,
-}: {
-  instanceIdentifier: string;
-}) {
-  const snapshotsQuery = useRdsSnapshotsQuery(instanceIdentifier);
-  const createSnapshot = useCreateRdsSnapshotMutation();
-
-  return (
-    <section className="inspector-section">
-      <div className="inspector-section-header">
-        <p className="metric-label">Snapshots</p>
-        <button
-          className="button compact"
-          type="button"
-          disabled={createSnapshot.isPending}
-          onClick={() => createSnapshot.mutate({ instanceIdentifier })}
-        >
-          {createSnapshot.isPending ? "Creating" : "Create DB snapshot"}
-        </button>
-      </div>
-      {createSnapshot.isError && (
-        <p className="error-text compact-text">
-          {createSnapshot.error instanceof Error
-            ? createSnapshot.error.message
-            : "Snapshot creation failed."}
-        </p>
-      )}
-      {snapshotsQuery.isLoading ? (
-        <p className="muted compact-text">Loading snapshots.</p>
-      ) : snapshotsQuery.isError ? (
-        <p className="error-text compact-text">
-          {snapshotsQuery.error instanceof Error
-            ? snapshotsQuery.error.message
-            : "Failed to load snapshots."}
-        </p>
-      ) : (snapshotsQuery.data?.length ?? 0) === 0 ? (
-        <p className="muted compact-text">
-          No snapshots returned for this DB instance.
-        </p>
-      ) : (
-        <div className="snapshot-list">
-          {snapshotsQuery.data?.map((snapshot) => (
-            <div
-              className="snapshot-row"
-              key={snapshot.arn ?? snapshot.identifier}
-            >
-              <div>
-                <strong>{snapshot.identifier}</strong>
-                <span>{snapshot.createdAt ?? "No creation timestamp"}</span>
-              </div>
-              <span className="badge neutral">
-                {snapshot.status ?? "unknown"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
 
 function InspectorItem({ label, value }: { label: string; value: string }) {
   return (
