@@ -225,10 +225,10 @@ function validateSafeIntegers(value: unknown, path = '$'): void {
 
 function marshalKey(key: KeyAttribute, value: unknown): AttributeValue {
     if (key.type === 'N') {
-        if (typeof value === 'number' && Number.isInteger(value) && !Number.isSafeInteger(value)) {
-            throw new ValidationError(`Key attribute ${key.name} must quote integers outside JavaScript's safe range.`)
+        if (typeof value === 'number') {
+            throw new ValidationError(`Key attribute ${key.name} must be a quoted number to preserve precision.`)
         }
-        const number = typeof value === 'number' || typeof value === 'string' ? String(value) : ''
+        const number = typeof value === 'string' ? value : ''
         if (!isDynamoNumber(number)) throw new ValidationError(`Key attribute ${key.name} must be a number.`)
         return {N: number}
     }
@@ -265,12 +265,11 @@ function normalizeValue(value: unknown): unknown {
     return value
 }
 
-// DynamoDB `N` values are arbitrary precision. Anything that survives a JSON round-trip
-// intact stays a number; integers beyond Number.MAX_SAFE_INTEGER keep their exact decimal
-// form as a string rather than silently losing digits.
+// Preserve DynamoDB's decimal text unless a safe JSON number reproduces it exactly.
 function normalizeNumber(value: string): number | string {
     const parsed = Number(value)
-    return Number.isInteger(parsed) && !Number.isSafeInteger(parsed) ? value : parsed
+    if (Number.isInteger(parsed) && !Number.isSafeInteger(parsed)) return value
+    return String(parsed) === value ? parsed : value
 }
 
 function toResource(table: TableDescription): CloudResource {

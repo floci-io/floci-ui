@@ -329,8 +329,34 @@ describe('AwsDynamoDbAdapter', () => {
 
         await expect(adapter.putNoSqlItem('orders', {})).rejects.toThrow('Key attribute id is required')
         await expect(adapter.putNoSqlItem('orders', {id: 'not-a-number'})).rejects.toThrow('Key attribute id must be a number')
-        await expect(adapter.putNoSqlItem('orders', {id: 9007199254740992})).rejects.toThrow('must quote integers outside JavaScript\'s safe range')
+        for (const json of ['1', '1.5', '9007199254740993', '123456789.123456789', '1.0000000000000000001']) {
+            await expect(adapter.putNoSqlItem('orders', {id: JSON.parse(json)}))
+                .rejects.toThrow('must be a quoted number to preserve precision')
+        }
         expect(putCalls).toBe(0)
+    })
+
+    test.each(['123456789.123456789', '1.0000000000000000001'])('preserves the quoted numeric key %s when writing and reading', async (id) => {
+        let captured: PutItemCommand | undefined
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {
+                    KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}],
+                    AttributeDefinitions: [{AttributeName: 'id', AttributeType: 'N'}],
+                }}
+            }
+            if (command instanceof ScanCommand) return {Items: [{id: {N: id}}]}
+            captured = command as PutItemCommand
+            return {}
+        })
+        const adapter = new AwsDynamoDbAdapter(client)
+
+        const created = await adapter.putNoSqlItem('orders', {id})
+        const listed = await adapter.listNoSqlItems('orders')
+
+        expect(captured?.input.Item?.id).toEqual({N: id})
+        expect(created).toEqual({id: JSON.stringify({id}), key: {id}, document: {id}})
+        expect(listed).toEqual([created])
     })
 
     test.each([

@@ -109,7 +109,7 @@ export function DynamoDbTableExplorer({cloud, resource, runtimeReachable}: Dynam
                 open={addRecordOpen}
                 title={`Add record to ${tableName}`}
                 description={dynamoModalDescription(keyFields)}
-                initialValue={JSON.stringify(Object.fromEntries(keyFields.map(({name, type}) => [name, type === 'N' ? 0 : ''])), null, 2)}
+                initialValue={JSON.stringify(Object.fromEntries(keyFields.map(({name, type}) => [name, type === 'N' ? '0' : ''])), null, 2)}
                 isPending={putItemMut.isPending}
                 submitError={putItemMut.error instanceof Error ? putItemMut.error.message : undefined}
                 onClose={() => setAddRecordOpen(false)}
@@ -143,7 +143,7 @@ function dynamoKeyFields(resource?: CloudResource): DynamoKeyField[] {
 function dynamoModalDescription(keyFields: DynamoKeyField[]): string {
     const keys = keyFields.map(({name, type}) => `${name}${type ? ` (${type})` : ''}`).join(', ')
     const binaryHint = keyFields.some(({type}) => type === 'B') ? ' Binary keys use base64.' : ''
-    const numberHint = keyFields.some(({type}) => type === 'N') ? ' Quote large number keys to preserve precision.' : ''
+    const numberHint = keyFields.some(({type}) => type === 'N') ? ' All number keys must be quoted to preserve precision.' : ''
     return `Required keys: ${keys || 'the table key attributes'}.${binaryHint}${numberHint} A matching key replaces the existing record.`
 }
 
