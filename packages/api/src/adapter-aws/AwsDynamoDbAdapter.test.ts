@@ -9,6 +9,7 @@ import {
     type DynamoDBClient,
 } from '@aws-sdk/client-dynamodb'
 import {AwsDynamoDbAdapter} from './AwsDynamoDbAdapter'
+import {ValidationError} from '../cloud-spi/errors'
 
 type Command = CreateTableCommand | DeleteTableCommand | DescribeTableCommand | ListTablesCommand | PutItemCommand | ScanCommand
 
@@ -330,6 +331,56 @@ describe('AwsDynamoDbAdapter', () => {
         await expect(adapter.putNoSqlItem('orders', {id: 'not-a-number'})).rejects.toThrow('Key attribute id must be a number')
         await expect(adapter.putNoSqlItem('orders', {id: 9007199254740992})).rejects.toThrow('must quote integers outside JavaScript\'s safe range')
         expect(putCalls).toBe(0)
+    })
+
+    test.each([
+        ['top-level attribute', '{"id":"order-1","count":9007199254740993}', '$["count"]'],
+        ['nested object', '{"id":"order-1","details":{"count":-9007199254740993}}', '$["details"]["count"]'],
+        ['array value', '{"id":"order-1","counts":[0,9007199254740993]}', '$["counts"][1]'],
+        ['object inside an array', '{"id":"order-1","entries":[{"count":9007199254740993}]}', '$["entries"][0]["count"]'],
+    ])('rejects unsafe integers (%s) before putting a record', async (_name, json, path) => {
+        let putCalls = 0
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {
+                    KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}],
+                    AttributeDefinitions: [{AttributeName: 'id', AttributeType: 'S'}],
+                }}
+            }
+            putCalls += 1
+            return {}
+        })
+
+        await expect(new AwsDynamoDbAdapter(client).putNoSqlItem('orders', JSON.parse(json)))
+            .rejects.toThrow(new ValidationError(`Item value at ${path} must quote integers outside JavaScript's safe range.`))
+        expect(putCalls).toBe(0)
+    })
+
+    test('preserves safe integers, fractions, and quoted large values in nested records', async () => {
+        let captured: PutItemCommand | undefined
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {
+                    KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}],
+                    AttributeDefinitions: [{AttributeName: 'id', AttributeType: 'S'}],
+                }}
+            }
+            captured = command as PutItemCommand
+            return {}
+        })
+        const document = {
+            id: 'order-1',
+            values: [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 0, 1.5],
+            details: {count: '9007199254740993', active: true, optional: null},
+        }
+
+        const result = await new AwsDynamoDbAdapter(client).putNoSqlItem('orders', document)
+
+        expect(captured?.input.Item?.values).toEqual({L: [
+            {N: '-9007199254740991'}, {N: '9007199254740991'}, {N: '0'}, {N: '1.5'},
+        ]})
+        expect(captured?.input.Item?.details.M?.count).toEqual({S: '9007199254740993'})
+        expect(result.document).toEqual(document)
     })
 
     test('returns the AWS DynamoDB schema', () => {

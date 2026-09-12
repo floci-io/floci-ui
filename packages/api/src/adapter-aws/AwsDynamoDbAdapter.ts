@@ -198,6 +198,7 @@ function marshalDocument(document: Record<string, unknown>, keys: KeyAttribute[]
     const marshalledKeys = Object.fromEntries(
         keys.map((key) => [key.name, marshalKey(key, document[key.name])]),
     )
+    validateSafeIntegers(document)
 
     let item: Record<string, AttributeValue>
     try {
@@ -207,6 +208,19 @@ function marshalDocument(document: Record<string, unknown>, keys: KeyAttribute[]
     }
 
     return {...item, ...marshalledKeys}
+}
+
+function validateSafeIntegers(value: unknown, path = '$'): void {
+    if (typeof value === 'number' && Number.isInteger(value) && !Number.isSafeInteger(value)) {
+        throw new ValidationError(`Item value at ${path} must quote integers outside JavaScript's safe range.`)
+    }
+    if (Array.isArray(value)) {
+        value.forEach((item, index) => validateSafeIntegers(item, `${path}[${index}]`))
+    } else if (typeof value === 'object' && value !== null) {
+        for (const [name, item] of Object.entries(value)) {
+            validateSafeIntegers(item, `${path}[${JSON.stringify(name)}]`)
+        }
+    }
 }
 
 function marshalKey(key: KeyAttribute, value: unknown): AttributeValue {
