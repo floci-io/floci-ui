@@ -2,6 +2,7 @@ import {FormEvent, useEffect, useMemo, useState} from 'react'
 import {Code2, Database, Play, Plus, RefreshCw, Table2, Trash2, type LucideIcon} from 'lucide-react'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {JsonRecordModal} from '@/components/JsonRecordModal'
+import {useAccountId} from '@/lib/accountStore'
 import {
     createCosmosContainer,
     deleteCosmosContainer,
@@ -24,6 +25,7 @@ interface CosmosNoSqlPanelProps {
 
 export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedContainerId, onSelectContainer}: CosmosNoSqlPanelProps) {
     const qc = useQueryClient()
+    const accountId = useAccountId()
     const databaseId = resource?.id
     const [containerName, setContainerName] = useState('')
     const [partitionKeyPath, setPartitionKeyPath] = useState('/id')
@@ -35,8 +37,8 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
     const [confirmContainer, setConfirmContainer] = useState<string | null>(null)
     const [confirmItem, setConfirmItem] = useState<string | null>(null)
 
-    const containersKey = useMemo(() => ['cosmos-containers', cloud, databaseId], [cloud, databaseId])
-    const itemsKey = useMemo(() => ['cosmos-items', cloud, databaseId, selectedContainerId], [cloud, databaseId, selectedContainerId])
+    const containersKey = useMemo(() => ['cosmos-containers', accountId, cloud, databaseId], [accountId, cloud, databaseId])
+    const itemsKey = useMemo(() => ['cosmos-items', accountId, cloud, databaseId, selectedContainerId], [accountId, cloud, databaseId, selectedContainerId])
 
     const containersQuery = useQuery({
         queryKey: containersKey,
@@ -55,19 +57,14 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
 
     const createContainerMut = useMutation({
         mutationFn: () => createCosmosContainer(cloud, databaseId ?? '', {containerName, partitionKeyPath}),
-        onSuccess: (container) => {
-            onSelectContainer(container.id)
-            setContainerName('')
-            setPartitionKeyPath('/id')
+        onSuccess: () => {
             void qc.invalidateQueries({queryKey: containersKey})
         },
     })
 
     const deleteContainerMut = useMutation({
         mutationFn: (containerId: string) => deleteCosmosContainer(cloud, databaseId ?? '', containerId),
-        onSuccess: (_, containerId) => {
-            if (selectedContainerId === containerId) onSelectContainer(undefined)
-            setConfirmContainer(null)
+        onSuccess: () => {
             void qc.invalidateQueries({queryKey: containersKey})
         },
     })
@@ -129,7 +126,13 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
     function submitContainer(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         if (!containerName.trim()) return
-        createContainerMut.mutate()
+        createContainerMut.mutate(undefined, {
+            onSuccess: (container) => {
+                onSelectContainer(container.id)
+                setContainerName('')
+                setPartitionKeyPath('/id')
+            },
+        })
     }
 
     function submitDocument(event: FormEvent<HTMLFormElement>) {
@@ -186,7 +189,12 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
                                     tabIndex={0}
                                     onClick={(event) => {
                                         event.stopPropagation()
-                                        deleteContainerMut.mutate(container.id)
+                                        deleteContainerMut.mutate(container.id, {
+                                            onSuccess: () => {
+                                                if (selectedContainerId === container.id) onSelectContainer(undefined)
+                                                setConfirmContainer(null)
+                                            },
+                                        })
                                     }}
                                 >
                                     Confirm

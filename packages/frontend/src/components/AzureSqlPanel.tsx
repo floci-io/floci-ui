@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Code2, Database, Play, Plug, RefreshCw, Table2, Unplug } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useAccountId } from "@/lib/accountStore";
 import {
   listSqlDatabases,
   listSqlTables,
@@ -37,6 +38,7 @@ export function AzureSqlPanel({
   resource,
   runtimeReachable,
 }: AzureSqlPanelProps) {
+  const accountId = useAccountId();
   const serverId = resource?.id;
   const engine: SqlEngine =
     resource?.type === "postgres-flexible-server" ? "postgresql" : "azure-sql";
@@ -60,7 +62,7 @@ export function AzureSqlPanel({
   const databaseExists = databases.some((database) => database.name === selectedDatabase);
 
   const tablesQuery = useQuery({
-    queryKey: ['sql-tables', cloud, serverId, engine, selectedDatabase, username],
+    queryKey: ['sql-tables', accountId, cloud, serverId, engine, selectedDatabase, username],
     queryFn: ({signal}) => listSqlTables(cloud, serverId ?? "", engine, selectedDatabase, credentials, signal),
     enabled: connected && databaseExists && runtimeReachable,
     gcTime: 0,
@@ -72,14 +74,6 @@ export function AzureSqlPanel({
   const databasesMut = useMutation({
     mutationFn: () =>
       listSqlDatabases(cloud, serverId ?? "", engine, credentials),
-    onSuccess: (items) => {
-      setDatabases(items);
-      setConnected(true);
-      if (!searchParams.has('database')) {
-        const database = items.find((item) => item.name === defaultDatabase) ?? items[0];
-        if (database) selectDatabase(database);
-      }
-    },
   });
 
   const queryMut = useMutation({
@@ -123,7 +117,20 @@ export function AzureSqlPanel({
     event.preventDefault();
     if (!username || !password) return;
     queryMut.reset();
-    databasesMut.mutate();
+    loadDatabases();
+  }
+
+  function loadDatabases() {
+    databasesMut.mutate(undefined, {
+      onSuccess: (items) => {
+        setDatabases(items);
+        setConnected(true);
+        if (!searchParams.has('database')) {
+          const database = items.find((item) => item.name === defaultDatabase) ?? items[0];
+          if (database) selectDatabase(database);
+        }
+      },
+    });
   }
 
   function disconnect() {
@@ -245,7 +252,7 @@ export function AzureSqlPanel({
                   type="button"
                   title="Refresh databases"
                   disabled={databasesMut.isPending}
-                  onClick={() => databasesMut.mutate()}
+                  onClick={loadDatabases}
                 >
                   <RefreshCw size={13} />
                 </button>

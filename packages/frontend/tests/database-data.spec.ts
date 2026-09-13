@@ -250,6 +250,81 @@ test('late SQL results cannot replace results for the newly selected database', 
     await expect(page.getByRole('cell', {name: 'app', exact: true})).toHaveCount(0)
 })
 
+test('account changes never display records cached for the previous account', async ({page}) => {
+    let releaseItems!: () => void
+    const itemsReady = new Promise<void>((resolve) => { releaseItems = resolve })
+    await mockApi(page, dynamo, async (route, path) => {
+        if (!path.endsWith('/items')) return false
+        const account = route.request().headers()['x-floci-account-id']
+        if (account === '111111111111') await itemsReady
+        await route.fulfill({json: [{id: account, key: {id: account}, document: {id: account}}]})
+        return true
+    })
+    await page.goto(workspacePath(dynamo))
+    await expect(page.getByRole('cell', {name: '{"id":"000000000000"}', exact: true})).toBeVisible()
+    await page.locator('.account-switcher > button').click()
+    await page.getByRole('textbox', {name: 'New account id'}).fill('111111111111')
+    await page.getByRole('button', {name: 'Switch', exact: true}).click()
+    await expect(page.getByText('Loading records', {exact: true})).toBeVisible()
+    await expect(page.getByRole('cell', {name: '{"id":"000000000000"}', exact: true})).toHaveCount(0)
+    releaseItems()
+    await expect(page.getByRole('cell', {name: '{"id":"111111111111"}', exact: true})).toBeVisible()
+})
+
+for (const operation of ['create', 'delete']) {
+    test(`late Cosmos container ${operation} cannot change the current selection`, async ({page}) => {
+        let releaseMutation!: () => void
+        const mutationReady = new Promise<void>((resolve) => { releaseMutation = resolve })
+        await mockApi(page, cosmos, async (route, path) => {
+            const method = route.request().method()
+            if (method === 'POST' && path.endsWith('/containers') || method === 'DELETE' && path.endsWith('/containers/products')) {
+                await mutationReady
+                await route.fulfill({json: {id: 'created', name: 'created', partitionKeyPath: '/id'}})
+                return true
+            }
+            return false
+        })
+        await page.goto(`${workspacePath(cosmos)}?container=products`)
+        if (operation === 'create') {
+            await page.getByPlaceholder('Container name').fill('created')
+            await page.getByRole('button', {name: 'Create', exact: true}).click()
+            await expect(page.getByRole('button', {name: 'Creating', exact: true})).toBeVisible()
+        } else {
+            await page.locator('.cosmos-list-row.selected svg').click()
+            const deletion = page.waitForRequest((request) => request.method() === 'DELETE')
+            await page.getByRole('button', {name: 'Confirm', exact: true}).click()
+            await deletion
+        }
+        await page.getByRole('button', {name: /archive Partition key/}).click()
+        await expect(page).toHaveURL(/\?container=archive$/)
+        const refresh = page.waitForResponse((response) => response.url().endsWith('/containers') && response.request().method() === 'GET')
+        releaseMutation()
+        await (await refresh).finished()
+        await expect(page).toHaveURL(/\?container=archive$/)
+    })
+}
+
+test('late SQL connection cannot navigate back into a workspace after leaving', async ({page}) => {
+    let releaseConnection!: () => void
+    const connectionReady = new Promise<void>((resolve) => { releaseConnection = resolve })
+    await mockApi(page, sql, async (route, path) => {
+        if (!path.endsWith('/sql/databases')) return false
+        await connectionReady
+        await route.fulfill({json: [{name: 'app', state: 'ONLINE'}]})
+        return true
+    })
+    await page.goto(workspacePath(sql))
+    await page.getByLabel('Password', {exact: true}).fill('test-password')
+    await page.getByRole('button', {name: 'Connect', exact: true}).click()
+    await expect(page.getByRole('button', {name: 'Connecting', exact: true})).toBeVisible()
+    await page.getByRole('link', {name: /Back to/}).click()
+    await expect(page.getByRole('cell', {name: 'my server', exact: true})).toBeVisible()
+    const response = page.waitForResponse((response) => response.url().endsWith('/sql/databases'))
+    releaseConnection()
+    await (await response).finished()
+    await expect(page).toHaveURL(/\/cloud-explorer\/azure\/database$/)
+})
+
 for (const resource of [dynamo, cosmos, sql]) {
     test(`${resource.type} workspace fits desktop and narrow widths`, async ({page}, testInfo) => {
         await mockApi(page, resource)
