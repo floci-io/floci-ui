@@ -55,6 +55,12 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Install browser for frontend tests
+        run: pnpm --filter @floci/frontend exec playwright install --with-deps chromium
+
+      - name: Test frontend workspaces
+        run: pnpm --filter @floci/frontend test:e2e
+
       - name: Build
         run: pnpm build
 

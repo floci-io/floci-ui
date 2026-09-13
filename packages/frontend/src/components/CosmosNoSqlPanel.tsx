@@ -18,12 +18,13 @@ interface CosmosNoSqlPanelProps {
     cloud: CloudProvider
     resource?: CloudResource
     runtimeReachable: boolean
+    selectedContainerId?: string
+    onSelectContainer: (id: string | undefined) => void
 }
 
-export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSqlPanelProps) {
+export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedContainerId, onSelectContainer}: CosmosNoSqlPanelProps) {
     const qc = useQueryClient()
     const databaseId = resource?.id
-    const [selectedContainerId, setSelectedContainerId] = useState<string | undefined>()
     const [containerName, setContainerName] = useState('')
     const [partitionKeyPath, setPartitionKeyPath] = useState('/id')
     const [documentText, setDocumentText] = useState('{\n  "id": ""\n}')
@@ -49,13 +50,13 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
     const itemsQuery = useQuery({
         queryKey: itemsKey,
         queryFn: ({signal}) => listCosmosItems(cloud, databaseId ?? '', selectedContainerId ?? '', signal),
-        enabled: Boolean(databaseId && selectedContainerId) && runtimeReachable,
+        enabled: Boolean(databaseId && selectedContainer) && runtimeReachable,
     })
 
     const createContainerMut = useMutation({
         mutationFn: () => createCosmosContainer(cloud, databaseId ?? '', {containerName, partitionKeyPath}),
         onSuccess: (container) => {
-            setSelectedContainerId(container.id)
+            onSelectContainer(container.id)
             setContainerName('')
             setPartitionKeyPath('/id')
             void qc.invalidateQueries({queryKey: containersKey})
@@ -65,7 +66,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
     const deleteContainerMut = useMutation({
         mutationFn: (containerId: string) => deleteCosmosContainer(cloud, databaseId ?? '', containerId),
         onSuccess: (_, containerId) => {
-            if (selectedContainerId === containerId) setSelectedContainerId(undefined)
+            if (selectedContainerId === containerId) onSelectContainer(undefined)
             setConfirmContainer(null)
             void qc.invalidateQueries({queryKey: containersKey})
         },
@@ -98,7 +99,6 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
     const activeQueryResult = queryMut.variables?.containerId === selectedContainerId ? queryMut.data : undefined
 
     useEffect(() => {
-        setSelectedContainerId(undefined)
         setSelectedItem(undefined)
         setAddRecordOpen(false)
         setDocumentText('{\n  "id": ""\n}')
@@ -167,13 +167,14 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
                 {containersQuery.error instanceof Error && <div className="form-error">{containersQuery.error.message}</div>}
                 <div className="cosmos-list">
                     {containersQuery.isLoading && <div className="muted padded">Loading containers</div>}
-                    {!containersQuery.isLoading && containers.length === 0 && <div className="muted padded">No containers</div>}
+                    {containersQuery.isSuccess && containers.length === 0 && <div className="muted padded">No containers</div>}
+                    {containersQuery.isSuccess && selectedContainerId && !selectedContainer && <div className="form-error">Container not found: {selectedContainerId}</div>}
                     {containers.map((container) => (
                         <button
                             key={container.id}
                             className={`cosmos-list-row ${selectedContainerId === container.id ? 'selected' : ''}`}
                             type="button"
-                            onClick={() => setSelectedContainerId(container.id)}
+                            onClick={() => onSelectContainer(container.id)}
                         >
                             <span>
                                 <strong>{container.name}</strong>
@@ -205,12 +206,12 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
             </div>
 
             <div className="cosmos-column cosmos-column--wide">
-                <PanelHeader icon={Table2} eyebrow="Documents" title={selectedContainer?.name ?? 'Select container'} detail={`${itemsQuery.data?.length ?? 0} items`}/>
+                <PanelHeader icon={Table2} eyebrow="Documents" title={selectedContainer?.name ?? selectedContainerId ?? 'Select container'} detail={`${itemsQuery.data?.length ?? 0} items`}/>
                 <div className="cosmos-toolbar">
                     <button
                         className="button primary"
                         type="button"
-                        disabled={!selectedContainerId || !runtimeReachable}
+                        disabled={!selectedContainer || !runtimeReachable}
                         onClick={() => {
                             upsertItemMut.reset()
                             setAddRecordOpen(true)
@@ -219,7 +220,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
                         <Plus size={14}/>
                         Add record
                     </button>
-                    <button className="button" type="button" disabled={!selectedContainerId || itemsQuery.isFetching} onClick={() => itemsQuery.refetch()}>
+                    <button className="button" type="button" disabled={!selectedContainer || !runtimeReachable || itemsQuery.isFetching} onClick={() => itemsQuery.refetch()}>
                         <RefreshCw size={14}/>
                         Refresh
                     </button>
@@ -256,7 +257,8 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
                         </tbody>
                     </table>
                     {!selectedContainerId && <div className="empty compact"><h3>Select a container</h3><p>Documents are scoped to a Cosmos container.</p></div>}
-                    {selectedContainerId && !itemsQuery.isLoading && (itemsQuery.data ?? []).length === 0 && <div className="empty compact"><h3>No documents</h3><p>Create a JSON document or run a query after data exists.</p></div>}
+                    {itemsQuery.isLoading && <div className="muted padded">Loading documents</div>}
+                    {selectedContainerId && itemsQuery.isSuccess && itemsQuery.data.length === 0 && <div className="empty compact"><h3>No documents</h3><p>Create a JSON document or run a query after data exists.</p></div>}
                 </div>
             </div>
 
@@ -265,7 +267,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
                 {selectedItem ? (
                     <form className="cosmos-editor" onSubmit={submitDocument}>
                         <textarea className="textarea code-textarea" value={documentText} onChange={(event) => setDocumentText(event.target.value)} spellCheck={false}/>
-                        <button className="button primary" type="submit" disabled={!selectedContainerId || upsertItemMut.isPending}>
+                        <button className="button primary" type="submit" disabled={!selectedContainer || !runtimeReachable || upsertItemMut.isPending}>
                             {upsertItemMut.isPending ? 'Saving' : 'Update document'}
                         </button>
                         {saveError && <div className="form-error">{saveError}</div>}
@@ -280,7 +282,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
                     <button
                         className="button"
                         type="button"
-                        disabled={!selectedContainerId || queryMut.isPending}
+                        disabled={!selectedContainer || !runtimeReachable || queryMut.isPending}
                         onClick={() => selectedContainerId && queryMut.mutate({containerId: selectedContainerId, query: sql})}
                     >
                         <Play size={14}/>

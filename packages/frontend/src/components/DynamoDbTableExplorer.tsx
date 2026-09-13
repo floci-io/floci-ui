@@ -92,7 +92,7 @@ export function DynamoDbTableExplorer({cloud, resource, runtimeReachable}: Dynam
                         </tbody>
                     </table>
                     {itemsQuery.isLoading && <div className="muted padded">Loading records</div>}
-                    {!itemsQuery.isLoading && items.length === 0 && <div className="empty compact"><h3>No records</h3><p>This table does not contain any items.</p></div>}
+                    {itemsQuery.isSuccess && items.length === 0 && <div className="empty compact"><h3>No records</h3><p>This table does not contain any items.</p></div>}
                 </div>
             </div>
 
