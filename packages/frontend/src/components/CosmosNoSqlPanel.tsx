@@ -1,4 +1,4 @@
-import {FormEvent, useEffect, useMemo, useState} from 'react'
+import {FormEvent, useEffect, useMemo, useRef, useState} from 'react'
 import {Code2, Database, Play, Plus, RefreshCw, Table2, Trash2, type LucideIcon} from 'lucide-react'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {JsonRecordModal} from '@/components/JsonRecordModal'
@@ -26,6 +26,7 @@ interface CosmosNoSqlPanelProps {
 export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedContainerId, onSelectContainer}: CosmosNoSqlPanelProps) {
     const qc = useQueryClient()
     const accountId = useAccountId()
+    const selectionChanged = useRef(false)
     const databaseId = resource?.id
     const [containerName, setContainerName] = useState('')
     const [partitionKeyPath, setPartitionKeyPath] = useState('/id')
@@ -128,6 +129,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
         if (!containerName.trim()) return
         createContainerMut.mutate(undefined, {
             onSuccess: (container) => {
+                if (selectionChanged.current) return
                 onSelectContainer(container.id)
                 setContainerName('')
                 setPartitionKeyPath('/id')
@@ -177,7 +179,11 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
                             key={container.id}
                             className={`cosmos-list-row ${selectedContainerId === container.id ? 'selected' : ''}`}
                             type="button"
-                            onClick={() => onSelectContainer(container.id)}
+                            onClick={() => {
+                                if (container.id === selectedContainerId) return
+                                selectionChanged.current = true
+                                onSelectContainer(container.id)
+                            }}
                         >
                             <span>
                                 <strong>{container.name}</strong>
@@ -191,6 +197,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
                                         event.stopPropagation()
                                         deleteContainerMut.mutate(container.id, {
                                             onSuccess: () => {
+                                                if (selectionChanged.current) return
                                                 if (selectedContainerId === container.id) onSelectContainer(undefined)
                                                 setConfirmContainer(null)
                                             },

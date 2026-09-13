@@ -297,6 +297,7 @@ for (const operation of ['create', 'delete']) {
         }
         await page.getByRole('button', {name: /archive Partition key/}).click()
         await expect(page).toHaveURL(/\?container=archive$/)
+        await expect(page.locator('.cosmos-list-row.selected')).toContainText('archive')
         const refresh = page.waitForResponse((response) => response.url().endsWith('/containers') && response.request().method() === 'GET')
         releaseMutation()
         await (await refresh).finished()
