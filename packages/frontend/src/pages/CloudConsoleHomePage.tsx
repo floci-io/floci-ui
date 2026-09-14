@@ -1,5 +1,5 @@
 import {Cloud} from 'lucide-react'
-import {Navigate, useNavigate, useParams} from 'react-router-dom'
+import {Navigate, useNavigate, useParams, useSearchParams} from 'react-router-dom'
 import {CloudSelector} from '@/components/CloudSelector'
 import {
     ProviderBanner,
@@ -13,11 +13,21 @@ import type {CloudProvider} from '@/types/cloud'
 export function CloudConsoleHomePage() {
     const navigate = useNavigate()
     const params = useParams()
+    const [searchParams] = useSearchParams()
+    const search = (searchParams.get('search') ?? '').trim().toLowerCase()
     const routeCloud = normalizeCloud(params.cloud)
     const cloud = routeCloud ?? 'aws'
     const data = useCloudConsoleHomeData(cloud)
 
     if (!routeCloud) return <Navigate to="/console/aws" replace/>
+
+    const filteredServices = search
+        ? data.serviceCards.filter((s) =>
+            s.label.toLowerCase().includes(search) ||
+            s.id.toLowerCase().includes(search) ||
+            s.meta?.toLowerCase().includes(search)
+          )
+        : data.serviceCards
 
     return (
         <>
@@ -64,7 +74,8 @@ export function CloudConsoleHomePage() {
                 <RuntimeFlow cloud={cloud} status={data.status}/>
 
                 <ServiceGrid
-                    services={data.serviceCards}
+                    services={filteredServices}
+                    searchQuery={search}
                     runtimeReachable={data.status?.runtime === 'reachable'}
                     onNavigate={(route) => navigate(route)}
                 />
