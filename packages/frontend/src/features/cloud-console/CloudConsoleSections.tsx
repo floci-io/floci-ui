@@ -53,7 +53,17 @@ export function RuntimeFlow({cloud, status}: RuntimeFlowProps) {
     )
 }
 
-export function ServiceGrid({services, runtimeReachable, onNavigate}: ServiceGridProps) {
+export function ServiceGrid({services, runtimeReachable, onNavigate, searchQuery}: ServiceGridProps) {
+    if (services.length === 0) {
+        return (
+            <section className="console-service-grid empty">
+                <p className="muted" style={{ padding: '24px', textAlign: 'center', gridColumn: '1 / -1' }}>
+                    {searchQuery ? `No services matching "${searchQuery}"` : 'No services found.'}
+                </p>
+            </section>
+        )
+    }
+
     return (
         <section className="console-service-grid">
             {services.map((service) => {

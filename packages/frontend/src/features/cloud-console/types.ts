@@ -34,6 +34,7 @@ export interface ServiceGridProps {
     services: ConsoleServiceCard[]
     runtimeReachable: boolean
     onNavigate: (route: string) => void
+    searchQuery?: string
 }
 
 export interface RuntimeFlowProps {
