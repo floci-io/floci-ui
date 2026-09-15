@@ -3,6 +3,7 @@ import {Braces, Plus, RefreshCw, TableProperties} from 'lucide-react'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {listNoSqlItems, putNoSqlItem} from '@/api/cloudProxyClient'
 import {JsonRecordModal} from '@/components/JsonRecordModal'
+import {useAccountId} from '@/lib/accountStore'
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource, NoSqlItem} from '@/types/resource'
 
@@ -14,10 +15,11 @@ interface DynamoDbTableExplorerProps {
 
 export function DynamoDbTableExplorer({cloud, resource, runtimeReachable}: DynamoDbTableExplorerProps) {
     const qc = useQueryClient()
+    const accountId = useAccountId()
     const tableName = resource?.id
     const [selectedItemId, setSelectedItemId] = useState<string>()
     const [addRecordOpen, setAddRecordOpen] = useState(false)
-    const itemsKey = useMemo(() => ['nosql-items', cloud, tableName], [cloud, tableName])
+    const itemsKey = useMemo(() => ['nosql-items', accountId, cloud, tableName], [accountId, cloud, tableName])
     const keyFields = useMemo(() => dynamoKeyFields(resource), [resource])
     const itemsQuery = useQuery({
         queryKey: itemsKey,
@@ -92,7 +94,7 @@ export function DynamoDbTableExplorer({cloud, resource, runtimeReachable}: Dynam
                         </tbody>
                     </table>
                     {itemsQuery.isLoading && <div className="muted padded">Loading records</div>}
-                    {!itemsQuery.isLoading && items.length === 0 && <div className="empty compact"><h3>No records</h3><p>This table does not contain any items.</p></div>}
+                    {itemsQuery.isSuccess && items.length === 0 && <div className="empty compact"><h3>No records</h3><p>This table does not contain any items.</p></div>}
                 </div>
             </div>
 

@@ -1,6 +1,8 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Code2, Database, Play, Plug, RefreshCw, Table2, Unplug } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useAccountId } from "@/lib/accountStore";
 import {
   listSqlDatabases,
   listSqlTables,
@@ -31,16 +33,12 @@ interface AzureSqlPanelProps {
   runtimeReachable: boolean;
 }
 
-interface TablesRequest {
-  database: string;
-  requestId: number;
-}
-
 export function AzureSqlPanel({
   cloud,
   resource,
   runtimeReachable,
 }: AzureSqlPanelProps) {
+  const accountId = useAccountId();
   const serverId = resource?.id;
   const engine: SqlEngine =
     resource?.type === "postgres-flexible-server" ? "postgresql" : "azure-sql";
@@ -54,52 +52,51 @@ export function AzureSqlPanel({
   const [password, setPassword] = useState("");
   const [connected, setConnected] = useState(false);
   const [databases, setDatabases] = useState<SqlDatabase[]>([]);
-  const [selectedDatabase, setSelectedDatabase] = useState(defaultDatabase);
-  const [tables, setTables] = useState<SqlTable[]>([]);
-  const [selectedTable, setSelectedTable] = useState<SqlTable>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedDatabase = searchParams.get("database") || defaultDatabase;
+  const tableSchema = searchParams.get("schema");
+  const tableName = searchParams.get("table");
   const [queryText, setQueryText] = useState(defaultQuery);
-  const latestTablesRequestId = useRef(0);
 
   const credentials: SqlCredentials = { username, password };
+  const databaseExists = databases.some((database) => database.name === selectedDatabase);
 
-  const tablesMut = useMutation({
-    mutationFn: ({ database }: TablesRequest) =>
-      listSqlTables(cloud, serverId ?? "", engine, database, credentials),
-    onSuccess: (items, request) => {
-      if (request.requestId === latestTablesRequestId.current) {
-        setTables(items);
-      }
-    },
+  const tablesQuery = useQuery({
+    queryKey: ['sql-tables', accountId, cloud, serverId, engine, selectedDatabase, username],
+    queryFn: ({signal}) => listSqlTables(cloud, serverId ?? "", engine, selectedDatabase, credentials, signal),
+    enabled: connected && databaseExists && runtimeReachable,
+    gcTime: 0,
   });
+  const tables = connected && databaseExists ? tablesQuery.data ?? [] : [];
+  const selectedTable = tables.find((table) => table.schema === tableSchema && table.name === tableName);
+  const previewQuery = selectedTable && tablePreviewQuery(selectedTable, engine);
 
   const databasesMut = useMutation({
     mutationFn: () =>
       listSqlDatabases(cloud, serverId ?? "", engine, credentials),
-    onSuccess: (items) => {
-      setDatabases(items);
-      setConnected(true);
-      const database = items.some((item) => item.name === selectedDatabase)
-        ? selectedDatabase
-        : (items[0]?.name ?? defaultDatabase);
-      setSelectedDatabase(database);
-      loadTables(database);
-    },
   });
 
   const queryMut = useMutation({
     mutationFn: ({ database, query }: { database: string; query: string }) =>
       querySql(cloud, serverId ?? "", engine, database, credentials, query),
   });
+  const {mutate: executeQuery, reset: resetQuery} = queryMut;
 
   useEffect(() => {
-    latestTablesRequestId.current += 1;
+    resetQuery();
+    if (!connected || !previewQuery) {
+      setQueryText(defaultQuery);
+      return;
+    }
+    setQueryText(previewQuery);
+    executeQuery({database: selectedDatabase, query: previewQuery});
+  }, [connected, selectedDatabase, previewQuery, defaultQuery, executeQuery, resetQuery]);
+
+  useEffect(() => {
     setUsername(administratorLogin);
     setPassword("");
     setConnected(false);
     setDatabases([]);
-    setSelectedDatabase(defaultDatabase);
-    setTables([]);
-    setSelectedTable(undefined);
     setQueryText(defaultQuery);
   }, [administratorLogin, cloud, defaultDatabase, defaultQuery, serverId]);
 
@@ -119,47 +116,55 @@ export function AzureSqlPanel({
   function connect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!username || !password) return;
-    latestTablesRequestId.current += 1;
-    tablesMut.reset();
     queryMut.reset();
-    databasesMut.mutate();
+    loadDatabases();
+  }
+
+  function loadDatabases() {
+    databasesMut.mutate(undefined, {
+      onSuccess: (items) => {
+        setDatabases(items);
+        setConnected(true);
+        if (!searchParams.has('database')) {
+          const database = items.find((item) => item.name === defaultDatabase) ?? items[0];
+          if (database) selectDatabase(database);
+        }
+      },
+    });
   }
 
   function disconnect() {
-    latestTablesRequestId.current += 1;
     setConnected(false);
     setPassword("");
     setDatabases([]);
-    setTables([]);
-    setSelectedTable(undefined);
     databasesMut.reset();
-    tablesMut.reset();
     queryMut.reset();
   }
 
   function selectDatabase(database: SqlDatabase) {
-    setSelectedDatabase(database.name);
-    setSelectedTable(undefined);
-    setTables([]);
-    queryMut.reset();
-    loadTables(database.name);
-  }
-
-  function loadTables(database: string) {
-    tablesMut.mutate({
-      database,
-      requestId: ++latestTablesRequestId.current,
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set('database', database.name);
+      next.delete('schema');
+      next.delete('table');
+      return next;
     });
   }
 
   function previewTable(table: SqlTable) {
-    const tableName = `${quoteIdentifier(table.schema, engine)}.${quoteIdentifier(table.name, engine)}`;
-    const query = engine === "postgresql"
-      ? `SELECT * FROM ${tableName} LIMIT 100;`
-      : `SELECT TOP (100) * FROM ${tableName};`;
-    setSelectedTable(table);
-    setQueryText(query);
-    queryMut.mutate({ database: selectedDatabase, query });
+    if (table.schema === tableSchema && table.name === tableName) {
+      const query = tablePreviewQuery(table, engine);
+      setQueryText(query);
+      queryMut.mutate({database: selectedDatabase, query});
+      return;
+    }
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set('database', selectedDatabase);
+      next.set('schema', table.schema);
+      next.set('table', table.name);
+      return next;
+    });
   }
 
   function runQuery() {
@@ -247,13 +252,15 @@ export function AzureSqlPanel({
                   type="button"
                   title="Refresh databases"
                   disabled={databasesMut.isPending}
-                  onClick={() => databasesMut.mutate()}
+                  onClick={loadDatabases}
                 >
                   <RefreshCw size={13} />
                 </button>
               }
             />
             <div className="sql-list">
+              {databases.length === 0 && <div className="muted padded">No databases</div>}
+              {databases.length > 0 && !databaseExists && <div className="form-error">Database not found: {selectedDatabase}</div>}
               {databases.map((database) => (
                 <button
                   key={database.name}
@@ -282,21 +289,22 @@ export function AzureSqlPanel({
                   className="icon-btn"
                   type="button"
                   title="Refresh tables"
-                  disabled={tablesMut.isPending}
-                  onClick={() => loadTables(selectedDatabase)}
+                  disabled={!databaseExists || tablesQuery.isFetching}
+                  onClick={() => void tablesQuery.refetch()}
                 >
                   <RefreshCw size={13} />
                 </button>
               }
             />
-            {tablesMut.error instanceof Error && (
-              <div className="form-error">{tablesMut.error.message}</div>
+            {tablesQuery.error instanceof Error && (
+              <div className="form-error">{tablesQuery.error.message}</div>
             )}
             <div className="sql-list">
-              {tablesMut.isPending && <div className="muted padded">Loading objects</div>}
-              {!tablesMut.isPending && tables.length === 0 && (
+              {tablesQuery.isLoading && <div className="muted padded">Loading objects</div>}
+              {databaseExists && tablesQuery.isSuccess && tables.length === 0 && (
                 <div className="muted padded">No user tables or views</div>
               )}
+              {databaseExists && tablesQuery.isSuccess && tableName && !selectedTable && <div className="form-error">Table not found: {tableSchema}.{tableName}</div>}
               {tables.map((table) => (
                 <button
                   key={`${table.schema}.${table.name}`}
@@ -333,7 +341,7 @@ export function AzureSqlPanel({
               <button
                 className="button primary"
                 type="button"
-                disabled={queryMut.isPending || !queryText.trim()}
+                disabled={!databaseExists || queryMut.isPending || !queryText.trim()}
                 onClick={runQuery}
               >
                 <Play size={14} />
@@ -441,6 +449,13 @@ function SqlPanelHeader({
 
 function metadataString(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function tablePreviewQuery(table: SqlTable, engine: SqlEngine): string {
+  const tableName = `${quoteIdentifier(table.schema, engine)}.${quoteIdentifier(table.name, engine)}`;
+  return engine === 'postgresql'
+    ? `SELECT * FROM ${tableName} LIMIT 100;`
+    : `SELECT TOP (100) * FROM ${tableName};`;
 }
 
 function quoteIdentifier(value: string, engine: SqlEngine): string {

@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import {Link} from 'react-router-dom';
 import {Pencil, Trash2} from 'lucide-react';
 import type {CloudResource} from '@/types/resource';
 import type {ServiceSchema} from '@/types/schema';
@@ -13,6 +14,7 @@ interface ResourceTableProps {
   onEdit?: (resource: CloudResource) => void;
   onDelete: (resource: CloudResource) => void;
   deletingId?: string;
+  dataPath?: (resource: CloudResource) => string | undefined;
 }
 
 export function ResourceTable({
@@ -23,11 +25,12 @@ export function ResourceTable({
   onEdit,
   onDelete,
   deletingId,
+  dataPath,
 }: ResourceTableProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const canDelete = schema.actions.includes('delete');
   const canEdit = schema.actions.includes('update') && Boolean(schema.updateFields?.length) && Boolean(onEdit);
-  const hasActions = canDelete || canEdit;
+  const hasActions = canDelete || canEdit || Boolean(dataPath && resources.some((resource) => dataPath(resource)));
 
   if (resources.length === 0) {
     const emptyTitle = `No ${schema.displayName} found.`;
@@ -53,7 +56,9 @@ export function ResourceTable({
         </tr>
       </thead>
       <tbody>
-        {resources.map((resource) => (
+        {resources.map((resource) => {
+          const explorePath = dataPath?.(resource);
+          return (
           <tr key={resource.id} className={selectedId === resource.id ? 'selected' : ''}>
             {schema.columns.map((column) => (
               <td key={column.name} onClick={() => onSelect(resource)}>
@@ -62,6 +67,11 @@ export function ResourceTable({
             ))}
             {hasActions && (
               <td className="table-actions">
+                {explorePath && (
+                  <Link className="button compact" to={explorePath} aria-label={`Explore data in ${resource.name}`}>
+                    Explore data
+                  </Link>
+                )}
                 {canEdit && (
                   <button
                     className="icon-btn"
@@ -103,7 +113,8 @@ export function ResourceTable({
               </td>
             )}
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
   );
