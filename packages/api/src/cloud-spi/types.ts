@@ -354,6 +354,59 @@ export interface CreateKubernetesFargateProfileInput {
     tags?: Record<string, string>
 }
 
+export interface AppConfigEnvironment {
+    id: string
+    applicationId: string
+    name: string
+    description: string | null
+    state: string | null
+}
+
+export interface AppConfigConfigurationProfile {
+    id: string
+    applicationId: string
+    name: string
+    description: string | null
+    locationUri: string | null
+    type: string | null
+}
+
+export interface AppConfigHostedConfigurationVersion {
+    id: string
+    applicationId: string
+    configurationProfileId: string
+    versionNumber: number
+    description: string | null
+    contentType: string | null
+    /** Decoded configuration payload; only GetHostedConfigurationVersion returns it. */
+    content: string | null
+}
+
+export interface AppConfigDeploymentStrategy {
+    id: string
+    name: string
+    description: string | null
+    deploymentDurationInMinutes: number | null
+    growthType: string | null
+    growthFactor: number | null
+    finalBakeTimeInMinutes: number | null
+    replicateTo: string | null
+}
+
+export interface AppConfigDeployment {
+    applicationId: string
+    environmentId: string
+    deploymentNumber: number
+    configurationProfileId: string | null
+    configurationVersion: string | null
+    deploymentStrategyId: string | null
+    state: string | null
+    percentageComplete: number | null
+    startedAt: string | null
+    completedAt: string | null
+    description: string | null
+}
+
 export interface ResourceQuery {
     search?: string
 }
@@ -446,4 +499,22 @@ export interface CloudServiceAdapter {
     deleteKubernetesFargateProfile?(clusterId: string, profileId: string): Promise<void>
     /** Clears the provider's locally captured email inbox, if it exposes one. */
     clearEmailInbox?(): Promise<void>
+    // AppConfig nested resources, keyed by the ids the provider needs. Inspect
+    // reuses the full list payloads; only hosted versions (whose content is not
+    // in List*) and deployments (which are polled) get a getter.
+    listAppConfigEnvironments?(applicationId: string): Promise<AppConfigEnvironment[]>
+    createAppConfigEnvironment?(applicationId: string, input: CreateResourceInput): Promise<AppConfigEnvironment>
+    deleteAppConfigEnvironment?(applicationId: string, environmentId: string): Promise<void>
+    listAppConfigConfigurationProfiles?(applicationId: string): Promise<AppConfigConfigurationProfile[]>
+    createAppConfigConfigurationProfile?(applicationId: string, input: CreateResourceInput): Promise<AppConfigConfigurationProfile>
+    deleteAppConfigConfigurationProfile?(applicationId: string, profileId: string): Promise<void>
+    listAppConfigHostedConfigurationVersions?(applicationId: string, profileId: string): Promise<AppConfigHostedConfigurationVersion[]>
+    getAppConfigHostedConfigurationVersion?(applicationId: string, profileId: string, versionNumber: number): Promise<AppConfigHostedConfigurationVersion | null>
+    createAppConfigHostedConfigurationVersion?(applicationId: string, profileId: string, input: CreateResourceInput): Promise<AppConfigHostedConfigurationVersion>
+    deleteAppConfigHostedConfigurationVersion?(applicationId: string, profileId: string, versionNumber: number): Promise<void>
+    listAppConfigDeploymentStrategies?(): Promise<AppConfigDeploymentStrategy[]>
+    createAppConfigDeploymentStrategy?(input: CreateResourceInput): Promise<AppConfigDeploymentStrategy>
+    deleteAppConfigDeploymentStrategy?(strategyId: string): Promise<void>
+    startAppConfigDeployment?(applicationId: string, environmentId: string, input: CreateResourceInput): Promise<AppConfigDeployment>
+    getAppConfigDeployment?(applicationId: string, environmentId: string, deploymentNumber: number): Promise<AppConfigDeployment | null>
 }

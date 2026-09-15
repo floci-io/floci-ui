@@ -82,6 +82,33 @@ export const apiEndpointKeys = {
         clear: "clouds.services.email.inbox.clear",
       },
     },
+    configuration: {
+      environments: {
+        list: "clouds.services.configuration.environments.list",
+        create: "clouds.services.configuration.environments.create",
+        delete: "clouds.services.configuration.environments.delete",
+        deployments: {
+          start: "clouds.services.configuration.environments.deployments.start",
+          get: "clouds.services.configuration.environments.deployments.get",
+        },
+      },
+      configurationProfiles: {
+        list: "clouds.services.configuration.profiles.list",
+        create: "clouds.services.configuration.profiles.create",
+        delete: "clouds.services.configuration.profiles.delete",
+        hostedVersions: {
+          list: "clouds.services.configuration.profiles.hosted-versions.list",
+          get: "clouds.services.configuration.profiles.hosted-versions.get",
+          create: "clouds.services.configuration.profiles.hosted-versions.create",
+          delete: "clouds.services.configuration.profiles.hosted-versions.delete",
+        },
+      },
+      deploymentStrategies: {
+        list: "clouds.services.configuration.deployment-strategies.list",
+        create: "clouds.services.configuration.deployment-strategies.create",
+        delete: "clouds.services.configuration.deployment-strategies.delete",
+      },
+    },
   },
   aws: {
     eks: {
@@ -507,6 +534,126 @@ export const endpointRegistry: EndpointRegistry = new Map([
     apiEndpointKeys.clouds.email.inbox.clear,
     {
       path: "/clouds/:cloud/services/email/inbox",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.environments.list,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/environments",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.environments.create,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/environments",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.environments.delete,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/environments/:environmentId",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.environments.deployments.start,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/environments/:environmentId/deployments",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.environments.deployments.get,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/environments/:environmentId/deployments/:deploymentNumber",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.configurationProfiles.list,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/configuration-profiles",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.configurationProfiles.create,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/configuration-profiles",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.configurationProfiles.delete,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.configurationProfiles.hostedVersions.list,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId/hosted-configuration-versions",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.configurationProfiles.hostedVersions.get,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId/hosted-configuration-versions/:versionNumber",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.configurationProfiles.hostedVersions.create,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId/hosted-configuration-versions",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.configurationProfiles.hostedVersions.delete,
+    {
+      path: "/clouds/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId/hosted-configuration-versions/:versionNumber",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.deploymentStrategies.list,
+    {
+      path: "/clouds/:cloud/services/configuration/deployment-strategies",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.deploymentStrategies.create,
+    {
+      path: "/clouds/:cloud/services/configuration/deployment-strategies",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.configuration.deploymentStrategies.delete,
+    {
+      path: "/clouds/:cloud/services/configuration/deployment-strategies/:strategyId",
       method: "DELETE",
       telemetry: { service: "cloud-proxy" },
     },

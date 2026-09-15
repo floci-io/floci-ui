@@ -8,6 +8,11 @@ import type {
   CloudStatus,
 } from "@/types/cloud";
 import type {
+  AppConfigConfigurationProfile,
+  AppConfigDeployment,
+  AppConfigDeploymentStrategy,
+  AppConfigEnvironment,
+  AppConfigHostedConfigurationVersion,
   CloudResource,
   CosmosContainer,
   CosmosItem,
@@ -610,6 +615,202 @@ export async function deleteKubernetesFargateProfile(
     requestOptions(cloud, "k8s"),
     {cloud, id: clusterId, profileId},
   )
+}
+
+export async function listAppConfigEnvironments(
+  cloud: CloudProvider,
+  applicationId: string,
+  signal?: AbortSignal,
+): Promise<AppConfigEnvironment[]> {
+  const res = await apiClient.call<AppConfigEnvironment[]>(
+    apiEndpointKeys.clouds.configuration.environments.list,
+    requestOptions(cloud, "configuration", {signal}),
+    {cloud, id: applicationId},
+  );
+  return res.data;
+}
+
+export async function createAppConfigEnvironment(
+  cloud: CloudProvider,
+  applicationId: string,
+  values: Record<string, unknown>,
+): Promise<AppConfigEnvironment> {
+  const res = await apiClient.call<AppConfigEnvironment, Record<string, unknown>>(
+    apiEndpointKeys.clouds.configuration.environments.create,
+    requestOptions(cloud, "configuration", {body: values}),
+    {cloud, id: applicationId},
+  );
+  return res.data;
+}
+
+export async function deleteAppConfigEnvironment(
+  cloud: CloudProvider,
+  applicationId: string,
+  environmentId: string,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.configuration.environments.delete,
+    requestOptions(cloud, "configuration"),
+    {cloud, id: applicationId, environmentId},
+  );
+}
+
+export async function listAppConfigConfigurationProfiles(
+  cloud: CloudProvider,
+  applicationId: string,
+  signal?: AbortSignal,
+): Promise<AppConfigConfigurationProfile[]> {
+  const res = await apiClient.call<AppConfigConfigurationProfile[]>(
+    apiEndpointKeys.clouds.configuration.configurationProfiles.list,
+    requestOptions(cloud, "configuration", {signal}),
+    {cloud, id: applicationId},
+  );
+  return res.data;
+}
+
+export async function createAppConfigConfigurationProfile(
+  cloud: CloudProvider,
+  applicationId: string,
+  values: Record<string, unknown>,
+): Promise<AppConfigConfigurationProfile> {
+  const res = await apiClient.call<AppConfigConfigurationProfile, Record<string, unknown>>(
+    apiEndpointKeys.clouds.configuration.configurationProfiles.create,
+    requestOptions(cloud, "configuration", {body: values}),
+    {cloud, id: applicationId},
+  );
+  return res.data;
+}
+
+export async function deleteAppConfigConfigurationProfile(
+  cloud: CloudProvider,
+  applicationId: string,
+  profileId: string,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.configuration.configurationProfiles.delete,
+    requestOptions(cloud, "configuration"),
+    {cloud, id: applicationId, profileId},
+  );
+}
+
+export async function listAppConfigHostedConfigurationVersions(
+  cloud: CloudProvider,
+  applicationId: string,
+  profileId: string,
+  signal?: AbortSignal,
+): Promise<AppConfigHostedConfigurationVersion[]> {
+  const res = await apiClient.call<AppConfigHostedConfigurationVersion[]>(
+    apiEndpointKeys.clouds.configuration.configurationProfiles.hostedVersions.list,
+    requestOptions(cloud, "configuration", {signal}),
+    {cloud, id: applicationId, profileId},
+  );
+  return res.data;
+}
+
+export async function getAppConfigHostedConfigurationVersion(
+  cloud: CloudProvider,
+  applicationId: string,
+  profileId: string,
+  versionNumber: number,
+  signal?: AbortSignal,
+): Promise<AppConfigHostedConfigurationVersion> {
+  const res = await apiClient.call<AppConfigHostedConfigurationVersion>(
+    apiEndpointKeys.clouds.configuration.configurationProfiles.hostedVersions.get,
+    requestOptions(cloud, "configuration", {signal}),
+    {cloud, id: applicationId, profileId, versionNumber: String(versionNumber)},
+  );
+  return res.data;
+}
+
+export async function createAppConfigHostedConfigurationVersion(
+  cloud: CloudProvider,
+  applicationId: string,
+  profileId: string,
+  values: Record<string, unknown>,
+): Promise<AppConfigHostedConfigurationVersion> {
+  const res = await apiClient.call<AppConfigHostedConfigurationVersion, Record<string, unknown>>(
+    apiEndpointKeys.clouds.configuration.configurationProfiles.hostedVersions.create,
+    requestOptions(cloud, "configuration", {body: values}),
+    {cloud, id: applicationId, profileId},
+  );
+  return res.data;
+}
+
+export async function deleteAppConfigHostedConfigurationVersion(
+  cloud: CloudProvider,
+  applicationId: string,
+  profileId: string,
+  versionNumber: number,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.configuration.configurationProfiles.hostedVersions.delete,
+    requestOptions(cloud, "configuration"),
+    {cloud, id: applicationId, profileId, versionNumber: String(versionNumber)},
+  );
+}
+
+export async function listAppConfigDeploymentStrategies(
+  cloud: CloudProvider,
+  signal?: AbortSignal,
+): Promise<AppConfigDeploymentStrategy[]> {
+  const res = await apiClient.call<AppConfigDeploymentStrategy[]>(
+    apiEndpointKeys.clouds.configuration.deploymentStrategies.list,
+    requestOptions(cloud, "configuration", {signal}),
+    {cloud},
+  );
+  return res.data;
+}
+
+export async function createAppConfigDeploymentStrategy(
+  cloud: CloudProvider,
+  values: Record<string, unknown>,
+): Promise<AppConfigDeploymentStrategy> {
+  const res = await apiClient.call<AppConfigDeploymentStrategy, Record<string, unknown>>(
+    apiEndpointKeys.clouds.configuration.deploymentStrategies.create,
+    requestOptions(cloud, "configuration", {body: values}),
+    {cloud},
+  );
+  return res.data;
+}
+
+export async function deleteAppConfigDeploymentStrategy(
+  cloud: CloudProvider,
+  strategyId: string,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.configuration.deploymentStrategies.delete,
+    requestOptions(cloud, "configuration"),
+    {cloud, strategyId},
+  );
+}
+
+export async function startAppConfigDeployment(
+  cloud: CloudProvider,
+  applicationId: string,
+  environmentId: string,
+  values: Record<string, unknown>,
+): Promise<AppConfigDeployment> {
+  const res = await apiClient.call<AppConfigDeployment, Record<string, unknown>>(
+    apiEndpointKeys.clouds.configuration.environments.deployments.start,
+    requestOptions(cloud, "configuration", {body: values}),
+    {cloud, id: applicationId, environmentId},
+  );
+  return res.data;
+}
+
+export async function getAppConfigDeployment(
+  cloud: CloudProvider,
+  applicationId: string,
+  environmentId: string,
+  deploymentNumber: number,
+  signal?: AbortSignal,
+): Promise<AppConfigDeployment> {
+  const res = await apiClient.call<AppConfigDeployment>(
+    apiEndpointKeys.clouds.configuration.environments.deployments.get,
+    requestOptions(cloud, "configuration", {signal}),
+    {cloud, id: applicationId, environmentId, deploymentNumber: String(deploymentNumber)},
+  );
+  return res.data;
 }
 
 function requestOptions<TBody = unknown>(

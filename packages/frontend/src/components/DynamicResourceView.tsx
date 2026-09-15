@@ -38,6 +38,7 @@ import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
 import { DynamoDbTableExplorer } from "@/components/DynamoDbTableExplorer";
 import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
+import { AppConfigPanel } from "@/components/AppConfigPanel";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -506,6 +507,7 @@ export function DynamicResourceView({
           <ResourceInspector
             resource={activeSelected}
             object={selectedObject}
+            serviceName={schema.displayName}
           />
         )}
       </div>
@@ -559,6 +561,13 @@ export function DynamicResourceView({
       )}
       {service === "nosql" && cloud === "aws" && (
         <DynamoDbTableExplorer
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "configuration" && cloud === "aws" && (
+        <AppConfigPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}

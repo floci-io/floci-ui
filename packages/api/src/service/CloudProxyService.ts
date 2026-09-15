@@ -3,6 +3,7 @@ import type {
     CloudDescriptor,
     CloudProvider,
     CloudResource,
+    CloudServiceAdapter,
     CloudServiceDescriptor,
     CloudServiceType,
     CloudServiceStatus,
@@ -14,6 +15,11 @@ import type {
     CreateKubernetesFargateProfileInput,
     CreateKubernetesNodegroupInput,
     CreateResourceInput,
+    AppConfigConfigurationProfile,
+    AppConfigDeployment,
+    AppConfigDeploymentStrategy,
+    AppConfigEnvironment,
+    AppConfigHostedConfigurationVersion,
     DatabaseSnapshot,
     KubernetesFargateProfile,
     KubernetesNodegroup,
@@ -475,6 +481,73 @@ async invokeResource(
         const adapter = this.requireAdapter(cloud, 'email')
         if (!adapter.clearEmailInbox) throw new NotSupportedError(`Inbox clearing is not supported for ${cloud}/email`)
         await adapter.clearEmailInbox()
+    }
+
+    private appConfigAdapter(cloud: CloudProvider): CloudServiceAdapter {
+        const adapter = this.requireAdapter(cloud, 'configuration')
+        const method = adapter.listAppConfigEnvironments
+        if (!method) throw new NotSupportedError(`AppConfig resources are not supported for ${cloud}/configuration`)
+        return adapter
+    }
+
+    async listAppConfigEnvironments(cloud: CloudProvider, applicationId: string): Promise<AppConfigEnvironment[]> {
+        return this.appConfigAdapter(cloud).listAppConfigEnvironments!(applicationId)
+    }
+
+    async createAppConfigEnvironment(cloud: CloudProvider, applicationId: string, input: CreateResourceInput): Promise<AppConfigEnvironment> {
+        return this.appConfigAdapter(cloud).createAppConfigEnvironment!(applicationId, input)
+    }
+
+    async deleteAppConfigEnvironment(cloud: CloudProvider, applicationId: string, environmentId: string): Promise<void> {
+        await this.appConfigAdapter(cloud).deleteAppConfigEnvironment!(applicationId, environmentId)
+    }
+
+    async listAppConfigConfigurationProfiles(cloud: CloudProvider, applicationId: string): Promise<AppConfigConfigurationProfile[]> {
+        return this.appConfigAdapter(cloud).listAppConfigConfigurationProfiles!(applicationId)
+    }
+
+    async createAppConfigConfigurationProfile(cloud: CloudProvider, applicationId: string, input: CreateResourceInput): Promise<AppConfigConfigurationProfile> {
+        return this.appConfigAdapter(cloud).createAppConfigConfigurationProfile!(applicationId, input)
+    }
+
+    async deleteAppConfigConfigurationProfile(cloud: CloudProvider, applicationId: string, profileId: string): Promise<void> {
+        await this.appConfigAdapter(cloud).deleteAppConfigConfigurationProfile!(applicationId, profileId)
+    }
+
+    async listAppConfigHostedConfigurationVersions(cloud: CloudProvider, applicationId: string, profileId: string): Promise<AppConfigHostedConfigurationVersion[]> {
+        return this.appConfigAdapter(cloud).listAppConfigHostedConfigurationVersions!(applicationId, profileId)
+    }
+
+    async getAppConfigHostedConfigurationVersion(cloud: CloudProvider, applicationId: string, profileId: string, versionNumber: number): Promise<AppConfigHostedConfigurationVersion | null> {
+        return this.appConfigAdapter(cloud).getAppConfigHostedConfigurationVersion!(applicationId, profileId, versionNumber)
+    }
+
+    async createAppConfigHostedConfigurationVersion(cloud: CloudProvider, applicationId: string, profileId: string, input: CreateResourceInput): Promise<AppConfigHostedConfigurationVersion> {
+        return this.appConfigAdapter(cloud).createAppConfigHostedConfigurationVersion!(applicationId, profileId, input)
+    }
+
+    async deleteAppConfigHostedConfigurationVersion(cloud: CloudProvider, applicationId: string, profileId: string, versionNumber: number): Promise<void> {
+        await this.appConfigAdapter(cloud).deleteAppConfigHostedConfigurationVersion!(applicationId, profileId, versionNumber)
+    }
+
+    async listAppConfigDeploymentStrategies(cloud: CloudProvider): Promise<AppConfigDeploymentStrategy[]> {
+        return this.appConfigAdapter(cloud).listAppConfigDeploymentStrategies!()
+    }
+
+    async createAppConfigDeploymentStrategy(cloud: CloudProvider, input: CreateResourceInput): Promise<AppConfigDeploymentStrategy> {
+        return this.appConfigAdapter(cloud).createAppConfigDeploymentStrategy!(input)
+    }
+
+    async deleteAppConfigDeploymentStrategy(cloud: CloudProvider, strategyId: string): Promise<void> {
+        await this.appConfigAdapter(cloud).deleteAppConfigDeploymentStrategy!(strategyId)
+    }
+
+    async startAppConfigDeployment(cloud: CloudProvider, applicationId: string, environmentId: string, input: CreateResourceInput): Promise<AppConfigDeployment> {
+        return this.appConfigAdapter(cloud).startAppConfigDeployment!(applicationId, environmentId, input)
+    }
+
+    async getAppConfigDeployment(cloud: CloudProvider, applicationId: string, environmentId: string, deploymentNumber: number): Promise<AppConfigDeployment | null> {
+        return this.appConfigAdapter(cloud).getAppConfigDeployment!(applicationId, environmentId, deploymentNumber)
     }
 
     private requireAdapter(cloud: CloudProvider, service: CloudServiceType) {

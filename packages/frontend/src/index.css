@@ -1553,6 +1553,26 @@ pre,
     width: 100%;
 }
 
+.appconfig-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.appconfig-panel .cosmos-column--wide,
+.appconfig-panel .cosmos-column:last-child,
+.appconfig-panel > .empty {
+    grid-column: 1 / -1;
+}
+
+.appconfig-panel .cosmos-inline-form {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px 10px;
+}
+
+.appconfig-panel .cosmos-inline-form .button {
+    justify-self: start;
+}
+
 .cosmos-list {
     max-height: 300px;
     overflow-y: auto;

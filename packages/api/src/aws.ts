@@ -15,6 +15,7 @@ import { IAMClient } from "@aws-sdk/client-iam";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { APIGatewayClient } from "@aws-sdk/client-api-gateway";
 import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
+import { AppConfigClient } from "@aws-sdk/client-appconfig";
 
 const endpoint = process.env.FLOCI_ENDPOINT;
 const region = process.env.AWS_REGION || "us-east-1";
@@ -61,6 +62,7 @@ export type AwsClients = {
   dynamodb: DynamoDBClient;
   apiGateway: APIGatewayClient;
   cloudformation: CloudFormationClient;
+  appConfig: AppConfigClient;
 };
 
 export type AwsClientName = keyof AwsClients;
@@ -91,6 +93,7 @@ function buildClients(accountId: string): AwsClients {
     dynamodb: new DynamoDBClient(base),
     apiGateway: new APIGatewayClient(base),
     cloudformation: new CloudFormationClient(base),
+    appConfig: new AppConfigClient(base),
   };
 }
 

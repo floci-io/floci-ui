@@ -6,11 +6,13 @@ import {formatBytes} from "@/lib/format";
 interface ResourceInspectorProps {
   resource?: CloudResource;
   object?: StorageObject;
+  serviceName?: string;
 }
 
 export function ResourceInspector({
   resource,
   object,
+  serviceName,
 }: ResourceInspectorProps) {
   if (!resource) {
     return (
@@ -72,7 +74,7 @@ export function ResourceInspector({
       </div>
       <div className="inspector-grid">
         <InspectorItem label="Cloud" value={resource.cloud} />
-        <InspectorItem label="Service" value={resource.service} />
+        <InspectorItem label="Service" value={serviceName ?? resource.service} />
         <InspectorItem label="Region" value={resource.region ?? "-"} />
         <InspectorItem label="Created At" value={resource.createdAt ?? "-"} />
         {resource.status && (
