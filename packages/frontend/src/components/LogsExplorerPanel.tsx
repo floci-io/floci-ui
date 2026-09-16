@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react'
 import {ChevronRight, RefreshCw, ScrollText} from 'lucide-react'
-import {useQueries, useQuery} from '@tanstack/react-query'
+import {useQueries} from '@tanstack/react-query'
 import {listChildCollections, listCollectionItems} from '@/api/cloudProxyClient'
 import {EmptyState} from '@/components/EmptyState'
 import {formatBytes, formatDateTime} from '@/lib/format'
@@ -20,14 +20,24 @@ interface LogsExplorerPanelProps {
  * the two-level drill-in beneath a selected group: streams (a child
  * collection) and events (the leaf item), both served by the generic
  * child-collections SPI that AwsLogsAdapter implements.
+ *
+ * Both streams and events use one query per loaded cursor page (via
+ * useQueries) rather than useInfiniteQuery, following the precedent set for
+ * events by the original implementation this panel ported from. Refresh
+ * resets the cursor array to a single page and explicitly refetches it,
+ * rather than only refetching the first query: with more than one page
+ * loaded, refetching in place would otherwise combine a fresh first page
+ * with stale trailing pages built from the old cursor chain.
  */
 export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplorerPanelProps) {
     const groupId = resource?.id
     const [selectedStreamId, setSelectedStreamId] = useState<string | undefined>()
+    const [streamCursors, setStreamCursors] = useState<Array<string | undefined>>([undefined])
     const [eventCursors, setEventCursors] = useState<Array<string | undefined>>([undefined])
 
     useEffect(() => {
         setSelectedStreamId(undefined)
+        setStreamCursors([undefined])
         setEventCursors([undefined])
     }, [cloud, groupId])
 
@@ -35,13 +45,18 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
         setEventCursors([undefined])
     }, [selectedStreamId])
 
-    const streamsQuery = useQuery({
-        queryKey: ['log-streams', cloud, groupId],
-        queryFn: ({signal}) => listChildCollections(cloud, 'logs', groupId ?? '', undefined, signal),
-        enabled: Boolean(groupId) && runtimeReachable,
+    const streamPages = useQueries({
+        queries: streamCursors.map((cursor) => ({
+            queryKey: ['log-streams', cloud, groupId, cursor],
+            queryFn: ({signal}: {signal: AbortSignal}) => listChildCollections(cloud, 'logs', groupId ?? '', cursor, signal),
+            enabled: Boolean(groupId) && runtimeReachable,
+        })),
     })
-
-    const streams = streamsQuery.data?.items ?? []
+    const firstStreamPage = streamPages[0]
+    const lastStreamPage = streamPages[streamPages.length - 1]
+    const streams = streamPages.flatMap((page) => page.data?.items ?? [])
+    const nextStreamCursor = lastStreamPage?.data?.nextCursor ?? null
+    const loadingMoreStreams = streamPages.length > 1 && lastStreamPage?.isLoading
 
     const eventPages = useQueries({
         queries: eventCursors.map((cursor) => ({
@@ -53,8 +68,18 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
     const firstEventPage = eventPages[0]
     const lastEventPage = eventPages[eventPages.length - 1]
     const events = eventPages.flatMap((page) => page.data?.items ?? [])
-    const nextCursor = lastEventPage?.data?.nextCursor ?? null
+    const nextEventCursor = lastEventPage?.data?.nextCursor ?? null
     const loadingMoreEvents = eventPages.length > 1 && lastEventPage?.isLoading
+
+    function refreshStreams() {
+        setStreamCursors([undefined])
+        void firstStreamPage?.refetch()
+    }
+
+    function refreshEvents() {
+        setEventCursors([undefined])
+        void firstEventPage?.refetch()
+    }
 
     if (!groupId) {
         return (
@@ -79,15 +104,15 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                     </span>
                 </div>
                 <div className="cosmos-toolbar">
-                    <button className="button" type="button" disabled={streamsQuery.isFetching} onClick={() => streamsQuery.refetch()}>
+                    <button className="button" type="button" disabled={!runtimeReachable || firstStreamPage?.isFetching} onClick={refreshStreams}>
                         <RefreshCw size={14}/>
                         Refresh
                     </button>
                 </div>
-                {streamsQuery.error instanceof Error && <div className="form-error">{streamsQuery.error.message}</div>}
+                {firstStreamPage?.error instanceof Error && <div className="form-error">{firstStreamPage.error.message}</div>}
                 <div className="cosmos-list">
-                    {streamsQuery.isLoading && <div className="muted padded">Loading log streams</div>}
-                    {!streamsQuery.isLoading && streams.length === 0 && (
+                    {firstStreamPage?.isLoading && <div className="muted padded">Loading log streams</div>}
+                    {!firstStreamPage?.isLoading && streams.length === 0 && (
                         <EmptyState
                             icon={ScrollText}
                             title="No log streams"
@@ -109,6 +134,18 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                             <ChevronRight size={13}/>
                         </button>
                     ))}
+                    {nextStreamCursor && (
+                        <div style={{display: 'flex', justifyContent: 'center', padding: '12px 0'}}>
+                            <button
+                                className="button"
+                                type="button"
+                                disabled={Boolean(loadingMoreStreams)}
+                                onClick={() => setStreamCursors((prev) => [...prev, nextStreamCursor])}
+                            >
+                                {loadingMoreStreams ? 'Loading…' : 'Load more'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -122,7 +159,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                     </span>
                 </div>
                 <div className="cosmos-toolbar">
-                    <button className="button" type="button" disabled={!selectedStreamId || firstEventPage?.isFetching} onClick={() => firstEventPage?.refetch()}>
+                    <button className="button" type="button" disabled={!runtimeReachable || !selectedStreamId || firstEventPage?.isFetching} onClick={refreshEvents}>
                         <RefreshCw size={14}/>
                         Refresh
                     </button>
@@ -161,13 +198,13 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                                     ))}
                                 </tbody>
                             </table>
-                            {nextCursor && (
+                            {nextEventCursor && (
                                 <div style={{display: 'flex', justifyContent: 'center', padding: '12px 0'}}>
                                     <button
                                         className="button"
                                         type="button"
                                         disabled={Boolean(loadingMoreEvents)}
-                                        onClick={() => setEventCursors((prev) => [...prev, nextCursor])}
+                                        onClick={() => setEventCursors((prev) => [...prev, nextEventCursor])}
                                     >
                                         {loadingMoreEvents ? 'Loading…' : 'Load more'}
                                     </button>
