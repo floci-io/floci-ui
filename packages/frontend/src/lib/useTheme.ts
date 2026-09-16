@@ -1,21 +1,25 @@
-import {useEffect, useState} from 'react'
+import {useEffect} from 'react'
+import {create} from 'zustand'
 
 type Theme = 'dark' | 'light'
 
-function getStored(): Theme {
-    const v = localStorage.getItem('floci-theme')
-    return v === 'light' ? 'light' : 'dark'
-}
+const useThemeStore = create<{
+    theme: Theme
+    setTheme: (theme: Theme) => void
+}>()((set) => ({
+    theme: (localStorage.getItem('floci-theme') === 'light' ? 'light' : 'dark') as Theme,
+    setTheme: (theme) => set({theme}),
+}))
 
+/** Subscribe to theme changes and apply to DOM + localStorage. */
 export function useTheme() {
-    const [theme, setTheme] = useState<Theme>(getStored)
+    const theme = useThemeStore((s) => s.theme)
+    const setTheme = useThemeStore((s) => s.setTheme)
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme)
         localStorage.setItem('floci-theme', theme)
     }, [theme])
 
-    const toggle = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
-
-    return {theme, toggle}
+    return {theme, setTheme}
 }
