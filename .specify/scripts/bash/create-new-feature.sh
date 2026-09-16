@@ -154,6 +154,21 @@ spec_prefix_exists() {
     return 1
 }
 
+# Function to clean and format a branch name
+#
+# Three details keep this byte-identical to the Python and PowerShell twins:
+#   * LC_ALL=C -- in a UTF-8 locale glibc resolves the a-z *range* through
+#     collation, so [^a-z0-9] keeps accented lowercase letters that
+#     re.sub(r"[^a-z0-9]", ...) and .NET's -replace both strip.
+#   * `--*` instead of the GNU-only `\+`, which POSIX/BSD sed reads as a literal
+#     '+', leaving repeated separators uncollapsed on macOS.
+#   * printf instead of echo, so a name of "-n"/"-e"/"-E" is text, not options.
+clean_branch_name() {
+    local name="$1"
+    local -x LC_ALL=C
+    printf '%s\n' "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//'
+}
+
 # Fit a feature prefix and suffix within GitHub's branch-name limit.
 fit_branch_name() {
     local feature_num="$1"
@@ -169,12 +184,6 @@ fit_branch_name() {
     fi
 
     printf '%s' "$branch_name"
-}
-
-# Function to clean and format a branch name
-clean_branch_name() {
-    local name="$1"
-    echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-//' | sed 's/-$//'
 }
 
 # Escape a string for safe embedding in a JSON value (fallback when jq is unavailable).
@@ -233,7 +242,11 @@ generate_branch_name() {
     # Common stop words to filter out
     local stop_words="^(i|a|an|the|to|for|of|in|on|at|by|with|from|is|are|was|were|be|been|being|have|has|had|do|does|did|will|would|should|could|can|may|might|must|shall|this|that|these|those|my|your|our|their|want|need|add|get|set)$"
 
-    # Convert to lowercase and split into words
+    # Convert to lowercase and split into words. LC_ALL=C for the same
+    # collation reason documented on clean_branch_name, and so the `grep -qw`
+    # acronym probe below uses ASCII word boundaries like the Python twin's
+    # (?<![0-9A-Za-z_]) lookarounds.
+    local -x LC_ALL=C
     local clean_name=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/ /g')
 
     # Filter words: remove stop words and words shorter than 3 chars (unless they're uppercase acronyms in original)
@@ -372,6 +385,7 @@ if [ ${#BRANCH_NAME} -gt $MAX_BRANCH_LENGTH ]; then
 fi
 
 FEATURE_DIR="$SPECS_DIR/$BRANCH_NAME"
+SPEC_FILE="$FEATURE_DIR/spec.md"
 
 if [ "$DRY_RUN" != true ]; then
     if [ -d "$FEATURE_DIR" ] && [ "$ALLOW_EXISTING" != true ]; then
@@ -381,6 +395,22 @@ if [ "$DRY_RUN" != true ]; then
             >&2 echo "Error: Feature directory '$FEATURE_DIR' already exists. Please use a different feature name or specify a different number with --number."
         fi
         exit 1
+    fi
+
+    NEEDS_SPEC=false
+    SPEC_TEMPLATE_FOUND=false
+    SPEC_TEMPLATE_CONTENT=""
+    if [ ! -f "$SPEC_FILE" ]; then
+        NEEDS_SPEC=true
+        if SPEC_TEMPLATE_CONTENT=$(resolve_template_content "spec-template" "$REPO_ROOT"; status=$?; printf x; exit "$status"); then
+            SPEC_TEMPLATE_CONTENT="${SPEC_TEMPLATE_CONTENT%x}"
+            SPEC_TEMPLATE_FOUND=true
+        else
+            resolve_status=$?
+            if [ "$resolve_status" -ne 1 ]; then
+                exit "$resolve_status"
+            fi
+        fi
     fi
 
     mkdir -p "$FEATURE_DIR"
@@ -404,12 +434,10 @@ replace_date_placeholders() {
 }
 
 # Apply defaults for options if not explicitly set
-SPEC_FILE="$FEATURE_DIR/spec.md"
 if [ "$DRY_RUN" != true ]; then
-    if [ ! -f "$SPEC_FILE" ]; then
-        TEMPLATE=$(resolve_template "spec-template" "$REPO_ROOT") || true
-        if [ -n "$TEMPLATE" ] && [ -f "$TEMPLATE" ]; then
-            cp "$TEMPLATE" "$SPEC_FILE"
+    if [ "$NEEDS_SPEC" = true ]; then
+        if [ "$SPEC_TEMPLATE_FOUND" = true ]; then
+            printf '%s' "$SPEC_TEMPLATE_CONTENT" > "$SPEC_FILE"
         else
             echo "Warning: Spec template not found; created empty spec file" >&2
             touch "$SPEC_FILE"

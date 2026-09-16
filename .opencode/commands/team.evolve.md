@@ -1,6 +1,5 @@
 ---
-description: Apply regression-gated CDRs — review, validate, and implement context
-  changes
+description: Apply regression-gated CDRs — review, validate, and implement context changes
 ---
 
 

@@ -1,6 +1,5 @@
 ---
-description: Scan codebase and discover Context Directive Records (CDRs) for team-ai-directives
-  contributions using multi-agent sub-system analysis
+description: Scan codebase and discover Context Directive Records (CDRs) for team-ai-directives contributions using multi-agent sub-system analysis
 handoffs:
 - label: Resolve Ambiguities
   agent: levelup.clarify

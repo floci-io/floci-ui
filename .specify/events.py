@@ -18,7 +18,22 @@ import shlex
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
+
+
+def _script_under_base(base, token, project_root):
+    """Return token resolved under base, or None if it leaves the project."""
+    posix_path = PurePosixPath(token)
+    win_path = PureWindowsPath(token)
+    if posix_path.anchor or win_path.anchor:
+        return None
+    try:
+        root = project_root.resolve()
+        candidate = (base / token).resolve()
+        candidate.relative_to(root)
+    except (OSError, ValueError):
+        return None
+    return candidate
 
 
 def _find_command_template(command_name, project_root):
@@ -163,8 +178,8 @@ def _resolve_argv(template_path, project_root, ext_id):
         return None
     if not tokens:
         return None
-    script_abs = base / tokens[0]
-    if not script_abs.exists():
+    script_abs = _script_under_base(base, tokens[0], project_root)
+    if script_abs is None or not script_abs.exists():
         return None
     rest = tokens[1:]
 
@@ -232,6 +247,10 @@ def _emit(output, envelope, native_event=""):
       hookSpecificOutput → {"hookSpecificOutput": {"hookEventName": ..., "additionalContext": ...}}
       additionalContext  → {"additionalContext": ...}   (top-level, Copilot)
       additional_context → {"additional_context": ...}  (top-level, Cursor)
+      hook_specific_output → {"decision": "allow", "hook_specific_output":
+                           {"additional_context": ...}} (Vibe: any non-empty
+                           stdout must parse as a HookStructuredResponse or
+                           the hook is reported failed and output dropped)
       suppress           → emit nothing (strict-JSON agents on events whose
                            output can't be used)
       plain (default)    → passthrough (Claude/Codex inject plain stdout)
@@ -255,6 +274,9 @@ def _emit(output, envelope, native_event=""):
     if envelope == "additional_context":
         sys.stdout.write(json.dumps({"additional_context": output}) + "\n")
         return
+    if envelope == "hook_specific_output":
+        sys.stdout.write(json.dumps({"decision": "allow", "hook_specific_output": {"additional_context": output}}) + "\n")
+        return
     sys.stdout.write(output)
 
 
@@ -274,9 +296,10 @@ def main():
             timeout = 120
     # Optional 5th arg: context-injection envelope for stdout (C13): plain
     # (default), hookSpecificOutput, additionalContext, additional_context,
-    # or suppress. Unknown values fall back to plain passthrough.
+    # hook_specific_output, or suppress. Unknown values fall back to plain
+    # passthrough.
     envelope = sys.argv[4] if len(sys.argv) >= 5 else "plain"
-    if envelope not in ("plain", "hookSpecificOutput", "additionalContext", "additional_context", "suppress"):
+    if envelope not in ("plain", "hookSpecificOutput", "additionalContext", "additional_context", "hook_specific_output", "suppress"):
         envelope = "plain"
     # Optional 6th arg: native event name for hookSpecificOutput's
     # hookEventName field (required by Qwen's hooks spec; included by
@@ -288,8 +311,15 @@ def main():
     # Preferred path: specify_cli is importable (durable install) — delegate to
     # the full resolver, which also handles extension manifests whose file stem
     # differs from the command name and the project's custom script selection.
+    # Require EVENT_SCRIPT_PATH_CONFINEMENT so a stale global install cannot
+    # bypass the generated dispatcher's path guard.
     try:
-        from specify_cli.events import resolve_and_run_event_command
+        from specify_cli.events import (
+            EVENT_SCRIPT_PATH_CONFINEMENT as _confine_ok,
+            resolve_and_run_event_command,
+        )
+        if _confine_ok is not True:
+            raise ImportError("specify_cli.events lacks script path confinement")
         sys.exit(
             resolve_and_run_event_command(
                 command_name, _event_name, payload, project_root, timeout=timeout, envelope=envelope, native_event=native_event

@@ -1,6 +1,5 @@
 ---
-description: Bootstrap session with team-ai-directives context — invoke before any
-  task or question
+description: Bootstrap session with team-ai-directives context — invoke before any task or question
 model-invocation: true
 ---
 

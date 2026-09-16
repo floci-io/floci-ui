@@ -1,6 +1,5 @@
 ---
-description: Extract Context Directive Records (CDRs) from current feature spec context
-  (replaces old /spec.levelup)
+description: Extract Context Directive Records (CDRs) from current feature spec context (replaces old /spec.levelup)
 scripts:
   sh: .specify/extensions/levelup/scripts/bash/setup-levelup.sh --json
   ps: .specify/extensions/levelup/scripts/powershell/setup-levelup.ps1 -Json
