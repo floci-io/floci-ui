@@ -22,7 +22,7 @@ export function ConsoleOutputModal({ instanceId, onClose }: Props) {
         )}
 
         {query.isError && (
-          <p style={{ fontSize: 12, color: "#f87171" }}>
+          <p style={{ fontSize: 12, color: "var(--status-error)" }}>
             {query.error instanceof Error ? query.error.message : "Failed to fetch console output."}
           </p>
         )}

@@ -169,7 +169,7 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
                   className="input"
                   style={{
                     fontSize: 12, padding: '2px 6px',
-                    borderColor: newCidr && (!cidrValid || isDuplicateRoute) ? '#f87171' : undefined,
+                    borderColor: newCidr && (!cidrValid || isDuplicateRoute) ? 'var(--status-error)' : undefined,
                   }}
                   placeholder="0.0.0.0/0"
                   value={newCidr}
@@ -212,8 +212,8 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
             </tr>
           </tbody>
         </table>
-        {isDuplicateRoute && <p style={{ color: '#f87171', fontSize: 11, padding: '4px 8px' }}>Route already exists</p>}
-        {routeErr && <p style={{ color: '#f87171', fontSize: 11, padding: '4px 8px' }}>{routeErr}</p>}
+        {isDuplicateRoute && <p style={{ color: 'var(--status-error)', fontSize: 11, padding: '4px 8px' }}>Route already exists</p>}
+        {routeErr && <p style={{ color: 'var(--status-error)', fontSize: 11, padding: '4px 8px' }}>{routeErr}</p>}
       </div>
 
       {/* ── Subnet Associations ──────────────────────────────────────── */}
@@ -282,7 +282,7 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
             )}
           </tbody>
         </table>
-        {assocErr && <p style={{ color: '#f87171', fontSize: 11, padding: '4px 8px' }}>{assocErr}</p>}
+        {assocErr && <p style={{ color: 'var(--status-error)', fontSize: 11, padding: '4px 8px' }}>{assocErr}</p>}
       </div>
     </div>
   )

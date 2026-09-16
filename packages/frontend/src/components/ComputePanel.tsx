@@ -122,7 +122,7 @@ function InlineTagEditor({ instanceId, initialTags }: { instanceId: string; init
                     </div>
                 ))}
             </div>
-            {err && <p style={{ fontSize: 11, color: '#f87171', margin: '0 0 6px' }}>{err}</p>}
+            {err && <p style={{ fontSize: 11, color: 'var(--status-error)', margin: '0 0 6px' }}>{err}</p>}
             <div style={{ display: 'flex', gap: 6 }}>
                 <button className="button compact" onClick={addRow}>
                     <Plus size={12} />
@@ -209,7 +209,7 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
                     </div>
                 </div>
 
-                {err && <p style={{ fontSize: 12, color: '#f87171', margin: '0 0 8px' }}>{err}</p>}
+                {err && <p style={{ fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px' }}>{err}</p>}
 
                 <div className="modal-footer">
                     <button className="button" onClick={onClose} disabled={mutation.isPending}>Cancel</button>
@@ -248,7 +248,7 @@ function ConsoleOutputModal({ instanceId, onClose }: { instanceId: string; onClo
                 )}
 
                 {query.isError && (
-                    <p style={{ fontSize: 12, color: '#f87171' }}>
+                    <p style={{ fontSize: 12, color: 'var(--status-error)' }}>
                         {query.error instanceof Error ? query.error.message : 'Failed to fetch console output.'}
                     </p>
                 )}
@@ -299,9 +299,9 @@ function DeregisterAmiConfirm({ imageId, onConfirm, onCancel, isPending }: {
         <div className="modal-overlay" onClick={onCancel}>
             <div className="create-table-modal" style={{ width: 380 }} onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <AlertTriangle size={14} style={{ color: '#f87171', flexShrink: 0 }} />
+                    <AlertTriangle size={14} style={{ color: 'var(--status-error)', flexShrink: 0 }} />
                     <span>Deregister AMI</span>
-                    <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onCancel}>
+                    <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onCancel} aria-label="Close" title="Close">
                         <X size={13} />
                     </button>
                 </div>
@@ -382,7 +382,7 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
     if (query.isError || !query.data) {
         return (
             <div className="empty compact">
-                <p style={{ color: '#f87171' }}>
+                <p style={{ color: 'var(--status-error)' }}>
                     {query.error instanceof Error ? query.error.message : 'Failed to load instance'}
                 </p>
             </div>

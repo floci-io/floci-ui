@@ -35,7 +35,7 @@ export function CloudConsoleHomePage() {
                 <div className="page-title">
                     <Cloud size={20}/>
                     <div>
-                        <h2>Console Home</h2>
+                        <h1>Console Home</h1>
                         <p className="muted">Cloud-aware local runtime overview</p>
                     </div>
                 </div>

@@ -179,10 +179,10 @@ function ConfirmDeleteModal({title, detail, onConfirm, onClose, isPending}: {
         <div className="modal-overlay" onClick={onClose}>
             <div className="create-table-modal" style={{width: 380}} onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                    <AlertTriangle size={14} style={{color: '#f87171', flexShrink: 0}}/>
+                    <AlertTriangle size={14} style={{color: 'var(--status-error)', flexShrink: 0}}/>
                     <span>{title}</span>
-                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose}>
-                        <X size={13}/>
+                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose} aria-label="Close" title="Close">
+                        <X size={13} aria-hidden="true"/>
                     </button>
                 </div>
                 <div className="modal-section">
@@ -268,7 +268,7 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
                                                 <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
                                                     <input
                                                         className="input"
-                                                        style={{width: 48, fontSize: 12, minWidth: 'unset', borderColor: fromErr ? '#f87171' : undefined}}
+                                                        style={{width: 48, fontSize: 12, minWidth: 'unset', borderColor: fromErr ? 'var(--status-error)' : undefined}}
                                                         placeholder="From"
                                                         value={r.fromPort}
                                                         onChange={(e) => update(r.rid, {fromPort: e.target.value})}
@@ -276,7 +276,7 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
                                                     <span style={{color: 'var(--text-2)'}}>–</span>
                                                     <input
                                                         className="input"
-                                                        style={{width: 48, fontSize: 12, minWidth: 'unset', borderColor: toErr ? '#f87171' : undefined}}
+                                                        style={{width: 48, fontSize: 12, minWidth: 'unset', borderColor: toErr ? 'var(--status-error)' : undefined}}
                                                         placeholder="To"
                                                         value={r.toPort}
                                                         onChange={(e) => update(r.rid, {toPort: e.target.value})}
@@ -291,7 +291,7 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
                                         <td style={tdS}>
                                             <input
                                                 className="input"
-                                                style={{width: 140, fontSize: 12, minWidth: 'unset', borderColor: cidrErr ? '#f87171' : undefined}}
+                                                style={{width: 140, fontSize: 12, minWidth: 'unset', borderColor: cidrErr ? 'var(--status-error)' : undefined}}
                                                 placeholder="0.0.0.0/0"
                                                 value={r.cidr}
                                                 onChange={(e) => update(r.rid, {cidr: e.target.value})}
@@ -358,7 +358,7 @@ function CreateSgModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) {
                         </select>
                     </div>
                 )}
-                {err && <p style={{fontSize: 12, color: '#f87171', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
                     <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
                     <button className="button primary" disabled={!name.trim() || !description.trim() || mut.isPending} onClick={() => mut.mutate()}>
@@ -411,7 +411,7 @@ function EditSgRulesModal({sg, onClose}: {sg: Ec2SecurityGroup; onClose: () => v
                 <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
                     <Shield size={14} style={{color: 'var(--accent)'}}/>
                     <span>Edit rules — {sg.groupName}</span>
-                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose}><X size={13}/></button>
+                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose} aria-label="Close" title="Close"><X size={13} aria-hidden="true"/></button>
                 </div>
                 <div className="modal-section">
                     <p className="modal-section-title" style={{marginBottom: 8}}>Inbound rules</p>
@@ -421,7 +421,7 @@ function EditSgRulesModal({sg, onClose}: {sg: Ec2SecurityGroup; onClose: () => v
                     <p className="modal-section-title" style={{marginBottom: 8}}>Outbound rules</p>
                     <EditRuleTable rules={outbound} onChange={setOutbound}/>
                 </div>
-                {err && <p style={{fontSize: 12, color: '#f87171', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
                     <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
                     <button className="button primary" disabled={mut.isPending} onClick={() => mut.mutate()}>
@@ -443,10 +443,10 @@ function PemDisplay({material, onClose}: {material: Ec2KeyPairMaterial; onClose:
                 <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
                     <Key size={14} style={{color: '#34d399'}}/>
                     <span>Save your private key — {material.keyName}</span>
-                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose}><X size={13}/></button>
+                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose} aria-label="Close" title="Close"><X size={13} aria-hidden="true"/></button>
                 </div>
                 <div className="modal-section">
-                    <p style={{fontSize: 12, color: '#f87171', marginBottom: 8}}>
+                    <p style={{fontSize: 12, color: 'var(--status-error)', marginBottom: 8}}>
                         This is the only time the private key material is available. Copy and save it now.
                     </p>
                     <pre style={{
@@ -498,12 +498,12 @@ function CreateKpModal({onClose, onCreated}: {onClose: () => void; onCreated: (m
                         placeholder="my-key-pair"
                     />
                     {name && !isValidKeyPairName(name) && (
-                        <p style={{fontSize: 11, color: '#f87171', margin: '4px 0 0'}}>
+                        <p style={{fontSize: 11, color: 'var(--status-error)', margin: '4px 0 0'}}>
                             Letters, numbers, hyphens, underscores, dots, @ only
                         </p>
                     )}
                 </div>
-                {err && <p style={{fontSize: 12, color: '#f87171', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
                     <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
                     <button className="button primary" disabled={!name.trim() || !isValidKeyPairName(name) || mut.isPending} onClick={() => mut.mutate()}>
@@ -541,14 +541,14 @@ function CreateVpcModal({onClose}: {onClose: () => void}) {
                 <div className="modal-section">
                     <p className="modal-section-title">IPv4 CIDR block</p>
                     <input
-                        className="input" style={{width: '100%', minWidth: 'unset', borderColor: cidr && !cidrValid ? '#f87171' : undefined}}
+                        className="input" style={{width: '100%', minWidth: 'unset', borderColor: cidr && !cidrValid ? 'var(--status-error)' : undefined}}
                         autoFocus value={cidr}
                         onChange={(e) => setCidr(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && cidrValid && mut.mutate()}
                     />
-                    {cidr && !cidrValid && <p style={{fontSize: 11, color: '#f87171', margin: '4px 0 0'}}>Invalid CIDR</p>}
+                    {cidr && !cidrValid && <p style={{fontSize: 11, color: 'var(--status-error)', margin: '4px 0 0'}}>Invalid CIDR</p>}
                 </div>
-                {err && <p style={{fontSize: 12, color: '#f87171', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
                     <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
                     <button className="button primary" disabled={!cidrValid || mut.isPending} onClick={() => mut.mutate()}>
@@ -627,7 +627,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
                 <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
                     <Network size={15} style={{color: 'var(--accent)'}}/>
                     <span>VPC Wizard</span>
-                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose}><X size={13}/></button>
+                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose} aria-label="Close" title="Close"><X size={13} aria-hidden="true"/></button>
                 </div>
 
                 {step === 'form' && (
@@ -642,8 +642,8 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                     </div>
                                     <div className="field-row">
                                         <label>IPv4 CIDR</label>
-                                        <input className="input" placeholder="10.0.0.0/16" value={cidrBlock} onChange={(e) => setCidrBlock(e.target.value)} style={{borderColor: cidrBlock && !cidrValid ? '#f87171' : undefined}}/>
-                                        {cidrBlock && !cidrValid && <span style={{color: '#f87171', fontSize: 11, marginTop: 2}}>Invalid CIDR</span>}
+                                        <input className="input" placeholder="10.0.0.0/16" value={cidrBlock} onChange={(e) => setCidrBlock(e.target.value)} style={{borderColor: cidrBlock && !cidrValid ? 'var(--status-error)' : undefined}}/>
+                                        {cidrBlock && !cidrValid && <span style={{color: 'var(--status-error)', fontSize: 11, marginTop: 2}}>Invalid CIDR</span>}
                                     </div>
                                 </div>
                                 <div className="modal-section">
@@ -657,7 +657,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                     {groups.length > 0 && (
                                         <div style={{display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 44px 80px 54px 52px auto', gap: 4, padding: '0 6px', marginBottom: 2}}>
                                             {['Name', '#', 'Type', 'Mask', 'AZ', ''].map((h) => (
-                                                <span key={h} style={{fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em'}}>{h}</span>
+                                                <span key={h} style={{fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em'}}>{h}</span>
                                             ))}
                                         </div>
                                     )}
@@ -681,7 +681,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                             <button className="icon-btn danger" onClick={() => removeGroup(idx)}><Trash2 size={12}/></button>
                                         </div>
                                     ))}
-                                    {groups.some((g) => !g.name.trim()) && <p style={{fontSize: 11, color: '#f87171', marginTop: 4}}>All groups need a name.</p>}
+                                    {groups.some((g) => !g.name.trim()) && <p style={{fontSize: 11, color: 'var(--status-error)', marginTop: 4}}>All groups need a name.</p>}
                                 </div>
                             </div>
                             <div style={{flex: 1, padding: '16px 20px', background: 'var(--bg-subtle, var(--bg-secondary))', overflowY: 'auto', maxHeight: '70vh'}}>
@@ -773,10 +773,10 @@ function WizardModal({onClose}: {onClose: () => void}) {
                     <>
                         <div style={{padding: '24px 28px'}}>
                             <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12}}>
-                                <AlertCircle size={18} style={{color: '#f87171'}}/>
+                                <AlertCircle size={18} style={{color: 'var(--status-error)'}}/>
                                 <span style={{fontWeight: 600}}>Creation failed</span>
                             </div>
-                            <div style={{fontFamily: 'monospace', fontSize: 12, color: '#f87171', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4}}>{errMsg}</div>
+                            <div style={{fontFamily: 'monospace', fontSize: 12, color: 'var(--status-error)', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4}}>{errMsg}</div>
                         </div>
                         <div className="modal-footer">
                             <button className="button" onClick={() => setStep('form')}>Back</button>
@@ -821,8 +821,8 @@ function CreateSubnetModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void
                 </div>
                 <div className="modal-section">
                     <p className="modal-section-title">IPv4 CIDR</p>
-                    <input className="input" style={{width: '100%', minWidth: 'unset', borderColor: cidr && !cidrValid ? '#f87171' : undefined}} placeholder="10.0.1.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)}/>
-                    {cidr && !cidrValid && <p style={{fontSize: 11, color: '#f87171', margin: '4px 0 0'}}>Invalid CIDR</p>}
+                    <input className="input" style={{width: '100%', minWidth: 'unset', borderColor: cidr && !cidrValid ? 'var(--status-error)' : undefined}} placeholder="10.0.1.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)}/>
+                    {cidr && !cidrValid && <p style={{fontSize: 11, color: 'var(--status-error)', margin: '4px 0 0'}}>Invalid CIDR</p>}
                 </div>
                 <div className="modal-section">
                     <p className="modal-section-title">Availability Zone — optional</p>
@@ -831,7 +831,7 @@ function CreateSubnetModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void
                         {AZ_OPTIONS.filter((a) => a !== '(auto)').map((a) => <option key={a} value={a}>{a}</option>)}
                     </select>
                 </div>
-                {err && <p style={{fontSize: 12, color: '#f87171', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
                     <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
                     <button className="button primary" disabled={!vpcId || !cidrValid || mut.isPending} onClick={() => mut.mutate()}>
@@ -868,7 +868,7 @@ function CreateIgwModal({onClose}: {onClose: () => void}) {
                     <p className="modal-section-title">Name — optional</p>
                     <input className="input" style={{width: '100%', minWidth: 'unset'}} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mut.mutate()} placeholder="my-igw"/>
                 </div>
-                {err && <p style={{fontSize: 12, color: '#f87171', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
                     <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
                     <button className="button primary" disabled={mut.isPending} onClick={() => mut.mutate()}>
@@ -912,7 +912,7 @@ function CreateRtbModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) 
                     <p className="modal-section-title">Name — optional</p>
                     <input className="input" style={{width: '100%', minWidth: 'unset'}} value={name} onChange={(e) => setName(e.target.value)} placeholder="my-rtb"/>
                 </div>
-                {err && <p style={{fontSize: 12, color: '#f87171', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
                     <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
                     <button className="button primary" disabled={!vpcId || mut.isPending} onClick={() => mut.mutate()}>
@@ -949,7 +949,7 @@ function AllocateEipModal({onClose}: {onClose: () => void}) {
                         Allocates a new Elastic IP address from Amazon's pool for use in your account.
                     </p>
                 </div>
-                {err && <p style={{fontSize: 12, color: '#f87171', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
                     <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
                     <button className="button primary" disabled={mut.isPending} onClick={() => mut.mutate()}>
@@ -1075,7 +1075,7 @@ function VpcDetail({vpc, onDelete}: {vpc: Ec2Vpc; onDelete: () => void}) {
             <div className="widget-header">
                 <Network size={14} style={{color: 'var(--accent)'}}/>
                 <h3 style={{marginLeft: 6}}>{nameTag(vpc.tags) || vpc.vpcId}</h3>
-                {vpc.isDefault && <span className="status pending" style={{marginLeft: 8, fontSize: 10}}>default</span>}
+                {vpc.isDefault && <span className="status pending" style={{marginLeft: 8, fontSize: 11}}>default</span>}
                 <div style={{marginLeft: 'auto'}}>
                     <button className="button compact danger" onClick={onDelete} disabled={vpc.isDefault} title={vpc.isDefault ? 'Cannot delete the default VPC' : undefined}>
                         <Trash2 size={12}/> Delete
@@ -1254,7 +1254,7 @@ function RtbDetail({rtb, vpcs, igws, onDelete}: {rtb: Ec2RouteTable; vpcs: Ec2Vp
             <div className="widget-header">
                 <Router size={14} style={{color: 'var(--accent)'}}/>
                 <h3 style={{marginLeft: 6}}>{nameTag(rtb.tags) || rtb.routeTableId}</h3>
-                {isMain && <span className="status pending" style={{marginLeft: 8, fontSize: 10}}>main</span>}
+                {isMain && <span className="status pending" style={{marginLeft: 8, fontSize: 11}}>main</span>}
                 <div style={{marginLeft: 'auto'}}>
                     <button className="button compact danger" onClick={onDelete} disabled={isMain} title={isMain ? 'Cannot delete the main route table' : undefined}>
                         <Trash2 size={12}/> Delete
@@ -1314,7 +1314,7 @@ function RtbDetail({rtb, vpcs, igws, onDelete}: {rtb: Ec2RouteTable; vpcs: Ec2Vp
                         Add
                     </button>
                 </div>
-                {routeErr && <p style={{fontSize: 11, color: '#f87171', marginTop: 4}}>{routeErr}</p>}
+                {routeErr && <p style={{fontSize: 11, color: 'var(--status-error)', marginTop: 4}}>{routeErr}</p>}
             </div>
         </div>
     )
@@ -1446,15 +1446,15 @@ function NetSection({
                 <span style={{fontSize: 11, color: 'var(--text-2)', marginRight: 4}}>{items.length}</span>
                 {wizardButton && (
                     <button
-                        className="icon-btn" title="VPC Wizard"
+                        className="icon-btn" title="VPC Wizard" aria-label="VPC Wizard"
                         onClick={(e) => {e.stopPropagation(); wizardButton()}}
-                        style={{fontSize: 10, padding: '2px 6px', color: 'var(--accent)'}}
+                        style={{fontSize: 11, padding: '2px 6px', color: 'var(--accent)'}}
                     >
                         Wizard
                     </button>
                 )}
                 <button
-                    className="icon-btn" title={`Create ${title}`}
+                    className="icon-btn" title={`Create ${title}`} aria-label={`Create ${title}`}
                     onClick={(e) => {e.stopPropagation(); onCreate()}}
                 >
                     <Plus size={12}/>
@@ -1478,7 +1478,7 @@ function NetSection({
                                 }}
                             >
                                 <div style={{fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{item.label}</div>
-                                {item.sub && <div style={{fontSize: 10, color: 'var(--text-2)', fontFamily: 'monospace'}}>{item.sub}</div>}
+                                {item.sub && <div style={{fontSize: 11, color: 'var(--text-2)', fontFamily: 'monospace'}}>{item.sub}</div>}
                             </div>
                         ))
                     )}

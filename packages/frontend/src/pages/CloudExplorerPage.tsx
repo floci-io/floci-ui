@@ -55,7 +55,7 @@ export function CloudExplorerPage() {
                 <div className="page-title">
                     <Cloud size={20}/>
                     <div>
-                        <h2>Cloud Explorer</h2>
+                        <h1>Cloud Explorer</h1>
                         <p className="muted">Unified local runtime console</p>
                     </div>
                 </div>
@@ -145,8 +145,8 @@ function ServiceInfoDialog({
                         <p className="eyebrow">Service Information</p>
                         <h3>{schema?.displayName ?? descriptor?.displayName ?? service}</h3>
                     </div>
-                    <button className="icon-btn" type="button" onClick={onClose}>
-                        <X size={14}/>
+                    <button className="icon-btn" type="button" onClick={onClose} aria-label="Close" title="Close">
+                        <X size={14} aria-hidden="true"/>
                     </button>
                 </div>
                 <div className="service-info-grid">
@@ -276,7 +276,7 @@ function UnknownServiceNotice({
                 <div className="page-title">
                     <Cloud size={20}/>
                     <div>
-                        <h2>Cloud Explorer</h2>
+                        <h1>Cloud Explorer</h1>
                         <p className="muted">Unified local runtime console</p>
                     </div>
                 </div>

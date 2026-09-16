@@ -34,11 +34,11 @@ function connectionDotClass(status: ConnectionStatus): string {
 /** Matches today's service count, so the real nav causes no layout jump. */
 const SKELETON_ROWS = 7
 
-function NavItem({to, icon, label}: { to: string; icon: React.ElementType; label: string }) {
+function NavItem({to, icon, label, collapsed}: { to: string; icon: React.ElementType; label: string; collapsed: boolean }) {
     const Icon = icon
     return (
-        <NavLink className="nav-link" to={to} title={label}>
-            <Icon size={14}/>
+        <NavLink className="nav-link" to={to} title={collapsed ? label : undefined}>
+            <Icon size={14} aria-hidden="true"/>
             <span>{label}</span>
         </NavLink>
     )
@@ -52,7 +52,7 @@ function NavItem({to, icon, label}: { to: string; icon: React.ElementType; label
  * availability could disagree with the API. Adding a service is now a catalog
  * row on the server and nothing here.
  */
-function CloudServiceNav() {
+function CloudServiceNav({collapsed}: {collapsed: boolean}) {
     const location = useLocation()
     const [searchParams] = useSearchParams()
     const search = (searchParams.get('search') ?? '').trim().toLowerCase()
@@ -66,8 +66,8 @@ function CloudServiceNav() {
         return (
             <div className="nav-section cloud-service-nav">
                 <span className="nav-label">Cloud Services · {cloudLabel}</span>
-                <div className="nav-link disabled nav-error" title="Services unavailable">
-                    <AlertTriangle size={14}/>
+                <div className="nav-link disabled nav-error">
+                    <AlertTriangle size={14} aria-hidden="true"/>
                     <span>Services unavailable</span>
                 </div>
                 <button className="nav-retry" type="button" disabled={isFetching} onClick={() => void refetch()}>
@@ -92,7 +92,7 @@ function CloudServiceNav() {
         <div className="nav-section cloud-service-nav">
             <span className="nav-label">Cloud Services · {cloudLabel}</span>
             {filteredServices.length === 0 && search ? (
-                <div className="nav-link disabled" title="No matching services">
+                <div className="nav-link disabled">
                     <span>No matching services</span>
                 </div>
             ) : (
@@ -100,7 +100,7 @@ function CloudServiceNav() {
                     <div className="nav-group" key={group}>
                         <span className="nav-group-label">{group}</span>
                         {services.map((service) => (
-                            <CloudServiceNavItem key={service.service} cloud={cloud} service={service}/>
+                            <CloudServiceNavItem key={service.service} cloud={cloud} service={service} collapsed={collapsed}/>
                         ))}
                     </div>
                 ))
@@ -109,23 +109,25 @@ function CloudServiceNav() {
     )
 }
 
-function CloudServiceNavItem({cloud, service}: {cloud: CloudProvider; service: CloudServiceDescriptor}) {
+function CloudServiceNavItem({cloud, service, collapsed}: {cloud: CloudProvider; service: CloudServiceDescriptor; collapsed: boolean}) {
     const Icon = serviceIcon(service.iconKey)
+    const reasonTitle = service.reason ? `${service.displayName} — ${service.reason}` : service.displayName
 
     if (service.availability === 'available') {
         const target = service.route.startsWith('/')
             ? service.route
             : `/cloud-explorer/${cloud}/${service.route}`
-        return <NavItem to={target} icon={Icon} label={service.displayName}/>
+        return <NavItem to={target} icon={Icon} label={service.displayName} collapsed={collapsed}/>
     }
 
-    // The server explains why, so the chip is no longer a bare "Soon".
+    // Title duplicates the visible label when the sidebar is expanded, which WAVE
+    // flags as redundant. Keep it on the rail, where the label is hidden.
     return (
         <div
             className="nav-link disabled"
-            title={service.reason ? `${service.displayName} — ${service.reason}` : service.displayName}
+            title={collapsed || service.reason ? reasonTitle : undefined}
         >
-            <Icon size={14}/>
+            <Icon size={14} aria-hidden="true"/>
             <span>{service.displayName}</span>
             <span className="nav-soon">Soon</span>
         </div>
@@ -174,6 +176,7 @@ export function Layout() {
 
     return (
         <div className="app">
+            <a className="skip-link" href="#main-content">Skip to content</a>
             <aside className="sidebar">
                 <div className="sidebar-inner">
                     <div className="brand">
@@ -182,12 +185,12 @@ export function Layout() {
                         <p>Local Cloud</p>
                     </div>
 
-                    <nav className="nav">
+                    <nav className="nav" aria-label="Console">
                         <div className="nav-section">
                             <span className="nav-label">General</span>
-                            <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home"/>
+                            <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home" collapsed={collapsed}/>
                         </div>
-                        <CloudServiceNav/>
+                        <CloudServiceNav collapsed={collapsed}/>
                     </nav>
 
                     <div className="sidebar-footer">
@@ -210,18 +213,24 @@ export function Layout() {
             <div className="shell">
                 <header className="topbar">
                     <TopbarSearch/>
-                    <button className="icon-btn" onClick={toggle} title="Toggle theme">
-                        {isDark ? <Sun size={14}/> : <Moon size={14}/>}
+                    <button
+                        className="icon-btn"
+                        type="button"
+                        onClick={toggle}
+                        title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                        aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                    >
+                        {isDark ? <Sun size={14} aria-hidden="true"/> : <Moon size={14} aria-hidden="true"/>}
                     </button>
                     <div id="topbar-status" className="topbar-status"/>
                     <AccountSwitcher/>
                     <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
-                        <span className={connectionDotClass(status)}/>
+                        <span className={connectionDotClass(status)} aria-hidden="true"/>
                         <span className="connection-state">{connectionLabel}</span>
                         <span className="connection-target">{connectionTarget}</span>
                     </div>
                 </header>
-                <main className="main">
+                <main id="main-content" className="main" tabIndex={-1}>
                     <Outlet/>
                 </main>
             </div>
@@ -332,7 +341,7 @@ function TopbarSearch() {
 
     return (
         <div className="search">
-            <Search size={14}/>
+            <Search size={14} aria-hidden="true"/>
             <input
                 ref={inputRef}
                 value={draft}

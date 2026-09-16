@@ -134,7 +134,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
         <div className="modal-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Network size={15} style={{ color: 'var(--accent)' }} />
           <span>VPC Wizard</span>
-          <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onClose}>
+          <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onClose} aria-label="Close" title="Close">
             <X size={13} />
           </button>
         </div>
@@ -164,10 +164,10 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                       placeholder="10.0.0.0/16"
                       value={cidrBlock}
                       onChange={(e) => setCidrBlock(e.target.value)}
-                      style={{ borderColor: cidrBlock && !cidrValid ? 'var(--error, #f87171)' : undefined }}
+                      style={{ borderColor: cidrBlock && !cidrValid ? 'var(--status-error)' : undefined }}
                     />
                     {cidrBlock && !cidrValid && (
-                      <span style={{ color: 'var(--error, #f87171)', fontSize: 11, marginTop: 2 }}>
+                      <span style={{ color: 'var(--status-error)', fontSize: 11, marginTop: 2 }}>
                         Invalid CIDR
                       </span>
                     )}
@@ -201,7 +201,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                       marginBottom: 2,
                     }}>
                       {['Name', '#', 'Type', 'Mask', 'AZ', ''].map((h) => (
-                        <span key={h} style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</span>
+                        <span key={h} style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</span>
                       ))}
                     </div>
                   )}
@@ -292,7 +292,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
 
                   {/* Validation hints */}
                   {groups.some((g) => !g.name.trim()) && (
-                    <p style={{ fontSize: 11, color: '#f87171', marginTop: 4 }}>
+                    <p style={{ fontSize: 11, color: 'var(--status-error)', marginTop: 4 }}>
                       All groups need a name.
                     </p>
                   )}
@@ -425,10 +425,10 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
           <>
             <div style={{ padding: '24px 28px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <AlertCircle size={18} style={{ color: '#f87171' }} />
+                <AlertCircle size={18} style={{ color: 'var(--status-error)' }} />
                 <span style={{ fontWeight: 600 }}>Creation failed</span>
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#f87171', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4 }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--status-error)', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4 }}>
                 {errorMsg}
               </div>
             </div>

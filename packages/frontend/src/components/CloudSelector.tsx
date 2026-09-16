@@ -8,7 +8,7 @@ interface CloudSelectorProps {
 
 export function CloudSelector({clouds, selected, onSelect}: CloudSelectorProps) {
     return (
-        <div className="cloud-selector" aria-label="Cloud provider">
+        <div className="cloud-selector" role="group" aria-label="Cloud provider">
             {clouds.map((cloud) => (
                 <button
                     key={cloud.id}

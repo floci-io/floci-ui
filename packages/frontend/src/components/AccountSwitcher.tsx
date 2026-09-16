@@ -68,6 +68,7 @@ export function AccountSwitcher() {
                 className="account-trigger"
                 onClick={() => setOpen((v) => !v)}
                 title="Switch AWS account"
+                aria-label={`Switch AWS account ${formatAccount(accountId)}`}
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >

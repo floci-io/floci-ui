@@ -39,7 +39,7 @@ export function CreateRtbModal({ onClose, onCreated }: Props) {
         </h3>
         <div className="modal-section">
           <div className="field-row">
-            <label>VPC <span style={{ color: '#f87171' }}>*</span></label>
+            <label>VPC <span style={{ color: 'var(--status-error)' }}>*</span></label>
             <select
               className="input"
               value={vpcId}
@@ -60,7 +60,7 @@ export function CreateRtbModal({ onClose, onCreated }: Props) {
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          {err && <p style={{ color: '#f87171', fontSize: 12, marginTop: 6 }}>{err}</p>}
+          {err && <p style={{ color: 'var(--status-error)', fontSize: 12, marginTop: 6 }}>{err}</p>}
         </div>
         <div className="modal-footer">
           <button className="button" onClick={onClose}>Cancel</button>

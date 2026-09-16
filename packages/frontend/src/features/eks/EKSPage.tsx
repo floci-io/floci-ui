@@ -211,7 +211,7 @@ export function EKSPage() {
     <>
       <div className="page-header">
         <div className="page-title">
-          <h2>EKS</h2>
+          <h1>EKS</h1>
           <span className="info-link">
             <Info size={11} />
             Kubernetes clusters

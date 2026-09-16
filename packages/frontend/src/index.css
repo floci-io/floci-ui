@@ -16,8 +16,14 @@
     --text: #e8eaf6;
     --text-bright: #ffffff;
     --text-2: #9fa8c7;
-    --text-3: #5c6695;
+    /* 4.5:1 vs raised-hover (#252b52) so muted labels pass WCAG AA. */
+    --text-3: #9098c4;
+    --text-muted: var(--text-3);
     --text-nav: #b0b8d8;
+
+    --status-ok: #4ade80;
+    --status-warn: #fbbf24;
+    --status-error: #f87171;
 
     /* Floci brand indigo (floci.io) */
     --accent: #7a7fd6;
@@ -34,7 +40,8 @@
     --hover: rgba(255, 255, 255, 0.04);
     --hover-md: rgba(255, 255, 255, 0.06);
     --hover-lg: rgba(255, 255, 255, 0.07);
-    --input-border: rgba(255, 255, 255, 0.12);
+    /* 3:1 vs raised so inputs/buttons meet non-text contrast. */
+    --input-border: rgba(255, 255, 255, 0.38);
     --input-bg: rgba(255, 255, 255, 0.06);
     --connection-bg: rgba(255, 255, 255, 0.03);
     --kbd-border: rgba(255, 255, 255, 0.1);
@@ -74,8 +81,13 @@
     --text: #263052;
     --text-bright: #12173e;
     --text-2: #4a5296;
-    --text-3: #6b74a8;
+    /* 4.5:1 vs raised-hover (#e4e7f5). Light-theme muted indigo was 4.14:1. */
+    --text-3: #545c88;
     --text-nav: #4a5296;
+
+    --status-ok: #166534;
+    --status-warn: #92400e;
+    --status-error: #b91c1c;
 
     /* Floci brand indigo (floci.io, light) */
     --accent: #5559a7;
@@ -92,7 +104,7 @@
     --hover: rgba(0, 0, 0, 0.04);
     --hover-md: rgba(0, 0, 0, 0.05);
     --hover-lg: rgba(0, 0, 0, 0.06);
-    --input-border: rgba(0, 0, 0, 0.15);
+    --input-border: rgba(38, 48, 82, 0.55);
     --input-bg: rgba(0, 0, 0, 0.04);
     --connection-bg: rgba(0, 0, 0, 0.02);
     --kbd-border: rgba(0, 0, 0, 0.15);
@@ -135,6 +147,49 @@ select {
 
 button {
     cursor: pointer;
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Parked off-screen with a fixed offset rather than a percentage transform:
+   translating by its own height cannot clear the focused `top`, which left a
+   1px edge showing at the top of the viewport. */
+.skip-link {
+    position: absolute;
+    left: 12px;
+    top: -100px;
+    z-index: 400;
+    padding: 8px 12px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text-bright);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.skip-link:focus {
+    top: 8px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+#main-content:focus {
+    outline: none;
 }
 
 code,
@@ -339,14 +394,16 @@ pre,
     color: var(--text);
 }
 
+/* Dimming with opacity dropped the label to 3.77:1 and the Soon pill to 1.84:1.
+   The muted colour plus the pill carry the unavailable state instead. */
 .nav-link.disabled {
     cursor: not-allowed;
-    opacity: 0.58;
+    color: var(--text-3);
 }
 
 .nav-link.disabled:hover {
     background: transparent;
-    color: var(--text-nav);
+    color: var(--text-3);
 }
 
 .nav-link.active {
@@ -361,7 +418,7 @@ pre,
     border-radius: 999px;
     padding: 1px 6px;
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
 }
@@ -421,7 +478,13 @@ pre,
     outline: none;
     background: var(--input-bg);
     color: var(--text);
-    font-size: 12px;
+    font-size: 13px;
+}
+
+.search input:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .search svg {
@@ -461,7 +524,7 @@ pre,
 }
 
 .connection.disconnected {
-    color: #ef4444;
+    color: var(--status-error);
     border-color: rgba(239, 68, 68, 0.35);
 }
 
@@ -492,7 +555,7 @@ pre,
     gap: 8px;
     height: 30px;
     padding: 0 8px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     background: var(--connection-bg);
     color: var(--text);
@@ -512,7 +575,7 @@ pre,
 }
 
 .account-label {
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-2);
@@ -537,7 +600,7 @@ pre,
 }
 
 .account-popover-title {
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-2);
@@ -581,7 +644,7 @@ pre,
 }
 
 .account-tag {
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--text-2);
@@ -630,7 +693,7 @@ pre,
 
 .account-error {
     margin-top: 6px;
-    color: #ef4444;
+    color: var(--status-error);
     font-size: 11px;
 }
 
@@ -642,18 +705,18 @@ pre,
 }
 
 .dot.healthy {
-    background: #22c55e;
-    box-shadow: 0 0 6px #22c55e;
+    background: var(--status-ok);
+    box-shadow: 0 0 6px var(--status-ok);
 }
 
 .dot.degraded {
-    background: #f59e0b;
-    box-shadow: 0 0 6px #f59e0b;
+    background: var(--status-warn);
+    box-shadow: 0 0 6px var(--status-warn);
 }
 
 .dot.unavailable {
-    background: #ef4444;
-    box-shadow: 0 0 6px #ef4444;
+    background: var(--status-error);
+    box-shadow: 0 0 6px var(--status-error);
 }
 
 .main {
@@ -676,6 +739,7 @@ pre,
     gap: 8px;
 }
 
+.page-title h1,
 .page-title h2 {
     margin: 0;
     color: var(--text);
@@ -688,7 +752,9 @@ pre,
     align-items: center;
     gap: 4px;
     color: var(--link);
-    font-size: 11px;
+    font-size: 12px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 .content {
@@ -767,11 +833,13 @@ pre,
     background: transparent;
     color: var(--link);
     font-size: 12px;
-    text-decoration: none;
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
-.link-button:hover {
-    text-decoration: underline;
+.link-button:hover,
+.quiet-button:hover {
+    color: var(--text-bright);
 }
 
 .service-card {
@@ -792,8 +860,10 @@ pre,
     background: var(--service-card-hover);
 }
 
+/* A dashed edge marks the offline card instead of fading its text, which took
+   the meta line under 4.5:1. Matches .status-tile.pending. */
 .service-card.offline {
-    opacity: 0.76;
+    border-style: dashed;
 }
 
 .service-card-header {
@@ -855,27 +925,27 @@ pre,
 }
 
 .status.healthy {
-    color: #4ade80;
+    color: var(--status-ok);
 }
 
 .status.healthy::before {
-    background: #4ade80;
+    background: var(--status-ok);
 }
 
 .status.degraded {
-    color: #f59e0b;
+    color: var(--status-warn);
 }
 
 .status.degraded::before {
-    background: #f59e0b;
+    background: var(--status-warn);
 }
 
 .status.unavailable {
-    color: #ef4444;
+    color: var(--status-error);
 }
 
 .status.unavailable::before {
-    background: #ef4444;
+    background: var(--status-error);
 }
 
 .table {
@@ -955,13 +1025,19 @@ pre,
 .input {
     height: 30px;
     min-width: 260px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     background: var(--raised);
     color: var(--text);
     padding: 0 10px;
     outline: none;
-    font-size: 12px;
+    font-size: 13px;
+}
+
+.input:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .button {
@@ -969,7 +1045,7 @@ pre,
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     background: var(--raised);
     color: var(--text);
@@ -1089,7 +1165,7 @@ pre,
 
 .service-info-card span {
     color: var(--text-2);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1142,7 +1218,7 @@ pre,
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     background: var(--raised);
     color: var(--text);
@@ -1204,7 +1280,7 @@ pre,
 .eyebrow {
     margin: 0;
     color: var(--text-2);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1222,19 +1298,19 @@ pre,
 }
 
 .runtime-state.ready {
-    color: #4ade80;
+    color: var(--status-ok);
     border-color: rgba(74, 222, 128, 0.24);
     background: rgba(74, 222, 128, 0.08);
 }
 
 .runtime-state.unavailable {
-    color: #f87171;
+    color: var(--status-error);
     border-color: rgba(248, 113, 113, 0.24);
     background: rgba(248, 113, 113, 0.08);
 }
 
 .runtime-state.pending {
-    color: #fbbf24;
+    color: var(--status-warn);
     border-color: rgba(251, 191, 36, 0.24);
     background: rgba(251, 191, 36, 0.08);
 }
@@ -1255,18 +1331,18 @@ pre,
     border-radius: 999px;
     padding: 0 8px;
     color: var(--text-2);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
 }
 
 .capability-pill.available {
-    color: #4ade80;
+    color: var(--status-ok);
     border-color: rgba(74, 222, 128, 0.2);
     background: rgba(74, 222, 128, 0.07);
 }
 
 .capability-pill.partial {
-    color: #fbbf24;
+    color: var(--status-warn);
     border-color: rgba(251, 191, 36, 0.22);
     background: rgba(251, 191, 36, 0.08);
 }
@@ -1325,7 +1401,7 @@ pre,
 }
 
 .dynamic-field .field-error {
-    color: #fca5a5;
+    color: var(--status-error);
 }
 
 .dynamic-field--span {
@@ -1343,7 +1419,7 @@ pre,
     align-items: center;
     gap: 10px;
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1375,7 +1451,7 @@ pre,
     border: 1px solid rgba(248, 113, 113, 0.28);
     border-radius: 4px;
     background: rgba(248, 113, 113, 0.08);
-    color: #fca5a5;
+    color: var(--status-error);
     padding: 8px 10px;
     font-size: 12px;
 }
@@ -1457,7 +1533,7 @@ pre,
     border: 1px solid rgba(248, 113, 113, 0.25);
     border-radius: 4px;
     background: rgba(248, 113, 113, 0.08);
-    color: #fca5a5;
+    color: var(--status-error);
     padding: 6px 8px;
     font-size: 11px;
     text-overflow: ellipsis;
@@ -1517,7 +1593,7 @@ pre,
 
 .cosmos-panel-header small {
     color: var(--text-2);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1534,7 +1610,7 @@ pre,
 
 .cosmos-panel-header em {
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-style: normal;
 }
 
@@ -1594,18 +1670,18 @@ pre,
 
 .cosmos-list-row small {
     color: var(--text-2);
-    font-size: 10px;
+    font-size: 11px;
 }
 
 .cosmos-list-row svg {
-    color: #f87171;
+    color: var(--status-error);
     flex: 0 0 auto;
 }
 
 .cosmos-list-row em {
     border: 1px solid rgba(248, 113, 113, 0.3);
     border-radius: 4px;
-    color: #f87171;
+    color: var(--status-error);
     padding: 4px 7px;
     font-size: 11px;
     font-style: normal;
@@ -1636,7 +1712,7 @@ pre,
 .textarea {
     width: 100%;
     min-width: 0;
-    border: 1px solid var(--border);
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     background: var(--bg);
     color: var(--text);
@@ -1645,8 +1721,10 @@ pre,
     resize: vertical;
 }
 
-.textarea:focus {
-    border-color: var(--link);
+.textarea:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .textarea.invalid {
@@ -1726,7 +1804,7 @@ pre,
 .sql-panel-header small,
 .sql-connection-bar label > span {
     color: var(--text-3);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1745,7 +1823,7 @@ pre,
 .sql-panel-header em {
     overflow: hidden;
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-style: normal;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1759,7 +1837,7 @@ pre,
 .sql-credential-note {
     grid-column: 2 / 4;
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
 }
 
 .sql-connection-bar > .form-error {
@@ -1840,7 +1918,7 @@ pre,
 .sql-list-row small,
 .sql-list-row em {
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-style: normal;
 }
 
@@ -1881,7 +1959,7 @@ pre,
     padding: 8px 12px;
     border-bottom: 1px solid var(--border);
     color: var(--text-2);
-    font-size: 10px;
+    font-size: 11px;
 }
 
 .sql-result-set-label {
@@ -1903,7 +1981,7 @@ pre,
     display: block;
     margin-top: 2px;
     color: var(--text-3);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 400;
     text-transform: none;
 }
@@ -1912,7 +1990,7 @@ pre,
     max-width: 280px;
     overflow: hidden;
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 11px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1970,7 +2048,7 @@ pre,
     align-items: center;
     gap: 10px;
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2043,7 +2121,7 @@ pre,
 
 .sg-check-item code {
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-mono, monospace);
 }
 
@@ -2085,7 +2163,7 @@ pre,
 
 .sg-create-field > span {
     color: var(--text-2);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
 }
@@ -2100,7 +2178,7 @@ pre,
 
 .sg-create-error {
     flex: 1;
-    color: #fca5a5;
+    color: var(--status-error);
     font-size: 11px;
 }
 
@@ -2119,7 +2197,7 @@ pre,
 
 .sg-rules-label {
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -2153,7 +2231,7 @@ pre,
 
 .sg-rule-header-row span {
     color: var(--text-3);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     padding: 0 2px;
@@ -2190,7 +2268,7 @@ pre,
 }
 
 .icon-btn.danger {
-    color: #f87171;
+    color: var(--status-error);
 }
 
 .resource-inspector {
@@ -2300,7 +2378,7 @@ pre,
 }
 
 .error-text {
-    color: #f87171;
+    color: var(--status-error);
 }
 
 .compact-text {
@@ -2365,7 +2443,7 @@ pre,
 .metadata-table span,
 .empty-metadata span {
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -2440,7 +2518,7 @@ pre,
 
 .object-create-folder span {
     color: var(--text-2);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -2470,7 +2548,9 @@ pre,
     background: transparent;
     color: var(--link);
     padding: 0;
-    font-size: 11px;
+    font-size: 12px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 .object-name {
@@ -2487,7 +2567,7 @@ pre,
 .inline-error {
     border-bottom: 1px solid rgba(248, 113, 113, 0.25);
     background: rgba(248, 113, 113, 0.08);
-    color: #fca5a5;
+    color: var(--status-error);
     padding: 9px 14px;
     font-size: 12px;
 }
@@ -2521,15 +2601,15 @@ pre,
 }
 
 .console-provider-banner.ready {
-    border-left-color: #22c55e;
+    border-left-color: var(--status-ok);
 }
 
 .console-provider-banner.pending {
-    border-left-color: #f59e0b;
+    border-left-color: var(--status-warn);
 }
 
 .console-provider-banner.unavailable {
-    border-left-color: #ef4444;
+    border-left-color: var(--status-error);
 }
 
 .console-provider-banner h3 {
@@ -2577,17 +2657,17 @@ pre,
 
 .summary-tile.ready svg,
 .summary-tile.ready strong {
-    color: #4ade80;
+    color: var(--status-ok);
 }
 
 .summary-tile.pending svg,
 .summary-tile.pending strong {
-    color: #fbbf24;
+    color: var(--status-warn);
 }
 
 .summary-tile.unavailable svg,
 .summary-tile.unavailable strong {
-    color: #f87171;
+    color: var(--status-error);
 }
 
 .summary-tile:last-child {
@@ -2596,7 +2676,7 @@ pre,
 
 .summary-tile span {
     color: var(--text-2);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2665,7 +2745,7 @@ pre,
 .console-flow-step span {
     grid-area: label;
     color: var(--text-2);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2697,7 +2777,7 @@ button.console-service-card {
 }
 
 .console-service-card.blocked {
-    opacity: 0.9;
+    border-style: dashed;
 }
 
 .console-service-meta {
@@ -2932,6 +3012,8 @@ button.console-service-card {
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 3px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 .breadcrumb-btn:hover {
@@ -3001,7 +3083,7 @@ button.console-service-card {
 .invoke-result.error {
     border-color: rgba(239, 68, 68, 0.35);
     background: rgba(239, 68, 68, 0.04);
-    color: #fca5a5;
+    color: var(--status-error);
 }
 
 .log-tail {
@@ -3064,7 +3146,7 @@ button.console-service-card {
 }
 
 .fn-meta-label {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-3);
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -3091,12 +3173,12 @@ button.console-service-card {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border: 1px solid transparent;
     border-radius: 4px;
     background: transparent;
-    color: var(--text-3);
+    color: var(--text-2);
     cursor: pointer;
     transition: background 100ms, color 100ms, border-color 100ms;
     flex-shrink: 0;
@@ -3116,7 +3198,7 @@ button.console-service-card {
 
 .icon-btn.danger:hover {
     background: rgba(239, 68, 68, 0.12);
-    color: #ef4444;
+    color: var(--status-error);
     border-color: rgba(239, 68, 68, 0.3);
 }
 
@@ -3215,12 +3297,12 @@ button.console-service-card {
 }
 
 .upload-item.done {
-    color: #4ade80;
+    color: var(--status-ok);
     background: rgba(34, 197, 94, 0.05);
 }
 
 .upload-item.error {
-    color: #f87171;
+    color: var(--status-error);
     background: rgba(239, 68, 68, 0.05);
 }
 
@@ -3248,7 +3330,7 @@ button.console-service-card {
 .button.danger {
     background: rgba(239, 68, 68, 0.15);
     border-color: rgba(239, 68, 68, 0.4);
-    color: #ef4444;
+    color: var(--status-error);
 }
 
 .button.danger:hover {
@@ -3320,7 +3402,7 @@ button.console-service-card {
 }
 
 .meta-label {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-3);
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -3656,7 +3738,7 @@ button.console-service-card {
 .nav-group-label {
     display: block;
     padding: 6px 16px 3px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
