@@ -1,5 +1,4 @@
-import { useCreateRdsSnapshotMutation } from "@/api/aws/rds.mutations";
-import { useRdsSnapshotsQuery } from "@/api/aws/rds.queries";
+import {useState} from 'react'
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
 import type { CloudResource, StorageObject } from "@/types/resource";
 import {formatBytes} from "@/lib/format";
@@ -48,7 +47,12 @@ export function ResourceInspector({
     );
   }
 
+  if (resource.type === 'email') {
+    return <EmailInspector key={resource.id} resource={resource} />
+  }
+
   const tags = getTags(resource.metadata.tags);
+  const tagsUnavailable = getBooleanMetadata(resource.metadata.tagsUnavailable) ?? false;
   const versioning = getStringMetadata(resource.metadata.versioning);
   const versioningEnabled = getBooleanMetadata(
     resource.metadata.versioningEnabled,
@@ -90,7 +94,10 @@ export function ResourceInspector({
             value={versioningEnabled ? "Yes" : "No"}
           />
         )}
-        <InspectorItem label="Tags" value={`${tags.length}`} />
+        <InspectorItem
+          label="Tags"
+          value={tagsUnavailable ? "Unavailable" : `${tags.length}`}
+        />
         {isLambda && (
           <>
             <InspectorItem
@@ -110,7 +117,11 @@ export function ResourceInspector({
       </div>
       <section className="inspector-section">
         <p className="metric-label">Tags</p>
-        {tags.length === 0 ? (
+        {tagsUnavailable ? (
+          <p className="muted compact-text">
+            Tags unavailable: the provider denied or failed the tag lookup.
+          </p>
+        ) : tags.length === 0 ? (
           <p className="muted compact-text">
             No tags returned for this resource.
           </p>
@@ -129,9 +140,6 @@ export function ResourceInspector({
         <DatabaseConnectionsSection metadata={resource.metadata} />
       )}
       {isAwsDatabase && <DatabaseLifecycleSection status={resource.status} />}
-      {isAwsDatabase && (
-        <DatabaseSnapshotsSection instanceIdentifier={resource.name} />
-      )}
       {isDatabase && !isAwsDatabase && (
         <ProviderDatabaseSection cloud={resource.cloud} />
       )}
@@ -175,6 +183,63 @@ export function ResourceInspector({
       <MetadataPanel metadata={resource.metadata} />
     </aside>
   );
+}
+
+function EmailInspector({resource}: {resource: CloudResource}) {
+  const [tab, setTab] = useState<'preview' | 'text' | 'raw'>('preview')
+  const source = getStringMetadata(resource.metadata.source) ?? '-'
+  const toAddresses = getStringList(resource.metadata.toAddresses)
+  const ccAddresses = getStringList(resource.metadata.ccAddresses)
+  const bccAddresses = getStringList(resource.metadata.bccAddresses)
+  const replyToAddresses = getStringList(resource.metadata.replyToAddresses)
+  const textBody = getStringMetadata(resource.metadata.textBody)
+  const htmlBody = getStringMetadata(resource.metadata.htmlBody)
+  const rawData = getStringMetadata(resource.metadata.rawData)
+  const hasPreview = Boolean(htmlBody || textBody)
+  const activeTab = tab === 'preview' && !hasPreview ? (rawData ? 'raw' : 'text') : tab
+
+  return (
+    <aside className="resource-inspector">
+      <div className="widget-header">
+        <h3 title={resource.name}>{resource.name}</h3>
+        <span className="badge neutral">{getStringMetadata(resource.metadata.messageType) ?? 'email'}</span>
+      </div>
+      <div className="inspector-grid">
+        <InspectorItem label="From" value={source} />
+        <InspectorItem label="To" value={toAddresses.join(', ') || '-'} />
+        {ccAddresses.length > 0 && <InspectorItem label="Cc" value={ccAddresses.join(', ')} />}
+        {bccAddresses.length > 0 && <InspectorItem label="Bcc" value={bccAddresses.join(', ')} />}
+        {replyToAddresses.length > 0 && <InspectorItem label="Reply-To" value={replyToAddresses.join(', ')} />}
+        <InspectorItem label="Captured At" value={resource.createdAt ?? '-'} />
+      </div>
+      <section className="inspector-section">
+        <div className="drawer-tabs" style={{marginBottom: 10}}>
+          <button className={`drawer-tab ${activeTab === 'preview' ? 'active' : ''}`} disabled={!hasPreview} onClick={() => setTab('preview')}>Preview</button>
+          <button className={`drawer-tab ${activeTab === 'text' ? 'active' : ''}`} disabled={!textBody} onClick={() => setTab('text')}>Text</button>
+          <button className={`drawer-tab ${activeTab === 'raw' ? 'active' : ''}`} disabled={!rawData} onClick={() => setTab('raw')}>Raw</button>
+        </div>
+        {activeTab === 'preview' && htmlBody ? (
+          <iframe
+            title="Email HTML preview"
+            sandbox=""
+            referrerPolicy="no-referrer"
+            srcDoc={safeEmailDocument(htmlBody)}
+            style={{width: '100%', minHeight: 260, border: '1px solid var(--border)', borderRadius: 4, background: '#fff'}}
+          />
+        ) : activeTab === 'preview' ? (
+          <pre className="metadata-block" style={{whiteSpace: 'pre-wrap', margin: 0}}>{textBody ?? 'No preview content captured.'}</pre>
+        ) : activeTab === 'text' ? (
+          <pre className="metadata-block" style={{whiteSpace: 'pre-wrap', margin: 0}}>{textBody ?? 'No text body captured.'}</pre>
+        ) : (
+          <pre className="metadata-block" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0}}>{rawData ?? 'No raw MIME data captured.'}</pre>
+        )}
+      </section>
+    </aside>
+  )
+}
+
+function safeEmailDocument(html: string): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"></head><body>${html}</body></html>`
 }
 
 function ProviderDatabaseSection({ cloud }: { cloud: string }) {
@@ -261,67 +326,6 @@ function DatabaseLifecycleSection({ status }: { status?: string | null }) {
   );
 }
 
-function DatabaseSnapshotsSection({
-  instanceIdentifier,
-}: {
-  instanceIdentifier: string;
-}) {
-  const snapshotsQuery = useRdsSnapshotsQuery(instanceIdentifier);
-  const createSnapshot = useCreateRdsSnapshotMutation();
-
-  return (
-    <section className="inspector-section">
-      <div className="inspector-section-header">
-        <p className="metric-label">Snapshots</p>
-        <button
-          className="button compact"
-          type="button"
-          disabled={createSnapshot.isPending}
-          onClick={() => createSnapshot.mutate({ instanceIdentifier })}
-        >
-          {createSnapshot.isPending ? "Creating" : "Create DB snapshot"}
-        </button>
-      </div>
-      {createSnapshot.isError && (
-        <p className="error-text compact-text">
-          {createSnapshot.error instanceof Error
-            ? createSnapshot.error.message
-            : "Snapshot creation failed."}
-        </p>
-      )}
-      {snapshotsQuery.isLoading ? (
-        <p className="muted compact-text">Loading snapshots.</p>
-      ) : snapshotsQuery.isError ? (
-        <p className="error-text compact-text">
-          {snapshotsQuery.error instanceof Error
-            ? snapshotsQuery.error.message
-            : "Failed to load snapshots."}
-        </p>
-      ) : (snapshotsQuery.data?.length ?? 0) === 0 ? (
-        <p className="muted compact-text">
-          No snapshots returned for this DB instance.
-        </p>
-      ) : (
-        <div className="snapshot-list">
-          {snapshotsQuery.data?.map((snapshot) => (
-            <div
-              className="snapshot-row"
-              key={snapshot.arn ?? snapshot.identifier}
-            >
-              <div>
-                <strong>{snapshot.identifier}</strong>
-                <span>{snapshot.createdAt ?? "No creation timestamp"}</span>
-              </div>
-              <span className="badge neutral">
-                {snapshot.status ?? "unknown"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
 
 function InspectorItem({ label, value }: { label: string; value: string }) {
   return (
@@ -350,11 +354,15 @@ function MetadataPanel({ metadata }: { metadata: Record<string, unknown> }) {
       {rows.map(([key, value]) => (
         <div key={key}>
           <span>{humanizeKey(key)}</span>
-          <code>{String(value)}</code>
+          <code>{formatMetadataValue(value)}</code>
         </div>
       ))}
     </div>
   );
+}
+
+function formatMetadataValue(value: unknown): string {
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
 }
 
 function humanizeKey(value: string): string {
@@ -367,6 +375,12 @@ function humanizeKey(value: string): string {
 
 function getStringMetadata(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function getStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
 }
 
 function getBooleanMetadata(value: unknown): boolean | null {

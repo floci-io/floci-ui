@@ -46,6 +46,11 @@
     --bulk-bar-border: #5c6bc0;
     --bulk-bar-text: #e8eaf6;
 
+    /* ── Sidebar geometry ── */
+    --sidebar-w: 220px;
+    --sidebar-rail-w: 52px;
+    --sidebar-overlay-shadow: 6px 0 32px rgba(0, 0, 0, 0.45);
+
     font-family: Sora, Inter, system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
@@ -98,6 +103,9 @@
     --bulk-bar-bg: rgba(57, 73, 171, 0.1);
     --bulk-bar-border: #3949ab;
     --bulk-bar-text: #1a237e;
+
+    /* 45% black at 32px blur is far too heavy under a white panel. */
+    --sidebar-overlay-shadow: 6px 0 28px rgba(38, 48, 82, 0.18);
 }
 
 * {
@@ -156,13 +164,105 @@ pre,
     overflow: hidden;
 }
 
+/* ─── Collapsible sidebar ────────────────────────────────────────────────── */
+/* The <aside> is only a space-reserving flex slot. .sidebar-inner is the panel
+   that animates, and that overlays the page when the rail is hovered. */
 .sidebar {
-    width: 220px;
-    flex: 0 0 220px;
+    position: relative;
+    flex: 0 0 var(--sidebar-w);
+}
+
+.sidebar-inner {
+    position: absolute;
+    inset: 0;
+    width: var(--sidebar-w);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     background: var(--surface);
     border-right: 1px solid var(--border);
+    transition: width 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-sidebar="collapsed"] .sidebar {
+    flex-basis: var(--sidebar-rail-w);
+}
+
+[data-sidebar="collapsed"] .sidebar-inner {
+    width: var(--sidebar-rail-w);
+}
+
+/* The rail does NOT expand on hover — hovering a link shows its native title
+   tooltip instead. Keyboard focus still expands it, because title tooltips do
+   not appear on focus and the rail would otherwise be unreadable without a
+   mouse.
+
+   Scoped to focus inside .nav specifically, not the whole sidebar: clicking the
+   footer toggle leaves that button focused, and a bare :focus-within would then
+   re-expand the panel the click just collapsed. The condition is duplicated as
+   :not(:has(.nav:focus-within)) on the rail rules below — the two must stay in
+   sync or focus will strip the rail's styling without changing its width. */
+[data-sidebar="collapsed"] .sidebar:has(.nav:focus-within) .sidebar-inner {
+    width: var(--sidebar-w);
+    z-index: 30;
+    box-shadow: var(--sidebar-overlay-shadow);
+}
+
+/* Rail: collapsed and not hovered. Hovering restores every label below. */
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) :is(
+    .nav-label,
+    .nav-group-label,
+    .nav-retry,
+    .nav-soon,
+    .brand p,
+    .brand-logo,
+    .sidebar-footer-text,
+    .nav-link > span:not(.skeleton-bar)
+) {
+    display: none;
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .brand-mark {
+    display: block;
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .brand {
+    align-items: center;
+    padding: 12px 0;
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link {
+    justify-content: center;
+    padding: 8px 0;
+}
+
+/* The 14px chrome size is too small once the icon is the only thing naming a
+   service. CSS overrides lucide's width/height attributes. */
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* With labels hidden the divider is the only grouping cue, so it uses the
+   structural --border weight rather than --border-faint (1.17:1). */
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-group + .nav-group {
+    border-top: 1px solid var(--border);
+    padding-top: 5px;
+}
+
+/* The active tint is ~1.2:1 in both themes and never carried active state on
+   its own — the label did. Without a label, the accent inset does the work. */
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link.active {
+    box-shadow: inset 3px 0 var(--accent);
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .skeleton-bar {
+    width: 20px;
+}
+
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .sidebar-footer {
+    justify-content: center;
+    padding: 8px;
 }
 
 .brand {
@@ -179,6 +279,13 @@ pre,
     max-width: 150px;
     height: auto;
     display: block;
+}
+
+/* Shown only in the rail — see the collapsible sidebar section. */
+.brand-mark {
+    display: none;
+    width: 30px;
+    height: auto;
 }
 
 .service-icon {
@@ -272,7 +379,11 @@ pre,
 }
 
 .sidebar-footer {
-    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 8px 8px 16px;
     border-top: 1px solid var(--border);
     font-size: 11px;
     color: var(--text-3);
@@ -1176,7 +1287,7 @@ pre,
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px 16px;
-    align-items: end;
+    align-items: start;
     padding: 0;
 }
 
@@ -1189,6 +1300,15 @@ pre,
 .dynamic-field {
     display: grid;
     gap: 6px;
+    min-width: 0;
+}
+
+.dynamic-field .input,
+.dynamic-field .textarea,
+.dynamic-field select,
+.dynamic-field textarea {
+    width: 100%;
+    min-width: 0;
 }
 
 .dynamic-field span {
@@ -1210,6 +1330,11 @@ pre,
 
 .dynamic-field--span {
     grid-column: 1 / -1;
+}
+
+.create-table-modal .dynamic-form {
+    grid-template-columns: 1fr;
+    gap: 14px;
 }
 
 .dynamic-form-group {
@@ -1268,8 +1393,18 @@ pre,
 }
 
 .resource-main {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     min-height: 0;
+}
+
+.resource-main > .table-panel {
+    flex: 1;
+    min-height: 0;
+}
+
+.resource-main > .drawer-tabs {
+    padding: 0 4px;
 }
 
 .resource-table-bar {
@@ -1514,6 +1649,11 @@ pre,
     border-color: var(--link);
 }
 
+.textarea.invalid {
+    border-color: rgba(248, 113, 113, 0.55);
+    box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.12);
+}
+
 .code-textarea {
     min-height: 180px;
     font-family: "Space Mono", "JetBrains Mono", Consolas, monospace;
@@ -1543,6 +1683,278 @@ pre,
     color: var(--text);
     padding: 9px 10px;
     font-size: 11px;
+}
+
+.sql-panel {
+    display: grid;
+    gap: 10px;
+}
+
+.sql-connection-bar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.45fr) minmax(180px, 0.6fr) auto;
+    gap: 8px 12px;
+    align-items: end;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--elevated);
+}
+
+.sql-connection-title,
+.sql-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+
+.sql-connection-title svg,
+.sql-panel-header svg {
+    flex: 0 0 auto;
+    color: var(--link);
+}
+
+.sql-connection-title span,
+.sql-panel-header span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.sql-connection-title small,
+.sql-panel-header small,
+.sql-connection-bar label > span {
+    color: var(--text-3);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sql-connection-title strong,
+.sql-panel-header strong {
+    overflow: hidden;
+    color: var(--text-bright);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sql-connection-title em,
+.sql-panel-header em {
+    overflow: hidden;
+    color: var(--text-3);
+    font-size: 10px;
+    font-style: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sql-connection-bar label {
+    display: grid;
+    gap: 5px;
+}
+
+.sql-credential-note {
+    grid-column: 2 / 4;
+    color: var(--text-3);
+    font-size: 10px;
+}
+
+.sql-connection-bar > .form-error {
+    grid-column: 1 / -1;
+}
+
+.sql-connect-empty {
+    min-height: 180px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--elevated);
+}
+
+.sql-explorer {
+    display: grid;
+    grid-template-columns: minmax(210px, 0.7fr) minmax(240px, 0.8fr) minmax(480px, 1.8fr);
+    gap: 10px;
+    min-height: 440px;
+}
+
+.sql-column {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--elevated);
+    overflow: hidden;
+}
+
+.sql-panel-header {
+    min-height: 58px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sql-panel-header span {
+    flex: 1;
+}
+
+.sql-list {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.sql-list-row {
+    display: flex;
+    width: 100%;
+    min-height: 52px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--border-faint);
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+}
+
+.sql-list-row:hover,
+.sql-list-row.selected {
+    background: var(--hover-md);
+}
+
+.sql-list-row span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.sql-list-row strong {
+    overflow: hidden;
+    color: var(--text-bright);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sql-list-row small,
+.sql-list-row em {
+    color: var(--text-3);
+    font-size: 10px;
+    font-style: normal;
+}
+
+.sql-list-row em {
+    flex: 0 0 auto;
+}
+
+.sql-workspace {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.sql-query-editor {
+    display: grid;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--raised);
+}
+
+.sql-query-editor .button {
+    justify-self: end;
+}
+
+.sql-results-empty {
+    min-height: 180px;
+}
+
+.sql-results {
+    min-width: 0;
+    overflow: auto;
+}
+
+.sql-results-summary,
+.sql-result-set-label {
+    display: flex;
+    gap: 14px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-2);
+    font-size: 10px;
+}
+
+.sql-result-set-label {
+    background: var(--raised);
+    color: var(--text-bright);
+    font-weight: 600;
+}
+
+.sql-result-table-wrap {
+    max-height: 280px;
+    overflow: auto;
+}
+
+.sql-result-table {
+    min-width: max-content;
+}
+
+.sql-result-table th small {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-3);
+    font-size: 9px;
+    font-weight: 400;
+    text-transform: none;
+}
+
+.sql-result-table td {
+    max-width: 280px;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .sql-connection-bar {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .sql-credential-note {
+        grid-column: 1 / -1;
+    }
+
+    .sql-explorer {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .sql-workspace {
+        grid-column: 1 / -1;
+    }
+}
+
+.dynamodb-explorer {
+    display: grid;
+    grid-template-columns: minmax(520px, 1.5fr) minmax(340px, 1fr);
+    gap: 10px;
+    min-height: 300px;
+}
+
+.dynamodb-explorer > .empty {
+    grid-column: 1 / -1;
+}
+
+.dynamodb-document {
+    max-height: 420px;
+    overflow: auto;
+    margin: 0;
+    color: var(--text);
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
 }
 
 .launch-form {
@@ -1879,6 +2291,14 @@ pre,
     font-size: 11px;
 }
 
+.snapshot-row .inline-actions {
+    display: flex;
+    flex: none;
+    gap: 6px;
+    overflow: visible;
+    white-space: normal;
+}
+
 .error-text {
     color: #f87171;
 }
@@ -1952,12 +2372,12 @@ pre,
 }
 
 .metadata-table code {
-    overflow: hidden;
+    min-width: 0;
     color: var(--text);
     font-family: var(--mono);
     font-size: 11px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
 }
 
 .object-browser {
@@ -2392,11 +2812,6 @@ button.console-service-card {
 }
 
 @media (max-width: 980px) {
-    .sidebar {
-        width: 190px;
-        flex-basis: 190px;
-    }
-
     .grid.two,
     .grid.three,
     .grid.four,
@@ -2435,6 +2850,10 @@ button.console-service-card {
 
     .resource-inspector {
         position: static;
+    }
+
+    .dynamodb-explorer {
+        grid-template-columns: 1fr;
     }
 
     .input {
@@ -2860,13 +3279,15 @@ button.console-service-card {
 /* ─── Drawer tabs ────────────────────────────────────────────────────────── */
 .drawer-tabs {
     display: flex;
+    align-items: flex-end;
     border-bottom: 1px solid var(--border);
     padding: 0 14px;
     flex-shrink: 0;
 }
 
 .drawer-tab {
-    padding: 8px 14px;
+    padding: 5px 12px;
+    line-height: 1.3;
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
@@ -2966,6 +3387,98 @@ button.console-service-card {
     justify-content: flex-end;
 }
 
+/* ─── Object thumbnail (Storage image preview) ──────────────────────────── */
+.object-thumbnail {
+    width: 18px;
+    height: 18px;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface-2, var(--surface));
+}
+
+.image-preview-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    width: min(880px, 90vw);
+    max-height: 85vh;
+    overflow: hidden;
+}
+
+.image-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.image-preview-name {
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.image-preview-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.image-preview-body {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow: auto;
+    min-height: 160px;
+}
+
+.image-preview-body img,
+.image-preview-body video {
+    max-width: 100%;
+    max-height: calc(85vh - 90px);
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.object-text-preview {
+    width: 100%;
+    max-height: calc(85vh - 90px);
+    overflow: auto;
+    margin: 0;
+    padding: 12px;
+    background: var(--code-bg, var(--surface-2, var(--surface)));
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+}
+
+.image-preview-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-2);
+    padding: 24px;
+}
 /* ─── Table checkboxes ───────────────────────────────────────────────────── */
 .table input[type="checkbox"] {
     width: 14px;
@@ -3047,6 +3560,49 @@ button.console-service-card {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
+}
+
+.record-modal {
+    width: min(640px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    display: grid;
+    gap: 14px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+}
+
+.record-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.record-modal-header h3,
+.record-modal-header p {
+    margin: 0;
+}
+
+.record-modal-header h3 {
+    color: var(--text-bright);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.record-modal-header p {
+    margin-top: 5px;
+    color: var(--text-2);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.record-modal-editor {
+    min-height: 300px;
+    resize: vertical;
 }
 
 /* ─── Shared drawer tabs ─────────────────────────────────────────────────── */
@@ -3160,5 +3716,9 @@ button.console-service-card {
 @media (prefers-reduced-motion: reduce) {
     .skeleton-bar {
         animation: none;
+    }
+
+    .sidebar-inner {
+        transition: none;
     }
 }

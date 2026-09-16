@@ -27,6 +27,7 @@ import {
     DeregisterImageCommand,
     DescribeAddressesCommand,
     DescribeAvailabilityZonesCommand,
+    DescribeImagesCommand,
     DescribeInstanceTypesCommand,
     DescribeInternetGatewaysCommand,
     DescribeKeyPairsCommand,
@@ -156,6 +157,34 @@ describe('ec2Service.deregisterImage', () => {
         const client: EC2Client = {send: async (cmd: unknown) => { sent.push(cmd); return {} }} as unknown as EC2Client
         await createEc2Service(client).deregisterImage('ami-old')
         expect(sent[0]).toBeInstanceOf(DeregisterImageCommand)
+    })
+})
+
+describe('ec2Service.listAmis', () => {
+    test('requests the complete image catalog and maps launchable AMIs', async () => {
+        const sent: unknown[] = []
+        const client: EC2Client = {
+            send: async (cmd: unknown) => {
+                sent.push(cmd)
+                return {
+                    Images: [{
+                        ImageId: 'ami-amazonlinux2023',
+                        Name: 'Amazon Linux 2023',
+                    }],
+                }
+            },
+        } as unknown as EC2Client
+
+        const result = await createEc2Service(client).listAmis()
+
+        expect(sent[0]).toBeInstanceOf(DescribeImagesCommand)
+        expect((sent[0] as DescribeImagesCommand).input).toEqual({})
+        expect(result).toEqual([
+            expect.objectContaining({
+                imageId: 'ami-amazonlinux2023',
+                name: 'Amazon Linux 2023',
+            }),
+        ])
     })
 })
 

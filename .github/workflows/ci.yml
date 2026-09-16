@@ -24,14 +24,14 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
 
       # ── Frontend toolchain (pnpm workspace) ────────────────────────────────
       - uses: pnpm/action-setup@v6
         with:
           version: 9.2.0
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '20'
           cache: pnpm

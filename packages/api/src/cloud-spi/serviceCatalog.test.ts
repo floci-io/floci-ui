@@ -17,13 +17,21 @@ describe('SERVICE_CATALOG', () => {
             expect(entry.iconKey.length).toBeGreaterThan(0)
             expect(SERVICE_GROUP_ORDER).toContain(entry.group)
             expect(Number.isFinite(entry.order)).toBe(true)
-            expect(routeFor(entry).length).toBeGreaterThan(0)
+            expect(routeFor(entry, 'aws').length).toBeGreaterThan(0)
         }
     })
 
     test('exposes one entry per catalog key', () => {
         expect(SERVICE_CATALOG_ENTRIES).toHaveLength(Object.keys(SERVICE_CATALOG).length)
         expect(new Set(SERVICE_TYPES).size).toBe(SERVICE_TYPES.length)
+    })
+
+    test('registers the iac category under the Provisioning group', () => {
+        expect(SERVICE_GROUP_ORDER).toContain('Provisioning')
+        const iac = catalogEntry('iac')!
+        expect(iac.group).toBe('Provisioning')
+        expect(isServiceType('iac')).toBe(true)
+        expect(displayNameFor(iac, 'aws')).toBe('CloudFormation')
     })
 
     test('orders entries by group then in-group order', () => {
@@ -39,10 +47,17 @@ describe('SERVICE_CATALOG', () => {
         }
     })
 
-    test('routes default to the slug and stay absolute for legacy pages', () => {
-        expect(routeFor(catalogEntry('storage')!)).toBe('storage')
-        // Secrets Manager still lives outside Cloud Explorer.
-        expect(routeFor(catalogEntry('secrets')!)).toBe('/secretsmanager')
+    test('routes default to the slug', () => {
+        expect(routeFor(catalogEntry('storage')!, 'aws')).toBe('storage')
+        expect(routeFor(catalogEntry('storage')!, 'gcp')).toBe('storage')
+    })
+
+    test('a per-cloud override routes one provider to its bespoke page', () => {
+        // AWS Secrets Manager keeps its dedicated page until value reveal exists
+        // as a row action; GCP goes through the generic explorer today.
+        const secrets = catalogEntry('secrets')!
+        expect(routeFor(secrets, 'aws')).toBe('/secretsmanager')
+        expect(routeFor(secrets, 'gcp')).toBe('secrets')
     })
 
     test('resolves per-cloud routes so one category can span a legacy page and the explorer', () => {
@@ -60,14 +75,6 @@ describe('SERVICE_CATALOG', () => {
         expect(displayNameFor(k8s, 'gcp')).toBe('GKE')
         // No override -> the shared display name.
         expect(displayNameFor(catalogEntry('storage')!, 'gcp')).toBe('Storage')
-    })
-
-    test('logs is a legacy AWS-only page in the Observability group, like Secrets Manager', () => {
-        const logs = catalogEntry('logs')!
-        expect(logs).toBeDefined()
-        expect(logs.group).toBe('Observability')
-        expect(routeFor(logs)).toBe('/logs')
-        expect(logs.legacyAvailability?.aws).toBe('available')
     })
 })
 

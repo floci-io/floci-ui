@@ -41,6 +41,61 @@ export function formatRelativeTime(value: unknown, now: number = Date.now()): st
     return formatter.format(0, 'second')
 }
 
+/** Kinds that render inside the preview modal. */
+export type ObjectPreviewKind = 'image' | 'video' | 'audio' | 'text'
+
+/**
+ * Kinds recognized for a distinct row icon. A superset of ObjectPreviewKind —
+ * these get an icon but no in-browser preview:
+ * - 'pdf': native PDF-in-iframe support is unreliable across browsers (some
+ *   ship without a built-in PDF viewer, and browsers/ad-blockers can flag an
+ *   iframe navigation that falls back to a download as an automatic-download
+ *   attack pattern and block it outright). Download still works normally.
+ * - 'document' (Word) / 'spreadsheet' (Excel): rendering needs a client-side
+ *   parser (mammoth, xlsx) that this project doesn't depend on yet.
+ */
+export type ObjectIconKind = ObjectPreviewKind | 'pdf' | 'document' | 'spreadsheet'
+
+const PREVIEW_EXTENSIONS: Record<ObjectPreviewKind, Set<string>> = {
+    image: new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif']),
+    video: new Set(['mp4', 'webm', 'ogv', 'mov']),
+    audio: new Set(['mp3', 'wav', 'ogg', 'oga', 'm4a', 'flac']),
+    text: new Set(['txt', 'json', 'log', 'md', 'yaml', 'yml', 'csv', 'xml', 'html', 'css', 'js', 'ts']),
+}
+
+const ICON_ONLY_EXTENSIONS: Record<Exclude<ObjectIconKind, ObjectPreviewKind>, Set<string>> = {
+    pdf: new Set(['pdf']),
+    document: new Set(['doc', 'docx', 'rtf', 'odt']),
+    spreadsheet: new Set(['xls', 'xlsx', 'xlsm', 'ods']),
+}
+
+/**
+ * Best-effort preview/icon-kind detection from an object key/name. Storage
+ * list APIs (S3 ListObjectsV2, Azure list blobs) do not return content-type
+ * per item — only a HEAD/GET on the object would — so this is an extension
+ * heuristic. A wrong guess just fails to render the thumbnail/preview, it
+ * never blocks any other action.
+ */
+export function objectIconKind(name: string): ObjectIconKind | null {
+    const ext = name.split('.').pop()?.toLowerCase()
+    if (!ext) return null
+    for (const kind of Object.keys(PREVIEW_EXTENSIONS) as ObjectPreviewKind[]) {
+        if (PREVIEW_EXTENSIONS[kind].has(ext)) return kind
+    }
+    for (const kind of Object.keys(ICON_ONLY_EXTENSIONS) as Array<'pdf' | 'document' | 'spreadsheet'>) {
+        if (ICON_ONLY_EXTENSIONS[kind].has(ext)) return kind
+    }
+    return null
+}
+
+const ICON_ONLY_KINDS = new Set(Object.keys(ICON_ONLY_EXTENSIONS))
+
+/** Narrower than {@link objectIconKind}: only kinds the preview modal can render. */
+export function objectPreviewKind(name: string): ObjectPreviewKind | null {
+    const kind = objectIconKind(name)
+    return kind && !ICON_ONLY_KINDS.has(kind) ? kind as ObjectPreviewKind : null
+}
+
 /** Stable class-name fragment for a status value. */
 export function slugify(value: string): string {
     return value

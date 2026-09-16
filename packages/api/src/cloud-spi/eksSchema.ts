@@ -28,6 +28,20 @@ export function awsEksSchema(): ServiceSchema {
         displayName: 'AWS EKS',
         fields: [],
         actions: ['list', 'inspect'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List clusters', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect cluster', enabled: true, status: 'available', runtimeRequired: false},
+            ],
+            kubernetesActions: [
+                {name: 'listNodegroups', label: 'List nodegroups', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'createNodegroup', label: 'Create nodegroup', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'deleteNodegroup', label: 'Delete nodegroup', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'listFargateProfiles', label: 'List Fargate profiles', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'createFargateProfile', label: 'Create Fargate profile', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'deleteFargateProfile', label: 'Delete Fargate profile', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
         filters: eksFilters,
         columns: eksColumns,
     }

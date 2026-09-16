@@ -1,7 +1,8 @@
 import {describe, expect, test} from 'bun:test'
 import {createCloudAdapterRegistry} from './cloudProxy'
+import {checkChildCapabilities} from './cloud-spi/childCapabilities'
 import {isServiceType} from './cloud-spi/serviceCatalog'
-import type {CloudProvider, CloudServiceAdapter, CloudServiceType, ResourceActionName} from './cloud-spi/types'
+import type {CloudProvider, CloudServiceAdapter, CloudServiceType, DatabaseActionName, KubernetesActionName, ResourceActionName} from './cloud-spi/types'
 
 /**
  * Guards the schema-to-implementation contract for every registered adapter.
@@ -20,6 +21,7 @@ const CLOUDS: CloudProvider[] = ['aws', 'azure', 'gcp']
 const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> = {
     list: 'list',
     create: 'create',
+    update: 'update',
     delete: 'delete',
     inspect: 'get',
     invoke: 'invoke',
@@ -27,6 +29,20 @@ const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> =
     stop: 'stop',
     reboot: 'reboot',
     updateTags: 'updateTags',
+}
+
+const METHOD_FOR_DATABASE_ACTION = {
+    listSnapshots: 'listDatabaseSnapshots',
+    createSnapshot: 'createDatabaseSnapshot',
+} satisfies Record<DatabaseActionName, keyof CloudServiceAdapter>
+
+const METHOD_FOR_KUBERNETES_ACTION: Record<KubernetesActionName, keyof CloudServiceAdapter> = {
+    listNodegroups: 'listKubernetesNodegroups',
+    createNodegroup: 'createKubernetesNodegroup',
+    deleteNodegroup: 'deleteKubernetesNodegroup',
+    listFargateProfiles: 'listKubernetesFargateProfiles',
+    createFargateProfile: 'createKubernetesFargateProfile',
+    deleteFargateProfile: 'deleteKubernetesFargateProfile',
 }
 
 const registry = createCloudAdapterRegistry()
@@ -81,12 +97,42 @@ describe('registered adapters honour their schema', () => {
                     `${label} advertises ${capability.name} as available but has no ${String(method)}()`,
                 ).toBe('function')
             }
+
+            const databaseCapabilities = adapter.schema().capabilities?.databaseActions ?? []
+            const databaseClaims = databaseCapabilities.filter(
+                (capability) => capability.status === 'available' || (capability.status === 'partial' && capability.enabled),
+            )
+            for (const capability of databaseClaims) {
+                const method = METHOD_FOR_DATABASE_ACTION[capability.name]
+                expect(
+                    typeof adapter[method],
+                    `${label} advertises ${capability.name} as ${capability.status} but has no ${String(method)}()`,
+                ).toBe('function')
+            }
+
+            const kubernetesCapabilities = adapter.schema().capabilities?.kubernetesActions ?? []
+            const kubernetesClaims = kubernetesCapabilities.filter((capability) => capability.status === 'available')
+            for (const capability of kubernetesClaims) {
+                const method = METHOD_FOR_KUBERNETES_ACTION[capability.name]
+                expect(
+                    typeof adapter[method],
+                    `${label} advertises ${capability.name} as available but has no ${String(method)}()`,
+                ).toBe('function')
+            }
+        })
+
+        test(`${label} child collections match their advertised capabilities`, () => {
+            expect(checkChildCapabilities(adapter), `${label} child capability mismatch`).toEqual([])
         })
 
         test(`${label} explains every capability it does not fully support`, () => {
             const capabilities = [
                 ...(adapter.schema().capabilities?.resourceActions ?? []),
                 ...(adapter.schema().capabilities?.objectActions ?? []),
+                ...(adapter.schema().capabilities?.databaseActions ?? []),
+                ...(adapter.schema().capabilities?.kubernetesActions ?? []),
+                ...(adapter.schema().capabilities?.collectionActions ?? []),
+                ...(adapter.schema().capabilities?.itemActions ?? []),
             ]
 
             for (const capability of capabilities) {
@@ -115,6 +161,43 @@ describe('registered adapters honour their schema', () => {
 })
 
 describe('adapter capability advertisements match the runtime reality', () => {
+    test('AWS database advertises instance and snapshot capabilities', () => {
+        const schema = adapterFor('aws', 'database').schema()
+
+        expect(schema.actions).toEqual(['list', 'create', 'update', 'delete', 'inspect'])
+        expect(schema.capabilities?.resourceActions?.map(({name, enabled, status, runtimeRequired}) => ({
+            name,
+            enabled,
+            status,
+            runtimeRequired,
+        }))).toEqual([
+            {name: 'list', enabled: true, status: 'available', runtimeRequired: true},
+            {name: 'create', enabled: true, status: 'available', runtimeRequired: true},
+            {name: 'update', enabled: true, status: 'available', runtimeRequired: true},
+            {name: 'delete', enabled: true, status: 'available', runtimeRequired: true},
+            {name: 'inspect', enabled: true, status: 'available', runtimeRequired: true},
+        ])
+        expect(schema.capabilities?.resourceActions?.find(({name}) => name === 'create')?.label).toBe('Create DB instance')
+        expect(schema.capabilities?.resourceActions?.find(({name}) => name === 'update')?.label).toBe('Update DB instance')
+        expect(schema.capabilities?.databaseActions).toEqual([
+            {
+                name: 'listSnapshots',
+                label: 'List DB snapshots',
+                enabled: true,
+                status: 'available',
+                runtimeRequired: true,
+            },
+            {
+                name: 'createSnapshot',
+                label: 'Create DB snapshot',
+                enabled: true,
+                status: 'partial',
+                reason: 'The Cloud Proxy operation is available, but the current Floci runtime does not implement CreateDBSnapshot.',
+                runtimeRequired: true,
+            },
+        ])
+    })
+
     test('AWS serverless advertises invoke and implements it', () => {
         const adapter = adapterFor('aws', 'serverless')
         const invoke = adapter.schema().capabilities?.resourceActions?.find((c) => c.name === 'invoke')

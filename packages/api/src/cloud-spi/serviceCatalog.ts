@@ -20,6 +20,7 @@ export type ServiceGroup =
     | 'Databases'
     | 'Networking'
     | 'Integration'
+    | 'Provisioning'
     | 'Security'
     | 'Observability'
 
@@ -29,6 +30,7 @@ export const SERVICE_GROUP_ORDER: ServiceGroup[] = [
     'Databases',
     'Networking',
     'Integration',
+    'Provisioning',
     'Security',
     'Observability',
 ]
@@ -68,33 +70,105 @@ export const SERVICE_CATALOG = {
         order: 20,
     },
     serverless: {displayName: 'Serverless', iconKey: 'serverless', group: 'Compute', order: 30},
+    containers: {
+        displayName: 'Containers',
+        displayNameByCloud: {gcp: 'Cloud Run'},
+        iconKey: 'containers',
+        group: 'Compute',
+        order: 40,
+    },
     storage: {displayName: 'Storage', iconKey: 'storage', group: 'Storage', order: 10},
     database: {displayName: 'Database', iconKey: 'database', group: 'Databases', order: 10},
+    nosql: {
+        displayName: 'NoSQL',
+        // Both labels are declared even though each arrives with its own adapter,
+        // so this row reads the same whichever of the two lands first. A label for
+        // a cloud with no adapter is inert: availability comes from the registry.
+        displayNameByCloud: {aws: 'DynamoDB', azure: 'Cosmos DB NoSQL'},
+        iconKey: 'nosql',
+        group: 'Databases',
+        order: 20,
+    },
     networking: {displayName: 'Networking', iconKey: 'networking', group: 'Networking', order: 10},
+    workflows: {
+        displayName: 'Workflows',
+        displayNameByCloud: {aws: 'Step Functions'},
+        iconKey: 'workflows',
+        group: 'Integration',
+        order: 30,
+    },
+    loadbalancing: {
+        displayName: 'Load Balancing',
+        displayNameByCloud: {aws: 'ELB'},
+        iconKey: 'loadbalancing',
+        group: 'Networking',
+        order: 20,
+    },
+    messaging: {
+        displayName: 'Messaging',
+        displayNameByCloud: {aws: 'SQS', gcp: 'Pub/Sub'},
+        iconKey: 'messaging',
+        group: 'Integration',
+        order: 10,
+    },
+    events: {
+        displayName: 'Events',
+        displayNameByCloud: {aws: 'EventBridge'},
+        iconKey: 'events',
+        group: 'Integration',
+        order: 15,
+    },
+    identity: {displayName: 'Identity', iconKey: 'iam', group: 'Security', order: 5},
+    apigateway: {displayName: 'API Gateway', iconKey: 'apigateway', group: 'Integration', order: 10},
+    email: {
+        displayName: 'Email',
+        displayNameByCloud: {aws: 'SES Mailbox'},
+        iconKey: 'email',
+        group: 'Integration',
+        order: 20,
+    },
+    kms: {
+        displayName: 'Key Management',
+        displayNameByCloud: {aws: 'KMS'},
+        iconKey: 'kms',
+        group: 'Security',
+        order: 20,
+    },
+    parameters: {
+        displayName: 'Parameter Store',
+        iconKey: 'parameters',
+        group: 'Security',
+        order: 30,
+    },
     secrets: {
         displayName: 'Secrets Manager',
-        displayNameByCloud: {azure: 'Key Vault'},
+        displayNameByCloud: {azure: 'Key Vault', gcp: 'Secret Manager'},
         iconKey: 'secrets',
         group: 'Security',
         order: 10,
-        route: '/secretsmanager',
-        // Azure Key Vault is a normal Cloud Explorer service, so it uses the catalog
-        // slug rather than the legacy standalone page AWS still points at.
-        routeByCloud: {azure: 'secrets'},
-        // Migration debt: the AWS Secrets Manager page still lives outside Cloud
-        // Explorer, so there is no adapter to derive availability from.
-        legacyAvailability: {aws: 'available'},
+        // AWS retains its dedicated page while Azure and GCP use Cloud Explorer.
+        routeByCloud: {aws: '/secretsmanager'},
+    },
+    iac: {
+        displayName: 'Infrastructure as Code',
+        displayNameByCloud: {aws: 'CloudFormation'},
+        iconKey: 'iac',
+        group: 'Provisioning',
+        order: 10,
+    },
+    scheduler: {
+        displayName: 'Cloud Scheduler',
+        displayNameByCloud: {gcp: 'Cloud Scheduler'},
+        iconKey: 'scheduler',
+        group: 'Integration',
+        order: 20,
     },
     logs: {
-        displayName: 'CloudWatch Logs',
+        displayName: 'Logs',
+        displayNameByCloud: {aws: 'CloudWatch Logs'},
         iconKey: 'logs',
         group: 'Observability',
         order: 10,
-        route: '/logs',
-        // Groups/streams/events drill-in is a standalone page like Secrets
-        // Manager, not a generic CloudResource table, so there is no adapter
-        // to derive availability from.
-        legacyAvailability: {aws: 'available'},
     },
 } as const satisfies Record<string, ServiceCatalogMetadata>
 

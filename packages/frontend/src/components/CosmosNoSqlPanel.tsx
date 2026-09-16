@@ -1,6 +1,7 @@
 import {FormEvent, useEffect, useMemo, useState} from 'react'
 import {Code2, Database, Play, Plus, RefreshCw, Table2, Trash2, type LucideIcon} from 'lucide-react'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
+import {JsonRecordModal} from '@/components/JsonRecordModal'
 import {
     createCosmosContainer,
     deleteCosmosContainer,
@@ -28,6 +29,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
     const [documentText, setDocumentText] = useState('{\n  "id": ""\n}')
     const [documentError, setDocumentError] = useState<string | null>(null)
     const [selectedItem, setSelectedItem] = useState<CosmosItem | undefined>()
+    const [addRecordOpen, setAddRecordOpen] = useState(false)
     const [sql, setSql] = useState('SELECT * FROM c')
     const [confirmContainer, setConfirmContainer] = useState<string | null>(null)
     const [confirmItem, setConfirmItem] = useState<string | null>(null)
@@ -72,6 +74,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
     const upsertItemMut = useMutation({
         mutationFn: (document: Record<string, unknown>) => upsertCosmosItem(cloud, databaseId ?? '', selectedContainerId ?? '', document),
         onSuccess: (item) => {
+            setAddRecordOpen(false)
             setSelectedItem(item)
             setDocumentError(null)
             setDocumentText(JSON.stringify(item.document, null, 2))
@@ -97,6 +100,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
     useEffect(() => {
         setSelectedContainerId(undefined)
         setSelectedItem(undefined)
+        setAddRecordOpen(false)
         setDocumentText('{\n  "id": ""\n}')
         setDocumentError(null)
         setSql('SELECT * FROM c')
@@ -104,6 +108,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
 
     useEffect(() => {
         setSelectedItem(undefined)
+        setAddRecordOpen(false)
         setDocumentText('{\n  "id": ""\n}')
         setDocumentError(null)
     }, [selectedContainerId])
@@ -202,6 +207,18 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
             <div className="cosmos-column cosmos-column--wide">
                 <PanelHeader icon={Table2} eyebrow="Documents" title={selectedContainer?.name ?? 'Select container'} detail={`${itemsQuery.data?.length ?? 0} items`}/>
                 <div className="cosmos-toolbar">
+                    <button
+                        className="button primary"
+                        type="button"
+                        disabled={!selectedContainerId || !runtimeReachable}
+                        onClick={() => {
+                            upsertItemMut.reset()
+                            setAddRecordOpen(true)
+                        }}
+                    >
+                        <Plus size={14}/>
+                        Add record
+                    </button>
                     <button className="button" type="button" disabled={!selectedContainerId || itemsQuery.isFetching} onClick={() => itemsQuery.refetch()}>
                         <RefreshCw size={14}/>
                         Refresh
@@ -244,20 +261,18 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
             </div>
 
             <div className="cosmos-column">
-                <PanelHeader icon={Code2} eyebrow="Document editor" title={selectedItem ? `Update ${selectedItem.id}` : 'Create document'} detail={selectedItem ? 'Edits replace the selected document' : 'Create a JSON document'}/>
-                <form className="cosmos-editor" onSubmit={submitDocument}>
-                    <textarea className="textarea code-textarea" value={documentText} onChange={(event) => setDocumentText(event.target.value)} spellCheck={false}/>
-                    {selectedItem && (
-                        <button className="button" type="button" onClick={resetDocumentEditor}>
-                            New document
+                <PanelHeader icon={Code2} eyebrow="Document editor" title={selectedItem ? `Update ${selectedItem.id}` : 'Select document'} detail={selectedItem ? 'Edits replace the selected document' : 'Choose a document to inspect or update'}/>
+                {selectedItem ? (
+                    <form className="cosmos-editor" onSubmit={submitDocument}>
+                        <textarea className="textarea code-textarea" value={documentText} onChange={(event) => setDocumentText(event.target.value)} spellCheck={false}/>
+                        <button className="button primary" type="submit" disabled={!selectedContainerId || upsertItemMut.isPending}>
+                            {upsertItemMut.isPending ? 'Saving' : 'Update document'}
                         </button>
-                    )}
-                    <button className="button primary" type="submit" disabled={!selectedContainerId || upsertItemMut.isPending}>
-                        <Plus size={14}/>
-                        {upsertItemMut.isPending ? 'Saving' : selectedItem ? 'Update document' : 'Create document'}
-                    </button>
-                    {saveError && <div className="form-error">{saveError}</div>}
-                </form>
+                        {saveError && <div className="form-error">{saveError}</div>}
+                    </form>
+                ) : (
+                    <div className="empty compact"><h3>Select a document</h3><p>Its JSON contents appear here.</p></div>
+                )}
 
                 <PanelHeader icon={Play} eyebrow="SQL query" title="Cosmos SQL" detail="Runs against selected container"/>
                 <div className="cosmos-query">
@@ -280,6 +295,17 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
                     )}
                 </div>
             </div>
+
+            <JsonRecordModal
+                open={addRecordOpen}
+                title={`Add record to ${selectedContainer?.name ?? 'container'}`}
+                description={cosmosModalDescription(selectedContainer?.partitionKeyPath)}
+                initialValue={JSON.stringify(cosmosRecordTemplate(selectedContainer?.partitionKeyPath), null, 2)}
+                isPending={upsertItemMut.isPending}
+                submitError={upsertItemMut.error instanceof Error ? upsertItemMut.error.message : undefined}
+                onClose={() => setAddRecordOpen(false)}
+                onSubmit={(document) => upsertItemMut.mutate(document)}
+            />
         </section>
     )
 
@@ -295,6 +321,26 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable}: CosmosNoSq
         setDocumentError(null)
         setConfirmItem(null)
     }
+}
+
+function cosmosRecordTemplate(partitionKeyPath = '/id'): Record<string, unknown> {
+    const document: Record<string, unknown> = {id: ''}
+    const segments = partitionKeyPath.replace(/^\//, '').split('/').filter(Boolean)
+    if (segments.length === 0 || segments.length === 1 && segments[0] === 'id') return document
+
+    let target = document
+    for (const segment of segments.slice(0, -1)) {
+        const child: Record<string, unknown> = {}
+        target[segment] = child
+        target = child
+    }
+    target[segments[segments.length - 1] ?? 'id'] = ''
+    return document
+}
+
+function cosmosModalDescription(partitionKeyPath = '/id'): string {
+    const required = partitionKeyPath === '/id' ? 'Include id.' : `Include id and partition key ${partitionKeyPath}.`
+    return `${required} A matching id and partition key replaces the existing record.`
 }
 
 function PanelHeader({icon, eyebrow, title, detail}: {icon: LucideIcon; eyebrow: string; title: string; detail: string}) {

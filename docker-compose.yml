@@ -46,6 +46,11 @@ services:
     ports:
       - "4566:4566"
     volumes:
+      # Floci runs Lambda functions in throwaway containers, so it needs the host
+      # Docker daemon. Without this, invoke fails with "Failed to start Lambda
+      # container". This grants the emulator control of host Docker — acceptable
+      # for a local dev stack, and the same mount the README's docker run uses.
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./data:/app/data
       - ./init/ready.d:/etc/floci/init/ready.d:ro
       - ./init/files:/etc/floci/init/files:ro
@@ -71,6 +76,9 @@ services:
     profiles: ["multicloud"]
     ports:
       - "4588:4588"
+    volumes:
+      # Cloud SQL instances are real Postgres containers; see the note on `floci`.
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - floci_default
 

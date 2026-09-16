@@ -2,7 +2,7 @@
   "name": "@floci/frontend",
   "description": "Floci UI web console — the React + Vite frontend for exploring local multi-cloud runtimes.",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -30,7 +30,7 @@
     "@testing-library/jest-dom": "7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "14.6.1",
-    "@types/node": "^25.9.4",
+    "@types/node": "^26.1.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.2",

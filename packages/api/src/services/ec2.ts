@@ -559,7 +559,7 @@ export function createEc2Service(client: EC2Client = awsClients.ec2) {
 
         async listAmis(): Promise<Ec2Image[]> {
             try {
-                const res = await client.send(new DescribeImagesCommand({Owners: ['self']}))
+                const res = await client.send(new DescribeImagesCommand({}))
                 return (res.Images ?? []).map(toEc2Image)
             } catch (error) {
                 if (isUnsupportedOperation(error)) return []

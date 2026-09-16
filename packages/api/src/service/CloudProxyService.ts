@@ -10,14 +10,34 @@ import type {
     CosmosContainer,
     CosmosItem,
     CosmosQueryResult,
+    CreateDatabaseSnapshotInput,
+    CreateKubernetesFargateProfileInput,
+    CreateKubernetesNodegroupInput,
     CreateResourceInput,
+    DatabaseSnapshot,
+    KubernetesFargateProfile,
+    KubernetesNodegroup,
+    NoSqlItem,
     ResourceQuery,
     ServerlessInvokeResult,
+    SqlConnectionInput,
+    SqlDatabase,
+    SqlQueryResult,
+    SqlTable,
     RuntimeReachability,
     ServiceSchema,
     StorageObjectDownload,
     StorageObjectList,
+    UpdateResourceInput,
 } from '../cloud-spi/types'
+import type {
+    ChildCollection,
+    ChildItem,
+    CollectionPage,
+    DocumentStoreAdapter,
+    ItemStoreAdapter,
+    PageQuery,
+} from '../cloud-spi/childCollections'
 import {NotSupportedError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {SERVICE_CATALOG_ENTRIES, displayNameFor, routeFor} from '../cloud-spi/serviceCatalog'
@@ -200,6 +220,12 @@ export class CloudProxyService {
         return this.requireAdapter(cloud, service).create(input)
     }
 
+    async updateResource(cloud: CloudProvider, service: CloudServiceType, id: string, input: UpdateResourceInput): Promise<CloudResource> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.update) throw new NotSupportedError(`Resource updates are not supported for ${cloud}/${service}`)
+        return adapter.update(id, input)
+    }
+
     async deleteResource(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<void> {
         await this.requireAdapter(cloud, service).delete(id)
     }
@@ -243,46 +269,212 @@ async invokeResource(
         await adapter.copyObject(srcResourceId, srcKey, destKey, destResourceId)
     }
 
+    // Child collections. `requireDocuments`/`requireItems` reject the wrong
+    // shape rather than the missing method, so a flat store asked for
+    // collections gets a 501 that names the actual problem.
+
+    async listChildCollections(cloud: CloudProvider, service: CloudServiceType, resourceId: string, page: PageQuery): Promise<CollectionPage<ChildCollection>> {
+        return this.requireDocuments(cloud, service).listCollections(resourceId, page)
+    }
+
+    async createChildCollection(cloud: CloudProvider, service: CloudServiceType, resourceId: string, input: CreateResourceInput): Promise<ChildCollection> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.createCollection) throw new NotSupportedError(`Creating collections is not supported for ${cloud}/${service}`)
+        return documents.createCollection(resourceId, input)
+    }
+
+    async deleteChildCollection(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string): Promise<void> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.deleteCollection) throw new NotSupportedError(`Deleting collections is not supported for ${cloud}/${service}`)
+        await documents.deleteCollection(resourceId, collectionId)
+    }
+
+    async listCollectionItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, page: PageQuery): Promise<CollectionPage<ChildItem>> {
+        return this.requireDocuments(cloud, service).listItems(resourceId, collectionId, page)
+    }
+
+    async putCollectionItem(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, body: Record<string, unknown>): Promise<ChildItem> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.putItem) throw new NotSupportedError(`Writing items is not supported for ${cloud}/${service}`)
+        return documents.putItem(resourceId, collectionId, body)
+    }
+
+    async deleteCollectionItem(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, itemId: string, partitionKey?: string | null): Promise<void> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.deleteItem) throw new NotSupportedError(`Deleting items is not supported for ${cloud}/${service}`)
+        await documents.deleteItem(resourceId, collectionId, itemId, partitionKey)
+    }
+
+    async queryCollectionItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, query: string): Promise<CollectionPage<ChildItem>> {
+        const documents = this.requireDocuments(cloud, service)
+        if (!documents.queryItems) throw new NotSupportedError(`Querying items is not supported for ${cloud}/${service}`)
+        return documents.queryItems(resourceId, collectionId, query)
+    }
+
+    async listFlatItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, page: PageQuery): Promise<CollectionPage<ChildItem>> {
+        return this.requireItems(cloud, service).listItems(resourceId, page)
+    }
+
+    async putFlatItem(cloud: CloudProvider, service: CloudServiceType, resourceId: string, body: Record<string, unknown>): Promise<ChildItem> {
+        const items = this.requireItems(cloud, service)
+        if (!items.putItem) throw new NotSupportedError(`Writing items is not supported for ${cloud}/${service}`)
+        return items.putItem(resourceId, body)
+    }
+
+    async deleteFlatItem(cloud: CloudProvider, service: CloudServiceType, resourceId: string, itemId: string, partitionKey?: string | null): Promise<void> {
+        const items = this.requireItems(cloud, service)
+        if (!items.deleteItem) throw new NotSupportedError(`Deleting items is not supported for ${cloud}/${service}`)
+        await items.deleteItem(resourceId, itemId, partitionKey)
+    }
+
+    async queryFlatItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, query: string): Promise<CollectionPage<ChildItem>> {
+        const items = this.requireItems(cloud, service)
+        if (!items.queryItems) throw new NotSupportedError(`Querying items is not supported for ${cloud}/${service}`)
+        return items.queryItems(resourceId, query)
+    }
+
+    private requireDocuments(cloud: CloudProvider, service: CloudServiceType): DocumentStoreAdapter {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.documents) throw new NotSupportedError(`Nested collections are not supported for ${cloud}/${service}`)
+        return adapter.documents
+    }
+
+    private requireItems(cloud: CloudProvider, service: CloudServiceType): ItemStoreAdapter {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.items) throw new NotSupportedError(`Flat items are not supported for ${cloud}/${service}`)
+        return adapter.items
+    }
+
     async listCosmosContainers(cloud: CloudProvider, databaseId: string): Promise<CosmosContainer[]> {
-        const adapter = this.requireAdapter(cloud, 'database')
+        const adapter = this.requireAdapter(cloud, 'nosql')
         if (!adapter.listCosmosContainers) throw new NotSupportedError(`Cosmos containers are not supported for ${cloud}/database`)
         return adapter.listCosmosContainers(databaseId)
     }
 
     async createCosmosContainer(cloud: CloudProvider, databaseId: string, input: CreateResourceInput): Promise<CosmosContainer> {
-        const adapter = this.requireAdapter(cloud, 'database')
+        const adapter = this.requireAdapter(cloud, 'nosql')
         if (!adapter.createCosmosContainer) throw new NotSupportedError(`Cosmos container creation is not supported for ${cloud}/database`)
         return adapter.createCosmosContainer(databaseId, input)
     }
 
     async deleteCosmosContainer(cloud: CloudProvider, databaseId: string, containerId: string): Promise<void> {
-        const adapter = this.requireAdapter(cloud, 'database')
+        const adapter = this.requireAdapter(cloud, 'nosql')
         if (!adapter.deleteCosmosContainer) throw new NotSupportedError(`Cosmos container deletion is not supported for ${cloud}/database`)
         await adapter.deleteCosmosContainer(databaseId, containerId)
     }
 
     async listCosmosItems(cloud: CloudProvider, databaseId: string, containerId: string): Promise<CosmosItem[]> {
-        const adapter = this.requireAdapter(cloud, 'database')
+        const adapter = this.requireAdapter(cloud, 'nosql')
         if (!adapter.listCosmosItems) throw new NotSupportedError(`Cosmos items are not supported for ${cloud}/database`)
         return adapter.listCosmosItems(databaseId, containerId)
     }
 
     async upsertCosmosItem(cloud: CloudProvider, databaseId: string, containerId: string, document: Record<string, unknown>): Promise<CosmosItem> {
-        const adapter = this.requireAdapter(cloud, 'database')
+        const adapter = this.requireAdapter(cloud, 'nosql')
         if (!adapter.upsertCosmosItem) throw new NotSupportedError(`Cosmos item upsert is not supported for ${cloud}/database`)
         return adapter.upsertCosmosItem(databaseId, containerId, document)
     }
 
     async deleteCosmosItem(cloud: CloudProvider, databaseId: string, containerId: string, itemId: string, partitionKey?: string | null): Promise<void> {
-        const adapter = this.requireAdapter(cloud, 'database')
+        const adapter = this.requireAdapter(cloud, 'nosql')
         if (!adapter.deleteCosmosItem) throw new NotSupportedError(`Cosmos item deletion is not supported for ${cloud}/database`)
         await adapter.deleteCosmosItem(databaseId, containerId, itemId, partitionKey)
     }
 
     async queryCosmosItems(cloud: CloudProvider, databaseId: string, containerId: string, query: string): Promise<CosmosQueryResult> {
-        const adapter = this.requireAdapter(cloud, 'database')
+        const adapter = this.requireAdapter(cloud, 'nosql')
         if (!adapter.queryCosmosItems) throw new NotSupportedError(`Cosmos query is not supported for ${cloud}/database`)
         return adapter.queryCosmosItems(databaseId, containerId, query)
+    }
+
+    async listDatabaseSnapshots(cloud: CloudProvider, instanceIdentifier?: string): Promise<DatabaseSnapshot[]> {
+        const adapter = this.requireAdapter(cloud, 'database')
+        if (!adapter.listDatabaseSnapshots) throw new NotSupportedError(`Snapshot listing is not supported for ${cloud}/database`)
+        return adapter.listDatabaseSnapshots(instanceIdentifier)
+    }
+
+    async createDatabaseSnapshot(cloud: CloudProvider, input: CreateDatabaseSnapshotInput): Promise<DatabaseSnapshot> {
+        const adapter = this.requireAdapter(cloud, 'database')
+        if (!adapter.createDatabaseSnapshot) throw new NotSupportedError(`Snapshot creation is not supported for ${cloud}/database`)
+        return adapter.createDatabaseSnapshot(input)
+    }
+
+    async listDatabaseOrderableInstanceClasses(cloud: CloudProvider, engine?: string): Promise<string[]> {
+        const adapter = this.requireAdapter(cloud, 'database')
+        if (!adapter.listDatabaseOrderableInstanceClasses) throw new NotSupportedError(`Orderable instance class listing is not supported for ${cloud}/database`)
+        return adapter.listDatabaseOrderableInstanceClasses(engine)
+    }
+
+    async listSqlDatabases(cloud: CloudProvider, serverId: string, connection: SqlConnectionInput): Promise<SqlDatabase[]> {
+        const adapter = this.requireAdapter(cloud, 'database')
+        if (!adapter.listSqlDatabases) throw new NotSupportedError(`SQL database browsing is not supported for ${cloud}/database`)
+        return adapter.listSqlDatabases(serverId, connection)
+    }
+
+    async listSqlTables(cloud: CloudProvider, serverId: string, connection: SqlConnectionInput): Promise<SqlTable[]> {
+        const adapter = this.requireAdapter(cloud, 'database')
+        if (!adapter.listSqlTables) throw new NotSupportedError(`SQL table browsing is not supported for ${cloud}/database`)
+        return adapter.listSqlTables(serverId, connection)
+    }
+
+    async querySql(cloud: CloudProvider, serverId: string, connection: SqlConnectionInput, query: string): Promise<SqlQueryResult> {
+        const adapter = this.requireAdapter(cloud, 'database')
+        if (!adapter.querySql) throw new NotSupportedError(`SQL query is not supported for ${cloud}/database`)
+        return adapter.querySql(serverId, connection, query)
+    }
+
+    async listNoSqlItems(cloud: CloudProvider, resourceId: string): Promise<NoSqlItem[]> {
+        const adapter = this.requireAdapter(cloud, 'nosql')
+        if (!adapter.listNoSqlItems) throw new NotSupportedError(`Item listing is not supported for ${cloud}/nosql`)
+        return adapter.listNoSqlItems(resourceId)
+    }
+
+    async putNoSqlItem(cloud: CloudProvider, resourceId: string, document: Record<string, unknown>): Promise<NoSqlItem> {
+        const adapter = this.requireAdapter(cloud, 'nosql')
+        if (!adapter.putNoSqlItem) throw new NotSupportedError(`Item creation is not supported for ${cloud}/nosql`)
+        return adapter.putNoSqlItem(resourceId, document)
+    }
+
+    async listKubernetesNodegroups(cloud: CloudProvider, clusterId: string): Promise<KubernetesNodegroup[]> {
+        const adapter = this.requireAdapter(cloud, 'k8s')
+        if (!adapter.listKubernetesNodegroups) throw new NotSupportedError(`Nodegroups are not supported for ${cloud}/k8s`)
+        return adapter.listKubernetesNodegroups(clusterId)
+    }
+
+    async createKubernetesNodegroup(cloud: CloudProvider, clusterId: string, input: CreateKubernetesNodegroupInput): Promise<KubernetesNodegroup> {
+        const adapter = this.requireAdapter(cloud, 'k8s')
+        if (!adapter.createKubernetesNodegroup) throw new NotSupportedError(`Nodegroup creation is not supported for ${cloud}/k8s`)
+        return adapter.createKubernetesNodegroup(clusterId, input)
+    }
+
+    async deleteKubernetesNodegroup(cloud: CloudProvider, clusterId: string, nodegroupId: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'k8s')
+        if (!adapter.deleteKubernetesNodegroup) throw new NotSupportedError(`Nodegroup deletion is not supported for ${cloud}/k8s`)
+        await adapter.deleteKubernetesNodegroup(clusterId, nodegroupId)
+    }
+
+    async listKubernetesFargateProfiles(cloud: CloudProvider, clusterId: string): Promise<KubernetesFargateProfile[]> {
+        const adapter = this.requireAdapter(cloud, 'k8s')
+        if (!adapter.listKubernetesFargateProfiles) throw new NotSupportedError(`Fargate profiles are not supported for ${cloud}/k8s`)
+        return adapter.listKubernetesFargateProfiles(clusterId)
+    }
+
+    async createKubernetesFargateProfile(cloud: CloudProvider, clusterId: string, input: CreateKubernetesFargateProfileInput): Promise<KubernetesFargateProfile> {
+        const adapter = this.requireAdapter(cloud, 'k8s')
+        if (!adapter.createKubernetesFargateProfile) throw new NotSupportedError(`Fargate profile creation is not supported for ${cloud}/k8s`)
+        return adapter.createKubernetesFargateProfile(clusterId, input)
+    }
+
+    async deleteKubernetesFargateProfile(cloud: CloudProvider, clusterId: string, profileId: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'k8s')
+        if (!adapter.deleteKubernetesFargateProfile) throw new NotSupportedError(`Fargate profile deletion is not supported for ${cloud}/k8s`)
+        await adapter.deleteKubernetesFargateProfile(clusterId, profileId)
+    }
+
+    async clearEmailInbox(cloud: CloudProvider): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'email')
+        if (!adapter.clearEmailInbox) throw new NotSupportedError(`Inbox clearing is not supported for ${cloud}/email`)
+        await adapter.clearEmailInbox()
     }
 
     private requireAdapter(cloud: CloudProvider, service: CloudServiceType) {
@@ -301,4 +493,3 @@ function unavailableReason(
     if (availability === 'available') return undefined
     return `No ${cloud.toUpperCase()} adapter is registered for ${displayName} yet.`
 }
-
