@@ -8,7 +8,10 @@ import type {
   CloudStatus,
 } from "@/types/cloud";
 import type {
+  ChildCollection,
+  ChildItem,
   CloudResource,
+  CollectionPage,
   CosmosContainer,
   CosmosItem,
   CosmosQueryResult,
@@ -394,6 +397,37 @@ export async function queryCosmosItems(
     apiEndpointKeys.clouds.nosql.cosmos.items.query,
     requestOptions(cloud, "nosql", { signal, body: { query } }),
     { ...databasePathParams(cloud, databaseId), containerId },
+  );
+  return res.data;
+}
+
+export async function listChildCollections(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  resourceId: string,
+  cursor?: string,
+  signal?: AbortSignal,
+): Promise<CollectionPage<ChildCollection>> {
+  const res = await apiClient.call<CollectionPage<ChildCollection>>(
+    apiEndpointKeys.clouds.childCollections.list,
+    requestOptions(cloud, service, { signal, params: cursor ? { cursor } : undefined }),
+    { cloud, service, id: resourceId },
+  );
+  return res.data;
+}
+
+export async function listCollectionItems(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  resourceId: string,
+  collectionId: string,
+  cursor?: string,
+  signal?: AbortSignal,
+): Promise<CollectionPage<ChildItem>> {
+  const res = await apiClient.call<CollectionPage<ChildItem>>(
+    apiEndpointKeys.clouds.childCollections.items.list,
+    requestOptions(cloud, service, { signal, params: cursor ? { cursor } : undefined }),
+    { cloud, service, id: resourceId, cid: collectionId },
   );
   return res.data;
 }

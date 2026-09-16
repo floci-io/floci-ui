@@ -77,6 +77,29 @@ export interface CosmosQueryResult {
     count: number
 }
 
+/** The generic child-collections SPI: the middle level (a log stream, a Cosmos container). */
+export interface ChildCollection {
+    id: string
+    name: string
+    parentId: string
+    createdAt: string | null
+    metadata: Record<string, unknown>
+}
+
+/** The generic child-collections SPI: the leaf (a log event, a document). */
+export interface ChildItem {
+    id: string
+    collectionId: string | null
+    timestamp: string | null
+    body: Record<string, unknown>
+    metadata: Record<string, unknown>
+}
+
+export interface CollectionPage<T> {
+    items: T[]
+    nextCursor: string | null
+}
+
 export interface SqlCredentials {
     username: string
     password: string

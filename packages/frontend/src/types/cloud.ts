@@ -11,6 +11,7 @@ export type KnownCloudServiceType =
     | 'messaging'
     | 'events'
     | 'secrets'
+    | 'logs'
     | 'iac'
     | 'email'
     | 'scheduler'
