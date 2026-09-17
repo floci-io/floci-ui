@@ -34,6 +34,7 @@ import type { CloudResource, StorageObject } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
 import { dataExplorerPath } from "@/lib/dataExplorer";
+import { WorkflowExecutionsPanel } from "@/components/WorkflowExecutionsPanel";
 import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { AppConfigPanel } from "@/components/AppConfigPanel";
@@ -723,6 +724,13 @@ export function DynamicResourceView({
       )}
       {service === "kms" && (
         <KmsCryptoPanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "workflows" && cloud === "aws" && (
+        <WorkflowExecutionsPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}

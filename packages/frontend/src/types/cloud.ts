@@ -16,6 +16,7 @@ export type KnownCloudServiceType =
     | 'configuration'
     | 'email'
     | 'scheduler'
+    | 'workflows'
 
 /**
  * Deliberately open where the API's own type is closed.

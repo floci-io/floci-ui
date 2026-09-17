@@ -2,11 +2,22 @@ import {
     CreateStateMachineCommand,
     DeleteStateMachineCommand,
     DescribeStateMachineCommand,
+    type ExecutionListItem,
+    GetExecutionHistoryCommand,
+    type HistoryEvent,
+    ListExecutionsCommand,
     ListStateMachinesCommand,
     type SFNClient,
     type StateMachineListItem,
 } from '@aws-sdk/client-sfn'
-import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import type {
+    ChildCollection,
+    ChildItem,
+    CollectionPage,
+    DocumentStoreAdapter,
+    PageQuery,
+} from '../cloud-spi/childCollections'
+import {NotFoundError, NotSupportedError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {STATE_MACHINE_NAME_PATTERN, awsWorkflowsSchema} from '../cloud-spi/workflowsSchema'
 import type {
     CloudResource,
@@ -49,7 +60,11 @@ export class AwsStepFunctionsAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'workflows' as const
 
-    constructor(private readonly sfn: SFNClient) {}
+    readonly documents: DocumentStoreAdapter
+
+    constructor(private readonly sfn: SFNClient) {
+        this.documents = new StateMachineExecutionStore(sfn)
+    }
 
     schema(): ServiceSchema {
         return awsWorkflowsSchema()
@@ -104,6 +119,135 @@ export class AwsStepFunctionsAdapter implements CloudServiceAdapter {
     async delete(id: string): Promise<void> {
         await this.sfn.send(new DeleteStateMachineCommand({stateMachineArn: id}))
     }
+}
+
+/**
+ * Executions are the collection level and history events the leaf, so the
+ * execution history viewer rides on the generic child-collections routes.
+ *
+ * Read-only on purpose. Step Functions has no DeleteExecution — an execution is
+ * stopped, not removed — and a history event is immutable, so there is nothing
+ * honest to put behind create/delete/put.
+ */
+class StateMachineExecutionStore implements DocumentStoreAdapter {
+    constructor(private readonly sfn: SFNClient) {}
+
+    async listCollections(resourceId: string, page: PageQuery = {}): Promise<CollectionPage<ChildCollection>> {
+        // ListExecutions already returns the most recent execution first, which
+        // is the order a history viewer wants.
+        const res = await this.sfn.send(
+            new ListExecutionsCommand({
+                stateMachineArn: resourceId,
+                maxResults: page.limit,
+                nextToken: page.cursor,
+            }),
+        )
+        return {
+            items: (res.executions ?? []).map((execution) => toExecution(execution, resourceId)),
+            nextCursor: res.nextToken ?? null,
+        }
+    }
+
+    async listItems(resourceId: string, collectionId: string, page: PageQuery = {}): Promise<CollectionPage<ChildItem>> {
+        // GetExecutionHistory is addressed by the execution ARN alone, so unlike
+        // CloudWatch Logs nothing on the runtime side ties the leaf to the
+        // resource. Check the nesting here so the route cannot be used to read
+        // an execution of a different state machine.
+        if (!executionBelongsTo(collectionId, resourceId)) {
+            throw new NotFoundError(`Execution ${collectionId} does not belong to state machine ${resourceId}`)
+        }
+        // Step Functions does not record history for Express workflows, so
+        // GetExecutionHistory is rejected for them. Saying so beats relaying
+        // the raw runtime error.
+        if (isExpressExecutionArn(collectionId)) {
+            throw new NotSupportedError(EXPRESS_HISTORY_UNAVAILABLE)
+        }
+
+        const res = await this.sfn.send(
+            new GetExecutionHistoryCommand({
+                executionArn: collectionId,
+                // Oldest first, so the viewer reads top to bottom in the order
+                // the states ran and paging forward continues the story.
+                reverseOrder: false,
+                includeExecutionData: true,
+                maxResults: page.limit,
+                nextToken: page.cursor,
+            }),
+        )
+        return {
+            items: (res.events ?? []).map((event) => toHistoryEvent(event, collectionId)),
+            nextCursor: res.nextToken ?? null,
+        }
+    }
+}
+
+function toExecution(execution: ExecutionListItem, parentId: string): ChildCollection {
+    const arn = execution.executionArn ?? ''
+    const startedAt = execution.startDate?.toISOString() ?? null
+    const stoppedAt = execution.stopDate?.toISOString() ?? null
+
+    return {
+        // The execution ARN is the identity: GetExecutionHistory takes one and a
+        // name alone cannot address the execution.
+        id: arn,
+        name: execution.name ?? '',
+        parentId,
+        createdAt: startedAt,
+        metadata: {
+            arn,
+            status: execution.status ?? null,
+            startedAt,
+            stoppedAt,
+            durationMs:
+                execution.startDate && execution.stopDate
+                    ? execution.stopDate.getTime() - execution.startDate.getTime()
+                    : null,
+        },
+    }
+}
+
+/**
+ * A history event carries exactly one `*EventDetails` member, chosen by its
+ * `type`. Surfacing that one object under a single `details` key gives the UI a
+ * stable place to look instead of forty optional fields.
+ */
+function toHistoryEvent(event: HistoryEvent, collectionId: string): ChildItem {
+    const details = Object.entries(event).find(
+        ([key, value]) => key.endsWith('EventDetails') && value !== undefined && value !== null,
+    )?.[1] as Record<string, unknown> | undefined
+
+    return {
+        // Event ids are 1-based and unique within an execution, so they are a
+        // durable key — unlike log events, which have none.
+        id: String(event.id ?? ''),
+        collectionId,
+        timestamp: event.timestamp?.toISOString() ?? null,
+        body: {type: event.type ?? '', details: details ?? {}},
+        metadata: {previousEventId: event.previousEventId ?? null},
+    }
+}
+
+export const EXPRESS_HISTORY_UNAVAILABLE =
+    'Execution history is not available for Express workflows: Step Functions only records it for Standard workflows. ' +
+    'Express executions log to CloudWatch Logs when the state machine has logging enabled.'
+
+/** `arn:aws:states:REGION:ACCOUNT:express:MACHINE:NAME:UUID` is how Express executions are addressed. */
+function isExpressExecutionArn(executionArn: string): boolean {
+    return executionArn.split(':')[5] === 'express'
+}
+
+/**
+ * `arn:aws:states:REGION:ACCOUNT:execution:MACHINE:NAME` (or `:express:` for an
+ * Express workflow) nests under `arn:aws:states:REGION:ACCOUNT:stateMachine:MACHINE`
+ * when the partition, region, account and machine name all agree.
+ */
+function executionBelongsTo(executionArn: string, stateMachineArn: string): boolean {
+    const execution = executionArn.split(':')
+    const machine = stateMachineArn.split(':')
+    if (execution.length < 8 || machine.length < 7) return false
+    if (!['execution', 'express'].includes(execution[5] ?? '')) return false
+
+    return execution.slice(0, 5).join(':') === machine.slice(0, 5).join(':') && execution[6] === machine[6]
 }
 
 function toResource(machine: StateMachineListItem | DescribedMachine): CloudResource {
