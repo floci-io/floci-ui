@@ -70,7 +70,7 @@ export function ResourceInspector({
   const isK8sEngine = resource.service === "k8s" || resource.type === "cluster";
   const isLambda =
     resource.service === "serverless" || resource.type === "lambda";
-  const isLogGroup = resource.service === "logs" || resource.type === "log-group";
+  const isLogGroup = resource.cloud === "aws" && (resource.service === "logs" || resource.type === "log-group");
 
   return (
     <aside className="resource-inspector">
