@@ -34,6 +34,17 @@ describe('SERVICE_CATALOG', () => {
         expect(displayNameFor(iac, 'aws')).toBe('CloudFormation')
     })
 
+    test('registers the workflows category under the Integration group', () => {
+        expect(SERVICE_GROUP_ORDER).toContain('Integration')
+        const workflows = catalogEntry('workflows')!
+        expect(workflows.group).toBe('Integration')
+        expect(workflows.iconKey).toBe('workflows')
+        expect(isServiceType('workflows')).toBe(true)
+        expect(displayNameFor(workflows, 'aws')).toBe('Step Functions')
+        // No override for the other clouds -> the shared display name.
+        expect(displayNameFor(workflows, 'gcp')).toBe('Workflows')
+    })
+
     test('orders entries by group then in-group order', () => {
         const positions = SERVICE_CATALOG_ENTRIES.map((entry) => [
             SERVICE_GROUP_ORDER.indexOf(entry.group),
