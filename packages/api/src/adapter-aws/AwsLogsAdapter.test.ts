@@ -147,6 +147,7 @@ describe('AwsLogsAdapter queryLogs', () => {
         })
 
         expect(result).toEqual({
+            queryId: 'q-1',
             status: 'Complete',
             rows: [{'@timestamp': '2026-01-01 00:00:00.000', '@message': 'hello'}],
         })
@@ -175,8 +176,25 @@ describe('AwsLogsAdapter queryLogs', () => {
 
         const result = await adapter.queryLogs('/floci/probe', {queryString: 'fields @message', startTime: 0, endTime: 1})
 
-        expect(result).toEqual({status: 'Complete', rows: [{'@message': 'done'}]})
+        expect(result).toEqual({queryId: 'q-2', status: 'Complete', rows: [{'@message': 'done'}]})
         expect(calls.filter((call) => call.command === 'GetQueryResultsCommand')).toHaveLength(3)
+    })
+
+    // The P1 this test pins: if the poll deadline is hit while the query is
+    // still Running/Scheduled, the caller must still get the queryId back —
+    // dropping it here would make that still-running query unrecoverable, even
+    // though Floci (or real AWS) keeps executing it server-side.
+    test('still returns the query id when the poll deadline is hit before completion', async () => {
+        const {client} = stubClient({
+            StartQueryCommand: () => ({queryId: 'q-3'}),
+            GetQueryResultsCommand: () => ({status: 'Running', results: []}),
+        })
+        const adapter = new AwsLogsAdapter(client, {timeoutMs: 30, intervalMs: 10})
+
+        const result = await adapter.queryLogs('/floci/probe', {queryString: 'fields @message', startTime: 0, endTime: 1})
+
+        expect(result.queryId).toBe('q-3')
+        expect(result.status).toBe('Running')
     })
 
     test('rejects a blank query string before calling the runtime', async () => {

@@ -9,6 +9,7 @@ import type {
     ItemStoreAdapter,
 } from '../cloud-spi/childCollections'
 import {awsDatabaseSchema, azureDatabaseSchema} from '../cloud-spi/databaseSchema'
+import {awsLogsSchema} from '../cloud-spi/logsSchema'
 import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
@@ -24,6 +25,7 @@ import type {
     CreateDatabaseSnapshotInput,
     CreateResourceInput,
     DatabaseSnapshot,
+    LogsInsightsQueryResult,
     NoSqlItem,
 } from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
@@ -569,6 +571,63 @@ describe('cloud schema routes', () => {
         expect(queryBody.count).toBe(1)
         expect(deleteRes.status).toBe(200)
         expect(deleted).toEqual([{databaseId: 'appdb', containerId: 'items', itemId: 'item-1', partitionKey: 'demo'}])
+    })
+
+    test('runs a Logs Insights query through the route', async () => {
+        let received: {logGroupName?: string; queryString?: string; startTime?: number; endTime?: number; limit?: number} = {}
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'logs',
+            schema: awsLogsSchema,
+            queryLogs: async (logGroupName, input): Promise<LogsInsightsQueryResult> => {
+                received = {logGroupName, ...input}
+                return {queryId: 'q-1', status: 'Complete', rows: [{'@message': 'hello'}]}
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/logs/resources/%2Ffloci%2Fprobe/query', {
+            method: 'POST',
+            body: JSON.stringify({queryString: 'fields @message', startTime: 1000, endTime: 2000}),
+        })
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(body).toEqual({queryId: 'q-1', status: 'Complete', rows: [{'@message': 'hello'}]})
+        expect(received).toEqual({logGroupName: '/floci/probe', queryString: 'fields @message', startTime: 1000, endTime: 2000, limit: undefined})
+    })
+
+    test('rejects a Logs Insights query with a non-string queryString before calling the adapter', async () => {
+        let called = false
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'logs',
+            schema: awsLogsSchema,
+            queryLogs: async (): Promise<LogsInsightsQueryResult> => {
+                called = true
+                return {queryId: 'q-1', status: 'Complete', rows: []}
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/logs/resources/%2Ffloci%2Fprobe/query', {
+            method: 'POST',
+            body: JSON.stringify({queryString: 123, startTime: 1000, endTime: 2000}),
+        })
+
+        expect(res.status).toBe(400)
+        expect(called).toBe(false)
+    })
+
+    test('rejects a Logs Insights query with a missing startTime before calling the adapter', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'logs',
+            schema: awsLogsSchema,
+            queryLogs: async (): Promise<LogsInsightsQueryResult> => ({queryId: 'q-1', status: 'Complete', rows: []}),
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/logs/resources/%2Ffloci%2Fprobe/query', {
+            method: 'POST',
+            body: JSON.stringify({queryString: 'fields @message', endTime: 2000}),
+        })
+
+        expect(res.status).toBe(400)
     })
 
     test('normalizes runtime unavailable errors', async () => {

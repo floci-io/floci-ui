@@ -80,7 +80,11 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
 
     readonly documents: DocumentStoreAdapter
 
-    constructor(private readonly client: CloudWatchLogsClient) {
+    constructor(
+        private readonly client: CloudWatchLogsClient,
+        /** Overridable so tests can shrink the wait instead of taking QUERY_POLL_TIMEOUT_MS for real. */
+        private readonly queryPoll: {timeoutMs?: number; intervalMs?: number} = {},
+    ) {
         this.documents = new LogGroupDocumentStore(client)
     }
 
@@ -131,14 +135,16 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
         )
         if (!queryId) throw new NotFoundError(`Floci did not return a query id for ${logGroupName}.`)
 
-        const deadline = Date.now() + QUERY_POLL_TIMEOUT_MS
+        const deadline = Date.now() + (this.queryPoll.timeoutMs ?? QUERY_POLL_TIMEOUT_MS)
+        const pollInterval = this.queryPoll.intervalMs ?? QUERY_POLL_INTERVAL_MS
         let response = await this.client.send(new GetQueryResultsCommand({queryId}))
         while (ACTIVE_QUERY_STATUSES.has(response.status ?? '') && Date.now() < deadline) {
-            await sleep(QUERY_POLL_INTERVAL_MS)
+            await sleep(pollInterval)
             response = await this.client.send(new GetQueryResultsCommand({queryId}))
         }
 
         return {
+            queryId,
             status: response.status ?? 'Unknown',
             rows: (response.results ?? []).map(toRow),
         }

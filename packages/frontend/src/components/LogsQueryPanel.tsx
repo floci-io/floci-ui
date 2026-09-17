@@ -150,6 +150,8 @@ function macShortcut(): string {
     return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
 }
 
+const STILL_RUNNING_STATUSES = new Set(['Running', 'Scheduled'])
+
 function LogsQueryResults({result, expanded}: {result?: LogsInsightsQueryResult; expanded: boolean}) {
     if (!result) {
         return (
@@ -160,7 +162,11 @@ function LogsQueryResults({result, expanded}: {result?: LogsInsightsQueryResult;
         )
     }
 
-    const columns = result.rows.length > 0 ? Object.keys(result.rows[0]) : []
+    // Different log events discover different fields (a query with no `fields`
+    // clause, or events whose shape varies row to row), so a field present only
+    // on a later row must not be dropped just because row 0 lacked it.
+    const columns = Array.from(new Set(result.rows.flatMap((row) => Object.keys(row))))
+    const stillRunning = STILL_RUNNING_STATUSES.has(result.status)
 
     return (
         <div className="sql-results">
@@ -168,7 +174,14 @@ function LogsQueryResults({result, expanded}: {result?: LogsInsightsQueryResult;
                 <span>Status: {result.status}</span>
                 <span>{result.rows.length} rows</span>
             </div>
-            {result.rows.length === 0 && <div className="muted padded">No events matched this query.</div>}
+            {stillRunning && (
+                <div className="muted padded">
+                    Floci hadn't finished this query when the console stopped waiting — these rows are a partial,
+                    in-progress result, not the full answer. Run the query again to see if it has finished
+                    (query id: {result.queryId}).
+                </div>
+            )}
+            {!stillRunning && result.rows.length === 0 && <div className="muted padded">No events matched this query.</div>}
             {columns.length > 0 && (
                 <div className={expanded ? 'sql-result-table-wrap logs-query-table-wrap--expanded' : 'sql-result-table-wrap'}>
                     <table className="table sql-result-table">

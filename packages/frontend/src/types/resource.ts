@@ -150,6 +150,7 @@ export interface LogsInsightsQueryInput {
 }
 
 export interface LogsInsightsQueryResult {
+    queryId: string
     status: string
     rows: Array<Record<string, string>>
 }

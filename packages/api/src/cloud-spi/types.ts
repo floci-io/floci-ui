@@ -306,6 +306,12 @@ export interface LogsInsightsQueryInput {
 }
 
 export interface LogsInsightsQueryResult {
+    /**
+     * Always present, including when `status` is still Running/Scheduled after
+     * the poll deadline — dropping it in that case would leave no way to ever
+     * check back on that query again, even though it is still running server-side.
+     */
+    queryId: string
     /** CloudWatch Logs' own QueryStatus: Complete, Running, Failed, Timeout, ... */
     status: string
     rows: Array<Record<string, string>>
