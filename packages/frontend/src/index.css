@@ -3825,7 +3825,7 @@ button.console-service-card {
     min-width: 0;
 }
 
-.data-workspace-header h2,
+.data-workspace-header h1,
 .data-workspace .runtime-notice {
     overflow-wrap: anywhere;
 }
