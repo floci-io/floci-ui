@@ -58,6 +58,7 @@ export function LogsQueryPanel({cloud, logGroupName, runtimeReachable}: LogsQuer
     useEffect(() => {
         resetQuery()
         setQueryText(DEFAULT_QUERY)
+        setRangeMinutes(RANGE_OPTIONS[1].minutes)
         setExpanded(false)
     }, [logGroupName, resetQuery])
 
