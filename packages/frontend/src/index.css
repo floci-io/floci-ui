@@ -3723,144 +3723,79 @@ button.console-service-card {
     }
 }
 
-/* Dedicated database workspaces fill the area below the application toolbar. */
-.database-data-page {
-    container-type: inline-size;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    height: 100%;
-    min-width: 0;
+/* ── Settings page ── */
+
+.settings-section {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
 }
 
-.data-workspace-header {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    gap: 12px 24px;
+.settings-section h3 {
+    margin: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-faint);
+    color: var(--text-bright);
+    font-size: 13px;
+    font-weight: 600;
 }
 
-.data-workspace-header .page-title,
-.data-workspace-header .page-title > div {
-    min-width: 0;
-}
-
-.data-workspace-header h2,
-.data-workspace .runtime-notice {
-    overflow-wrap: anywhere;
-}
-
-.data-workspace {
-    display: grid;
-    min-height: 0;
-    min-width: 0;
-    overflow: auto;
-    padding: 16px;
-}
-
-.data-workspace > .cosmos-panel {
-    grid-template-columns: minmax(210px, 0.8fr) minmax(0, 1.2fr) minmax(0, 1fr);
-}
-
-.data-workspace > .dynamodb-explorer {
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-}
-
-.data-workspace > .cosmos-panel,
-.data-workspace > .dynamodb-explorer,
-.data-workspace > .sql-panel,
-.data-workspace .sql-explorer {
-    min-height: 0;
-    min-width: 0;
-}
-
-.data-workspace .cosmos-column,
-.data-workspace .sql-column {
+.settings-row {
     display: flex;
-    flex-direction: column;
-    overflow: auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
 }
 
-.data-workspace .cosmos-column > *,
-.data-workspace .sql-column > * {
-    flex-shrink: 0;
+.settings-row + .settings-row {
+    border-top: 1px solid var(--border-faint);
 }
 
-.data-workspace .cosmos-items-table,
-.data-workspace .cosmos-list,
-.data-workspace .dynamodb-document,
-.data-workspace .sql-list,
-.data-workspace .sql-results {
-    flex: 1;
-    min-height: 100px;
-    max-height: none;
-}
-
-.data-workspace .cosmos-inline-form {
-    grid-template-columns: minmax(0, 1fr);
-}
-
-.data-workspace .cosmos-toolbar {
-    flex-wrap: wrap;
-}
-
-.data-workspace .cosmos-query-result,
-.data-workspace .sql-result-table-wrap {
-    max-height: none;
-}
-
-.data-workspace .sql-panel {
-    grid-template-rows: auto minmax(0, 1fr);
-}
-
-.data-workspace .sql-explorer {
-    grid-template-columns: minmax(160px, 0.6fr) minmax(180px, 0.7fr) minmax(0, 1.8fr);
-}
-
-.data-workspace .sql-workspace {
-    grid-column: auto;
-}
-
-.data-workspace .sql-connection-bar label,
-.data-workspace .sql-connection-bar .input {
+.settings-row-text {
+    display: grid;
+    gap: 2px;
     min-width: 0;
-    width: 100%;
 }
 
-@container (max-width: 1000px) {
-    .data-workspace > .cosmos-panel,
-    .data-workspace .sql-explorer {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        align-content: start;
-    }
-
-    .data-workspace .cosmos-column:last-child,
-    .data-workspace .sql-workspace {
-        grid-column: 1 / -1;
-    }
-
-    .data-workspace .cosmos-column,
-    .data-workspace .sql-column {
-        min-height: 260px;
-    }
-
-    .data-workspace .sql-connection-bar {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .data-workspace .sql-credential-note {
-        grid-column: 1 / -1;
-    }
+.settings-label {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
 }
 
-@container (max-width: 600px) {
-    .data-workspace > .cosmos-panel,
-    .data-workspace > .dynamodb-explorer,
-    .data-workspace .sql-explorer,
-    .data-workspace .sql-connection-bar {
-        grid-template-columns: minmax(0, 1fr);
-        align-content: start;
-    }
+.settings-description {
+    color: var(--text-3);
+    font-size: 11px;
+}
 
-    .data-workspace .sql-panel {
-        grid-template-rows: auto auto;
-    }
+.settings-toggle-group {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.settings-toggle-btn {
+    padding: 5px 14px;
+    border: 0;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 120ms, color 120ms;
+}
+
+.settings-toggle-btn + .settings-toggle-btn {
+    border-left: 1px solid var(--border);
+}
+
+.settings-toggle-btn:hover {
+    background: var(--hover);
+}
+
+.settings-toggle-btn.active {
+    background: var(--accent-tint);
+    color: var(--text-bright);
+    font-weight: 600;
 }

@@ -1,6 +1,5 @@
-import {NavLink, Outlet, useLocation, useSearchParams} from 'react-router-dom'
-import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Moon, Search, Sun} from 'lucide-react'
-import {useCallback, useEffect, useRef, useState} from 'react'
+import {NavLink, Outlet, useLocation} from 'react-router-dom'
+import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Search, Settings} from 'lucide-react'
 import flociWhite from '@/assets/floci-white.svg'
 import flociBlack from '@/assets/floci-black.svg'
 import flociMarkWhite from '@/assets/floci-mark-white.svg'
@@ -159,7 +158,7 @@ function groupByGroup(services: CloudServiceDescriptor[]): Array<[string, CloudS
 export function Layout() {
     const location = useLocation()
     const activeCloud = activeCloudFromPath(location.pathname)
-    const {theme, toggle} = useTheme()
+    const {theme} = useTheme()
     const {collapsed, toggle: toggleSidebar, toggleRef} = useSidebar()
     const isDark = theme === 'dark'
     const {data, isError} = useQuery({
@@ -186,6 +185,7 @@ export function Layout() {
                         <div className="nav-section">
                             <span className="nav-label">General</span>
                             <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home"/>
+                            <NavItem to={`/console/${activeCloud}/settings`} icon={Settings} label="Settings"/>
                         </div>
                         <CloudServiceNav/>
                     </nav>
@@ -209,10 +209,11 @@ export function Layout() {
 
             <div className="shell">
                 <header className="topbar">
-                    <TopbarSearch/>
-                    <button className="icon-btn" onClick={toggle} title="Toggle theme">
-                        {isDark ? <Sun size={14}/> : <Moon size={14}/>}
-                    </button>
+                    <div className="search">
+                        <Search size={14}/>
+                        <input placeholder="Search services, features, docs, and more"/>
+                        <span className="kbd">/</span>
+                    </div>
                     <div id="topbar-status" className="topbar-status"/>
                     <AccountSwitcher/>
                     <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
