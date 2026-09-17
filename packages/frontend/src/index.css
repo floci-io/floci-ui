@@ -675,6 +675,14 @@ pre,
     outline: none;
 }
 
+/* `outline: none` above outranks the global :focus-visible rule on specificity,
+   so the ring has to be restated here. Same for .tag-input below. */
+.account-entry input:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .account-entry button {
     height: 28px;
     padding: 0 10px;
@@ -3270,8 +3278,10 @@ button.console-service-card {
     font-family: "Space Mono", "JetBrains Mono", Consolas, monospace;
 }
 
-.tag-input:focus {
-    border-color: var(--link);
+.tag-input:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .tag-drawer-footer {

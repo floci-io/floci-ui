@@ -412,7 +412,7 @@ function SecretDrawer({
                   {detail.rotationEnabled ? 'Rotation enabled' : 'Active'}
                 </span>
                 {detail.versionIds.length > 0 && (
-                  <span className="badge" style={{ background: 'rgba(107,114,128,0.14)', color: '#9ca3af' }}>
+                  <span className="badge" style={{ background: 'rgba(107,114,128,0.14)', color: 'var(--text-3)' }}>
                     {detail.versionIds.length} version{detail.versionIds.length !== 1 ? 's' : ''}
                   </span>
                 )}
@@ -428,7 +428,7 @@ function SecretDrawer({
                 {detail.description && (
                   <div className="meta-row">
                     <span className="meta-label">Description</span>
-                    <span className="meta-value" style={{ fontFamily: 'inherit', color: '#8d9cad' }}>{detail.description}</span>
+                    <span className="meta-value" style={{ fontFamily: 'inherit', color: 'var(--text-3)' }}>{detail.description}</span>
                   </div>
                 )}
                 {detail.kmsKeyId && (
@@ -441,19 +441,19 @@ function SecretDrawer({
                   {detail.createdDate && (
                     <div className="meta-row">
                       <span className="meta-label">Created</span>
-                      <span className="meta-value" style={{ color: '#8d9cad' }}>{timeAgo(detail.createdDate)}</span>
+                      <span className="meta-value" style={{ color: 'var(--text-3)' }}>{timeAgo(detail.createdDate)}</span>
                     </div>
                   )}
                   {detail.lastChangedDate && (
                     <div className="meta-row">
                       <span className="meta-label">Last changed</span>
-                      <span className="meta-value" style={{ color: '#8d9cad' }}>{timeAgo(detail.lastChangedDate)}</span>
+                      <span className="meta-value" style={{ color: 'var(--text-3)' }}>{timeAgo(detail.lastChangedDate)}</span>
                     </div>
                   )}
                   {detail.lastAccessedDate && (
                     <div className="meta-row">
                       <span className="meta-label">Last accessed</span>
-                      <span className="meta-value" style={{ color: '#8d9cad' }}>{timeAgo(detail.lastAccessedDate)}</span>
+                      <span className="meta-value" style={{ color: 'var(--text-3)' }}>{timeAgo(detail.lastAccessedDate)}</span>
                     </div>
                   )}
                 </div>
@@ -600,7 +600,7 @@ function SecretDrawer({
                       <span>Value</span>
                     </div>
                     {valueEntries.length === 0 ? (
-                      <p style={{ margin: 0, padding: 10, color: '#8d9cad', fontSize: 12 }}>Empty JSON object</p>
+                      <p style={{ margin: 0, padding: 10, color: 'var(--text-3)', fontSize: 12 }}>Empty JSON object</p>
                     ) : valueEntries.map((entry, index) => (
                       <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: 8, borderBottom: index < valueEntries.length - 1 ? '1px solid var(--border)' : undefined }}>
                         <span className="mono" style={{ color: 'var(--status-warn)', fontSize: 12, overflowWrap: 'anywhere' }}>{entry.key}</span>
@@ -617,7 +617,7 @@ function SecretDrawer({
                   <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Version: {value.versionId}</span>
                 )}
                 {isBinary ? (
-                  <span style={{ fontSize: 12, color: '#8d9cad' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
                     Binary secrets are read-only here; editing would overwrite the binary value with text.
                   </span>
                 ) : (
@@ -709,7 +709,7 @@ export function SecretsManagerPage() {
       </div>
 
       <div className="input-row">
-        <Search size={14} color="#8d9cad" />
+        <Search size={14} color="var(--text-3)" />
         <input
           className="input"
           value={search}
@@ -758,8 +758,8 @@ export function SecretsManagerPage() {
                         <KeyRound size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                         {secret.name}
                       </td>
-                      <td style={{ color: '#8d9cad' }}>{secret.description ?? '—'}</td>
-                      <td style={{ color: '#8d9cad' }}>{secret.lastChangedDate ? timeAgo(secret.lastChangedDate) : '—'}</td>
+                      <td style={{ color: 'var(--text-3)' }}>{secret.description ?? '—'}</td>
+                      <td style={{ color: 'var(--text-3)' }}>{secret.lastChangedDate ? timeAgo(secret.lastChangedDate) : '—'}</td>
                       <td>{secret.tags.length || '—'}</td>
                     </tr>
                   )
