@@ -7,6 +7,8 @@ import {
     DescribeLogGroupsCommand,
     DescribeLogStreamsCommand,
     GetLogEventsCommand,
+    GetQueryResultsCommand,
+    StartQueryCommand,
 } from '@aws-sdk/client-cloudwatch-logs'
 import type {
     ChildCollection,
@@ -21,9 +23,31 @@ import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
+    LogsInsightsQueryInput,
+    LogsInsightsQueryResult,
     ResourceQuery,
     ServiceSchema,
 } from '../cloud-spi/types'
+
+// Real StartQuery is async and queries can run up to an hour server-side. Floci
+// completes instantly by default (FLOCI_SERVICES_CLOUDWATCHLOGS_QUERY_COMPLETION_DELAY_MS=0),
+// but this poll loop is bounded rather than unconditional so a future non-zero delay,
+// or a real backing AWS account, cannot hang the request indefinitely.
+const QUERY_POLL_INTERVAL_MS = 150
+const QUERY_POLL_TIMEOUT_MS = 10_000
+const ACTIVE_QUERY_STATUSES = new Set(['Running', 'Scheduled'])
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function toRow(fields: Array<{field?: string; value?: string}>): Record<string, string> {
+    const row: Record<string, string> = {}
+    for (const {field, value} of fields) {
+        if (field) row[field] = value ?? ''
+    }
+    return row
+}
 
 /**
  * `creationTime` is the field real AWS returns and the only one the SDK models.
@@ -90,6 +114,34 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
 
     async delete(id: string): Promise<void> {
         await this.client.send(new DeleteLogGroupCommand({logGroupName: id}))
+    }
+
+    async queryLogs(logGroupName: string, input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult> {
+        const queryString = input.queryString.trim()
+        if (!queryString) throw new ValidationError('A query string is required.')
+
+        const {queryId} = await this.client.send(
+            new StartQueryCommand({
+                logGroupName,
+                startTime: input.startTime,
+                endTime: input.endTime,
+                queryString,
+                limit: input.limit,
+            }),
+        )
+        if (!queryId) throw new NotFoundError(`Floci did not return a query id for ${logGroupName}.`)
+
+        const deadline = Date.now() + QUERY_POLL_TIMEOUT_MS
+        let response = await this.client.send(new GetQueryResultsCommand({queryId}))
+        while (ACTIVE_QUERY_STATUSES.has(response.status ?? '') && Date.now() < deadline) {
+            await sleep(QUERY_POLL_INTERVAL_MS)
+            response = await this.client.send(new GetQueryResultsCommand({queryId}))
+        }
+
+        return {
+            status: response.status ?? 'Unknown',
+            rows: (response.results ?? []).map(toRow),
+        }
     }
 
     /**

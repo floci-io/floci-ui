@@ -126,6 +126,77 @@ describe('AwsLogsAdapter resources', () => {
     })
 })
 
+describe('AwsLogsAdapter queryLogs', () => {
+    test('starts a query and maps result fields into row objects', async () => {
+        const {client, calls} = stubClient({
+            StartQueryCommand: () => ({queryId: 'q-1'}),
+            GetQueryResultsCommand: () => ({
+                status: 'Complete',
+                results: [
+                    [{field: '@timestamp', value: '2026-01-01 00:00:00.000'}, {field: '@message', value: 'hello'}],
+                ],
+            }),
+        })
+        const adapter = new AwsLogsAdapter(client)
+
+        const result = await adapter.queryLogs('/floci/probe', {
+            queryString: 'fields @timestamp, @message',
+            startTime: 1000,
+            endTime: 2000,
+            limit: 20,
+        })
+
+        expect(result).toEqual({
+            status: 'Complete',
+            rows: [{'@timestamp': '2026-01-01 00:00:00.000', '@message': 'hello'}],
+        })
+        expect(calls[0]).toMatchObject({
+            command: 'StartQueryCommand',
+            input: {logGroupName: '/floci/probe', startTime: 1000, endTime: 2000, queryString: 'fields @timestamp, @message', limit: 20},
+        })
+        expect(calls[1].command).toBe('GetQueryResultsCommand')
+    })
+
+    // FLOCI_SERVICES_CLOUDWATCHLOGS_QUERY_COMPLETION_DELAY_MS defaults to 0, so a
+    // real completion normally takes one GetQueryResults call — but a positive
+    // delay (or real AWS) makes the first call(s) come back Running, so the
+    // adapter must keep polling rather than returning a stale in-progress result.
+    test('polls until the query leaves Running/Scheduled', async () => {
+        let getCalls = 0
+        const {client, calls} = stubClient({
+            StartQueryCommand: () => ({queryId: 'q-2'}),
+            GetQueryResultsCommand: () => {
+                getCalls += 1
+                if (getCalls < 3) return {status: getCalls === 1 ? 'Scheduled' : 'Running', results: []}
+                return {status: 'Complete', results: [[{field: '@message', value: 'done'}]]}
+            },
+        })
+        const adapter = new AwsLogsAdapter(client)
+
+        const result = await adapter.queryLogs('/floci/probe', {queryString: 'fields @message', startTime: 0, endTime: 1})
+
+        expect(result).toEqual({status: 'Complete', rows: [{'@message': 'done'}]})
+        expect(calls.filter((call) => call.command === 'GetQueryResultsCommand')).toHaveLength(3)
+    })
+
+    test('rejects a blank query string before calling the runtime', async () => {
+        const {client, calls} = stubClient({})
+        const adapter = new AwsLogsAdapter(client)
+
+        await expect(adapter.queryLogs('/floci/probe', {queryString: '   ', startTime: 0, endTime: 1}))
+            .rejects.toThrow()
+        expect(calls).toEqual([])
+    })
+
+    test('raises when the runtime does not hand back a query id', async () => {
+        const {client} = stubClient({StartQueryCommand: () => ({})})
+        const adapter = new AwsLogsAdapter(client)
+
+        await expect(adapter.queryLogs('/floci/probe', {queryString: 'fields @message', startTime: 0, endTime: 1}))
+            .rejects.toThrow()
+    })
+})
+
 describe('AwsLogsAdapter documents', () => {
     test('lists log streams as collections, newest activity first', async () => {
         const {client, calls} = stubClient({

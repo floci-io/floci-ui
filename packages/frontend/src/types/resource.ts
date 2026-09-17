@@ -142,6 +142,18 @@ export interface SqlQueryResult {
     durationMs: number
 }
 
+export interface LogsInsightsQueryInput {
+    queryString: string
+    startTime: number
+    endTime: number
+    limit?: number
+}
+
+export interface LogsInsightsQueryResult {
+    status: string
+    rows: Array<Record<string, string>>
+}
+
 export interface NoSqlItem {
     id: string
     key: Record<string, unknown>

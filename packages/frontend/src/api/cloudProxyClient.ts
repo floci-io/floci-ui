@@ -21,6 +21,8 @@ import type {
   DatabaseSnapshot,
   KubernetesFargateProfile,
   KubernetesNodegroup,
+  LogsInsightsQueryInput,
+  LogsInsightsQueryResult,
   NoSqlItem,
   SqlCredentials,
   SqlDatabase,
@@ -36,6 +38,8 @@ type CloudPathParams = Record<string, string>;
 
 const DATABASE_MUTATION_TIMEOUT_MS = 5 * 60_000;
 const SQL_DATA_TIMEOUT_MS = 45_000;
+/** Floci completes Insights queries instantly by default, but bounded server-side polling can take longer. */
+const LOGS_QUERY_TIMEOUT_MS = 20_000;
 /** Cold starts pull a container image; measured at ~60s on a first invoke. */
 const INVOKE_TIMEOUT_MS = 120_000;
 
@@ -494,6 +498,20 @@ export async function querySql(
       timeout: SQL_DATA_TIMEOUT_MS,
     }),
     { cloud, id: serverId },
+  );
+  return res.data;
+}
+
+export async function queryLogs(
+  cloud: CloudProvider,
+  logGroupName: string,
+  input: LogsInsightsQueryInput,
+  signal?: AbortSignal,
+): Promise<LogsInsightsQueryResult> {
+  const res = await apiClient.call<LogsInsightsQueryResult, LogsInsightsQueryInput>(
+    apiEndpointKeys.clouds.logs.query,
+    requestOptions(cloud, "logs", { signal, body: input, timeout: LOGS_QUERY_TIMEOUT_MS }),
+    { cloud, id: logGroupName },
   );
   return res.data;
 }

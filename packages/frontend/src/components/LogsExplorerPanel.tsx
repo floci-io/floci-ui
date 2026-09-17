@@ -3,6 +3,7 @@ import {ChevronRight, RefreshCw, ScrollText} from 'lucide-react'
 import {useQueries} from '@tanstack/react-query'
 import {listChildCollections, listCollectionItems} from '@/api/cloudProxyClient'
 import {EmptyState} from '@/components/EmptyState'
+import {LogsQueryPanel} from '@/components/LogsQueryPanel'
 import {formatBytes, formatDateTime} from '@/lib/format'
 import {timeAgo} from '@/lib/utils'
 import type {CloudProvider} from '@/types/cloud'
@@ -19,7 +20,9 @@ interface LogsExplorerPanelProps {
  * DynamicResourceView / ResourceTable, like any other service). This panel is
  * the two-level drill-in beneath a selected group: streams (a child
  * collection) and events (the leaf item), both served by the generic
- * child-collections SPI that AwsLogsAdapter implements.
+ * child-collections SPI that AwsLogsAdapter implements. LogsQueryPanel adds a
+ * third, group-scoped section above them for running an actual Insights query
+ * instead of paging through streams by hand.
  *
  * Both streams and events use one query per loaded cursor page (via
  * useQueries) rather than useInfiniteQuery, following the precedent set for
@@ -93,7 +96,9 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
     }
 
     return (
-        <section className="cosmos-panel">
+        <>
+            <LogsQueryPanel cloud={cloud} logGroupName={groupId} runtimeReachable={runtimeReachable}/>
+            <section className="cosmos-panel">
             <div className="cosmos-column">
                 <div className="cosmos-panel-header">
                     <ScrollText size={15}/>
@@ -214,6 +219,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                     ))}
                 </div>
             </div>
-        </section>
+            </section>
+        </>
     )
 }

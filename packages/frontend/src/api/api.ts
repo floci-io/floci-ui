@@ -65,6 +65,9 @@ export const apiEndpointKeys = {
         list: "clouds.services.database.orderable-classes.list",
       },
     },
+    logs: {
+      query: "clouds.services.logs.query",
+    },
     k8s: {
       nodegroups: {
         list: "clouds.services.k8s.nodegroups.list",
@@ -417,6 +420,14 @@ export const endpointRegistry: EndpointRegistry = new Map([
     apiEndpointKeys.clouds.database.sql.query,
     {
       path: "/clouds/:cloud/services/database/resources/:id/sql/query",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.logs.query,
+    {
+      path: "/clouds/:cloud/services/logs/resources/:id/query",
       method: "POST",
       telemetry: { service: "cloud-proxy" },
     },
