@@ -1635,9 +1635,8 @@ pre,
 
 .logs-query-panel {
     display: grid;
-    margin: 12px 16px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
     background: var(--raised);
     overflow: hidden;
     scroll-margin-top: 12px;
@@ -3650,11 +3649,17 @@ button.console-service-card {
     width: min(1100px, 92vw);
     max-height: min(800px, 88vh);
     display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
 }
 
 .logs-query-modal .logs-query-panel {
     width: 100%;
     margin: 0;
+    border-top: none;
     overflow: auto;
 }
 

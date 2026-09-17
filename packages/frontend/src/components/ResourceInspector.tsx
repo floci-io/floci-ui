@@ -154,12 +154,6 @@ export function ResourceInspector({
       {isK8sEngine && (
         <K8sEngineDetails cloud={resource.cloud} clusterName={resource.name} />
       )}
-      {isLogGroup && cloud && (
-        <>
-          <LogsQueryPanel cloud={cloud} logGroupName={resource.id} runtimeReachable={runtimeReachable ?? false} />
-          <LogsExplorerPanel cloud={cloud} resource={resource} runtimeReachable={runtimeReachable ?? false} />
-        </>
-      )}
       {isLambda && (
         <section className="inspector-section">
           <p className="metric-label">Lambda Details</p>
@@ -195,6 +189,12 @@ export function ResourceInspector({
         {JSON.stringify(resource.metadata, null, 2)}
       </pre>
       <MetadataPanel metadata={resource.metadata} />
+      {isLogGroup && cloud && (
+        <>
+          <LogsQueryPanel cloud={cloud} logGroupName={resource.id} runtimeReachable={runtimeReachable ?? false} />
+          <LogsExplorerPanel cloud={cloud} resource={resource} runtimeReachable={runtimeReachable ?? false} />
+        </>
+      )}
     </aside>
   );
 }
