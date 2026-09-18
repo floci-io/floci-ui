@@ -7,7 +7,7 @@ import type {
     SqlConnectionInput,
 } from '../cloud-spi/types'
 import {clampLimit, type PageQuery} from '../cloud-spi/childCollections'
-import {toHttpError} from '../cloud-spi/errors'
+import {toHttpError, ValidationError} from '../cloud-spi/errors'
 import {isServiceType} from '../cloud-spi/serviceCatalog'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
 import {serviceForAccount} from '../cloudProxy'
@@ -206,6 +206,27 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
             const body = await c.req.json<SqlConnectionInput & {query?: string}>()
             const {query = '', ...connection} = body
             const result = await svc(c).querySql(cloud, c.req.param('id'), connection, query)
+            return c.json(result)
+        })
+    })
+
+    app.post('/:cloud/services/logs/resources/:id/query', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const body = await c.req.json<{queryString?: unknown; startTime?: unknown; endTime?: unknown; limit?: unknown}>()
+            if (typeof body.queryString !== 'string') throw new ValidationError('queryString must be a string.')
+            if (typeof body.startTime !== 'number') throw new ValidationError('startTime must be a number (epoch seconds).')
+            if (typeof body.endTime !== 'number') throw new ValidationError('endTime must be a number (epoch seconds).')
+            if (body.limit !== undefined && typeof body.limit !== 'number') throw new ValidationError('limit must be a number.')
+
+            const result = await svc(c).queryLogs(cloud, c.req.param('id'), {
+                queryString: body.queryString,
+                startTime: body.startTime,
+                endTime: body.endTime,
+                limit: body.limit,
+            })
             return c.json(result)
         })
     })

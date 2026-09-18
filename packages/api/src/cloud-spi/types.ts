@@ -297,6 +297,26 @@ export interface SqlQueryResult {
     durationMs: number
 }
 
+/** Mirrors the real StartQuery contract: epoch seconds, inclusive range. */
+export interface LogsInsightsQueryInput {
+    queryString: string
+    startTime: number
+    endTime: number
+    limit?: number
+}
+
+export interface LogsInsightsQueryResult {
+    /**
+     * Always present, including when `status` is still Running/Scheduled after
+     * the poll deadline — dropping it in that case would leave no way to ever
+     * check back on that query again, even though it is still running server-side.
+     */
+    queryId: string
+    /** CloudWatch Logs' own QueryStatus: Complete, Running, Failed, Timeout, ... */
+    status: string
+    rows: Array<Record<string, string>>
+}
+
 export interface NoSqlItem {
     id: string
     key: Record<string, unknown>
@@ -436,6 +456,7 @@ export interface CloudServiceAdapter {
     listSqlDatabases?(serverId: string, connection: SqlConnectionInput): Promise<SqlDatabase[]>
     listSqlTables?(serverId: string, connection: SqlConnectionInput): Promise<SqlTable[]>
     querySql?(serverId: string, connection: SqlConnectionInput, query: string): Promise<SqlQueryResult>
+    queryLogs?(logGroupName: string, input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult>
     listNoSqlItems?(resourceId: string): Promise<NoSqlItem[]>
     putNoSqlItem?(resourceId: string, document: Record<string, unknown>): Promise<NoSqlItem>
     listKubernetesNodegroups?(clusterId: string): Promise<KubernetesNodegroup[]>

@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react'
-import {ChevronRight, RefreshCw, ScrollText} from 'lucide-react'
+import {createPortal} from 'react-dom'
+import {ChevronRight, Maximize2, Minimize2, RefreshCw, ScrollText} from 'lucide-react'
 import {useQueries} from '@tanstack/react-query'
 import {listChildCollections, listCollectionItems} from '@/api/cloudProxyClient'
 import {EmptyState} from '@/components/EmptyState'
@@ -15,11 +16,14 @@ interface LogsExplorerPanelProps {
 }
 
 /**
- * Log groups are the generic resource list (rendered above by
- * DynamicResourceView / ResourceTable, like any other service). This panel is
- * the two-level drill-in beneath a selected group: streams (a child
- * collection) and events (the leaf item), both served by the generic
- * child-collections SPI that AwsLogsAdapter implements.
+ * Lives in ResourceInspector next to a selected log group's metadata and the
+ * Insights query panel, rather than as a full-width section under the
+ * resource table. This is the two-level drill-in beneath a selected group:
+ * streams (a child collection) and events (the leaf item), both served by the
+ * generic child-collections SPI that AwsLogsAdapter implements — three
+ * min-width columns (~1000px), too wide for the inspector's narrow column, so
+ * the inline view is a compact summary and the real browser opens in the same
+ * full-page modal the query panel uses.
  *
  * Both streams and events use one query per loaded cursor page (via
  * useQueries) rather than useInfiniteQuery, following the precedent set for
@@ -34,6 +38,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
     const [selectedStreamId, setSelectedStreamId] = useState<string | undefined>()
     const [streamCursors, setStreamCursors] = useState<Array<string | undefined>>([undefined])
     const [eventCursors, setEventCursors] = useState<Array<string | undefined>>([undefined])
+    const [expanded, setExpanded] = useState(false)
 
     useEffect(() => {
         setSelectedStreamId(undefined)
@@ -81,18 +86,9 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
         void firstEventPage?.refetch()
     }
 
-    if (!groupId) {
-        return (
-            <section className="cosmos-panel">
-                <div className="empty compact">
-                    <h3>Select a log group</h3>
-                    <p>Streams and events are loaded after a log group is selected.</p>
-                </div>
-            </section>
-        )
-    }
+    if (!groupId) return null
 
-    return (
+    const content = (
         <section className="cosmos-panel">
             <div className="cosmos-column">
                 <div className="cosmos-panel-header">
@@ -102,6 +98,9 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                         <strong>{groupId}</strong>
                         <em>{streams.length} log streams</em>
                     </span>
+                    <button className="icon-btn" type="button" title="Collapse" onClick={() => setExpanded(false)}>
+                        <Minimize2 size={14}/>
+                    </button>
                 </div>
                 <div className="cosmos-toolbar">
                     <button className="button" type="button" disabled={!runtimeReachable || firstStreamPage?.isFetching} onClick={refreshStreams}>
@@ -215,5 +214,32 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                 </div>
             </div>
         </section>
+    )
+
+    const summary = (
+        <section className="logs-query-panel">
+            <div className="logs-query-header">
+                <ScrollText size={15}/>
+                <span>
+                    <small>Streams &amp; events</small>
+                    <strong>{groupId}</strong>
+                    <em>{firstStreamPage?.isLoading ? 'Loading…' : `${streams.length} log streams`}</em>
+                </span>
+                <button className="icon-btn" type="button" title="Expand to full page" onClick={() => setExpanded(true)}>
+                    <Maximize2 size={14}/>
+                </button>
+            </div>
+        </section>
+    )
+
+    if (!expanded) return summary
+
+    return createPortal(
+        <div className="modal-overlay" onClick={() => setExpanded(false)}>
+            <div className="logs-query-modal" onClick={(event) => event.stopPropagation()}>
+                {content}
+            </div>
+        </div>,
+        document.body,
     )
 }
