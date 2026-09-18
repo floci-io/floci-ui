@@ -156,6 +156,13 @@ export const SERVICE_CATALOG = {
         group: 'Provisioning',
         order: 10,
     },
+    configuration: {
+        displayName: 'Configuration',
+        displayNameByCloud: {aws: 'AppConfig'},
+        iconKey: 'configuration',
+        group: 'Provisioning',
+        order: 20,
+    },
     scheduler: {
         displayName: 'Cloud Scheduler',
         displayNameByCloud: {gcp: 'Cloud Scheduler'},

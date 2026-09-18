@@ -14,7 +14,13 @@ import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
+import {awsAppConfigSchema} from '../cloud-spi/appConfigSchema'
 import type {
+    AppConfigConfigurationProfile,
+    AppConfigDeployment,
+    AppConfigDeploymentStrategy,
+    AppConfigEnvironment,
+    AppConfigHostedConfigurationVersion,
     CloudProvider,
     CloudResource,
     CloudServiceAdapter,
@@ -749,6 +755,173 @@ describe('service descriptors', () => {
         expect(secretsFor(aws)).toMatchObject({availability: 'available', route: '/secretsmanager'})
         expect(secretsFor(bare)).toMatchObject({availability: 'coming_soon'})
         expect(secretsFor(gcp)).toMatchObject({availability: 'available', route: 'secrets'})
+    })
+})
+
+describe('AppConfig nested routes', () => {
+    test('routes AppConfig operations through the adapter', async () => {
+        const calls: string[] = []
+        const environment: AppConfigEnvironment = {
+            id: 'env-1',
+            applicationId: 'app-1',
+            name: 'dev',
+            description: null,
+            state: 'READY_FOR_DEPLOYMENT',
+        }
+        const profile: AppConfigConfigurationProfile = {
+            id: 'profile-1',
+            applicationId: 'app-1',
+            name: 'settings',
+            description: null,
+            locationUri: 'hosted',
+            type: 'AWS.Freeform',
+        }
+        const version: AppConfigHostedConfigurationVersion = {
+            id: 'profile-1:1',
+            applicationId: 'app-1',
+            configurationProfileId: 'profile-1',
+            versionNumber: 1,
+            description: null,
+            contentType: 'application/json',
+            content: '{"enabled":true}',
+        }
+        const strategy: AppConfigDeploymentStrategy = {
+            id: 'strategy-1',
+            name: 'immediate',
+            description: null,
+            deploymentDurationInMinutes: 0,
+            growthType: 'LINEAR',
+            growthFactor: 100,
+            finalBakeTimeInMinutes: 0,
+            replicateTo: 'NONE',
+        }
+        const deployment: AppConfigDeployment = {
+            applicationId: 'app-1',
+            environmentId: 'env-1',
+            deploymentNumber: 1,
+            configurationProfileId: 'profile-1',
+            configurationVersion: '1',
+            deploymentStrategyId: 'strategy-1',
+            state: 'COMPLETE',
+            percentageComplete: 100,
+            startedAt: null,
+            completedAt: null,
+            description: null,
+        }
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'configuration',
+            schema: awsAppConfigSchema,
+            listAppConfigEnvironments: async (applicationId) => {
+                calls.push(`list-environments:${applicationId}`)
+                return [environment]
+            },
+            createAppConfigEnvironment: async (applicationId, input) => {
+                calls.push(`create-environment:${applicationId}:${input.values.name}`)
+                return environment
+            },
+            deleteAppConfigEnvironment: async (applicationId, environmentId) => {
+                calls.push(`delete-environment:${applicationId}:${environmentId}`)
+            },
+            listAppConfigConfigurationProfiles: async (applicationId) => {
+                calls.push(`list-profiles:${applicationId}`)
+                return [profile]
+            },
+            createAppConfigConfigurationProfile: async (applicationId, input) => {
+                calls.push(`create-profile:${applicationId}:${input.values.name}`)
+                return profile
+            },
+            deleteAppConfigConfigurationProfile: async (applicationId, profileId) => {
+                calls.push(`delete-profile:${applicationId}:${profileId}`)
+            },
+            listAppConfigHostedConfigurationVersions: async (applicationId, profileId) => {
+                calls.push(`list-versions:${applicationId}:${profileId}`)
+                return [version]
+            },
+            getAppConfigHostedConfigurationVersion: async (applicationId, profileId, versionNumber) => {
+                calls.push(`get-version:${applicationId}:${profileId}:${versionNumber}`)
+                return version
+            },
+            createAppConfigHostedConfigurationVersion: async (applicationId, profileId, input) => {
+                calls.push(`create-version:${applicationId}:${profileId}:${input.values.contentType}`)
+                return version
+            },
+            deleteAppConfigHostedConfigurationVersion: async (applicationId, profileId, versionNumber) => {
+                calls.push(`delete-version:${applicationId}:${profileId}:${versionNumber}`)
+            },
+            listAppConfigDeploymentStrategies: async () => {
+                calls.push('list-strategies')
+                return [strategy]
+            },
+            createAppConfigDeploymentStrategy: async (input) => {
+                calls.push(`create-strategy:${input.values.name}`)
+                return strategy
+            },
+            deleteAppConfigDeploymentStrategy: async (strategyId) => {
+                calls.push(`delete-strategy:${strategyId}`)
+            },
+            startAppConfigDeployment: async (applicationId, environmentId, input) => {
+                calls.push(`start-deployment:${applicationId}:${environmentId}:${input.values.configurationVersion}`)
+                return deployment
+            },
+            getAppConfigDeployment: async (applicationId, environmentId, deploymentNumber) => {
+                calls.push(`get-deployment:${applicationId}:${environmentId}:${deploymentNumber}`)
+                return deployment
+            },
+        })])
+
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/environments')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/environments', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'dev'}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/environments/env-1', {method: 'DELETE'})).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/configuration-profiles')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/configuration-profiles', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'settings'}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/configuration-profiles/profile-1', {method: 'DELETE'})).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/configuration-profiles/profile-1/hosted-configuration-versions')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/configuration-profiles/profile-1/hosted-configuration-versions', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({content: '{}', contentType: 'application/json'}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/configuration-profiles/profile-1/hosted-configuration-versions/1')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/configuration-profiles/profile-1/hosted-configuration-versions/1', {method: 'DELETE'})).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/configuration/deployment-strategies')).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/configuration/deployment-strategies', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({name: 'immediate'}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/configuration/deployment-strategies/strategy-1', {method: 'DELETE'})).status).toBe(200)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/environments/env-1/deployments', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({configurationVersion: '1'}),
+        })).status).toBe(201)
+        expect((await app.request('/api/clouds/aws/services/configuration/resources/app-1/environments/env-1/deployments/1')).status).toBe(200)
+
+        expect(calls).toEqual([
+            'list-environments:app-1',
+            'create-environment:app-1:dev',
+            'delete-environment:app-1:env-1',
+            'list-profiles:app-1',
+            'create-profile:app-1:settings',
+            'delete-profile:app-1:profile-1',
+            'list-versions:app-1:profile-1',
+            'create-version:app-1:profile-1:application/json',
+            'get-version:app-1:profile-1:1',
+            'delete-version:app-1:profile-1:1',
+            'list-strategies',
+            'create-strategy:immediate',
+            'delete-strategy:strategy-1',
+            'start-deployment:app-1:env-1:1',
+            'get-deployment:app-1:env-1:1',
+        ])
     })
 })
 

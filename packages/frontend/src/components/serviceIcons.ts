@@ -52,6 +52,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     kms: Lock,
     loadbalancing: Scale,
     parameters: SlidersHorizontal,
+    configuration: SlidersHorizontal,
     scheduler: Clock,
     workflows: Workflow,
 }

@@ -197,3 +197,55 @@ export interface CreateKubernetesFargateProfileInput {
     selectors: Array<{namespace: string; labels?: Record<string, string>}>
     tags?: Record<string, string>
 }
+
+export interface AppConfigEnvironment {
+  id: string
+  applicationId: string
+  name: string
+  description: string | null
+  state: string | null
+}
+
+export interface AppConfigConfigurationProfile {
+  id: string
+  applicationId: string
+  name: string
+  description: string | null
+  locationUri: string | null
+  type: string | null
+}
+
+export interface AppConfigHostedConfigurationVersion {
+  id: string
+  applicationId: string
+  configurationProfileId: string
+  versionNumber: number
+  description: string | null
+  contentType: string | null
+  content: string | null
+}
+
+export interface AppConfigDeploymentStrategy {
+  id: string
+  name: string
+  description: string | null
+  deploymentDurationInMinutes: number | null
+  growthType: string | null
+  growthFactor: number | null
+  finalBakeTimeInMinutes: number | null
+  replicateTo: string | null
+}
+
+export interface AppConfigDeployment {
+  applicationId: string
+  environmentId: string
+  deploymentNumber: number
+  configurationProfileId: string | null
+  configurationVersion: string | null
+  deploymentStrategyId: string | null
+  state: string | null
+  percentageComplete: number | null
+  startedAt: string | null
+  completedAt: string | null
+  description: string | null
+}

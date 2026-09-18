@@ -37,6 +37,7 @@ import { dataExplorerPath } from "@/lib/dataExplorer";
 import { LogsExplorerPanel } from "@/components/LogsExplorerPanel";
 import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
+import { AppConfigPanel } from "@/components/AppConfigPanel";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -505,6 +506,7 @@ export function DynamicResourceView({
           <ResourceInspector
             resource={activeSelected}
             object={selectedObject}
+            serviceName={schema.displayName}
           />
         )}
       </div>
@@ -541,6 +543,13 @@ export function DynamicResourceView({
       )}
       {service === "logs" && cloud === "aws" && (
         <LogsExplorerPanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "configuration" && cloud === "aws" && (
+        <AppConfigPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}

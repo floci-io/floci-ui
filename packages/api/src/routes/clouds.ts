@@ -301,6 +301,164 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.get('/:cloud/services/configuration/resources/:id/environments', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            return c.json(await svc(c).listAppConfigEnvironments(cloud, c.req.param('id')))
+        })
+    })
+
+    app.post('/:cloud/services/configuration/resources/:id/environments', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const values = await c.req.json<Record<string, unknown>>()
+            return c.json(await svc(c).createAppConfigEnvironment(cloud, c.req.param('id'), {values}), 201)
+        })
+    })
+
+    app.delete('/:cloud/services/configuration/resources/:id/environments/:environmentId', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            await svc(c).deleteAppConfigEnvironment(cloud, c.req.param('id'), c.req.param('environmentId'))
+            return c.json({ok: true})
+        })
+    })
+
+    app.get('/:cloud/services/configuration/resources/:id/configuration-profiles', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            return c.json(await svc(c).listAppConfigConfigurationProfiles(cloud, c.req.param('id')))
+        })
+    })
+
+    app.post('/:cloud/services/configuration/resources/:id/configuration-profiles', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const values = await c.req.json<Record<string, unknown>>()
+            return c.json(await svc(c).createAppConfigConfigurationProfile(cloud, c.req.param('id'), {values}), 201)
+        })
+    })
+
+    app.delete('/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            await svc(c).deleteAppConfigConfigurationProfile(cloud, c.req.param('id'), c.req.param('profileId'))
+            return c.json({ok: true})
+        })
+    })
+
+    app.get('/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId/hosted-configuration-versions', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            return c.json(await svc(c).listAppConfigHostedConfigurationVersions(cloud, c.req.param('id'), c.req.param('profileId')))
+        })
+    })
+
+    app.post('/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId/hosted-configuration-versions', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const values = await c.req.json<Record<string, unknown>>()
+            return c.json(await svc(c).createAppConfigHostedConfigurationVersion(cloud, c.req.param('id'), c.req.param('profileId'), {values}), 201)
+        })
+    })
+
+    const hostedVersionNumber = (raw: string): number | null => {
+        const value = Number(raw)
+        return Number.isInteger(value) && value > 0 ? value : null
+    }
+
+    app.get('/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId/hosted-configuration-versions/:versionNumber', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const versionNumber = hostedVersionNumber(c.req.param('versionNumber'))
+        if (!isCloudProvider(cloud) || versionNumber === null) return c.json({error: 'Unknown cloud or version'}, 404)
+
+        return withRuntime(c, async () => {
+            const version = await svc(c).getAppConfigHostedConfigurationVersion(cloud, c.req.param('id'), c.req.param('profileId'), versionNumber)
+            if (!version) return c.json({error: 'Hosted configuration version not found'}, 404)
+            return c.json(version)
+        })
+    })
+
+    app.delete('/:cloud/services/configuration/resources/:id/configuration-profiles/:profileId/hosted-configuration-versions/:versionNumber', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const versionNumber = hostedVersionNumber(c.req.param('versionNumber'))
+        if (!isCloudProvider(cloud) || versionNumber === null) return c.json({error: 'Unknown cloud or version'}, 404)
+
+        return withRuntime(c, async () => {
+            await svc(c).deleteAppConfigHostedConfigurationVersion(cloud, c.req.param('id'), c.req.param('profileId'), versionNumber)
+            return c.json({ok: true})
+        })
+    })
+
+    app.get('/:cloud/services/configuration/deployment-strategies', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            return c.json(await svc(c).listAppConfigDeploymentStrategies(cloud))
+        })
+    })
+
+    app.post('/:cloud/services/configuration/deployment-strategies', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const values = await c.req.json<Record<string, unknown>>()
+            return c.json(await svc(c).createAppConfigDeploymentStrategy(cloud, {values}), 201)
+        })
+    })
+
+    app.delete('/:cloud/services/configuration/deployment-strategies/:strategyId', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            await svc(c).deleteAppConfigDeploymentStrategy(cloud, c.req.param('strategyId'))
+            return c.json({ok: true})
+        })
+    })
+
+    app.post('/:cloud/services/configuration/resources/:id/environments/:environmentId/deployments', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const values = await c.req.json<Record<string, unknown>>()
+            return c.json(await svc(c).startAppConfigDeployment(cloud, c.req.param('id'), c.req.param('environmentId'), {values}), 201)
+        })
+    })
+
+    app.get('/:cloud/services/configuration/resources/:id/environments/:environmentId/deployments/:deploymentNumber', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const deploymentNumber = Number(c.req.param('deploymentNumber'))
+        if (!isCloudProvider(cloud) || !Number.isInteger(deploymentNumber) || deploymentNumber <= 0) {
+            return c.json({error: 'Unknown cloud or deployment'}, 404)
+        }
+
+        return withRuntime(c, async () => {
+            const deployment = await svc(c).getAppConfigDeployment(cloud, c.req.param('id'), c.req.param('environmentId'), deploymentNumber)
+            if (!deployment) return c.json({error: 'Deployment not found'}, 404)
+            return c.json(deployment)
+        })
+    })
+
     // Child collections, parameterised by service. All the literal-segment
     // routes above (Cosmos containers, SQL, NoSQL items, email inbox, k8s
     // nodegroups/fargate profiles) must stay registered before these, or the

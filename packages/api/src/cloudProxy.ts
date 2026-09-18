@@ -35,6 +35,7 @@ import {AwsApiGatewayAdapter} from './adapter-aws/AwsApiGatewayAdapter'
 import {AwsCloudFormationAdapter} from './adapter-aws/AwsCloudFormationAdapter'
 import {AwsSecretsAdapter} from './adapter-aws/AwsSecretsAdapter'
 import {AwsSesAdapter} from './adapter-aws/AwsSesAdapter'
+import {AwsAppConfigAdapter} from './adapter-aws/AwsAppConfigAdapter'
 import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
@@ -72,6 +73,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsCloudFormationAdapter(clients.cloudformation),
         new AwsSecretsAdapter(clients.secretsManager),
         new AwsSesAdapter(),
+        new AwsAppConfigAdapter(clients.appConfig),
         new AzureStorageAdapter(),
         new AzureServiceBusAdapter(),
         new AzureDatabaseAdapter(),
