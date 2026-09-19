@@ -35,6 +35,7 @@ import type { ServiceSchema } from "@/types/schema";
 import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
 import { dataExplorerPath } from "@/lib/dataExplorer";
 import { LogsExplorerPanel } from "@/components/LogsExplorerPanel";
+import { WorkflowExecutionsPanel } from "@/components/WorkflowExecutionsPanel";
 import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 
@@ -541,6 +542,13 @@ export function DynamicResourceView({
       )}
       {service === "logs" && cloud === "aws" && (
         <LogsExplorerPanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "workflows" && cloud === "aws" && (
+        <WorkflowExecutionsPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}
