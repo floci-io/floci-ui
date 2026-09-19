@@ -37,6 +37,7 @@ import { dataExplorerPath } from "@/lib/dataExplorer";
 import { LogsExplorerPanel } from "@/components/LogsExplorerPanel";
 import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
+import { KmsCryptoPanel } from "@/components/KmsCryptoPanel";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -534,6 +535,13 @@ export function DynamicResourceView({
       )}
       {service === "serverless" && (
         <ServerlessInvokePanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "kms" && (
+        <KmsCryptoPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}

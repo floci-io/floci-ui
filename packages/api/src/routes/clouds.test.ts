@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
-import {NotImplementedByRuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
+import {NotImplementedByRuntimeError, RuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import type {
     ChildCollection,
     ChildItem,
@@ -12,6 +12,7 @@ import {awsDatabaseSchema, azureDatabaseSchema} from '../cloud-spi/databaseSchem
 import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
+import {awsKmsSchema} from '../cloud-spi/kmsSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
 import type {
@@ -667,6 +668,179 @@ describe('cloud schema routes', () => {
             expect(body.detail ?? body.message).toContain(sdkCase.name)
         })
     }
+})
+
+describe('KMS crypto routes', () => {
+    test('decodes plaintext and encodes the ciphertext response', async () => {
+        let delegatedId = ''
+        let delegatedPlaintext: Uint8Array | undefined
+        let delegatedContext: Record<string, string> | undefined
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'kms',
+            schema: awsKmsSchema,
+            encrypt: async (id, input) => {
+                delegatedId = id
+                delegatedPlaintext = input.plaintext
+                delegatedContext = input.encryptionContext
+                return {
+                    ciphertextBlob: new Uint8Array([1, 2, 3]),
+                    keyId: id,
+                    encryptionAlgorithm: input.encryptionAlgorithm,
+                }
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/kms/resources/key-1/encrypt', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({
+                plaintextBase64: Buffer.from('hello').toString('base64'),
+                encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+                encryptionContext: {purpose: 'test'},
+            }),
+        })
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(delegatedId).toBe('key-1')
+        expect(new TextDecoder().decode(delegatedPlaintext)).toBe('hello')
+        expect(delegatedContext).toEqual({purpose: 'test'})
+        expect(body).toEqual({
+            ciphertextBlobBase64: 'AQID',
+            keyId: 'key-1',
+            encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+        })
+        expect(res.headers.get('cache-control')).toBe('no-store')
+    })
+
+    test('decodes ciphertext and encodes the plaintext response', async () => {
+        let delegatedCiphertext: Uint8Array | undefined
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'kms',
+            schema: awsKmsSchema,
+            decrypt: async (id, input) => {
+                delegatedCiphertext = input.ciphertextBlob
+                return {
+                    plaintext: new TextEncoder().encode('round trip'),
+                    keyId: id,
+                    encryptionAlgorithm: input.encryptionAlgorithm,
+                }
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/kms/resources/key-1/decrypt', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({
+                ciphertextBlobBase64: 'AQID',
+                encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+            }),
+        })
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(delegatedCiphertext).toEqual(new Uint8Array([1, 2, 3]))
+        expect(Buffer.from(body.plaintextBase64, 'base64').toString('utf8')).toBe('round trip')
+        expect(res.headers.get('cache-control')).toBe('no-store')
+    })
+
+    test('rejects non-canonical base64 before calling the adapter', async () => {
+        let calls = 0
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'kms',
+            schema: awsKmsSchema,
+            encrypt: async () => {
+                calls += 1
+                throw new Error('must not be called')
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/kms/resources/key-1/encrypt', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({
+                plaintextBase64: 'not base64',
+                encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+            }),
+        })
+        const body = await res.json()
+
+        expect(res.status).toBe(400)
+        expect(body.code).toBe('invalid_request')
+        expect(body.message).toContain('canonical base64')
+        expect(calls).toBe(0)
+        expect(res.headers.get('cache-control')).toBe('no-store')
+    })
+
+    test('rejects malformed JSON as a caller error', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {service: 'kms', schema: awsKmsSchema})])
+        const res = await app.request('/api/clouds/aws/services/kms/resources/key-1/decrypt', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: '{',
+        })
+        const body = await res.json()
+
+        expect(res.status).toBe(400)
+        expect(body.message).toBe('Request body must be valid JSON')
+        expect(res.headers.get('cache-control')).toBe('no-store')
+    })
+
+    test('maps provider contract failures to 502 without echoing request data', async () => {
+        const secretMarker = 'plaintext-that-must-not-be-returned'
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'kms',
+            schema: awsKmsSchema,
+            encrypt: async () => {
+                throw new RuntimeError('KMS did not return ciphertext')
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/kms/resources/key-1/encrypt', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({
+                plaintextBase64: Buffer.from(secretMarker).toString('base64'),
+                encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+            }),
+        })
+        const responseText = await res.text()
+
+        expect(res.status).toBe(502)
+        expect(responseText).not.toContain(secretMarker)
+        expect(responseText).not.toContain(Buffer.from(secretMarker).toString('base64'))
+        expect(res.headers.get('cache-control')).toBe('no-store')
+    })
+
+    test('sanitizes provider validation text for crypto requests', async () => {
+        const secretMarker = 'provider-echoed-sensitive-value'
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'kms',
+            schema: awsKmsSchema,
+            encrypt: async () => {
+                throw Object.assign(new Error(secretMarker), {
+                    name: 'ValidationException',
+                    $fault: 'client',
+                    $metadata: {httpStatusCode: 400},
+                })
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/kms/resources/key-1/encrypt', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({
+                plaintextBase64: 'AQ==',
+                encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+            }),
+        })
+        const responseText = await res.text()
+
+        expect(res.status).toBe(400)
+        expect(responseText).not.toContain(secretMarker)
+        expect(responseText).toContain('KMS rejected the request')
+        expect(res.headers.get('cache-control')).toBe('no-store')
+    })
 })
 
 describe('service descriptors', () => {
