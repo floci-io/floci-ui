@@ -83,7 +83,9 @@ services:
       - floci_default
 
   floci-seed:
-    image: floci/floci-gcp
+    build:
+      context: ./init
+      dockerfile: Dockerfile.seed
     profiles: ["multicloud"]
     command: ["/bin/sh", "/etc/floci/init/seed-clouds.sh"]
     volumes:
