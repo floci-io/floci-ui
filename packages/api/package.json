@@ -19,6 +19,7 @@
     "@aws-sdk/client-elastic-load-balancing-v2": "^3.1096.0",
     "@aws-sdk/client-eventbridge": "^3.1076.0",
     "@aws-sdk/client-iam": "^3.1076.0",
+    "@aws-sdk/client-kinesis": "^3.1076.0",
     "@aws-sdk/client-kms": "^3.1096.0",
     "@aws-sdk/client-lambda": "^3.1076.0",
     "@aws-sdk/client-rds": "^3.1076.0",

@@ -111,6 +111,13 @@ export const SERVICE_CATALOG = {
         group: 'Integration',
         order: 10,
     },
+    streams: {
+        displayName: 'Streams',
+        displayNameByCloud: {aws: 'Kinesis'},
+        iconKey: 'streams',
+        group: 'Integration',
+        order: 12,
+    },
     events: {
         displayName: 'Events',
         displayNameByCloud: {aws: 'EventBridge'},
