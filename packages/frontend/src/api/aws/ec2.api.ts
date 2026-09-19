@@ -369,9 +369,12 @@ export async function createEc2SecurityGroup(
   description: string,
   vpcId?: string,
 ): Promise<{ groupId: string }> {
-  const res = await apiClient.call<{ groupId: string }>(
+  const res = await apiClient.call<
+    { groupId: string },
+    { name: string; description: string; vpcId?: string }
+  >(
     apiEndpointKeys.aws.ec2.securityGroups.create,
-    { body: JSON.stringify({ name, description, vpcId }), headers: { "content-type": "application/json" } },
+    { body: { name, description, vpcId } },
   );
   return res.data;
 }
