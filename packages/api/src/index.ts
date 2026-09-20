@@ -54,6 +54,6 @@ export default { port, fetch: app.fetch };
 function isSensitiveCredentialRoute(path: string): boolean {
   return (
     path.startsWith("/api/secretsmanager") ||
-    /^\/api\/clouds\/[^/]+\/services\/kms\//.test(path)
+    /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:encrypt|decrypt)$/.test(path)
   );
 }

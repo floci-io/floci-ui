@@ -5,6 +5,7 @@ import {
   encryptKmsResource,
   type KmsEncryptionAlgorithm,
 } from "@/api/cloudProxyClient";
+import {useAccountId} from "@/lib/accountStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
@@ -18,6 +19,7 @@ type CryptoMode = "encrypt" | "decrypt";
 type CryptoResult = {label: string; value: string};
 
 export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPanelProps) {
+  const accountId = useAccountId();
   const keySpec = metadataString(resource, "keySpec");
   const keyUsage = metadataString(resource, "keyUsage");
   const keyEnabled = resource?.status === "Enabled" && resource.metadata.enabled === true;
@@ -48,7 +50,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
       activeRequest.current?.abort();
       activeRequest.current = null;
     };
-  }, [resource?.id, keySpec]);
+  }, [accountId, resource?.id, keySpec]);
 
   const isKmsKey = resource?.service === "kms" && resource.type === "key";
   const isSupportedKey = keyUsage === "ENCRYPT_DECRYPT" && keyEnabled && isEncryptKeySpec(keySpec);

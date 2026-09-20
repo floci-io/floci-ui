@@ -3,6 +3,7 @@ import server from './index'
 
 const KMS_ENCRYPT_URL = 'http://localhost/api/clouds/aws/services/kms/resources/key-1/encrypt'
 const AZURE_KMS_DECRYPT_URL = 'http://localhost/api/clouds/azure/services/kms/resources/key-1/decrypt'
+const KMS_SCHEMA_URL = 'http://localhost/api/clouds/aws/services/kms/schema'
 const TRUSTED_ORIGIN = 'http://localhost:3000'
 const UNTRUSTED_ORIGIN = 'https://example.invalid'
 
@@ -66,5 +67,14 @@ describe('credentialed route CORS', () => {
         expect(sameOrigin.headers.get('access-control-allow-origin')).toBeNull()
         expect(unrelated.status).toBe(200)
         expect(unrelated.headers.get('access-control-allow-origin')).toBe('*')
+    })
+
+    test('keeps existing non-crypto KMS routes permissive', async () => {
+        const schema = await server.fetch(new Request(KMS_SCHEMA_URL, {
+            headers: {origin: UNTRUSTED_ORIGIN},
+        }))
+
+        expect(schema.status).toBe(200)
+        expect(schema.headers.get('access-control-allow-origin')).toBe('*')
     })
 })
