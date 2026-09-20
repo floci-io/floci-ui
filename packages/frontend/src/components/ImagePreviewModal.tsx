@@ -37,7 +37,7 @@ export function ImagePreviewModal({kind, name, src, onClose}: ObjectPreviewModal
                         <a className="icon-btn" href={src} title={`Download ${name}`}>
                             <Download size={14}/>
                         </a>
-                        <button className="icon-btn" type="button" onClick={onClose} title="Close">
+                        <button className="icon-btn" type="button" onClick={onClose} title="Close" aria-label="Close">
                             <X size={14}/>
                         </button>
                     </div>

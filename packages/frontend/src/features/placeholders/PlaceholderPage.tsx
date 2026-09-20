@@ -6,7 +6,7 @@ export function PlaceholderPage({title, description}: { title: string; descripti
         <>
             <div className="page-header">
                 <div className="page-title">
-                    <h2>{title}</h2>
+                    <h1>{title}</h1>
                     <span className="info-link">
             <Info size={11}/>
             Info

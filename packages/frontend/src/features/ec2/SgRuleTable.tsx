@@ -161,7 +161,7 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
                         <div>
                           <input
                             className="input"
-                            style={{ width: 52, fontSize: 12, minWidth: "unset", borderColor: errs.fromPort ? "#f87171" : undefined }}
+                            style={{ width: 52, fontSize: 12, minWidth: "unset", borderColor: errs.fromPort ? "var(--status-error)" : undefined }}
                             placeholder="From"
                             value={rule.fromPort}
                             onChange={(e) => updateRule(rule.id, { fromPort: e.target.value })}
@@ -172,7 +172,7 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
                         <div>
                           <input
                             className="input"
-                            style={{ width: 52, fontSize: 12, minWidth: "unset", borderColor: errs.toPort ? "#f87171" : undefined }}
+                            style={{ width: 52, fontSize: 12, minWidth: "unset", borderColor: errs.toPort ? "var(--status-error)" : undefined }}
                             placeholder="To"
                             value={rule.toPort}
                             onChange={(e) => updateRule(rule.id, { toPort: e.target.value })}
@@ -191,14 +191,14 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
                       <div>
                         <input
                           className="input"
-                          style={{ width: 150, fontSize: 12, minWidth: "unset", borderColor: errs.cidr ? "#f87171" : undefined }}
+                          style={{ width: 150, fontSize: 12, minWidth: "unset", borderColor: errs.cidr ? "var(--status-error)" : undefined }}
                           placeholder="0.0.0.0/0"
                           value={rule.cidr}
                           onChange={(e) => updateRule(rule.id, { cidr: e.target.value })}
                           title={errs.cidr}
                         />
                         {errs.cidr && (
-                          <p style={{ fontSize: 10, color: "#f87171", margin: "2px 0 0", whiteSpace: "nowrap" }}>{errs.cidr}</p>
+                          <p style={{ fontSize: 11, color: "var(--status-error)", margin: "2px 0 0", whiteSpace: "nowrap" }}>{errs.cidr}</p>
                         )}
                       </div>
                     )}

@@ -72,7 +72,7 @@ function DatabaseDataWorkspace({cloud, service, resourceId}: {cloud: CloudProvid
                 <div className="page-title">
                     <Database size={20}/>
                     <div>
-                        <h2>{resource?.name ?? resourceId}</h2>
+                        <h1>{resource?.name ?? resourceId}</h1>
                         <p className="muted">{cloud.toUpperCase()} · {descriptor?.displayName ?? service} · Explore data</p>
                     </div>
                 </div>

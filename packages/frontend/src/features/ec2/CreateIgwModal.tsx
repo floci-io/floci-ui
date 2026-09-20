@@ -61,7 +61,7 @@ export function CreateIgwModal({ onClose, onCreated }: Props) {
               ))}
             </select>
           </div>
-          {err && <p style={{ color: '#f87171', fontSize: 12, marginTop: 6 }}>{err}</p>}
+          {err && <p style={{ color: 'var(--status-error)', fontSize: 12, marginTop: 6 }}>{err}</p>}
         </div>
         <div className="modal-footer">
           <button className="button" onClick={onClose}>Cancel</button>

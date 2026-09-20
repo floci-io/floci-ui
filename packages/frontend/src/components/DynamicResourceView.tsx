@@ -36,6 +36,7 @@ import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
 import { dataExplorerPath } from "@/lib/dataExplorer";
 import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
+import { AppConfigPanel } from "@/components/AppConfigPanel";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -506,6 +507,7 @@ export function DynamicResourceView({
             object={selectedObject}
             cloud={cloud}
             runtimeReachable={canUseRuntime}
+            serviceName={schema.displayName}
           />
         )}
       </div>
@@ -535,6 +537,13 @@ export function DynamicResourceView({
       )}
       {service === "serverless" && (
         <ServerlessInvokePanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "configuration" && cloud === "aws" && (
+        <AppConfigPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}

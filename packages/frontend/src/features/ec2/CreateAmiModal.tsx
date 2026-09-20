@@ -67,7 +67,7 @@ export function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }:
           </div>
         </div>
 
-        {err && <p style={{ fontSize: 12, color: "#f87171", margin: "0 0 8px" }}>{err}</p>}
+        {err && <p style={{ fontSize: 12, color: "var(--status-error)", margin: "0 0 8px" }}>{err}</p>}
 
         <div className="modal-footer">
           <button className="button" onClick={onClose} disabled={mutation.isPending}>Cancel</button>

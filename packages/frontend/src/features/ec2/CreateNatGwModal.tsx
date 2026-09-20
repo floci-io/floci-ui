@@ -63,7 +63,7 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
           </div>
 
           <div className="field-row">
-            <label>Subnet <span style={{ color: '#f87171' }}>*</span></label>
+            <label>Subnet <span style={{ color: 'var(--status-error)' }}>*</span></label>
             <select
               className="input"
               value={subnetId}
@@ -112,7 +112,7 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
               {eipsQuery.isLoading ? (
                 <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</p>
               ) : freeEips.length === 0 ? (
-                <p style={{ fontSize: 12, color: '#f87171' }}>No unattached EIPs. Allocate one first.</p>
+                <p style={{ fontSize: 12, color: 'var(--status-error)' }}>No unattached EIPs. Allocate one first.</p>
               ) : (
                 <select
                   className="input"
@@ -130,7 +130,7 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
             </div>
           )}
 
-          {err && <p style={{ color: '#f87171', fontSize: 12, marginTop: 6 }}>{err}</p>}
+          {err && <p style={{ color: 'var(--status-error)', fontSize: 12, marginTop: 6 }}>{err}</p>}
         </div>
 
         <div className="modal-footer">

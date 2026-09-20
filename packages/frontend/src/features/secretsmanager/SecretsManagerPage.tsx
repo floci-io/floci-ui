@@ -146,7 +146,7 @@ function CreateSecretForm({ onClose }: { onClose: () => void }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <KeyRound size={14} style={{ color: 'var(--accent)' }} />
         <strong style={{ fontSize: 13 }}>Create secret</strong>
-        <button type="button" className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onClose}>
+        <button type="button" className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onClose} aria-label="Close" title="Close">
           <X size={14} />
         </button>
       </div>
@@ -171,7 +171,7 @@ function CreateSecretForm({ onClose }: { onClose: () => void }) {
         onChange={(e) => { setSecretString(e.target.value); setErr('') }}
         spellCheck={false}
       />
-      {err && <span style={{ fontSize: 12, color: '#f87171' }}>{err}</span>}
+      {err && <span style={{ fontSize: 12, color: 'var(--status-error)' }}>{err}</span>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button type="button" className="button" onClick={onClose}>Cancel</button>
         <button type="submit" className="button primary" disabled={createMut.isPending}>
@@ -384,7 +384,7 @@ function SecretDrawer({
       <div className="tag-drawer-header">
         <KeyRound size={14} style={{ color: 'var(--accent)' }} />
         <h3 title={detail?.name ?? secretId ?? ''}>{detail?.name ?? secretId}</h3>
-        <button className="icon-btn" onClick={onClose}><X size={14} /></button>
+        <button className="icon-btn" onClick={onClose} aria-label="Close" title="Close"><X size={14} aria-hidden="true" /></button>
       </div>
 
       <div className="drawer-tabs">
@@ -400,19 +400,19 @@ function SecretDrawer({
         {/* ── Details tab ── */}
         {tab === 'details' && (
           detailQuery.isLoading ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#5f7080', fontSize: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-3)', fontSize: 13 }}>
               <Loader2 size={14} className="spin" /> Loading details…
             </div>
           ) : detailQuery.isError ? (
-            <p style={{ color: '#f87171', fontSize: 13 }}>Failed to load secret details.</p>
+            <p style={{ color: 'var(--status-error)', fontSize: 13 }}>Failed to load secret details.</p>
           ) : detail ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ade80' }}>
+                <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: 'var(--status-ok)' }}>
                   {detail.rotationEnabled ? 'Rotation enabled' : 'Active'}
                 </span>
                 {detail.versionIds.length > 0 && (
-                  <span className="badge" style={{ background: 'rgba(107,114,128,0.14)', color: '#9ca3af' }}>
+                  <span className="badge" style={{ background: 'rgba(107,114,128,0.14)', color: 'var(--text-3)' }}>
                     {detail.versionIds.length} version{detail.versionIds.length !== 1 ? 's' : ''}
                   </span>
                 )}
@@ -428,7 +428,7 @@ function SecretDrawer({
                 {detail.description && (
                   <div className="meta-row">
                     <span className="meta-label">Description</span>
-                    <span className="meta-value" style={{ fontFamily: 'inherit', color: '#8d9cad' }}>{detail.description}</span>
+                    <span className="meta-value" style={{ fontFamily: 'inherit', color: 'var(--text-3)' }}>{detail.description}</span>
                   </div>
                 )}
                 {detail.kmsKeyId && (
@@ -441,19 +441,19 @@ function SecretDrawer({
                   {detail.createdDate && (
                     <div className="meta-row">
                       <span className="meta-label">Created</span>
-                      <span className="meta-value" style={{ color: '#8d9cad' }}>{timeAgo(detail.createdDate)}</span>
+                      <span className="meta-value" style={{ color: 'var(--text-3)' }}>{timeAgo(detail.createdDate)}</span>
                     </div>
                   )}
                   {detail.lastChangedDate && (
                     <div className="meta-row">
                       <span className="meta-label">Last changed</span>
-                      <span className="meta-value" style={{ color: '#8d9cad' }}>{timeAgo(detail.lastChangedDate)}</span>
+                      <span className="meta-value" style={{ color: 'var(--text-3)' }}>{timeAgo(detail.lastChangedDate)}</span>
                     </div>
                   )}
                   {detail.lastAccessedDate && (
                     <div className="meta-row">
                       <span className="meta-label">Last accessed</span>
-                      <span className="meta-value" style={{ color: '#8d9cad' }}>{timeAgo(detail.lastAccessedDate)}</span>
+                      <span className="meta-value" style={{ color: 'var(--text-3)' }}>{timeAgo(detail.lastAccessedDate)}</span>
                     </div>
                   )}
                 </div>
@@ -462,7 +462,7 @@ function SecretDrawer({
               {/* Tags */}
               {detail.tags.length > 0 && (
                 <div>
-                  <p style={{ fontSize: 11, color: '#5f7080', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>
                     Tags ({detail.tags.length})
                   </p>
                   <div style={{ border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
@@ -471,8 +471,8 @@ function SecretDrawer({
                         key={tag.key}
                         style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: i < detail.tags.length - 1 ? '1px solid var(--border)' : undefined }}
                       >
-                        <div style={{ padding: '6px 8px', borderRight: '1px solid var(--border)', fontSize: 12, fontFamily: 'monospace', color: '#fbbf24' }}>{tag.key}</div>
-                        <div style={{ padding: '6px 8px', fontSize: 12, fontFamily: 'monospace', color: '#d1d1d1' }} title={tag.value}>{tag.value}</div>
+                        <div style={{ padding: '6px 8px', borderRight: '1px solid var(--border)', fontSize: 12, fontFamily: 'monospace', color: 'var(--status-warn)' }}>{tag.key}</div>
+                        <div style={{ padding: '6px 8px', fontSize: 12, fontFamily: 'monospace', color: 'var(--text-2)' }} title={tag.value}>{tag.value}</div>
                       </div>
                     ))}
                   </div>
@@ -493,7 +493,7 @@ function SecretDrawer({
             ) : editing ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <p style={{ fontSize: 11, color: '#5f7080', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
                     New secret value
                   </p>
                   <div className="drawer-tabs" style={{ marginLeft: 'auto' }}>
@@ -513,7 +513,7 @@ function SecretDrawer({
                 </div>
                 {editorMode === 'key-value' ? (
                   <div style={{ border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 32px', gap: 6, padding: '7px 8px', borderBottom: '1px solid var(--border)', color: '#5f7080', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 32px', gap: 6, padding: '7px 8px', borderBottom: '1px solid var(--border)', color: 'var(--text-3)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                       <span>Key</span>
                       <span>Value</span>
                       <span />
@@ -555,7 +555,7 @@ function SecretDrawer({
                     spellCheck={false}
                   />
                 )}
-                {editorError && <span style={{ fontSize: 12, color: '#f87171' }}>{editorError}</span>}
+                {editorError && <span style={{ fontSize: 12, color: 'var(--status-error)' }}>{editorError}</span>}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="button primary" disabled={putMut.isPending} onClick={saveValue}>
                     {putMut.isPending ? <Loader2 size={13} className="spin" /> : <Save size={13} />}
@@ -565,22 +565,22 @@ function SecretDrawer({
                 </div>
               </>
             ) : valueQuery.isLoading ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#5f7080', fontSize: 13 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-3)', fontSize: 13 }}>
                 <Loader2 size={14} className="spin" /> Loading value…
               </div>
             ) : valueQuery.isError ? (
-              <p style={{ color: '#f87171', fontSize: 13 }}>Failed to load secret value.</p>
+              <p style={{ color: 'var(--status-error)', fontSize: 13 }}>Failed to load secret value.</p>
             ) : (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 11, color: '#5f7080', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {value?.secretBinary ? 'Binary value (base64)' : 'Secret value'}
                   </span>
                   <button className="icon-btn" style={{ marginLeft: 'auto' }} title="Hide" onClick={hideValue}>
                     <EyeOff size={13} />
                   </button>
                   <button className="icon-btn" title="Copy" onClick={copyValue}>
-                    {copied ? <Check size={13} color="#4ade80" /> : <Copy size={13} />}
+                    {copied ? <Check size={13} color="var(--status-ok)" /> : <Copy size={13} />}
                   </button>
                 </div>
                 {!isBinary && valueEntries && (
@@ -595,16 +595,16 @@ function SecretDrawer({
                 )}
                 {valueViewMode === 'key-value' && valueEntries ? (
                   <div style={{ border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '7px 8px', borderBottom: '1px solid var(--border)', color: '#5f7080', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '7px 8px', borderBottom: '1px solid var(--border)', color: 'var(--text-3)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                       <span>Key</span>
                       <span>Value</span>
                     </div>
                     {valueEntries.length === 0 ? (
-                      <p style={{ margin: 0, padding: 10, color: '#8d9cad', fontSize: 12 }}>Empty JSON object</p>
+                      <p style={{ margin: 0, padding: 10, color: 'var(--text-3)', fontSize: 12 }}>Empty JSON object</p>
                     ) : valueEntries.map((entry, index) => (
                       <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: 8, borderBottom: index < valueEntries.length - 1 ? '1px solid var(--border)' : undefined }}>
-                        <span className="mono" style={{ color: '#fbbf24', fontSize: 12, overflowWrap: 'anywhere' }}>{entry.key}</span>
-                        <span className="mono" style={{ color: '#d1d1d1', fontSize: 12, overflowWrap: 'anywhere' }}>{entry.value}</span>
+                        <span className="mono" style={{ color: 'var(--status-warn)', fontSize: 12, overflowWrap: 'anywhere' }}>{entry.key}</span>
+                        <span className="mono" style={{ color: 'var(--text-2)', fontSize: 12, overflowWrap: 'anywhere' }}>{entry.value}</span>
                       </div>
                     ))}
                   </div>
@@ -614,10 +614,10 @@ function SecretDrawer({
                   </pre>
                 )}
                 {value?.versionId && (
-                  <span style={{ fontSize: 11, color: '#5f7080' }}>Version: {value.versionId}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Version: {value.versionId}</span>
                 )}
                 {isBinary ? (
-                  <span style={{ fontSize: 12, color: '#8d9cad' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
                     Binary secrets are read-only here; editing would overwrite the binary value with text.
                   </span>
                 ) : (
@@ -636,7 +636,7 @@ function SecretDrawer({
       <div className="tag-drawer-footer">
         {deleteConfirm ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', padding: '8px', background: 'rgba(239,68,68,0.08)', borderRadius: 4, border: '1px solid rgba(239,68,68,0.3)' }}>
-            <span style={{ fontSize: 12, color: '#f87171' }}>Delete this secret?</span>
+            <span style={{ fontSize: 12, color: 'var(--status-error)' }}>Delete this secret?</span>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-2)' }}>
               <input type="checkbox" checked={forceDelete} onChange={(e) => setForceDelete(e.target.checked)} />
               Force delete (no 7-day recovery window)
@@ -690,7 +690,7 @@ export function SecretsManagerPage() {
 
       <div className="page-header">
         <div className="page-title">
-          <h2>Secrets Manager</h2>
+          <h1>Secrets Manager</h1>
           <span className="info-link">
             <Info size={11} />
             {query.data ? `${query.data.length} secrets` : 'Encrypted secrets'}
@@ -709,7 +709,7 @@ export function SecretsManagerPage() {
       </div>
 
       <div className="input-row">
-        <Search size={14} color="#8d9cad" />
+        <Search size={14} color="var(--text-3)" />
         <input
           className="input"
           value={search}
@@ -758,8 +758,8 @@ export function SecretsManagerPage() {
                         <KeyRound size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                         {secret.name}
                       </td>
-                      <td style={{ color: '#8d9cad' }}>{secret.description ?? '—'}</td>
-                      <td style={{ color: '#8d9cad' }}>{secret.lastChangedDate ? timeAgo(secret.lastChangedDate) : '—'}</td>
+                      <td style={{ color: 'var(--text-3)' }}>{secret.description ?? '—'}</td>
+                      <td style={{ color: 'var(--text-3)' }}>{secret.lastChangedDate ? timeAgo(secret.lastChangedDate) : '—'}</td>
                       <td>{secret.tags.length || '—'}</td>
                     </tr>
                   )

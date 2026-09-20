@@ -31,9 +31,9 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
 
         {/* Header */}
         <div className="modal-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <AlertTriangle size={14} style={{ color: '#f87171', flexShrink: 0 }} />
+          <AlertTriangle size={14} style={{ color: 'var(--status-error)', flexShrink: 0 }} />
           <span>{title}</span>
-          <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onClose}>
+          <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onClose} aria-label="Close" title="Close">
             <X size={13} />
           </button>
         </div>
@@ -63,7 +63,7 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
               marginBottom: 14,
             }}>
               {warnings.map((w, i) => (
-                <div key={i} style={{ fontSize: 12, color: '#fbbf24', lineHeight: 1.5 }}>
+                <div key={i} style={{ fontSize: 12, color: 'var(--status-warn)', lineHeight: 1.5 }}>
                   {w}
                 </div>
               ))}
@@ -81,7 +81,7 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
             onChange={(e) => setTyped(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') void handleConfirm() }}
             autoFocus
-            style={{ borderColor: typed && typed !== 'delete' ? 'var(--error, #f87171)' : undefined }}
+            style={{ borderColor: typed && typed !== 'delete' ? 'var(--status-error)' : undefined }}
           />
         </div>
 

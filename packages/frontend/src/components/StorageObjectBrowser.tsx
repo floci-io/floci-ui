@@ -286,12 +286,12 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                         placeholder={`Search ${objectLabel} and folders…`}
                     />
                     {search && (
-                        <button className="icon-btn" type="button" onClick={() => setSearch('')}>
-                            <X size={13}/>
+                        <button className="icon-btn" type="button" onClick={() => setSearch('')} aria-label="Clear search" title="Clear search">
+                            <X size={13} aria-hidden="true"/>
                         </button>
                     )}
                     {search && (
-                        <span style={{fontSize: 12, color: '#5f7080', whiteSpace: 'nowrap'}}>
+                        <span style={{fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap'}}>
                             {filteredObjects.length} / {objects.length}
                         </span>
                     )}
@@ -532,7 +532,7 @@ function MoveOrCopyModal({
                 </div>
 
                 <div style={{fontSize: 12, color: '#8d9cad', marginBottom: 12}}>
-                    Source: <span className="mono" style={{color: '#d1d1d1'}}>{resource.name}/{srcObject.key}</span>
+                    Source: <span className="mono" style={{color: 'var(--text-2)'}}>{resource.name}/{srcObject.key}</span>
                 </div>
 
                 <div className="form-row">
@@ -573,7 +573,7 @@ function MoveOrCopyModal({
                     </div>
                 )}
                 {createResourceMut.isError && (
-                    <p style={{fontSize: 12, color: '#f87171', margin: '0 0 6px'}}>
+                    <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 6px'}}>
                         {createResourceMut.error instanceof Error ? createResourceMut.error.message : 'Create failed'}
                     </p>
                 )}
@@ -583,7 +583,7 @@ function MoveOrCopyModal({
                     <input className="input" value={destKey} onChange={(e) => setDestKey(e.target.value)}/>
                 </div>
 
-                {error && <p style={{fontSize: 12, color: '#f87171', margin: '0 0 4px'}}>{error}</p>}
+                {error && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 4px'}}>{error}</p>}
 
                 <div className="copy-modal-footer">
                     <button className="button" onClick={onClose} disabled={isPending}>Cancel</button>

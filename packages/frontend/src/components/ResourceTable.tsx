@@ -77,6 +77,7 @@ export function ResourceTable({
                     className="icon-btn"
                     type="button"
                     title={`Edit ${resource.name}`}
+                    aria-label={`Edit ${resource.name}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       onEdit?.(resource);
@@ -103,6 +104,7 @@ export function ResourceTable({
                       className="icon-btn danger"
                       type="button"
                       title={`Delete ${resource.name}`}
+                      aria-label={`Delete ${resource.name}`}
                       disabled={deletingId === resource.id}
                       onClick={() => setConfirmId(resource.id)}
                     >

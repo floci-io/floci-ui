@@ -72,7 +72,7 @@ export function TagEditor({ instanceId, initialTags }: Props) {
         ))}
       </div>
 
-      {err && <p style={{ fontSize: 11, color: "#f87171", margin: "0 0 6px" }}>{err}</p>}
+      {err && <p style={{ fontSize: 11, color: "var(--status-error)", margin: "0 0 6px" }}>{err}</p>}
 
       <div style={{ display: "flex", gap: 6 }}>
         <button className="button compact" onClick={addRow}>
