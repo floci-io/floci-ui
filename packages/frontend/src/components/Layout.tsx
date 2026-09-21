@@ -249,7 +249,7 @@ export function Layout() {
  * matching the keyboard hint shown in the widget.
  * Pressing Escape clears the query and blurs the input.
  */
-function TopbarSearch() {
+export function TopbarSearch() {
     const location = useLocation()
     const [searchParams, setSearchParams] = useSearchParams()
     const initialQuery = searchParams.get('search') ?? ''
@@ -307,7 +307,7 @@ function TopbarSearch() {
             clearTimeout(debounceRef.current)
             debounceRef.current = null
         }
-        const urlSearch = searchParams.get('search') ?? ''
+        const urlSearch = new URLSearchParams(window.location.search).get('search') ?? ''
         setDraft(urlSearch)
     }, [location.pathname])
 
