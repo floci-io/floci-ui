@@ -1,5 +1,6 @@
 import {
     Boxes,
+    Brain,
     Circle,
     Clock,
     Container,
@@ -54,6 +55,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     loadbalancing: Scale,
     parameters: SlidersHorizontal,
     configuration: SlidersHorizontal,
+    sagemaker: Brain,
     scheduler: Clock,
     workflows: Workflow,
 }

@@ -1251,6 +1251,175 @@ pre,
     min-height: 0;
 }
 
+.sagemaker-dashboard {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.sagemaker-filters,
+.sagemaker-card {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+}
+
+.sagemaker-filters {
+    padding: 14px 16px 16px;
+}
+
+.sagemaker-filters summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: var(--text-bright);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.coming-soon-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    border: 1px dashed var(--border);
+    border-radius: 999px;
+    padding: 0 8px;
+    color: var(--text-3);
+    background: rgba(148, 163, 184, 0.06);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sagemaker-filter-note {
+    max-width: 760px;
+    margin: 10px 0 0;
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.sagemaker-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 14px;
+}
+
+.sagemaker-filter {
+    display: grid;
+    gap: 6px;
+    color: var(--text-bright);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.sagemaker-filter-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.sagemaker-dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+}
+
+.sagemaker-dashboard-header h3 {
+    margin: 0 0 6px;
+    color: var(--text-bright);
+    font-size: 22px;
+}
+
+.sagemaker-dashboard-header p {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 13px;
+}
+
+.sagemaker-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-2);
+    font-size: 12px;
+    text-align: right;
+}
+
+.sagemaker-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    gap: 18px;
+}
+
+.sagemaker-card {
+    padding: 18px 20px;
+}
+
+.sagemaker-card h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px;
+    color: var(--text-bright);
+    font-size: 18px;
+}
+
+.sagemaker-card-rows {
+    display: grid;
+    gap: 8px;
+}
+
+.sagemaker-card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 34px;
+    border: 1px solid var(--border-faint);
+    border-radius: 7px;
+    padding: 6px 8px;
+    background: var(--connection-bg);
+}
+
+.sagemaker-card-row span {
+    color: var(--text);
+    font-size: 13px;
+}
+
+.sagemaker-card-row strong {
+    color: var(--link);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.sagemaker-card-row .sagemaker-row-soon {
+    color: var(--text-3);
+}
+
+.sagemaker-card-row em {
+    font-style: normal;
+}
+
+@media (max-width: 900px) {
+    .sagemaker-filter-grid,
+    .sagemaker-card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sagemaker-dashboard-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
 .topbar-status {
     display: flex;
     align-items: center;

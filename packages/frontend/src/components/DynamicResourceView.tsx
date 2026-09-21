@@ -38,6 +38,7 @@ import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { AppConfigPanel } from "@/components/AppConfigPanel";
 import { KmsCryptoPanel } from "@/components/KmsCryptoPanel";
+import { SageMakerDashboardPanel } from "@/components/SageMakerDashboardPanel";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -99,6 +100,19 @@ export function DynamicResourceView({
       serviceAvailability === "available" &&
       cloudStatus?.runtime === "reachable",
   });
+  const isAwsSageMaker = cloud === "aws" && service === "sagemaker";
+  const canDeleteResource = isAwsSageMaker
+    ? (resource: CloudResource) => resource.type !== "sagemaker-training-job"
+    : undefined;
+  const sagemakerDashboardResourcesQuery = useQuery({
+    queryKey: ["sagemaker-dashboard-resources", cloud, service],
+    queryFn: ({ signal }) => listCloudResources(cloud, service, "", signal),
+    enabled:
+      isAwsSageMaker &&
+      schemaQuery.isSuccess &&
+      serviceAvailability === "available" &&
+      cloudStatus?.runtime === "reachable",
+  });
 
   // Automatically reconcile selected items when resources query data changes
   useEffect(() => {
@@ -111,7 +125,9 @@ export function DynamicResourceView({
   }, [resourcesQuery.data]);
 
   const selectMultiple = (select?: CloudResource | boolean) => {
-    const currentResources = resourcesQuery.data || [];
+    const currentResources = (resourcesQuery.data || []).filter(
+      (r) => canDeleteResource?.(r) ?? true,
+    );
     if (typeof select === "boolean" || select === undefined) {
       const isAllCurrentlySelected =
         currentResources.length > 0 &&
@@ -373,9 +389,12 @@ export function DynamicResourceView({
   const resources = resourcesQuery.data ?? [];
   const canCreate = schema.actions.includes("create");
   const canDelete = schema.actions.includes("delete");
+  const selectableResources = resources.filter(
+    (r) => canDeleteResource?.(r) ?? true,
+  );
   const isAllSelected =
-    resources.length > 0 &&
-    resources.every((r) => selectedItems.some((s) => s.id === r.id));
+    selectableResources.length > 0 &&
+    selectableResources.every((r) => selectedItems.some((s) => s.id === r.id));
   const activeSelected =
     selected?.cloud === cloud && selected.service === service
       ? selected
@@ -456,6 +475,18 @@ export function DynamicResourceView({
               runtimeReachable={canUseRuntime}
             />
           ) : (
+            <>
+            {isAwsSageMaker && (
+              <SageMakerDashboardPanel
+                resources={sagemakerDashboardResourcesQuery.data ?? []}
+                isRefreshing={sagemakerDashboardResourcesQuery.isFetching || resourcesQuery.isFetching}
+                updatedAt={sagemakerDashboardResourcesQuery.dataUpdatedAt}
+                onRefresh={() => {
+                  void sagemakerDashboardResourcesQuery.refetch()
+                  void resourcesQuery.refetch()
+                }}
+              />
+            )}
             <section className="table-panel">
               <div className="input-row resource-table-bar">
                 <div>
@@ -663,6 +694,7 @@ export function DynamicResourceView({
                     }
                     : undefined,
                 onDelete: (resource) => deleteMut.mutate(resource),
+                canDeleteResource,
                 onRetry: () => resourcesQuery.refetch(),
                 isDeleteMulti,
                 selectedItems,
@@ -671,6 +703,7 @@ export function DynamicResourceView({
                 isAllSelected,
               })}
             </section>
+            </>
           )}
         </section>
         {activeSelected && !showDatabaseSnapshots && (
@@ -850,6 +883,7 @@ function renderResourceSurface({
   onSelect,
   onEdit,
   onDelete,
+  canDeleteResource,
   onRetry,
   isDeleteMulti,
   selectedItems,
@@ -871,6 +905,7 @@ function renderResourceSurface({
   onSelect: (resource: CloudResource) => void;
   onEdit?: (resource: CloudResource) => void;
   onDelete: (resource: CloudResource) => void;
+  canDeleteResource?: (resource: CloudResource) => boolean;
   onRetry?: () => void;
   isDeleteMulti?: boolean;
   selectedItems?: CloudResource[];
@@ -945,6 +980,7 @@ function renderResourceSurface({
       onSelect={onSelect}
       onEdit={onEdit}
       onDelete={onDelete}
+      canDeleteResource={canDeleteResource}
       dataPath={dataExplorerPath}
       isDeleteMulti={isDeleteMulti}
       selectedItems={selectedItems}

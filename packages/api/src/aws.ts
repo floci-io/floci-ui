@@ -17,6 +17,7 @@ import { APIGatewayClient } from "@aws-sdk/client-api-gateway";
 import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
 import { AppConfigClient } from "@aws-sdk/client-appconfig";
 import { KinesisClient } from "@aws-sdk/client-kinesis";
+import { SageMakerClient } from "@aws-sdk/client-sagemaker";
 
 const endpoint = process.env.FLOCI_ENDPOINT;
 const region = process.env.AWS_REGION || "us-east-1";
@@ -65,6 +66,7 @@ export type AwsClients = {
   cloudformation: CloudFormationClient;
   appConfig: AppConfigClient;
   kinesis: KinesisClient;
+  sagemaker: SageMakerClient;
 };
 
 export type AwsClientName = keyof AwsClients;
@@ -97,6 +99,7 @@ function buildClients(accountId: string): AwsClients {
     cloudformation: new CloudFormationClient(base),
     appConfig: new AppConfigClient(base),
     kinesis: new KinesisClient(base),
+    sagemaker: new SageMakerClient(base),
   };
 }
 

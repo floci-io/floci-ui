@@ -77,6 +77,7 @@ export const SERVICE_CATALOG = {
         group: 'Compute',
         order: 40,
     },
+    sagemaker: {displayName: 'SageMaker AI', iconKey: 'sagemaker', group: 'Compute', order: 50},
     storage: {displayName: 'Storage', iconKey: 'storage', group: 'Storage', order: 10},
     database: {displayName: 'Database', iconKey: 'database', group: 'Databases', order: 10},
     nosql: {

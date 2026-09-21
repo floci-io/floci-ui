@@ -84,6 +84,7 @@ export interface FieldSchema {
     span?: boolean
     valuePath?: string
     defaultValue?: string
+    visibleWhen?: {field: string; equals: string}
     validation?: {
         pattern?: string
         minLength?: number

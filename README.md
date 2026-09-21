@@ -56,6 +56,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Compute | EKS / AKS / GKE | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) |
 | Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) |
 | Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) |
+| Compute | SageMaker AI | Yes (list, create, delete, inspect) | No | No |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Databases | Database | Yes (list, create, update, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No |
