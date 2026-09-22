@@ -204,6 +204,35 @@ export interface ServerlessInvokeResult {
   executionDuration?: number;
 }
 
+export type KmsEncryptionAlgorithm =
+  | "SYMMETRIC_DEFAULT"
+  | "RSAES_OAEP_SHA_1"
+  | "RSAES_OAEP_SHA_256";
+
+export interface KmsEncryptRequest {
+  plaintextBase64: string;
+  encryptionAlgorithm: KmsEncryptionAlgorithm;
+  encryptionContext?: Record<string, string>;
+}
+
+export interface KmsEncryptResponse {
+  ciphertextBlobBase64: string;
+  keyId: string;
+  encryptionAlgorithm: KmsEncryptionAlgorithm;
+}
+
+export interface KmsDecryptRequest {
+  ciphertextBlobBase64: string;
+  encryptionAlgorithm: KmsEncryptionAlgorithm;
+  encryptionContext?: Record<string, string>;
+}
+
+export interface KmsDecryptResponse {
+  plaintextBase64: string;
+  keyId: string;
+  encryptionAlgorithm: KmsEncryptionAlgorithm;
+}
+
 export async function invokeCloudResource(
   cloud: CloudProvider,
   service: CloudServiceType,
@@ -223,6 +252,34 @@ export async function invokeCloudResource(
       timeout: INVOKE_TIMEOUT_MS,
     }),
     { cloud, service, id },
+  );
+  return res.data;
+}
+
+export async function encryptKmsResource(
+  cloud: CloudProvider,
+  id: string,
+  body: KmsEncryptRequest,
+  signal?: AbortSignal,
+): Promise<KmsEncryptResponse> {
+  const res = await apiClient.call<KmsEncryptResponse, KmsEncryptRequest>(
+    apiEndpointKeys.clouds.resources.encrypt,
+    requestOptions(cloud, "kms", { signal, body }),
+    { cloud, id },
+  );
+  return res.data;
+}
+
+export async function decryptKmsResource(
+  cloud: CloudProvider,
+  id: string,
+  body: KmsDecryptRequest,
+  signal?: AbortSignal,
+): Promise<KmsDecryptResponse> {
+  const res = await apiClient.call<KmsDecryptResponse, KmsDecryptRequest>(
+    apiEndpointKeys.clouds.resources.decrypt,
+    requestOptions(cloud, "kms", { signal, body }),
+    { cloud, id },
   );
   return res.data;
 }

@@ -1,5 +1,5 @@
 import {NavLink, Outlet, useLocation, useNavigate, useSearchParams} from 'react-router-dom'
-import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Moon, Search, Sun} from 'lucide-react'
+import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Search, Settings} from 'lucide-react'
 import {useCallback, useEffect, useRef, useState} from 'react'
 import flociWhite from '@/assets/floci-white.svg'
 import flociBlack from '@/assets/floci-black.svg'
@@ -163,7 +163,7 @@ export function Layout() {
     const location = useLocation()
     const navigate = useNavigate()
     const activeCloud = activeCloudFromPath(location.pathname)
-    const {theme, toggle} = useTheme()
+    const {theme} = useTheme()
     const {collapsed, toggle: toggleSidebar, toggleRef} = useSidebar()
     const isDark = theme === 'dark'
     const {data, isError} = useQuery({
@@ -203,6 +203,7 @@ export function Layout() {
                         <div className="nav-section">
                             <span className="nav-label">General</span>
                             <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home" collapsed={collapsed}/>
+                            <NavItem to={`/console/${activeCloud}/settings`} icon={Settings} label="Settings" collapsed={collapsed}/>
                         </div>
                         <CloudServiceNav collapsed={collapsed}/>
                     </nav>
@@ -227,15 +228,6 @@ export function Layout() {
             <div className="shell">
                 <header className="topbar">
                     <TopbarSearch/>
-                    <button
-                        className="icon-btn"
-                        type="button"
-                        onClick={toggle}
-                        title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-                        aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-                    >
-                        {isDark ? <Sun size={14} aria-hidden="true"/> : <Moon size={14} aria-hidden="true"/>}
-                    </button>
                     <div id="topbar-status" className="topbar-status"/>
                     <CloudSwitcher clouds={cloudsQuery.data ?? []} selected={activeCloud} onSelect={selectCloud}/>
                     <AccountSwitcher/>
@@ -327,7 +319,7 @@ function TopbarSearch() {
         }
         const urlSearch = searchParams.get('search') ?? ''
         setDraft(urlSearch)
-    }, [location.pathname])
+    }, [location.pathname, searchParams])
 
     /** Focus on `/` when no other input/textarea/select is active. */
     useEffect(() => {

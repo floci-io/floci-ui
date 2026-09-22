@@ -37,6 +37,7 @@ import { dataExplorerPath } from "@/lib/dataExplorer";
 import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { AppConfigPanel } from "@/components/AppConfigPanel";
+import { KmsCryptoPanel } from "@/components/KmsCryptoPanel";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -67,6 +68,11 @@ export function DynamicResourceView({
   >();
   const [createOpen, setCreateOpen] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [isDeleteMulti, setIsDeleteMulti] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<CloudResource[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+
 
   const handleDatabaseTabChange = (tab: "instances" | "snapshots") => {
     setDatabaseTab(tab);
@@ -94,6 +100,42 @@ export function DynamicResourceView({
       cloudStatus?.runtime === "reachable",
   });
 
+  // Automatically reconcile selected items when resources query data changes
+  useEffect(() => {
+    setSelectedItems((prev) => {
+      if (prev.length === 0) return prev;
+      const currentIds = new Set((resourcesQuery.data || []).map((r) => r.id));
+      const next = prev.filter((item) => currentIds.has(item.id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [resourcesQuery.data]);
+
+  const selectMultiple = (select?: CloudResource | boolean) => {
+    const currentResources = resourcesQuery.data || [];
+    if (typeof select === "boolean" || select === undefined) {
+      const isAllCurrentlySelected =
+        currentResources.length > 0 &&
+        currentResources.every((r) =>
+          selectedItems.some((item) => item.id === r.id),
+        );
+      const shouldSelectAll =
+        typeof select === "boolean" ? select : !isAllCurrentlySelected;
+
+      if (shouldSelectAll) {
+        setSelectedItems(currentResources);
+      } else {
+        setSelectedItems([]);
+      }
+    } else {
+      setSelectedItems((prev) => {
+        const exists = prev.some((item) => item.id === select.id);
+        return exists
+          ? prev.filter((item) => item.id !== select.id)
+          : [...prev, select];
+      });
+    }
+  };
+
   const createMut = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       createCloudResource(cloud, service, values),
@@ -111,9 +153,61 @@ export function DynamicResourceView({
       deleteCloudResource(cloud, service, resource.id),
     onSuccess: (_, resource) => {
       if (selected?.id === resource.id) setSelected(undefined);
+      setSelectedItems((prev) => prev.filter((item) => item.id !== resource.id));
       void qc.invalidateQueries({
         queryKey: ["cloud-resources", cloud, service],
       });
+    },
+  });
+
+  const deleteMultipleMut = useMutation({
+    mutationFn: async (items: CloudResource[]) => {
+      const results = await Promise.allSettled(
+        items.map(async (item) => {
+          await deleteCloudResource(cloud, service, item.id);
+          return item.id;
+        }),
+      );
+      const succeededIds = new Set<string>();
+      const failedItems: { id: string; error: unknown }[] = [];
+
+      results.forEach((res, index) => {
+        if (res.status === "fulfilled") {
+          succeededIds.add(res.value);
+        } else {
+          failedItems.push({ id: items[index].id, error: res.reason });
+        }
+      });
+
+      return { succeededIds, failedItems };
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({
+        queryKey: ["cloud-resources", cloud, service],
+      });
+    },
+    onSuccess: ({ succeededIds, failedItems }) => {
+      setDeleteConfirm(false);
+      setSelectedItems((prev) =>
+        prev.filter((item) => !succeededIds.has(item.id)),
+      );
+      if (selected && succeededIds.has(selected.id)) {
+        setSelected(undefined);
+      }
+
+      if (failedItems.length > 0) {
+        setBulkDeleteError(
+          `Failed to delete ${failedItems.length} of ${
+            succeededIds.size + failedItems.length
+          } selected resource(s).`,
+        );
+      } else {
+        setBulkDeleteError(null);
+        setIsDeleteMulti(false);
+        setSuccessToast(
+          `Successfully deleted ${succeededIds.size} resource(s).`,
+        );
+      }
     },
   });
 
@@ -208,11 +302,21 @@ export function DynamicResourceView({
     setSelectedObject(undefined);
     setCreateOpen(false);
     setClearConfirm(false);
+    setDeleteConfirm(false);
+    setBulkDeleteError(null);
     setEditingResource(null);
     setUpdateError(null);
     setSearch("");
     setDatabaseTab("instances");
+    setIsDeleteMulti(false);
+    setSelectedItems([]);
   }, [cloud, service]);
+
+  useEffect(() => {
+    if (selectedItems.length === 0 && deleteConfirm) {
+      setDeleteConfirm(false);
+    }
+  }, [selectedItems.length, deleteConfirm]);
 
   useEffect(() => {
     setSelectedObject(undefined);
@@ -268,6 +372,10 @@ export function DynamicResourceView({
   const schema = schemaQuery.data;
   const resources = resourcesQuery.data ?? [];
   const canCreate = schema.actions.includes("create");
+  const canDelete = schema.actions.includes("delete");
+  const isAllSelected =
+    resources.length > 0 &&
+    resources.every((r) => selectedItems.some((s) => s.id === r.id));
   const activeSelected =
     selected?.cloud === cloud && selected.service === service
       ? selected
@@ -349,86 +457,145 @@ export function DynamicResourceView({
             />
           ) : (
             <section className="table-panel">
-            <div className="input-row resource-table-bar">
-              <div>
-                <p className="eyebrow">Resources</p>
-                <span className="muted">
-                  {resources.length} normalized resources
-                </span>
-              </div>
-              <div className="resource-table-tools">
-                <input
-                  className="input"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Filter resources"
-                />
-                {service === "email" && (
-                  clearConfirm ? (
-                    <>
+              <div className="input-row resource-table-bar">
+                <div>
+                  <p className="eyebrow">Resources</p>
+                  <span className="muted">
+                    {resources.length} normalized resources
+                  </span>
+                </div>
+                <div className="resource-table-tools">
+                  <div className="search-box">
+                    <input
+                      className="input"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Filter resources"
+                    />
+                  </div>
+                  {service === "email" && (
+                    clearConfirm ? (
+                      <>
+                        <button
+                          className="button danger"
+                          type="button"
+                          disabled={!canUseRuntime || clearInboxMut.isPending}
+                          onClick={() => clearInboxMut.mutate()}
+                        >
+                          <Trash2 size={14} />
+                          {clearInboxMut.isPending ? "Clearing" : "Confirm clear"}
+                        </button>
+                        <button className="button" type="button" disabled={clearInboxMut.isPending} onClick={() => setClearConfirm(false)}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
                       <button
                         className="button danger"
                         type="button"
-                        disabled={!canUseRuntime || clearInboxMut.isPending}
-                        onClick={() => clearInboxMut.mutate()}
+                        disabled={!canUseRuntime}
+                        onClick={() => setClearConfirm(true)}
                       >
                         <Trash2 size={14} />
-                        {clearInboxMut.isPending ? "Clearing" : "Confirm clear"}
+                        Clear inbox
                       </button>
-                      <button className="button" type="button" disabled={clearInboxMut.isPending} onClick={() => setClearConfirm(false)}>
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
+                    )
+                  )}
+                  {canCreate && (
                     <button
-                      className="button danger"
+                      className="button"
                       type="button"
-                      disabled={!canUseRuntime}
-                      onClick={() => setClearConfirm(true)}
+                      disabled={!canCreateResource}
+                      title={createCapability?.reason}
+                      onClick={() => setCreateOpen((open) => !open)}
                     >
-                      <Trash2 size={14} />
-                      Clear inbox
+                      <Plus size={14} />
+                      {createResourceLabel}
+                      {createOpen ? (
+                        <ChevronUp size={13} />
+                      ) : (
+                        <ChevronDown size={13} />
+                      )}
                     </button>
-                  )
-                )}
-                {canCreate && (
+                  )}
                   <button
                     className="button"
                     type="button"
-                    disabled={!canCreateResource}
-                    title={createCapability?.reason}
-                    onClick={() => setCreateOpen((open) => !open)}
+                    disabled={!canUseRuntime || resourcesQuery.isFetching}
+                    onClick={() => resourcesQuery.refetch()}
                   >
-                    <Plus size={14} />
-                    {createResourceLabel}
-                    {createOpen ? (
-                      <ChevronUp size={13} />
-                    ) : (
-                      <ChevronDown size={13} />
-                    )}
+                    <RefreshCw size={14} />
+                    {resourcesQuery.isFetching ? "Loading" : "Refresh"}
                   </button>
-                )}
-                <button
-                  className="button"
-                  type="button"
-                  disabled={!canUseRuntime || resourcesQuery.isFetching}
-                  onClick={() => resourcesQuery.refetch()}
-                >
-                  <RefreshCw size={14} />
-                  {resourcesQuery.isFetching ? "Loading" : "Refresh"}
-                </button>
+                  {canDelete && (
+                    deleteConfirm ? (
+                      <>
+                        <button
+                          className="button danger"
+                          type="button"
+                          disabled={!canUseRuntime || deleteMultipleMut.isPending}
+                          onClick={() => deleteMultipleMut.mutate(selectedItems)}
+                        >
+                          <Trash2 size={14} />
+                          {deleteMultipleMut.isPending
+                            ? "Deleting..."
+                            : `Confirm Delete (${selectedItems.length})`}
+                        </button>
+                        <button
+                          className="button"
+                          type="button"
+                          disabled={deleteMultipleMut.isPending}
+                          onClick={() => setDeleteConfirm(false)}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="button danger"
+                        type="button"
+                        disabled={
+                          !canUseRuntime ||
+                          resourcesQuery.isFetching ||
+                          deleteMultipleMut.isPending
+                        }
+                        onClick={() => {
+                          if (!isDeleteMulti) {
+                            setIsDeleteMulti(true);
+                          } else if (selectedItems.length > 0) {
+                            setDeleteConfirm(true);
+                          } else {
+                            setIsDeleteMulti(false);
+                            setSelectedItems([]);
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} />
+                        {isDeleteMulti && selectedItems.length > 0
+                          ? `Delete Selected (${selectedItems.length})`
+                          : isDeleteMulti
+                          ? "Cancel Selection"
+                          : "Delete Multiple"}
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
-            </div>
-            {service === "email" && clearInboxMut.isError && (
-              <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
-                {clearInboxMut.error instanceof Error
-                  ? clearInboxMut.error.message
-                  : "Unable to clear the inbox."}
-              </p>
-            )}
-            {canCreate && createOpen && (
-              <div className="resource-create-inline">
-                {/*
+              {service === "email" && clearInboxMut.isError && (
+                <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
+                  {clearInboxMut.error instanceof Error
+                    ? clearInboxMut.error.message
+                    : "Unable to clear the inbox."}
+                </p>
+              )}
+              {bulkDeleteError && (
+                <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
+                  {bulkDeleteError}
+                </p>
+              )}
+              {canCreate && createOpen && (
+                <div className="resource-create-inline">
+                  {/*
                  * AWS only. LaunchInstanceForm is an EC2 form: it asks for an AMI id,
                  * populates its dropdowns from the legacy /api/ec2 routes, and submits
                  * imageId/instanceType. On any other cloud that is the wrong form
@@ -436,69 +603,74 @@ export function DynamicResourceView({
                  * required". Every other cloud falls through to DynamicFormRenderer,
                  * which builds the right form from the adapter's own schema.
                  */}
-                {service === "compute" && cloud === "aws" ? (
-                  <LaunchInstanceForm
-                    cloud={cloud}
-                    selectedResource={activeSelected}
-                    onSuccess={(resource) => {
-                      setSelected(resource);
-                      setCreateOpen(false);
-                    }}
-                    onCancel={() => setCreateOpen(false)}
-                  />
-                ) : service === "database" && cloud === "aws" ? (
-                  <CreateRdsInstanceForm
-                    cloud={cloud}
-                    onSuccess={(resource) => {
-                      setSelected(resource);
-                      setCreateOpen(false);
-                    }}
-                    onCancel={() => setCreateOpen(false)}
-                  />
-                ) : (
-                  <DynamicFormRenderer
-                    key={`${cloud}:${service}:create`}
-                    schema={schema}
-                    isSubmitting={createMut.isPending}
-                    submitLabel={createResourceLabel}
-                    pendingLabel="Creating"
-                    submitError={
-                      createMut.error instanceof Error
-                        ? createMut.error.message
-                        : null
-                    }
-                    onCancel={() => setCreateOpen(false)}
-                    onSubmit={(values) => createMut.mutate(values)}
-                  />
-                )}
-              </div>
-            )}
-            {renderResourceSurface({
-              schema,
-              resources,
-              selectedId: activeSelected?.id,
-              deletingId: deleteMut.variables?.id,
-              cloudStatus,
-              statusLoading,
-              serviceAvailability,
-              serviceReason,
-              resourcesLoading: resourcesQuery.isLoading,
-              resourcesError: resourcesQuery.error,
-              isRetrying: resourcesQuery.isFetching,
-              onSelect: setSelected,
-              onEdit:
-                schema.updateFields &&
-                schema.updateFields.length > 0 &&
-                schema.actions.includes("update")
-                  ? (resource) => {
+                  {service === "compute" && cloud === "aws" ? (
+                    <LaunchInstanceForm
+                      cloud={cloud}
+                      selectedResource={activeSelected}
+                      onSuccess={(resource) => {
+                        setSelected(resource);
+                        setCreateOpen(false);
+                      }}
+                      onCancel={() => setCreateOpen(false)}
+                    />
+                  ) : service === "database" && cloud === "aws" ? (
+                    <CreateRdsInstanceForm
+                      cloud={cloud}
+                      onSuccess={(resource) => {
+                        setSelected(resource);
+                        setCreateOpen(false);
+                      }}
+                      onCancel={() => setCreateOpen(false)}
+                    />
+                  ) : (
+                    <DynamicFormRenderer
+                      key={`${cloud}:${service}:create`}
+                      schema={schema}
+                      isSubmitting={createMut.isPending}
+                      submitLabel={createResourceLabel}
+                      pendingLabel="Creating"
+                      submitError={
+                        createMut.error instanceof Error
+                          ? createMut.error.message
+                          : null
+                      }
+                      onCancel={() => setCreateOpen(false)}
+                      onSubmit={(values) => createMut.mutate(values)}
+                    />
+                  )}
+                </div>
+              )}
+              {renderResourceSurface({
+                schema,
+                resources,
+                selectedId: activeSelected?.id,
+                deletingId: deleteMut.variables?.id,
+                cloudStatus,
+                statusLoading,
+                serviceAvailability,
+                serviceReason,
+                resourcesLoading: resourcesQuery.isLoading,
+                resourcesError: resourcesQuery.error,
+                isRetrying: resourcesQuery.isFetching,
+                onSelect: setSelected,
+                onEdit:
+                  schema.updateFields &&
+                    schema.updateFields.length > 0 &&
+                    schema.actions.includes("update")
+                    ? (resource) => {
                       setEditingResource(resource);
                       setUpdateError(null);
                     }
-                  : undefined,
-              onDelete: (resource) => deleteMut.mutate(resource),
-              onRetry: () => resourcesQuery.refetch(),
-            })}
-          </section>
+                    : undefined,
+                onDelete: (resource) => deleteMut.mutate(resource),
+                onRetry: () => resourcesQuery.refetch(),
+                isDeleteMulti,
+                selectedItems,
+                onToggleSelect: (resource) => selectMultiple(resource),
+                onToggleSelectAll: () => selectMultiple(!isAllSelected),
+                isAllSelected,
+              })}
+            </section>
           )}
         </section>
         {activeSelected && !showDatabaseSnapshots && (
@@ -544,6 +716,13 @@ export function DynamicResourceView({
       )}
       {service === "configuration" && cloud === "aws" && (
         <AppConfigPanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "kms" && (
+        <KmsCryptoPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}
@@ -672,6 +851,11 @@ function renderResourceSurface({
   onEdit,
   onDelete,
   onRetry,
+  isDeleteMulti,
+  selectedItems,
+  onToggleSelect,
+  onToggleSelectAll,
+  isAllSelected,
 }: {
   schema: ServiceSchema;
   resources: CloudResource[];
@@ -688,6 +872,11 @@ function renderResourceSurface({
   onEdit?: (resource: CloudResource) => void;
   onDelete: (resource: CloudResource) => void;
   onRetry?: () => void;
+  isDeleteMulti?: boolean;
+  selectedItems?: CloudResource[];
+  onToggleSelect?: (resource: CloudResource) => void;
+  onToggleSelectAll?: () => void;
+  isAllSelected?: boolean;
 }) {
   if (statusLoading) {
     return (
@@ -757,6 +946,11 @@ function renderResourceSurface({
       onEdit={onEdit}
       onDelete={onDelete}
       dataPath={dataExplorerPath}
+      isDeleteMulti={isDeleteMulti}
+      selectedItems={selectedItems}
+      onToggleSelect={onToggleSelect}
+      onToggleSelectAll={onToggleSelectAll}
+      isAllSelected={isAllSelected}
     />
   );
 }

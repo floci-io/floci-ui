@@ -1,6 +1,8 @@
 import {
     CreateKeyCommand,
+    DecryptCommand,
     DescribeKeyCommand,
+    EncryptCommand,
     type KeyMetadata,
     type KMSClient,
     ListKeysCommand,
@@ -9,7 +11,7 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-kms'
-import {ValidationError} from '../cloud-spi/errors'
+import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     awsKmsSchema,
     KMS_DESCRIPTION_MAX_LENGTH,
@@ -21,6 +23,11 @@ import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
+    KmsDecryptInput,
+    KmsDecryptResult,
+    KmsEncryptInput,
+    KmsEncryptionAlgorithm,
+    KmsEncryptResult,
     ResourceQuery,
     ServiceSchema,
 } from '../cloud-spi/types'
@@ -36,6 +43,19 @@ type TagLookup = {tags: KeyTag[]; unavailable?: true}
  * also cannot delete immediately, which is why `delete` schedules.
  */
 const PENDING_DELETION_WINDOW_DAYS = 7
+const SYMMETRIC_PLAINTEXT_MAX_BYTES = 4_096
+const DECRYPT_CIPHERTEXT_MAX_BYTES = 6_144
+
+const RSA_PLAINTEXT_MAX_BYTES = {
+    RSA_2048: {
+        RSAES_OAEP_SHA_1: 214,
+        RSAES_OAEP_SHA_256: 190,
+    },
+    RSA_4096: {
+        RSAES_OAEP_SHA_1: 470,
+        RSAES_OAEP_SHA_256: 446,
+    },
+} as const
 
 export class AwsKmsAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
@@ -107,6 +127,53 @@ export class AwsKmsAdapter implements CloudServiceAdapter {
         }
     }
 
+    async encrypt(id: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {
+        const metadata = await this.describeForCrypto(id)
+        validateCryptoKey(metadata, input.encryptionAlgorithm, input.encryptionContext)
+        validatePlaintextSize(metadata, input.plaintext, input.encryptionAlgorithm)
+
+        const res = await this.kms.send(
+            new EncryptCommand({
+                KeyId: id,
+                Plaintext: input.plaintext,
+                EncryptionAlgorithm: input.encryptionAlgorithm,
+                ...(input.encryptionContext ? {EncryptionContext: input.encryptionContext} : {}),
+            }),
+        )
+        if (!res.CiphertextBlob) throw new RuntimeError('KMS did not return ciphertext')
+
+        return {
+            ciphertextBlob: res.CiphertextBlob,
+            keyId: res.KeyId ?? id,
+            encryptionAlgorithm: responseAlgorithm(res.EncryptionAlgorithm, input.encryptionAlgorithm),
+        }
+    }
+
+    async decrypt(id: string, input: KmsDecryptInput): Promise<KmsDecryptResult> {
+        const metadata = await this.describeForCrypto(id)
+        validateCryptoKey(metadata, input.encryptionAlgorithm, input.encryptionContext)
+        if (input.ciphertextBlob.byteLength === 0) throw new ValidationError('ciphertextBlobBase64 must not be empty')
+        if (input.ciphertextBlob.byteLength > DECRYPT_CIPHERTEXT_MAX_BYTES) {
+            throw new ValidationError(`ciphertextBlobBase64 must decode to ${DECRYPT_CIPHERTEXT_MAX_BYTES} bytes or fewer`)
+        }
+
+        const res = await this.kms.send(
+            new DecryptCommand({
+                KeyId: id,
+                CiphertextBlob: input.ciphertextBlob,
+                EncryptionAlgorithm: input.encryptionAlgorithm,
+                ...(input.encryptionContext ? {EncryptionContext: input.encryptionContext} : {}),
+            }),
+        )
+        if (!res.Plaintext) throw new RuntimeError('KMS did not return plaintext')
+
+        return {
+            plaintext: res.Plaintext,
+            keyId: res.KeyId ?? id,
+            encryptionAlgorithm: responseAlgorithm(res.EncryptionAlgorithm, input.encryptionAlgorithm),
+        }
+    }
+
     /** ListKeys pages at 100 keys, so an account past that would silently truncate. */
     private async listKeyIds(): Promise<string[]> {
         const ids: string[] = []
@@ -121,6 +188,13 @@ export class AwsKmsAdapter implements CloudServiceAdapter {
         } while (marker)
 
         return ids
+    }
+
+    /** Crypto actions need key metadata but not the extra tag lookup used by get(). */
+    private async describeForCrypto(id: string): Promise<KeyMetadata> {
+        const res = await this.kms.send(new DescribeKeyCommand({KeyId: id}))
+        if (!res.KeyMetadata) throw new RuntimeError('KMS did not return key metadata')
+        return res.KeyMetadata
     }
 
     /**
@@ -169,6 +243,72 @@ export class AwsKmsAdapter implements CloudServiceAdapter {
 
         return {tags}
     }
+}
+
+function validateCryptoKey(
+    metadata: KeyMetadata,
+    algorithm: KmsEncryptionAlgorithm,
+    encryptionContext: Record<string, string> | undefined,
+): void {
+    if (metadata.KeyUsage !== 'ENCRYPT_DECRYPT') {
+        throw new ValidationError('Selected key does not support encryption and decryption')
+    }
+    if (metadata.Enabled !== true || metadata.KeyState !== 'Enabled') {
+        throw new ValidationError('Selected key must be enabled')
+    }
+
+    const keySpec = metadata.KeySpec ?? metadata.CustomerMasterKeySpec
+    if (keySpec === 'SYMMETRIC_DEFAULT') {
+        if (algorithm !== 'SYMMETRIC_DEFAULT') {
+            throw new ValidationError('Symmetric keys require SYMMETRIC_DEFAULT')
+        }
+        return
+    }
+
+    if (keySpec !== 'RSA_2048' && keySpec !== 'RSA_4096') {
+        throw new ValidationError('Selected key spec does not support encryption and decryption')
+    }
+    if (algorithm !== 'RSAES_OAEP_SHA_1' && algorithm !== 'RSAES_OAEP_SHA_256') {
+        throw new ValidationError('RSA keys require an RSAES_OAEP encryption algorithm')
+    }
+    if (encryptionContext && Object.keys(encryptionContext).length > 0) {
+        throw new ValidationError('RSA keys do not support encryptionContext')
+    }
+}
+
+function validatePlaintextSize(
+    metadata: KeyMetadata,
+    plaintext: Uint8Array,
+    algorithm: KmsEncryptionAlgorithm,
+): void {
+    if (plaintext.byteLength === 0) throw new ValidationError('plaintextBase64 must not be empty')
+
+    const keySpec = metadata.KeySpec ?? metadata.CustomerMasterKeySpec
+    if (keySpec === 'SYMMETRIC_DEFAULT') {
+        if (plaintext.byteLength > SYMMETRIC_PLAINTEXT_MAX_BYTES) {
+            throw new ValidationError(`plaintextBase64 must decode to ${SYMMETRIC_PLAINTEXT_MAX_BYTES} bytes or fewer`)
+        }
+        return
+    }
+
+    if (keySpec !== 'RSA_2048' && keySpec !== 'RSA_4096') return
+    if (algorithm !== 'RSAES_OAEP_SHA_1' && algorithm !== 'RSAES_OAEP_SHA_256') return
+
+    const limit = RSA_PLAINTEXT_MAX_BYTES[keySpec][algorithm]
+    if (plaintext.byteLength > limit) {
+        throw new ValidationError(`plaintextBase64 must decode to ${limit} bytes or fewer for ${keySpec}/${algorithm}`)
+    }
+}
+
+function responseAlgorithm(
+    value: string | undefined,
+    fallback: KmsEncryptionAlgorithm,
+): KmsEncryptionAlgorithm {
+    if (value === undefined) return fallback
+    if (value === 'SYMMETRIC_DEFAULT' || value === 'RSAES_OAEP_SHA_1' || value === 'RSAES_OAEP_SHA_256') {
+        return value
+    }
+    throw new RuntimeError('KMS returned an unsupported encryption algorithm')
 }
 
 function toResource(metadata: KeyMetadata, tagLookup: TagLookup): CloudResource {

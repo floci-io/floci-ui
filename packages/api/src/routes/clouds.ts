@@ -4,10 +4,11 @@ import type {
     CloudProvider,
     CloudServiceType,
     CreateDatabaseSnapshotInput,
+    KmsEncryptionAlgorithm,
     SqlConnectionInput,
 } from '../cloud-spi/types'
 import {clampLimit, type PageQuery} from '../cloud-spi/childCollections'
-import {toHttpError, ValidationError} from '../cloud-spi/errors'
+import {CloudError, toHttpError, ValidationError} from '../cloud-spi/errors'
 import {isServiceType} from '../cloud-spi/serviceCatalog'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
 import {serviceForAccount} from '../cloudProxy'
@@ -16,6 +17,26 @@ import {CloudProxyService} from '../service/CloudProxyService'
 // Header (and query-param fallback for direct links such as object downloads)
 // used by the frontend to scope every request to an AWS account.
 export const ACCOUNT_HEADER = 'x-floci-account-id'
+
+interface KmsEncryptRequest {
+    plaintextBase64?: unknown
+    encryptionAlgorithm?: unknown
+    encryptionContext?: unknown
+}
+
+interface KmsDecryptRequest {
+    ciphertextBlobBase64?: unknown
+    encryptionAlgorithm?: unknown
+    encryptionContext?: unknown
+}
+
+const KMS_ENCRYPTION_ALGORITHMS = new Set<KmsEncryptionAlgorithm>([
+    'SYMMETRIC_DEFAULT',
+    'RSAES_OAEP_SHA_1',
+    'RSAES_OAEP_SHA_256',
+])
+const MAX_PLAINTEXT_BASE64_LENGTH = 5_464
+const MAX_CIPHERTEXT_BASE64_LENGTH = 8_192
 
 export function createCloudRoutes(injectedService?: CloudProxyService) {
     const app = new Hono()
@@ -703,6 +724,48 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.post('/:cloud/services/kms/resources/:id/encrypt', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withSensitiveRuntime(c, async () => {
+            const body = await jsonBody<KmsEncryptRequest>(c)
+            const result = await svc(c).encryptKms(cloud, c.req.param('id'), {
+                plaintext: decodeBase64(body.plaintextBase64, 'plaintextBase64', MAX_PLAINTEXT_BASE64_LENGTH),
+                encryptionAlgorithm: encryptionAlgorithm(body.encryptionAlgorithm),
+                encryptionContext: encryptionContext(body.encryptionContext),
+            })
+            return c.json({
+                ciphertextBlobBase64: Buffer.from(result.ciphertextBlob).toString('base64'),
+                keyId: result.keyId,
+                encryptionAlgorithm: result.encryptionAlgorithm,
+            })
+        })
+    })
+
+    app.post('/:cloud/services/kms/resources/:id/decrypt', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withSensitiveRuntime(c, async () => {
+            const body = await jsonBody<KmsDecryptRequest>(c)
+            const result = await svc(c).decryptKms(cloud, c.req.param('id'), {
+                ciphertextBlob: decodeBase64(
+                    body.ciphertextBlobBase64,
+                    'ciphertextBlobBase64',
+                    MAX_CIPHERTEXT_BASE64_LENGTH,
+                ),
+                encryptionAlgorithm: encryptionAlgorithm(body.encryptionAlgorithm),
+                encryptionContext: encryptionContext(body.encryptionContext),
+            })
+            return c.json({
+                plaintextBase64: Buffer.from(result.plaintext).toString('base64'),
+                keyId: result.keyId,
+                encryptionAlgorithm: result.encryptionAlgorithm,
+            })
+        })
+    })
+
     app.post('/:cloud/services/:service/resources', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
@@ -745,6 +808,51 @@ function isCloudProvider(value: string): value is CloudProvider {
     return value === 'aws' || value === 'azure' || value === 'gcp'
 }
 
+async function jsonBody<T>(c: Context): Promise<T> {
+    try {
+        const body = await c.req.json<unknown>()
+        if (!body || typeof body !== 'object' || Array.isArray(body)) {
+            throw new ValidationError('Request body must be a JSON object')
+        }
+        return body as T
+    } catch (error) {
+        if (error instanceof ValidationError) throw error
+        throw new ValidationError('Request body must be valid JSON')
+    }
+}
+
+function encryptionAlgorithm(value: unknown): KmsEncryptionAlgorithm {
+    if (typeof value !== 'string' || !KMS_ENCRYPTION_ALGORITHMS.has(value as KmsEncryptionAlgorithm)) {
+        throw new ValidationError('encryptionAlgorithm must be a supported KMS encryption algorithm')
+    }
+    return value as KmsEncryptionAlgorithm
+}
+
+function encryptionContext(value: unknown): Record<string, string> | undefined {
+    if (value === undefined) return undefined
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new ValidationError('encryptionContext must be an object of string values')
+    }
+
+    const entries = Object.entries(value)
+    if (entries.some(([, entryValue]) => typeof entryValue !== 'string')) {
+        throw new ValidationError('encryptionContext must be an object of string values')
+    }
+    return entries.length === 0 ? undefined : Object.fromEntries(entries) as Record<string, string>
+}
+
+function decodeBase64(value: unknown, field: string, maxLength: number): Uint8Array {
+    if (typeof value !== 'string') throw new ValidationError(`${field} must be a base64 string`)
+    if (value.length > maxLength) throw new ValidationError(`${field} is too large`)
+    if (value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
+        throw new ValidationError(`${field} must be canonical base64`)
+    }
+
+    const decoded = Buffer.from(value, 'base64')
+    if (decoded.toString('base64') !== value) throw new ValidationError(`${field} must be canonical base64`)
+    return decoded
+}
+
 /**
  * Resolve and validate the cloud/service pair for a child-collection route.
  * Returns null when either is unknown, which the caller turns into a 404.
@@ -767,6 +875,19 @@ async function withRuntime(c: Context, handler: () => Promise<Response>): Promis
     } catch (err) {
         const {status, body} = toHttpError(err, mapAwsSdkError)
         return c.json(body, status)
+    }
+}
+
+async function withSensitiveRuntime(c: Context, handler: () => Promise<Response>): Promise<Response> {
+    c.header('cache-control', 'no-store')
+    try {
+        return await handler()
+    } catch (err) {
+        const {status, body} = toHttpError(err, mapAwsSdkError)
+        if (err instanceof CloudError) return c.json(body, status)
+
+        const message = body.code === 'invalid_request' ? 'KMS rejected the request' : body.error
+        return c.json({error: message, code: body.code, message}, status)
     }
 }
 

@@ -10,6 +10,8 @@ export type ResourceActionName =
     | 'update'
     | 'delete'
     | 'inspect'
+    | 'encrypt'
+    | 'decrypt'
     | 'invoke'
     | 'start'
     | 'stop'

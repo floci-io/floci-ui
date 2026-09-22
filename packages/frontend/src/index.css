@@ -2411,8 +2411,24 @@ pre,
 }
 
 .table-actions {
-    width: 44px;
+    width: 1%;
+    white-space: nowrap;
     text-align: right;
+}
+
+.table-actions-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.table-confirm-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
 }
 
 .icon-btn.danger {
@@ -3445,6 +3461,16 @@ button.console-service-card {
     background: rgba(239, 68, 68, 0.25);
 }
 
+.button.success {
+    background: rgba(86, 243, 2, 0.15);
+    border-color: rgba(6, 82, 1, 0.4);
+    color: #45e830;
+}
+
+.button.success:hover {
+    background: rgba(86, 243, 2, 0.15);
+}
+
 /* ─── Bulk-select action bar ─────────────────────────────────────────────── */
 .bulk-bar {
     display: flex;
@@ -4076,4 +4102,156 @@ button.console-service-card {
     .data-workspace .sql-panel {
         grid-template-rows: auto auto;
     }
+}
+/* ── Settings page ── */
+
+.settings-section {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+}
+
+.settings-section h3 {
+    margin: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-faint);
+    color: var(--text-bright);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+}
+
+.settings-row + .settings-row {
+    border-top: 1px solid var(--border-faint);
+}
+
+.settings-row-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.settings-label {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.settings-description {
+    color: var(--text-3);
+    font-size: 11px;
+}
+
+.settings-toggle-group {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.settings-toggle-btn {
+    padding: 5px 14px;
+    border: 0;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 120ms, color 120ms;
+}
+
+.settings-toggle-btn + .settings-toggle-btn {
+    border-left: 1px solid var(--border);
+}
+
+.settings-toggle-btn:hover {
+    background: var(--hover);
+}
+
+.settings-toggle-btn.active {
+    background: var(--accent-tint);
+    color: var(--text-bright);
+    font-weight: 600;
+}
+/* ── Settings page ── */
+
+.settings-section {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+}
+
+.settings-section h3 {
+    margin: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-faint);
+    color: var(--text-bright);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+}
+
+.settings-row + .settings-row {
+    border-top: 1px solid var(--border-faint);
+}
+
+.settings-row-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.settings-label {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.settings-description {
+    color: var(--text-3);
+    font-size: 11px;
+}
+
+.settings-toggle-group {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.settings-toggle-btn {
+    padding: 5px 14px;
+    border: 0;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 120ms, color 120ms;
+}
+
+.settings-toggle-btn + .settings-toggle-btn {
+    border-left: 1px solid var(--border);
+}
+
+.settings-toggle-btn:hover {
+    background: var(--hover);
+}
+
+.settings-toggle-btn.active {
+    background: var(--accent-tint);
+    color: var(--text-bright);
+    font-weight: 600;
 }
