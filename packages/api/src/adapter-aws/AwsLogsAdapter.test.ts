@@ -56,6 +56,26 @@ describe('AwsLogsAdapter resources', () => {
         expect(calls[0].input).toMatchObject({logGroupNamePrefix: '/floci'})
     })
 
+    // Real DescribeLogGroups pages at 50 groups per call — a fleet larger than
+    // that must not silently look complete after the first page.
+    test('follows nextToken to collect every page', async () => {
+        let call = 0
+        const {client, calls} = stubClient({
+            DescribeLogGroupsCommand: () => {
+                call += 1
+                if (call === 1) return {logGroups: [{logGroupName: '/floci/a'}], nextToken: 'page-2'}
+                return {logGroups: [{logGroupName: '/floci/b'}]}
+            },
+        })
+        const adapter = new AwsLogsAdapter(client)
+
+        const result = await adapter.list()
+
+        expect(result.map((r) => r.id)).toEqual(['/floci/a', '/floci/b'])
+        expect(calls[0].input.nextToken).toBeUndefined()
+        expect(calls[1].input.nextToken).toBe('page-2')
+    })
+
     test('get returns null for a group the runtime does not have', async () => {
         const {client} = stubClient({DescribeLogGroupsCommand: () => ({logGroups: []})})
         const adapter = new AwsLogsAdapter(client)

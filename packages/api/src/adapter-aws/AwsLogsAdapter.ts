@@ -94,10 +94,19 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const prefix = query.search?.trim()
-        const response = await this.client.send(
-            new DescribeLogGroupsCommand(prefix ? {logGroupNamePrefix: prefix} : {}),
-        )
-        return (response.logGroups ?? []).map(toResource)
+        const logGroups: LogGroupShape[] = []
+        let nextToken: string | undefined
+        do {
+            const response = await this.client.send(
+                new DescribeLogGroupsCommand({
+                    ...(prefix ? {logGroupNamePrefix: prefix} : {}),
+                    nextToken,
+                }),
+            )
+            logGroups.push(...(response.logGroups ?? []))
+            nextToken = response.nextToken
+        } while (nextToken)
+        return logGroups.map(toResource)
     }
 
     async get(id: string): Promise<CloudResource | null> {
