@@ -11,6 +11,8 @@ const actionLabels: Record<CapabilityActionName, string> = {
     update: 'Update',
     delete: 'Delete',
     inspect: 'Inspect',
+    encrypt: 'Encrypt',
+    decrypt: 'Decrypt',
     upload: 'Upload',
     download: 'Download',
     createFolder: 'Create folder',

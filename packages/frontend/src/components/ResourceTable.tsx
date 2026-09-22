@@ -15,6 +15,12 @@ interface ResourceTableProps {
   onDelete: (resource: CloudResource) => void;
   deletingId?: string;
   dataPath?: (resource: CloudResource) => string | undefined;
+  isDeleteMulti?: boolean;
+  selectedItems?: CloudResource[];
+  onToggleSelect?: (resource: CloudResource) => void;
+  onToggleSelectAll?: () => void;
+  setAllSelected?: (value: boolean) => void;
+  isAllSelected?: boolean;
 }
 
 export function ResourceTable({
@@ -26,6 +32,12 @@ export function ResourceTable({
   onDelete,
   deletingId,
   dataPath,
+  isDeleteMulti,
+  selectedItems,
+  onToggleSelect,
+  onToggleSelectAll,
+  setAllSelected,
+  isAllSelected = false,
 }: ResourceTableProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const canDelete = schema.actions.includes('delete');
@@ -47,8 +59,24 @@ export function ResourceTable({
     <table className="table resource-table">
       <thead>
         <tr>
+          {isDeleteMulti && (
+            <th style={{ width: '1%' }}>
+              <input
+                type="checkbox"
+                aria-label="Select all resources"
+                checked={isAllSelected && resources.length > 0}
+                onChange={() => {
+                  if (onToggleSelectAll) {
+                    onToggleSelectAll();
+                  } else {
+                    setAllSelected?.(!isAllSelected);
+                  }
+                }}
+              />
+            </th>
+          )}
           {schema.columns.map((column) => (
-            <th key={column.name} style={column.width ? {width: column.width} : undefined}>
+            <th key={column.name} style={column.width ? { width: column.width } : undefined}>
               {column.label}
             </th>
           ))}
@@ -59,62 +87,100 @@ export function ResourceTable({
         {resources.map((resource) => {
           const explorePath = dataPath?.(resource);
           return (
-          <tr key={resource.id} className={selectedId === resource.id ? 'selected' : ''}>
-            {schema.columns.map((column) => (
-              <td key={column.name} onClick={() => onSelect(resource)}>
-                {renderColumnValue(getPath(resource, column.path ?? column.name), column)}
-              </td>
-            ))}
-            {hasActions && (
-              <td className="table-actions">
-                {explorePath && (
-                  <Link className="button compact" to={explorePath} aria-label={`Explore data in ${resource.name}`}>
-                    Explore data
-                  </Link>
-                )}
-                {canEdit && (
-                  <button
-                    className="icon-btn"
-                    type="button"
-                    title={`Edit ${resource.name}`}
-                    aria-label={`Edit ${resource.name}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit?.(resource);
+            <tr key={resource.id} className={selectedId === resource.id ? 'selected' : ''}>
+              {isDeleteMulti && (
+                <td style={{ width: '1%' }} onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${resource.name || resource.id}`}
+                    checked={selectedItems?.some((item) => item.id === resource.id) ?? false}
+                    onChange={() => {
+                      onToggleSelect?.(resource);
                     }}
-                  >
-                    <Pencil size={13} />
-                  </button>
-                )}
-                {canDelete && (
-                  confirmId === resource.id ? (
-                    <button
-                      className="button danger compact"
-                      type="button"
-                      disabled={deletingId === resource.id}
-                      onClick={() => {
-                        onDelete(resource);
-                        setConfirmId(null);
-                      }}
-                    >
-                      Confirm
-                    </button>
-                  ) : (
-                    <button
-                      className="icon-btn danger"
-                      type="button"
-                      title={`Delete ${resource.name}`}
-                      aria-label={`Delete ${resource.name}`}
-                      disabled={deletingId === resource.id}
-                      onClick={() => setConfirmId(resource.id)}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )
-                )}
-              </td>
-            )}
-          </tr>
+                  />
+                </td>
+              )}
+              {schema.columns.map((column) => (
+                <td key={column.name} onClick={() => onSelect(resource)}>
+                  {renderColumnValue(getPath(resource, column.path ?? column.name), column)}
+                </td>
+              ))}
+              {hasActions && (
+                <td className="table-actions">
+                  <div className="table-actions-group">
+                    {explorePath && (
+                      <Link
+                        className="button compact"
+                        to={explorePath}
+                        aria-label={`Explore data in ${resource.name}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Explore data
+                      </Link>
+                    )}
+                    {canEdit && (
+                      <button
+                        className="icon-btn"
+                        type="button"
+                        title={`Edit ${resource.name}`}
+                        aria-label={`Edit ${resource.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit?.(resource);
+                        }}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      confirmId === resource.id ? (
+                        <div
+                          className="table-confirm-actions"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            className="button danger compact"
+                            type="button"
+                            disabled={deletingId === resource.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(resource);
+                            }}
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            className="button success compact"
+                            type="button"
+                            disabled={deletingId === resource.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmId(null);
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="icon-btn danger"
+                          type="button"
+                          title={`Delete ${resource.name}`}
+                          aria-label={`Delete ${resource.name}`}
+                          disabled={deletingId === resource.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmId(resource.id);
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )
+                    )}
+                  </div>
+                </td>
+              )}
+            </tr>
           );
         })}
       </tbody>

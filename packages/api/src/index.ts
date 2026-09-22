@@ -9,18 +9,17 @@ import secretsmanager from "./routes/secretsmanager";
 import clouds from "./routes/clouds";
 const app = new Hono();
 
-// The Secrets Manager routes read and delete secret values with server-side
+// Secrets Manager and KMS crypto routes handle sensitive values with server-side
 // AWS credentials, so an unrestricted `cors()` would let any web page in the
 // browser drive them cross-origin. Restrict CORS to trusted origins for those
-// routes only and keep the permissive default elsewhere. (Broad CORS hardening
-// for the other routes is tracked separately.) In production the frontend is
-// served from the same origin (see serveStatic below), so same-origin requests
+// routes and keep the permissive default elsewhere. In production the frontend
+// is served from the same origin (see serveStatic below), so same-origin requests
 // are unaffected; cross-origin callers must be explicitly allow-listed.
 //
 // A single CORS middleware handles both cases: stacking two `cors()` calls
 // would either short-circuit the OPTIONS preflight in the wrong handler or let
 // the later one overwrite `Access-Control-Allow-Origin` on real requests.
-const secretsManagerOrigins = (
+const trustedOrigins = (
   process.env.CORS_ALLOWED_ORIGINS ?? "http://localhost:3000"
 )
   .split(",")
@@ -31,8 +30,8 @@ app.use(
   "*",
   cors({
     origin: (origin, c) =>
-      c.req.path.startsWith("/api/secretsmanager")
-        ? secretsManagerOrigins.includes(origin)
+      isSensitiveCredentialRoute(c.req.path)
+        ? trustedOrigins.includes(origin)
           ? origin
           : null
         : "*",
@@ -51,3 +50,10 @@ app.get("*", serveStatic({ path: "./public/index.html" }));
 
 const port = Number(process.env.PORT ?? 4501);
 export default { port, fetch: app.fetch };
+
+function isSensitiveCredentialRoute(path: string): boolean {
+  return (
+    path.startsWith("/api/secretsmanager") ||
+    /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:encrypt|decrypt)$/.test(path)
+  );
+}

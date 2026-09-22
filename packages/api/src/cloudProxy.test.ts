@@ -24,6 +24,8 @@ const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> =
     update: 'update',
     delete: 'delete',
     inspect: 'get',
+    encrypt: 'encrypt',
+    decrypt: 'decrypt',
     invoke: 'invoke',
     start: 'start',
     stop: 'stop',

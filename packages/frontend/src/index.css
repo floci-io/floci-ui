@@ -2426,8 +2426,24 @@ pre,
 }
 
 .table-actions {
-    width: 44px;
+    width: 1%;
+    white-space: nowrap;
     text-align: right;
+}
+
+.table-actions-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.table-confirm-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
 }
 
 .icon-btn.danger {
@@ -3500,6 +3516,16 @@ button.console-service-card {
 
 .button.danger:hover {
     background: rgba(239, 68, 68, 0.25);
+}
+
+.button.success {
+    background: rgba(86, 243, 2, 0.15);
+    border-color: rgba(6, 82, 1, 0.4);
+    color: #45e830;
+}
+
+.button.success:hover {
+    background: rgba(86, 243, 2, 0.15);
 }
 
 /* ─── Bulk-select action bar ─────────────────────────────────────────────── */

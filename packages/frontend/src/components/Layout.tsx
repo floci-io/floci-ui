@@ -389,6 +389,14 @@ function TopbarSearch({cloud}: {cloud: CloudProvider}) {
         }
         const urlSearch = searchParams.get('search') ?? ''
         setDraft(urlSearch)
+    }, [location.pathname, searchParams])
+
+    /**
+     * Close the autocomplete dropdown on navigation only — not on every
+     * searchParams tick, which fires on each debounced keystroke commit too
+     * (see the effect above) and would otherwise close the dropdown mid-type.
+     */
+    useEffect(() => {
         setSuggestOpen(false)
     }, [location.pathname])
 
