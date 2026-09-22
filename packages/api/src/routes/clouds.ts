@@ -37,6 +37,8 @@ const KMS_ENCRYPTION_ALGORITHMS = new Set<KmsEncryptionAlgorithm>([
 ])
 const MAX_PLAINTEXT_BASE64_LENGTH = 5_464
 const MAX_CIPHERTEXT_BASE64_LENGTH = 8_192
+/** Real StartQuery's own limit — matched here so the error surfaces before the runtime round-trip. */
+const MAX_QUERY_LOG_GROUPS = 50
 
 export function createCloudRoutes(injectedService?: CloudProxyService) {
     const app = new Hono()
@@ -243,6 +245,36 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
             if (body.limit !== undefined && typeof body.limit !== 'number') throw new ValidationError('limit must be a number.')
 
             const result = await svc(c).queryLogs(cloud, c.req.param('id'), {
+                queryString: body.queryString,
+                startTime: body.startTime,
+                endTime: body.endTime,
+                limit: body.limit,
+            })
+            return c.json(result)
+        })
+    })
+
+    // Service-level (not resource-id-scoped) so a query can span multiple log
+    // groups at once — the per-row route above stays a single log group,
+    // matching the resource inspector's one-group-at-a-time context.
+    app.post('/:cloud/services/logs/query', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const body = await c.req.json<{logGroupNames?: unknown; queryString?: unknown; startTime?: unknown; endTime?: unknown; limit?: unknown}>()
+            if (!Array.isArray(body.logGroupNames) || body.logGroupNames.length === 0 || !body.logGroupNames.every((name) => typeof name === 'string')) {
+                throw new ValidationError('logGroupNames must be a non-empty array of strings.')
+            }
+            if (body.logGroupNames.length > MAX_QUERY_LOG_GROUPS) {
+                throw new ValidationError(`logGroupNames must include at most ${MAX_QUERY_LOG_GROUPS} log groups.`)
+            }
+            if (typeof body.queryString !== 'string') throw new ValidationError('queryString must be a string.')
+            if (typeof body.startTime !== 'number') throw new ValidationError('startTime must be a number (epoch seconds).')
+            if (typeof body.endTime !== 'number') throw new ValidationError('endTime must be a number (epoch seconds).')
+            if (body.limit !== undefined && typeof body.limit !== 'number') throw new ValidationError('limit must be a number.')
+
+            const result = await svc(c).queryLogs(cloud, body.logGroupNames, {
                 queryString: body.queryString,
                 startTime: body.startTime,
                 endTime: body.endTime,

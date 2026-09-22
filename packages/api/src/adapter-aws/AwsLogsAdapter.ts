@@ -120,20 +120,27 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
         await this.client.send(new DeleteLogGroupCommand({logGroupName: id}))
     }
 
-    async queryLogs(logGroupName: string, input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult> {
+    async queryLogs(logGroupNames: string | string[], input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult> {
         const queryString = input.queryString.trim()
         if (!queryString) throw new ValidationError('A query string is required.')
 
+        const groups = Array.isArray(logGroupNames) ? logGroupNames : [logGroupNames]
+        if (groups.length === 0) throw new ValidationError('At least one log group is required.')
+
+        // StartQuery accepts exactly one of logGroupName or logGroupNames — a
+        // single-element array still goes through the singular field, so the
+        // existing per-row single-log-group call site sends the identical wire
+        // shape it always has.
         const {queryId} = await this.client.send(
             new StartQueryCommand({
-                logGroupName,
+                ...(groups.length === 1 ? {logGroupName: groups[0]} : {logGroupNames: groups}),
                 startTime: input.startTime,
                 endTime: input.endTime,
                 queryString,
                 limit: input.limit,
             }),
         )
-        if (!queryId) throw new NotFoundError(`Floci did not return a query id for ${logGroupName}.`)
+        if (!queryId) throw new NotFoundError(`Floci did not return a query id for ${groups.join(', ')}.`)
 
         const deadline = Date.now() + (this.queryPoll.timeoutMs ?? QUERY_POLL_TIMEOUT_MS)
         const pollInterval = this.queryPoll.intervalMs ?? QUERY_POLL_INTERVAL_MS

@@ -213,6 +213,48 @@ describe('AwsLogsAdapter queryLogs', () => {
         await expect(adapter.queryLogs('/floci/probe', {queryString: 'fields @message', startTime: 0, endTime: 1}))
             .rejects.toThrow()
     })
+
+    test('sends logGroupNames (plural) when given more than one group', async () => {
+        const {client, calls} = stubClient({
+            StartQueryCommand: () => ({queryId: 'q-4'}),
+            GetQueryResultsCommand: () => ({status: 'Complete', results: []}),
+        })
+        const adapter = new AwsLogsAdapter(client)
+
+        await adapter.queryLogs(['/floci/probe', '/floci/probe-two'], {
+            queryString: 'fields @message',
+            startTime: 0,
+            endTime: 1,
+        })
+
+        expect(calls[0]).toMatchObject({
+            command: 'StartQueryCommand',
+            input: {logGroupNames: ['/floci/probe', '/floci/probe-two']},
+        })
+        expect(calls[0].input.logGroupName).toBeUndefined()
+    })
+
+    test('still sends the singular logGroupName field for a one-element array', async () => {
+        const {client, calls} = stubClient({
+            StartQueryCommand: () => ({queryId: 'q-5'}),
+            GetQueryResultsCommand: () => ({status: 'Complete', results: []}),
+        })
+        const adapter = new AwsLogsAdapter(client)
+
+        await adapter.queryLogs(['/floci/probe'], {queryString: 'fields @message', startTime: 0, endTime: 1})
+
+        expect(calls[0]).toMatchObject({command: 'StartQueryCommand', input: {logGroupName: '/floci/probe'}})
+        expect(calls[0].input.logGroupNames).toBeUndefined()
+    })
+
+    test('rejects an empty log group list before calling the runtime', async () => {
+        const {client, calls} = stubClient({})
+        const adapter = new AwsLogsAdapter(client)
+
+        await expect(adapter.queryLogs([], {queryString: 'fields @message', startTime: 0, endTime: 1}))
+            .rejects.toThrow()
+        expect(calls).toEqual([])
+    })
 })
 
 describe('AwsLogsAdapter documents', () => {

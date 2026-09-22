@@ -578,6 +578,20 @@ export async function queryLogs(
   return res.data;
 }
 
+/** Cross-log-group Insights query — same runtime call as queryLogs, but service-level (no single :id) so it can span multiple groups at once. */
+export async function queryLogsAcrossGroups(
+  cloud: CloudProvider,
+  input: LogsInsightsQueryInput & { logGroupNames: string[] },
+  signal?: AbortSignal,
+): Promise<LogsInsightsQueryResult> {
+  const res = await apiClient.call<LogsInsightsQueryResult, LogsInsightsQueryInput & { logGroupNames: string[] }>(
+    apiEndpointKeys.clouds.logs.insightsQuery,
+    requestOptions(cloud, "logs", { signal, body: input, timeout: LOGS_QUERY_TIMEOUT_MS }),
+    { cloud },
+  );
+  return res.data;
+}
+
 export async function listDatabaseSnapshots(
   cloud: CloudProvider,
   instanceIdentifier?: string,
