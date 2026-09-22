@@ -1,25 +1,7 @@
 import {type ElementType} from 'react'
-import {Cloud, Database, ExternalLink, Radio, Route, ShieldCheck} from 'lucide-react'
-import {adapterLabel, cloudName, providerDescription, runtimeName} from './cloudConsoleHome.utils'
-import type {ProviderBannerProps, RuntimeFlowProps, ServiceGridProps, SummarySectionProps} from './types'
-
-export function ProviderBanner({cloud, runtimeClass, runtimeReachable, onOpenStorage}: ProviderBannerProps) {
-    return (
-        <section className={`console-provider-banner ${runtimeClass}`}>
-            <div>
-                <p className="eyebrow">Selected Cloud</p>
-                <h3>{cloudName(cloud)}</h3>
-                <p>{providerDescription(cloud)}</p>
-            </div>
-            <div className="console-provider-actions">
-                <button className="button primary" type="button" disabled={!runtimeReachable} onClick={onOpenStorage}>
-                    <ExternalLink size={14}/>
-                    Open Storage
-                </button>
-            </div>
-        </section>
-    )
-}
+import {Cloud, Database, Radio, Route, ShieldCheck} from 'lucide-react'
+import {adapterLabel, runtimeName} from './cloudConsoleHome.utils'
+import type {RuntimeFlowProps, ServiceGridProps, SummarySectionProps} from './types'
 
 export function SummarySection({
     cloud,
