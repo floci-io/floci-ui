@@ -11,36 +11,76 @@ interface CloudSwitcherProps {
 /** Header dropdown for cloud provider, styled after AccountSwitcher's popover. */
 export function CloudSwitcher({clouds, selected, onSelect}: CloudSwitcherProps) {
     const [open, setOpen] = useState(false)
+    const [focusedIndex, setFocusedIndex] = useState(0)
     const containerRef = useRef<HTMLDivElement>(null)
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
     const selectedCloud = clouds.find((cloud) => cloud.id === selected)
+
+    // Runs only when `open`/`focusedIndex` change (not on every `clouds`
+    // refetch), so a background query refresh while the menu is open can't
+    // steal focus away from whatever option the user has navigated to.
+    useEffect(() => {
+        if (open) optionRefs.current[focusedIndex]?.focus()
+    }, [open, focusedIndex])
 
     useEffect(() => {
         if (!open) return
         const onClick = (event: MouseEvent) => {
-            if (!containerRef.current?.contains(event.target as Node)) setOpen(false)
+            if (!containerRef.current?.contains(event.target as Node)) {
+                setOpen(false)
+                triggerRef.current?.focus()
+            }
         }
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setOpen(false)
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setOpen(false)
+                triggerRef.current?.focus()
+            }
         }
         document.addEventListener('mousedown', onClick)
-        document.addEventListener('keydown', onKey)
+        document.addEventListener('keydown', onKeyDown)
         return () => {
             document.removeEventListener('mousedown', onClick)
-            document.removeEventListener('keydown', onKey)
+            document.removeEventListener('keydown', onKeyDown)
         }
     }, [open])
 
+    function openMenu() {
+        const selectedIndex = clouds.findIndex((cloud) => cloud.id === selected)
+        setFocusedIndex(selectedIndex >= 0 ? selectedIndex : 0)
+        setOpen(true)
+    }
+
     function choose(cloud: CloudProvider) {
         setOpen(false)
+        triggerRef.current?.focus()
         if (cloud !== selected) onSelect(cloud)
+    }
+
+    function onListKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault()
+            setFocusedIndex((index) => (index + 1) % clouds.length)
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault()
+            setFocusedIndex((index) => (index - 1 + clouds.length) % clouds.length)
+        } else if (event.key === 'Home') {
+            event.preventDefault()
+            setFocusedIndex(0)
+        } else if (event.key === 'End') {
+            event.preventDefault()
+            setFocusedIndex(clouds.length - 1)
+        }
     }
 
     return (
         <div className="cloud-switcher" ref={containerRef}>
             <button
+                ref={triggerRef}
                 type="button"
                 className="account-trigger"
-                onClick={() => setOpen((v) => !v)}
+                onClick={() => (open ? setOpen(false) : openMenu())}
                 title="Switch cloud"
                 aria-label={`Switch cloud, currently ${selectedCloud?.displayName ?? selected.toUpperCase()}`}
                 aria-haspopup="listbox"
@@ -57,13 +97,15 @@ export function CloudSwitcher({clouds, selected, onSelect}: CloudSwitcherProps) 
             {open && (
                 <div className="account-popover" role="listbox">
                     <div className="account-popover-title">Switch cloud</div>
-                    <div className="account-recents">
-                        {clouds.map((cloud) => (
+                    <div className="account-recents" onKeyDown={onListKeyDown}>
+                        {clouds.map((cloud, index) => (
                             <button
                                 key={cloud.id}
+                                ref={(el) => { optionRefs.current[index] = el }}
                                 type="button"
                                 className={`account-option${cloud.id === selected ? ' active' : ''}`}
                                 role="option"
+                                tabIndex={index === focusedIndex ? 0 : -1}
                                 aria-selected={cloud.id === selected}
                                 onClick={() => choose(cloud.id)}
                             >
