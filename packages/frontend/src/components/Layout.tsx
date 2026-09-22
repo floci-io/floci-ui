@@ -1,6 +1,6 @@
-import {NavLink, Outlet, useLocation, useSearchParams} from 'react-router-dom'
+import {NavLink, Outlet, useLocation, useNavigate, useSearchParams} from 'react-router-dom'
 import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Moon, Search, Sun} from 'lucide-react'
-import {useCallback, useEffect, useRef, useState} from 'react'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import flociWhite from '@/assets/floci-white.svg'
 import flociBlack from '@/assets/floci-black.svg'
 import flociMarkWhite from '@/assets/floci-mark-white.svg'
@@ -212,7 +212,7 @@ export function Layout() {
 
             <div className="shell">
                 <header className="topbar">
-                    <TopbarSearch/>
+                    <TopbarSearch cloud={activeCloud}/>
                     <button
                         className="icon-btn"
                         type="button"
@@ -238,24 +238,61 @@ export function Layout() {
     )
 }
 
+interface SearchSuggestion {
+    id: string
+    label: string
+    route: string
+    icon: React.ElementType
+}
+
 /**
  * Topbar search bar.
  *
  * Reads the initial value from the `search` URL query parameter so the input
  * survives page refreshes and back/forward navigation. Writes back with a
- * 300 ms debounce so the URL is not updated on every keystroke.
+ * 300 ms debounce so the URL is not updated on every keystroke — this part
+ * still drives the sidebar's own inline filter (`CloudServiceNav`).
  *
- * Pressing `/` when no other focusable input is active focuses this bar,
- * matching the keyboard hint shown in the widget.
- * Pressing Escape clears the query and blurs the input.
+ * On top of that, typing also opens a live autocomplete dropdown of matching
+ * items from the active cloud's sidebar menu (Console Home + its services),
+ * for jumping straight to one without scrolling the sidebar. It's a combobox,
+ * not a menu popover: focus never leaves the input, arrow keys only move the
+ * `aria-activedescendant` highlight, so there's no focus to lose track of.
+ *
+ * Pressing `/` when no other focusable input is active, or Cmd/Ctrl+K from
+ * anywhere, focuses this bar — the latter also selects existing text so
+ * typing replaces it, matching the hint shown in the widget.
+ * Pressing Escape clears the query, closes the dropdown, and blurs the input.
  */
-function TopbarSearch() {
+function TopbarSearch({cloud}: {cloud: CloudProvider}) {
     const location = useLocation()
+    const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
     const initialQuery = searchParams.get('search') ?? ''
     const [draft, setDraft] = useState(initialQuery)
+    const [suggestOpen, setSuggestOpen] = useState(false)
+    const [highlightedIndex, setHighlightedIndex] = useState(0)
     const inputRef = useRef<HTMLInputElement>(null)
+    const containerRef = useRef<HTMLDivElement>(null)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const servicesQuery = useCloudServicesQuery(cloud)
+
+    const suggestions = useMemo<SearchSuggestion[]>(() => {
+        const query = draft.trim().toLowerCase()
+        if (!query) return []
+        const items: SearchSuggestion[] = [
+            {id: 'console-home', label: 'Console Home', route: `/console/${cloud}`, icon: LayoutDashboard},
+            ...(servicesQuery.data ?? [])
+                .filter((service) => service.availability === 'available')
+                .map((service): SearchSuggestion => ({
+                    id: service.service,
+                    label: service.displayName,
+                    route: service.route.startsWith('/') ? service.route : `/cloud-explorer/${cloud}/${service.route}`,
+                    icon: serviceIcon(service.iconKey),
+                })),
+        ]
+        return items.filter((item) => item.label.toLowerCase().includes(query))
+    }, [draft, cloud, servicesQuery.data])
 
     const commit = useCallback((value: string) => {
         setSearchParams(
@@ -272,11 +309,29 @@ function TopbarSearch() {
         )
     }, [setSearchParams])
 
+    function goTo(item: SearchSuggestion) {
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current)
+            debounceRef.current = null
+        }
+        setDraft('')
+        commit('')
+        setSuggestOpen(false)
+        inputRef.current?.blur()
+        navigate(item.route)
+    }
+
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
         setDraft(value)
+        setSuggestOpen(Boolean(value.trim()))
+        setHighlightedIndex(0)
         if (debounceRef.current) clearTimeout(debounceRef.current)
         debounceRef.current = setTimeout(() => commit(value), 300)
+    }
+
+    const handleFocus = () => {
+        if (draft.trim()) setSuggestOpen(true)
     }
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -287,7 +342,22 @@ function TopbarSearch() {
             }
             setDraft('')
             commit('')
+            setSuggestOpen(false)
             inputRef.current?.blur()
+            return
+        }
+
+        if (!suggestOpen || suggestions.length === 0) return
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault()
+            setHighlightedIndex((index) => (index + 1) % suggestions.length)
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault()
+            setHighlightedIndex((index) => (index - 1 + suggestions.length) % suggestions.length)
+        } else if (event.key === 'Enter') {
+            event.preventDefault()
+            goTo(suggestions[highlightedIndex])
         }
     }
 
@@ -309,11 +379,32 @@ function TopbarSearch() {
         }
         const urlSearch = searchParams.get('search') ?? ''
         setDraft(urlSearch)
+        setSuggestOpen(false)
     }, [location.pathname])
 
-    /** Focus on `/` when no other input/textarea/select is active. */
+    /** Close the dropdown on an outside click, same pattern as the header switchers. */
+    useEffect(() => {
+        if (!suggestOpen) return
+        const onClick = (event: MouseEvent) => {
+            if (!containerRef.current?.contains(event.target as Node)) setSuggestOpen(false)
+        }
+        document.addEventListener('mousedown', onClick)
+        return () => document.removeEventListener('mousedown', onClick)
+    }, [suggestOpen])
+
+    /**
+     * Focus on `/` when no other input/textarea/select is active, or on
+     * Cmd/Ctrl+K unconditionally — the modifier makes it safe to steal focus
+     * even while another field is focused, unlike bare `/`.
+     */
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+                event.preventDefault()
+                inputRef.current?.focus()
+                inputRef.current?.select()
+                return
+            }
             if (event.key !== '/') return
             const tag = (event.target as HTMLElement).tagName
             if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
@@ -339,18 +430,52 @@ function TopbarSearch() {
         })
     }, [searchParams])
 
+    const showSuggestions = suggestOpen && suggestions.length > 0
+
     return (
-        <div className="search">
+        <div className="search" ref={containerRef}>
             <Search size={14} aria-hidden="true"/>
             <input
                 ref={inputRef}
+                role="combobox"
+                aria-expanded={showSuggestions}
+                aria-controls="topbar-search-suggestions"
+                aria-autocomplete="list"
+                aria-activedescendant={showSuggestions ? `search-suggestion-${highlightedIndex}` : undefined}
                 value={draft}
                 onChange={handleChange}
+                onFocus={handleFocus}
                 onKeyDown={handleKeyDown}
                 placeholder="Search services, features, docs, and more"
                 aria-label="Search services, features, docs, and more"
             />
-            <span className="kbd" aria-hidden="true">/</span>
+            <span className="kbd" aria-hidden="true">⌘K</span>
+
+            {showSuggestions && (
+                <div className="account-popover search-suggestions" role="listbox" id="topbar-search-suggestions">
+                    <div className="account-popover-title">Jump to</div>
+                    <div className="account-recents">
+                        {suggestions.map((item, index) => {
+                            const Icon = item.icon
+                            return (
+                                <button
+                                    key={item.id}
+                                    id={`search-suggestion-${index}`}
+                                    type="button"
+                                    className={`account-option${index === highlightedIndex ? ' active' : ''}`}
+                                    role="option"
+                                    aria-selected={index === highlightedIndex}
+                                    onMouseEnter={() => setHighlightedIndex(index)}
+                                    onClick={() => goTo(item)}
+                                >
+                                    <Icon size={14}/>
+                                    <span className="account-option-id">{item.label}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

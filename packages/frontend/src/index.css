@@ -505,6 +505,16 @@ pre,
     font-size: 11px;
 }
 
+/* Reuses .account-popover/.account-recents/.account-option for the panel
+   chrome and row styling; only the anchoring differs — left-aligned and
+   full-width under the (much wider) search box instead of right-aligned
+   under a narrow trigger button. */
+.search-suggestions {
+    left: 0;
+    right: 0;
+    width: auto;
+}
+
 .connection {
     display: inline-flex;
     align-items: center;
