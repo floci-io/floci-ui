@@ -63,6 +63,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No |
 | Integration | SQS / Messaging / Pub/Sub | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
+| Integration | Kinesis / Streams | Yes (list, create, inspect, delete) | No | No |
 | Integration | EventBridge / Events | Yes (list, create, delete, inspect) | No | No |
 | Integration | SES Mailbox / Email | Yes (list, inspect) | No | No |
 | Integration | Cloud Scheduler | No | No | Yes (list, create, delete, inspect) |
