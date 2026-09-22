@@ -593,6 +593,24 @@ pre,
     font-weight: 600;
 }
 
+/* Below ~680px the topbar's fixed-width controls (search, theme toggle, two
+   switcher buttons, connection badge) sum to more than the viewport, and
+   since the row never wraps the overflow was clipped off past the edge
+   instead of shrinking. Drop each control's text, keeping only the icons
+   (full detail stays in each control's title/aria-label and, for the
+   switchers, in the popover once opened). */
+@media (max-width: 680px) {
+    .kbd {
+        display: none;
+    }
+
+    .account-meta,
+    .connection-state,
+    .connection-target {
+        display: none;
+    }
+}
+
 .account-popover {
     position: absolute;
     top: calc(100% + 6px);

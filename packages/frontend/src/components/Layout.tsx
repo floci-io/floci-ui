@@ -239,7 +239,10 @@ export function Layout() {
                     <div id="topbar-status" className="topbar-status"/>
                     <CloudSwitcher clouds={cloudsQuery.data ?? []} selected={activeCloud} onSelect={selectCloud}/>
                     <AccountSwitcher/>
-                    <div className={`connection ${isConnected ? 'connected' : 'disconnected'}`}>
+                    <div
+                        className={`connection ${isConnected ? 'connected' : 'disconnected'}`}
+                        title={`${connectionLabel} — ${connectionTarget}`}
+                    >
                         <span className={connectionDotClass(status)} aria-hidden="true"/>
                         <span className="connection-state">{connectionLabel}</span>
                         <span className="connection-target">{connectionTarget}</span>
