@@ -553,6 +553,7 @@ pre,
 .account-trigger {
     display: inline-flex;
     align-items: center;
+    flex-shrink: 0;
     gap: 8px;
     height: 30px;
     padding: 0 8px;
@@ -573,6 +574,11 @@ pre,
     flex-direction: column;
     align-items: flex-start;
     line-height: 1.15;
+}
+
+.account-label,
+.account-value {
+    white-space: nowrap;
 }
 
 .account-label {
