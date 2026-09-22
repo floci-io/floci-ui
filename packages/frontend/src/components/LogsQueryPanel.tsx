@@ -1,8 +1,8 @@
 import {useEffect, useMemo, useRef, useState, type KeyboardEvent} from 'react'
-import {createPortal} from 'react-dom'
 import {Maximize2, Minimize2, Play, Terminal} from 'lucide-react'
 import {useMutation} from '@tanstack/react-query'
 import {queryLogs, queryLogsAcrossGroups} from '@/api/cloudProxyClient'
+import {ExpandablePanel} from '@/components/ExpandablePanel'
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource, LogsInsightsQueryResult} from '@/types/resource'
 
@@ -57,45 +57,24 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
     const [expanded, setExpanded] = useState(false)
     const [namePrefix, setNamePrefix] = useState('')
     const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
-    const expandButtonRef = useRef<HTMLButtonElement>(null)
-    const wasExpandedRef = useRef(false)
-
-    function collapse() {
-        setExpanded(false)
-    }
-
-    useEffect(() => {
-        if (!expanded) return
-        const onKeyDown = (event: globalThis.KeyboardEvent) => {
-            if (event.key === 'Escape') collapse()
-        }
-        document.addEventListener('keydown', onKeyDown)
-        return () => document.removeEventListener('keydown', onKeyDown)
-    }, [expanded])
-
-    // Collapsing swaps the whole tree (portal → inline), so the button that
-    // was focused when Escape/overlay-click fired is already gone by the
-    // time this runs — focusing it there would land on a since-unmounted
-    // node and the browser would drop focus to <body>. Focusing the (new)
-    // button here, after the swap has committed, is what actually works.
-    useEffect(() => {
-        if (wasExpandedRef.current && !expanded) expandButtonRef.current?.focus()
-        wasExpandedRef.current = expanded
-    }, [expanded])
+    const hasSeededSelectionRef = useRef(false)
 
     const matchingGroups = useMemo(
         () => (allLogGroups ?? []).filter((group) => group.id.startsWith(namePrefix)),
         [allLogGroups, namePrefix],
     )
 
-    // Seeds the initial "everything selected" state once data first arrives,
-    // and never again — re-running this on every resources refetch would
-    // silently wipe out whatever the user had manually checked or unchecked.
+    // Seeds the initial "everything selected" state the first time data
+    // arrives, and never again — checking `selectedGroups.size === 0` instead
+    // of a one-time flag would look identical to "user deliberately cleared
+    // every checkbox," and silently re-select everything on the next
+    // resources refetch (Refresh button, refocus, etc.), overriding a choice
+    // the user just made.
     useEffect(() => {
-        if (isMultiGroup && selectedGroups.size === 0 && matchingGroups.length > 0) {
-            setSelectedGroups(new Set(matchingGroups.map((group) => group.id)))
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally one-time: see comment above
+        if (!isMultiGroup || hasSeededSelectionRef.current || matchingGroups.length === 0) return
+        setSelectedGroups(new Set(matchingGroups.map((group) => group.id)))
+        hasSeededSelectionRef.current = true
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- seeds once on arrival; must not re-run as namePrefix/selection change
     }, [allLogGroups])
 
     function handlePrefixChange(value: string) {
@@ -157,7 +136,15 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
         }
     }
 
-    const sourceLine = `SOURCE logGroups(namePrefix: [${namePrefix ? JSON.stringify(namePrefix) : ''}], class: "STANDARD") START=-${rangeMinutes}m END=0s |`
+    // Falls back to an explicit names list once the selection diverges from
+    // "everything the prefix matches" (a group manually unchecked, most
+    // commonly) — otherwise this read-only line would keep describing a
+    // broader scope than what logGroupNames actually sends.
+    const scopeMatchesPrefix = selectedGroups.size === matchingGroups.length
+        && matchingGroups.every((group) => selectedGroups.has(group.id))
+    const sourceLine = scopeMatchesPrefix
+        ? `SOURCE logGroups(namePrefix: [${namePrefix ? JSON.stringify(namePrefix) : ''}], class: "STANDARD") START=-${rangeMinutes}m END=0s |`
+        : `SOURCE logGroups(names: [${[...selectedGroups].map((id) => JSON.stringify(id)).join(', ')}], class: "STANDARD") START=-${rangeMinutes}m END=0s |`
 
     const panel = (
         <section className="logs-query-panel">
@@ -184,11 +171,10 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
                     ))}
                 </div>
                 <button
-                    ref={expandButtonRef}
                     className="icon-btn"
                     type="button"
                     title={expanded ? 'Collapse' : 'Expand to full page'}
-                    onClick={() => (expanded ? collapse() : setExpanded(true))}
+                    onClick={() => setExpanded((value) => !value)}
                 >
                     {expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}
                 </button>
@@ -252,15 +238,10 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
         </section>
     )
 
-    if (!expanded) return panel
-
-    return createPortal(
-        <div className="modal-overlay" onClick={collapse}>
-            <div className="logs-query-modal" onClick={(event) => event.stopPropagation()}>
-                {panel}
-            </div>
-        </div>,
-        document.body,
+    return (
+        <ExpandablePanel expanded={expanded} onCollapse={() => setExpanded(false)}>
+            {panel}
+        </ExpandablePanel>
     )
 }
 

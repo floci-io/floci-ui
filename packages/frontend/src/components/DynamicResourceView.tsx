@@ -485,10 +485,8 @@ export function DynamicResourceView({
               createCapability={createSnapshotCapability}
               runtimeReachable={canUseRuntime}
             />
-          ) : showLogsInsights ? (
-            <LogsQueryPanel cloud={cloud} allLogGroups={resources} runtimeReachable={canUseRuntime} />
           ) : (
-            <section className="table-panel">
+            <section className="table-panel" hidden={showLogsInsights}>
               <div className="input-row resource-table-bar">
                 <div>
                   <p className="eyebrow">Resources</p>
@@ -703,6 +701,11 @@ export function DynamicResourceView({
                 isAllSelected,
               })}
             </section>
+          )}
+          {isAwsLogs && (
+            <div hidden={!showLogsInsights}>
+              <LogsQueryPanel cloud={cloud} allLogGroups={resources} runtimeReachable={canUseRuntime} />
+            </div>
           )}
         </section>
         {activeSelected && !showDatabaseSnapshots && !showLogsInsights && (
