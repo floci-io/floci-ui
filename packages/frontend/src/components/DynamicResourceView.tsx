@@ -705,7 +705,7 @@ export function DynamicResourceView({
             </section>
           )}
         </section>
-        {activeSelected && !showDatabaseSnapshots && (
+        {activeSelected && !showDatabaseSnapshots && !showLogsInsights && (
           <ResourceInspector
             resource={activeSelected}
             object={selectedObject}
