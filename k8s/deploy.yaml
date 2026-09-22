@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: floci-ui
-        image: k3d-reg:5000/floci-ui:v1.0.1
+        image: k3d-reg:5000/floci-ui:0.5.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:
@@ -25,7 +25,7 @@ spec:
             optional: true
         env:
         - name: IMAGE_TAG
-          value: "v1.0.1"
+          value: "0.5.0"
         - name: PORT
           value: "4500"
         - name: FLOCI_ENDPOINT
