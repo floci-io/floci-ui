@@ -47,6 +47,15 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
     }, [cloud, groupId])
 
     useEffect(() => {
+        if (!expanded) return
+        const onKeyDown = (event: globalThis.KeyboardEvent) => {
+            if (event.key === 'Escape') setExpanded(false)
+        }
+        document.addEventListener('keydown', onKeyDown)
+        return () => document.removeEventListener('keydown', onKeyDown)
+    }, [expanded])
+
+    useEffect(() => {
         setEventCursors([undefined])
     }, [selectedStreamId])
 
