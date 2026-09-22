@@ -25,6 +25,10 @@ import type {
     KubernetesNodegroup,
     LogsInsightsQueryInput,
     LogsInsightsQueryResult,
+    KmsDecryptInput,
+    KmsDecryptResult,
+    KmsEncryptInput,
+    KmsEncryptResult,
     NoSqlItem,
     ResourceQuery,
     ServerlessInvokeResult,
@@ -237,16 +241,29 @@ export class CloudProxyService {
     async deleteResource(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<void> {
         await this.requireAdapter(cloud, service).delete(id)
     }
-async invokeResource(
-    cloud: CloudProvider,
-    service: CloudServiceType,
-    id: string,
-    payload: string,
-): Promise<ServerlessInvokeResult> {
-    const adapter = this.requireAdapter(cloud, service)
-    if (!adapter.invoke) throw new NotSupportedError(`${cloud}/${service} invoke is not supported`)
-    return adapter.invoke(id, payload)
-}
+
+    async encryptKms(cloud: CloudProvider, keyId: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {
+        const adapter = this.requireAdapter(cloud, 'kms')
+        if (!adapter.encrypt) throw new NotSupportedError(`${cloud}/kms encrypt is not supported`)
+        return adapter.encrypt(keyId, input)
+    }
+
+    async decryptKms(cloud: CloudProvider, keyId: string, input: KmsDecryptInput): Promise<KmsDecryptResult> {
+        const adapter = this.requireAdapter(cloud, 'kms')
+        if (!adapter.decrypt) throw new NotSupportedError(`${cloud}/kms decrypt is not supported`)
+        return adapter.decrypt(keyId, input)
+    }
+
+    async invokeResource(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        id: string,
+        payload: string,
+    ): Promise<ServerlessInvokeResult> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.invoke) throw new NotSupportedError(`${cloud}/${service} invoke is not supported`)
+        return adapter.invoke(id, payload)
+    }
     async listObjects(cloud: CloudProvider, service: CloudServiceType, resourceId: string, prefix?: string): Promise<StorageObjectList> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.listObjects) throw new NotSupportedError(`Object listing is not supported for ${cloud}/${service}`)

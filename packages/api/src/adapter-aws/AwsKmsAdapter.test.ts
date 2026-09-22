@@ -1,7 +1,9 @@
 import {describe, expect, test} from 'bun:test'
 import {
     CreateKeyCommand,
+    DecryptCommand,
     DescribeKeyCommand,
+    EncryptCommand,
     type KMSClient,
     ListKeysCommand,
     ListResourceTagsCommand,
@@ -10,7 +12,7 @@ import {
     UntagResourceCommand,
 } from '@aws-sdk/client-kms'
 import {AwsKmsAdapter} from './AwsKmsAdapter'
-import {ValidationError} from '../cloud-spi/errors'
+import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
 
@@ -305,6 +307,128 @@ describe('AwsKmsAdapter', () => {
         const adapter = new AwsKmsAdapter(stubKms(() => ({})).client)
 
         await expect(adapter.create({values: {description: 'x'.repeat(8193)}})).rejects.toThrow(ValidationError)
+    })
+
+    test('encrypts symmetric plaintext after validating the selected key', async () => {
+        const ciphertext = new Uint8Array([9, 8, 7])
+        const {client, sent} = stubKms((command) => {
+            if (command instanceof DescribeKeyCommand) return {KeyMetadata: keyMetadata}
+            if (command instanceof EncryptCommand) {
+                return {CiphertextBlob: ciphertext, KeyId: KEY_ARN, EncryptionAlgorithm: 'SYMMETRIC_DEFAULT'}
+            }
+            return {}
+        })
+
+        const result = await new AwsKmsAdapter(client).encrypt(KEY_ID, {
+            plaintext: new TextEncoder().encode('hello'),
+            encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+            encryptionContext: {purpose: 'test'},
+        })
+
+        expect(sent[0]).toBeInstanceOf(DescribeKeyCommand)
+        const command = sent[1] as EncryptCommand
+        expect(command).toBeInstanceOf(EncryptCommand)
+        expect(command.input.KeyId).toBe(KEY_ID)
+        expect(command.input.EncryptionContext).toEqual({purpose: 'test'})
+        expect(new TextDecoder().decode(command.input.Plaintext)).toBe('hello')
+        expect(result).toEqual({
+            ciphertextBlob: ciphertext,
+            keyId: KEY_ARN,
+            encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+        })
+    })
+
+    test('rejects plaintext above the RSA OAEP limit before encrypting', async () => {
+        const {client, sent} = stubKms((command) => {
+            if (command instanceof DescribeKeyCommand) {
+                return {KeyMetadata: {...keyMetadata, KeySpec: 'RSA_2048'}}
+            }
+            return {}
+        })
+
+        await expect(new AwsKmsAdapter(client).encrypt(KEY_ID, {
+            plaintext: new Uint8Array(191),
+            encryptionAlgorithm: 'RSAES_OAEP_SHA_256',
+        })).rejects.toThrow('190 bytes or fewer')
+        expect(sent).toHaveLength(1)
+    })
+
+    test('rejects an encryption context for RSA keys', async () => {
+        const {client, sent} = stubKms((command) => {
+            if (command instanceof DescribeKeyCommand) {
+                return {KeyMetadata: {...keyMetadata, KeySpec: 'RSA_4096'}}
+            }
+            return {}
+        })
+
+        await expect(new AwsKmsAdapter(client).encrypt(KEY_ID, {
+            plaintext: new Uint8Array([1]),
+            encryptionAlgorithm: 'RSAES_OAEP_SHA_256',
+            encryptionContext: {secret: 'not-supported'},
+        })).rejects.toThrow('do not support encryptionContext')
+        expect(sent).toHaveLength(1)
+    })
+
+    test('rejects crypto operations for disabled keys', async () => {
+        const {client, sent} = stubKms((command) => {
+            if (command instanceof DescribeKeyCommand) {
+                return {KeyMetadata: {...keyMetadata, Enabled: false, KeyState: 'Disabled'}}
+            }
+            return {}
+        })
+
+        await expect(new AwsKmsAdapter(client).encrypt(KEY_ID, {
+            plaintext: new Uint8Array([1]),
+            encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+        })).rejects.toThrow('must be enabled')
+        expect(sent).toHaveLength(1)
+    })
+
+    test('decrypts ciphertext with the selected key and context', async () => {
+        const plaintext = new TextEncoder().encode('round trip')
+        const {client, sent} = stubKms((command) => {
+            if (command instanceof DescribeKeyCommand) return {KeyMetadata: keyMetadata}
+            if (command instanceof DecryptCommand) {
+                return {Plaintext: plaintext, KeyId: KEY_ARN, EncryptionAlgorithm: 'SYMMETRIC_DEFAULT'}
+            }
+            return {}
+        })
+
+        const result = await new AwsKmsAdapter(client).decrypt(KEY_ID, {
+            ciphertextBlob: new Uint8Array([3, 2, 1]),
+            encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+            encryptionContext: {purpose: 'test'},
+        })
+
+        const command = sent[1] as DecryptCommand
+        expect(command).toBeInstanceOf(DecryptCommand)
+        expect(command.input.CiphertextBlob).toEqual(new Uint8Array([3, 2, 1]))
+        expect(command.input.EncryptionContext).toEqual({purpose: 'test'})
+        expect(new TextDecoder().decode(result.plaintext)).toBe('round trip')
+    })
+
+    test('treats a missing provider ciphertext as a runtime contract failure', async () => {
+        const {client} = stubKms((command) => {
+            if (command instanceof DescribeKeyCommand) return {KeyMetadata: keyMetadata}
+            return {}
+        })
+
+        await expect(new AwsKmsAdapter(client).encrypt(KEY_ID, {
+            plaintext: new Uint8Array([1]),
+            encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+        })).rejects.toThrow(RuntimeError)
+    })
+
+    test('treats a missing provider plaintext as a runtime contract failure', async () => {
+        const {client} = stubKms((command) => {
+            if (command instanceof DescribeKeyCommand) return {KeyMetadata: keyMetadata}
+            return {}
+        })
+
+        await expect(new AwsKmsAdapter(client).decrypt(KEY_ID, {
+            ciphertextBlob: new Uint8Array([1]),
+            encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
+        })).rejects.toThrow(RuntimeError)
     })
 
     test('deletes a key by scheduling deletion with the shortest window', async () => {

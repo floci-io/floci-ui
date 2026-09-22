@@ -104,6 +104,8 @@ export type ResourceActionName =
     | 'update'
     | 'delete'
     | 'inspect'
+    | 'encrypt'
+    | 'decrypt'
     | 'invoke'
     | 'start'
     | 'stop'
@@ -445,6 +447,35 @@ export interface ServerlessInvokeResult {
     logResult?: string
     executionDuration?: number
 }
+
+export type KmsEncryptionAlgorithm =
+    | 'SYMMETRIC_DEFAULT'
+    | 'RSAES_OAEP_SHA_1'
+    | 'RSAES_OAEP_SHA_256'
+
+export interface KmsEncryptInput {
+    plaintext: Uint8Array
+    encryptionAlgorithm: KmsEncryptionAlgorithm
+    encryptionContext?: Record<string, string>
+}
+
+export interface KmsEncryptResult {
+    ciphertextBlob: Uint8Array
+    keyId: string
+    encryptionAlgorithm: KmsEncryptionAlgorithm
+}
+
+export interface KmsDecryptInput {
+    ciphertextBlob: Uint8Array
+    encryptionAlgorithm: KmsEncryptionAlgorithm
+    encryptionContext?: Record<string, string>
+}
+
+export interface KmsDecryptResult {
+    plaintext: Uint8Array
+    keyId: string
+    encryptionAlgorithm: KmsEncryptionAlgorithm
+}
 /**
  * Lets a registered adapter correct its own advertised availability.
  *
@@ -478,6 +509,8 @@ export interface CloudServiceAdapter {
     createDatabaseSnapshot?(input: CreateDatabaseSnapshotInput): Promise<DatabaseSnapshot>
     listDatabaseOrderableInstanceClasses?(engine?: string): Promise<string[]>
     invoke?(id: string, payload: string): Promise<ServerlessInvokeResult>
+    encrypt?(id: string, input: KmsEncryptInput): Promise<KmsEncryptResult>
+    decrypt?(id: string, input: KmsDecryptInput): Promise<KmsDecryptResult>
     // Lifecycle verbs. Optional because most categories have no notion of them;
     // an adapter that advertises one in `capabilities` must implement it, which
     // cloudProxy.test.ts enforces.

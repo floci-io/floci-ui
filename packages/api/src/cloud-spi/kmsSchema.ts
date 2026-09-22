@@ -90,6 +90,8 @@ export function awsKmsSchema(): ServiceSchema {
                     runtimeRequired: true,
                 },
                 {name: 'inspect', label: 'Inspect key', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'encrypt', label: 'Encrypt plaintext', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'decrypt', label: 'Decrypt ciphertext', enabled: true, status: 'available', runtimeRequired: true},
                 {name: 'updateTags', label: 'Edit tags', enabled: true, status: 'available', runtimeRequired: true},
             ],
         },

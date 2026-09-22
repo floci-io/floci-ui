@@ -37,6 +37,7 @@ import { dataExplorerPath } from "@/lib/dataExplorer";
 import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { AppConfigPanel } from "@/components/AppConfigPanel";
+import { KmsCryptoPanel } from "@/components/KmsCryptoPanel";
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
@@ -544,6 +545,13 @@ export function DynamicResourceView({
       )}
       {service === "configuration" && cloud === "aws" && (
         <AppConfigPanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "kms" && (
+        <KmsCryptoPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}

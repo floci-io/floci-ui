@@ -22,6 +22,8 @@ export const apiEndpointKeys = {
       update: "clouds.services.resources.update",
       delete: "clouds.services.resources.delete",
       invoke: "clouds.services.resources.invoke",
+      encrypt: "clouds.services.resources.encrypt",
+      decrypt: "clouds.services.resources.decrypt",
     },
     storage: {
       objects: {
@@ -295,6 +297,22 @@ export const endpointRegistry: EndpointRegistry = new Map([
       path: "/clouds/:cloud/services/:service/resources/:id",
       method: "GET",
       telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.encrypt,
+    {
+      path: "/clouds/:cloud/services/kms/resources/:id/encrypt",
+      method: "POST",
+      telemetry: { service: "kms" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.decrypt,
+    {
+      path: "/clouds/:cloud/services/kms/resources/:id/decrypt",
+      method: "POST",
+      telemetry: { service: "kms" },
     },
   ],
   [
