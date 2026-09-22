@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState, type KeyboardEvent} from 'react'
+import {useEffect, useMemo, useRef, useState, type KeyboardEvent} from 'react'
 import {createPortal} from 'react-dom'
 import {Maximize2, Minimize2, Play, Terminal} from 'lucide-react'
 import {useMutation} from '@tanstack/react-query'
@@ -57,6 +57,31 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
     const [expanded, setExpanded] = useState(false)
     const [namePrefix, setNamePrefix] = useState('')
     const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
+    const expandButtonRef = useRef<HTMLButtonElement>(null)
+    const wasExpandedRef = useRef(false)
+
+    function collapse() {
+        setExpanded(false)
+    }
+
+    useEffect(() => {
+        if (!expanded) return
+        const onKeyDown = (event: globalThis.KeyboardEvent) => {
+            if (event.key === 'Escape') collapse()
+        }
+        document.addEventListener('keydown', onKeyDown)
+        return () => document.removeEventListener('keydown', onKeyDown)
+    }, [expanded])
+
+    // Collapsing swaps the whole tree (portal → inline), so the button that
+    // was focused when Escape/overlay-click fired is already gone by the
+    // time this runs — focusing it there would land on a since-unmounted
+    // node and the browser would drop focus to <body>. Focusing the (new)
+    // button here, after the swap has committed, is what actually works.
+    useEffect(() => {
+        if (wasExpandedRef.current && !expanded) expandButtonRef.current?.focus()
+        wasExpandedRef.current = expanded
+    }, [expanded])
 
     const matchingGroups = useMemo(
         () => (allLogGroups ?? []).filter((group) => group.id.startsWith(namePrefix)),
@@ -159,10 +184,11 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
                     ))}
                 </div>
                 <button
+                    ref={expandButtonRef}
                     className="icon-btn"
                     type="button"
                     title={expanded ? 'Collapse' : 'Expand to full page'}
-                    onClick={() => setExpanded((value) => !value)}
+                    onClick={() => (expanded ? collapse() : setExpanded(true))}
                 >
                     {expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}
                 </button>
@@ -229,7 +255,7 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
     if (!expanded) return panel
 
     return createPortal(
-        <div className="modal-overlay" onClick={() => setExpanded(false)}>
+        <div className="modal-overlay" onClick={collapse}>
             <div className="logs-query-modal" onClick={(event) => event.stopPropagation()}>
                 {panel}
             </div>
