@@ -1,5 +1,10 @@
 {
+  "$schema": "https://opencode.ai/config.json",
+  "experimental": {
+    "openTelemetry": true
+  },
   "plugin": [
-    "./.opencode/plugin/speckit-events.ts"
+    "./.opencode/plugin/speckit-events.ts",
+    "@langfuse/opencode-observability-plugin@latest"
   ]
 }
