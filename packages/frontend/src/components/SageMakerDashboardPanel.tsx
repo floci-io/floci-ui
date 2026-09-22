@@ -47,7 +47,6 @@ export function SageMakerDashboardPanel({resources, isRefreshing, updatedAt, onR
                     title="Model monitoring"
                     rows={[
                         {label: 'Models', value: modelCount, status: 'Active'},
-                        {label: 'Model cards', soon: true},
                     ]}
                 />
                 <DashboardCard
