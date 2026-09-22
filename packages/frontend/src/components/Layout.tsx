@@ -7,6 +7,7 @@ import flociMarkWhite from '@/assets/floci-mark-white.svg'
 import flociMarkBlack from '@/assets/floci-mark-black.svg'
 import {useTheme} from '@/lib/useTheme'
 import {useSidebar} from '@/lib/useSidebar'
+import {macShortcut} from '@/lib/utils'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus} from '@/api/cloudProxyClient'
 import {useCloudServicesQuery} from '@/api/queries/cloudQueries'
@@ -325,10 +326,18 @@ function TopbarSearch({cloud}: {cloud: CloudProvider}) {
         const value = event.target.value
         setDraft(value)
         setSuggestOpen(Boolean(value.trim()))
-        setHighlightedIndex(0)
         if (debounceRef.current) clearTimeout(debounceRef.current)
         debounceRef.current = setTimeout(() => commit(value), 300)
     }
+
+    /**
+     * Clamps on every `suggestions` change, not just on typing — a service
+     * catalog refetch can shrink the list while a later item is highlighted,
+     * and without this Enter would pass `undefined` to `goTo`.
+     */
+    useEffect(() => {
+        setHighlightedIndex((index) => (suggestions.length === 0 ? 0 : Math.min(index, suggestions.length - 1)))
+    }, [suggestions])
 
     const handleFocus = () => {
         if (draft.trim()) setSuggestOpen(true)
@@ -357,7 +366,8 @@ function TopbarSearch({cloud}: {cloud: CloudProvider}) {
             setHighlightedIndex((index) => (index - 1 + suggestions.length) % suggestions.length)
         } else if (event.key === 'Enter') {
             event.preventDefault()
-            goTo(suggestions[highlightedIndex])
+            const item = suggestions[highlightedIndex]
+            if (item) goTo(item)
         }
     }
 
@@ -449,7 +459,7 @@ function TopbarSearch({cloud}: {cloud: CloudProvider}) {
                 placeholder="Search services, features, docs, and more"
                 aria-label="Search services, features, docs, and more"
             />
-            <span className="kbd" aria-hidden="true">⌘K</span>
+            <span className="kbd" aria-hidden="true">{macShortcut()}+K</span>
 
             {showSuggestions && (
                 <div className="account-popover search-suggestions" role="listbox" id="topbar-search-suggestions">

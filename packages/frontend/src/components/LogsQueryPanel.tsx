@@ -3,6 +3,7 @@ import {createPortal} from 'react-dom'
 import {Maximize2, Minimize2, Play, Terminal} from 'lucide-react'
 import {useMutation} from '@tanstack/react-query'
 import {queryLogs} from '@/api/cloudProxyClient'
+import {macShortcut} from '@/lib/utils'
 import type {CloudProvider} from '@/types/cloud'
 import type {LogsInsightsQueryResult} from '@/types/resource'
 
@@ -144,10 +145,6 @@ export function LogsQueryPanel({cloud, logGroupName, runtimeReachable}: LogsQuer
         </div>,
         document.body,
     )
-}
-
-function macShortcut(): string {
-    return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
 }
 
 const STILL_RUNNING_STATUSES = new Set(['Running', 'Scheduled'])

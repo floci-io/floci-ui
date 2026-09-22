@@ -29,6 +29,10 @@ export function timeAgo(value?: string | number): string {
     return `${Math.floor(hours / 24)}d ago`
 }
 
+export function macShortcut(): string {
+    return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
+}
+
 export function statusColor(status: string): string {
     if (status === 'healthy' || status === 'active' || status === 'OK') return 'text-green-400'
     if (status === 'degraded' || status === 'INSUFFICIENT_DATA') return 'text-yellow-400'
