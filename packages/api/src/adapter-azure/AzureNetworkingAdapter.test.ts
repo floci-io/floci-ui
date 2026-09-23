@@ -179,6 +179,25 @@ describe('AzureNetworkingAdapter', () => {
         expect(resources.map((resource) => resource.id).sort()).toEqual(['rg-app/core', 'rg-net/edge'])
     })
 
+    test('lists what it can when one resource group errors, instead of blanking the whole table', async () => {
+        // emptyOnNotFound only swallows a 404. A group that answers 403 or 500
+        // must not reject the whole aggregate and hide the VNets the other
+        // groups did return.
+        const calls = stubFetch((url) => {
+            if (url.endsWith('/subscriptions')) return json({value: [{subscriptionId: SUB}]})
+            if (url.includes('/resourceGroups?') || url.match(/\/resourceGroups$/)) {
+                return json({value: [{name: 'rg-app'}, {name: 'rg-broken'}]})
+            }
+            if (url.includes('/resourceGroups/rg-broken/')) return json({error: {code: 'Forbidden'}}, 403)
+            return json({value: [vnet('core', 'rg-app')]})
+        })
+
+        const resources = await adapter().list()
+
+        expect(resources.map((resource) => resource.id)).toEqual(['rg-app/core'])
+        expect(calls.some((c) => c.url.includes('rg-broken'))).toBe(true)
+    })
+
     test('filters the list by search term', async () => {
         runtimeStub([vnet('core'), vnet('edge')])
         const a = adapter()
@@ -328,6 +347,38 @@ describe('AzureNetworkingAdapter', () => {
 
         await expect(adapter().create({values: {...validValues, name: 'core'}})).rejects.toThrow(ConflictError)
         expect(calls.some((c) => c.init?.method === 'PUT')).toBe(false)
+    })
+
+    test('serializes concurrent creates of the same name so only one PUT is sent', async () => {
+        // A GET-then-PUT check is a race unless concurrent callers for the same
+        // name are serialized: without that, both requests can pass the
+        // existence check before either PUTs, and the runtime's upsert lets the
+        // second silently overwrite the first instead of conflicting.
+        const calls = runtimeStub([], [{name: 'rg-app'}])
+        const a = adapter()
+
+        const [first, second] = await Promise.allSettled([
+            a.create({values: {...validValues, name: 'racer'}}),
+            a.create({values: {...validValues, name: 'racer'}}),
+        ])
+
+        const outcomes = [first.status, second.status].sort()
+        expect(outcomes).toEqual(['fulfilled', 'rejected'])
+        const rejected = first.status === 'rejected' ? first : (second as PromiseRejectedResult)
+        expect(rejected.reason).toBeInstanceOf(ConflictError)
+        expect(calls.filter((c) => c.init?.method === 'PUT')).toHaveLength(1)
+    })
+
+    test('does not serialize creates of different names', async () => {
+        runtimeStub([], [{name: 'rg-app'}])
+        const a = adapter()
+
+        const results = await Promise.allSettled([
+            a.create({values: {...validValues, name: 'racer-a'}}),
+            a.create({values: {...validValues, name: 'racer-b'}}),
+        ])
+
+        expect(results.every((r) => r.status === 'fulfilled')).toBe(true)
     })
 
     test('rejects a subnet CIDR that is not contained within the address space', async () => {

@@ -60,7 +60,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Databases | Database | Yes (list, create, update, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No |
-| Networking | Networking | Yes (list) | No | No |
+| Networking | Networking | Yes (list) | Yes (list, inspect, create, delete) | No |
 | Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No |
 | Integration | SQS / Messaging / Pub/Sub | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
@@ -200,19 +200,26 @@ Current gaps:
 <details>
 <summary><strong>Networking</strong></summary>
 
-AWS only, through the unified shell plus an AWS-specific networking panel.
+AWS through the unified shell plus an AWS-specific networking panel; Azure
+Virtual Networks through the unified resource table alone.
 
-- VPC list and inspect through the unified resource table.
-- VPC creation and delete, the VPC wizard, subnets, security groups, internet
-  gateways, NAT gateways, route tables, and Elastic IP workflows — all in the
-  Networking panel.
+- AWS: VPC list and inspect through the unified resource table. VPC creation
+  and delete, the VPC wizard, subnets, security groups, internet gateways, NAT
+  gateways, route tables, and Elastic IP workflows — all in the Networking
+  panel.
+- Azure: VNet list, inspect, create and delete through the unified resource
+  table, listed per resource group and normalized as `vpc` alongside AWS VPCs.
+  A duplicate create is rejected rather than silently upserting the existing
+  VNet, and the first subnet's CIDR is validated as contained within the
+  VNet's address space.
 
 Current gaps:
 
-- No Azure VNet or GCP VPC adapter yet.
-- Create and delete are advertised as `partial` in the unified schema and are
-  handled by the Networking panel, because they need dependent selectors that a
-  flat generic form cannot express.
+- No GCP VPC adapter yet.
+- AWS create and delete are advertised as `partial` in the unified schema and
+  are handled by the Networking panel, because they need dependent selectors
+  that a flat generic form cannot express. Azure VNets need only a name, a
+  location and an address prefix, so create and delete are `available` there.
 - Advanced multi-cloud networking normalization is still pending.
 
 </details>

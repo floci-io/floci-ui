@@ -64,6 +64,17 @@ export class AzureNetworkingAdapter implements CloudServiceAdapter {
 
     private subscriptionId: string | null = null
 
+    /**
+     * Serializes create() by target VNet so a duplicate-name check followed by
+     * a PUT is not a check-then-act race: without this, two concurrent creates
+     * for the same name can both pass the existence check before either PUTs,
+     * and the runtime's upsert lets the second silently overwrite the first
+     * instead of returning ConflictError. One API process serves one local
+     * Floci instance, so an in-memory lock is enough; it never needs to
+     * coordinate across processes.
+     */
+    private readonly createLocks = new Map<string, Promise<unknown>>()
+
     constructor(private readonly client: AzureRuntimeClient = azure) {}
 
     schema(): ServiceSchema {
@@ -84,18 +95,21 @@ export class AzureNetworkingAdapter implements CloudServiceAdapter {
      */
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const groups = await this.resourceGroupNames()
-        const perGroup = await Promise.all(
+        // allSettled, not all: emptyOnNotFound only swallows a 404, so a group
+        // that answers 403 or 500 must not reject the whole aggregate and blank
+        // out every VNet the other groups did return successfully.
+        const perGroup = await Promise.allSettled(
             groups.map(async (group) => {
                 const body = await this.json<ArmList<AzureVnet>>(
                     `${await this.vnetCollectionPath(group)}?api-version=${API_VERSION}`,
                     {},
-                    // One unreadable group must not blank the whole table.
                     {emptyOnNotFound: true},
                 )
                 return body?.value ?? []
             }),
         )
-        return filterBySearch(perGroup.flat().map(toResource), query.search)
+        const vnets = perGroup.flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
+        return filterBySearch(vnets.map(toResource), query.search)
     }
 
     async get(id: string): Promise<CloudResource | null> {
@@ -122,29 +136,57 @@ export class AzureNetworkingAdapter implements CloudServiceAdapter {
         const subnet = optionalSubnet(input.values, addressPrefix)
 
         const resourceGroup = await this.resolveResourceGroup(requestedGroup)
-        const path = await this.vnetPath(resourceGroup, name)
+        const lockKey = `${resourceGroup}/${name}`
 
-        // The runtime's PUT is an upsert. The UI only exposes "Create VNet", with
-        // no update flow, so a second create against the same name must reject
-        // rather than silently modify the existing VNet.
-        const existing = await this.json<AzureVnet>(`${path}?api-version=${API_VERSION}`, {}, {emptyOnNotFound: true})
-        if (existing) throw new ConflictError(`VNet ${name} already exists in resource group ${resourceGroup}`)
+        // Serialized per VNet: the runtime's PUT is an upsert, so the
+        // duplicate-name check and the PUT below must run as one unit per name,
+        // or two concurrent creates can both pass the check before either PUTs.
+        return this.withCreateLock(lockKey, async () => {
+            const path = await this.vnetPath(resourceGroup, name)
 
-        await this.json(`${path}?api-version=${API_VERSION}`, {
-            method: 'PUT',
-            headers: {'content-type': 'application/json'},
-            body: JSON.stringify({
-                location,
-                properties: {
-                    addressSpace: {addressPrefixes: [addressPrefix]},
-                    ...(subnet ? {subnets: [{name: subnet.name, properties: {addressPrefix: subnet.prefix}}]} : {}),
-                },
-            }),
+            // The UI only exposes "Create VNet", with no update flow, so a
+            // second create against the same name must reject rather than
+            // silently modify the existing VNet.
+            const existing = await this.json<AzureVnet>(
+                `${path}?api-version=${API_VERSION}`,
+                {},
+                {emptyOnNotFound: true},
+            )
+            if (existing) throw new ConflictError(`VNet ${name} already exists in resource group ${resourceGroup}`)
+
+            await this.json(`${path}?api-version=${API_VERSION}`, {
+                method: 'PUT',
+                headers: {'content-type': 'application/json'},
+                body: JSON.stringify({
+                    location,
+                    properties: {
+                        addressSpace: {addressPrefixes: [addressPrefix]},
+                        ...(subnet ? {subnets: [{name: subnet.name, properties: {addressPrefix: subnet.prefix}}]} : {}),
+                    },
+                }),
+            })
+
+            const created = await this.get(`${resourceGroup}/${name}`)
+            if (!created) throw new RuntimeError(`VNet ${name} was created but could not be read back`)
+            return created
         })
+    }
 
-        const created = await this.get(`${resourceGroup}/${name}`)
-        if (!created) throw new RuntimeError(`VNet ${name} was created but could not be read back`)
-        return created
+    /**
+     * Chains callers of the same key onto one another so each runs after the
+     * last settles, and drops the entry once nothing is queued behind it, so
+     * the map does not grow for the life of the process.
+     */
+    private withCreateLock<T>(key: string, action: () => Promise<T>): Promise<T> {
+        const previous = this.createLocks.get(key) ?? Promise.resolve()
+        const settled = previous.catch(() => undefined)
+        const run = settled.then(action)
+        const tracked = run.catch(() => undefined)
+        this.createLocks.set(key, tracked)
+        void tracked.then(() => {
+            if (this.createLocks.get(key) === tracked) this.createLocks.delete(key)
+        })
+        return run
     }
 
     async delete(id: string): Promise<void> {
