@@ -36,6 +36,8 @@ import {AwsCloudFormationAdapter} from './adapter-aws/AwsCloudFormationAdapter'
 import {AwsSecretsAdapter} from './adapter-aws/AwsSecretsAdapter'
 import {AwsSesAdapter} from './adapter-aws/AwsSesAdapter'
 import {AwsAppConfigAdapter} from './adapter-aws/AwsAppConfigAdapter'
+import {AwsKinesisAdapter} from './adapter-aws/AwsKinesisAdapter'
+import {AwsSageMakerAdapter} from './adapter-aws/AwsSageMakerAdapter'
 import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
@@ -74,6 +76,8 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsSecretsAdapter(clients.secretsManager),
         new AwsSesAdapter(),
         new AwsAppConfigAdapter(clients.appConfig),
+        new AwsKinesisAdapter(clients.kinesis),
+        new AwsSageMakerAdapter(clients.sagemaker),
         new AzureStorageAdapter(),
         new AzureServiceBusAdapter(),
         new AzureDatabaseAdapter(),

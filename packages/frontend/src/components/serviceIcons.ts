@@ -1,5 +1,6 @@
 import {
     Boxes,
+    Brain,
     Circle,
     Clock,
     Container,
@@ -44,6 +45,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     secrets: KeyRound,
     iac: Layers,
     messaging: MessageSquare,
+    streams: Radio,
     events: Radio,
     email: MessageSquare,
     queue: MessageSquare,
@@ -53,6 +55,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     loadbalancing: Scale,
     parameters: SlidersHorizontal,
     configuration: SlidersHorizontal,
+    sagemaker: Brain,
     scheduler: Clock,
     workflows: Workflow,
 }

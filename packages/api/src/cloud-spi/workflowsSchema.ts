@@ -76,6 +76,16 @@ export function awsWorkflowsSchema(): ServiceSchema {
                 },
                 {name: 'delete', label: 'Delete', enabled: true, status: 'available', runtimeRequired: true},
             ],
+            // Executions are the collection level and history events the leaf,
+            // which is what the execution history viewer reads. Both are
+            // read-only on purpose: Step Functions has no DeleteExecution (an
+            // execution is stopped, not removed) and history is immutable.
+            collectionActions: [
+                {name: 'list', label: 'List executions', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+            itemActions: [
+                {name: 'list', label: 'Read execution history', enabled: true, status: 'available', runtimeRequired: true},
+            ],
         },
         filters: workflowFilters,
         columns: workflowColumns,

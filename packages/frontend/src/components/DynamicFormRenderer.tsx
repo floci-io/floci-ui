@@ -30,10 +30,11 @@ export function DynamicFormRenderer({
         getInitialFormValues(activeFields, initialValues),
     )
     const [errors, setErrors] = useState<Record<string, string>>({})
+    const visibleFields = activeFields.filter((field) => isFieldVisible(field, values))
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
-        const nextErrors = validateValues(activeFields, values)
+        const nextErrors = validateValues(visibleFields, values)
         setErrors(nextErrors)
         if (Object.keys(nextErrors).length > 0) return
         onSubmit(values)
@@ -41,10 +42,11 @@ export function DynamicFormRenderer({
 
     return (
         <form className="dynamic-form" onSubmit={submit} noValidate>
-            {activeFields.map((field) => (
+            {visibleFields.map((field, index) => (
                 <FieldRow
                     key={field.name}
                     field={field}
+                    showGroup={Boolean(field.group && field.group !== visibleFields[index - 1]?.group)}
                     required={isFieldRequired(field, values)}
                     maxLength={fieldMaxLength(field, values).value}
                     value={values[field.name] ?? ''}
@@ -75,10 +77,10 @@ export function DynamicFormRenderer({
     )
 }
 
-function FieldRow({field, required, maxLength, value, error, onChange}: {field: FieldSchema; required: boolean; maxLength?: number; value: string; error?: string; onChange: (value: string) => void}) {
+function FieldRow({field, showGroup, required, maxLength, value, error, onChange}: {field: FieldSchema; showGroup: boolean; required: boolean; maxLength?: number; value: string; error?: string; onChange: (value: string) => void}) {
     return (
         <>
-            {field.group && <div className="dynamic-form-group">{field.group}</div>}
+            {showGroup && <div className="dynamic-form-group">{field.group}</div>}
             <label className={`dynamic-field${field.span ? ' dynamic-field--span' : ''}`}>
                 <span>
                     {field.label}
@@ -200,4 +202,9 @@ function isFieldRequired(field: FieldSchema, values: Record<string, string>): bo
     if (field.required) return true
     if (!field.requiredWhen) return false
     return values[field.requiredWhen.field] === field.requiredWhen.equals
+}
+
+function isFieldVisible(field: FieldSchema, values: Record<string, string>): boolean {
+    if (!field.visibleWhen) return true
+    return values[field.visibleWhen.field] === field.visibleWhen.equals
 }

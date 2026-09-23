@@ -40,6 +40,9 @@ importers:
       '@aws-sdk/client-iam':
         specifier: ^3.1076.0
         version: 3.1120.0
+      '@aws-sdk/client-kinesis':
+        specifier: ^3.1076.0
+        version: 3.1076.0
       '@aws-sdk/client-kms':
         specifier: ^3.1096.0
         version: 3.1131.0
@@ -52,6 +55,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1076.0
         version: 3.1076.0
+      '@aws-sdk/client-sagemaker':
+        specifier: ^3.1076.0
+        version: 3.1136.0
       '@aws-sdk/client-secrets-manager':
         specifier: ^3.1076.0
         version: 3.1076.0
@@ -269,6 +275,10 @@ packages:
     resolution: {integrity: sha512-w1UNruAHPJ2l6+fNsW3wBYa725ALR1FRQe+rLheeziNK3EmGK6wxTm39dgKyehPmeSXxEQYCg5gcrYq3Ew3CzQ==}
     engines: {node: '>=20.0.0'}
 
+  '@aws-sdk/client-kinesis@3.1076.0':
+    resolution: {integrity: sha512-TQRW8zFRGkUnv50QqualcNzDkoyUbgTczJOS6w6TaUufPmdrMyq77yksyVJDgbWKXiNL+sTQpnHRocGCnLAByA==}
+    engines: {node: '>=20.0.0'}
+
   '@aws-sdk/client-kms@3.1131.0':
     resolution: {integrity: sha512-IQ5pG+aY5bM+1tyduaVa0m2AmPa/G9IZKbtAgtBP0pcM6wRkOlM3QyQEmi2UOoGd6L+ma738yOa6MmH6V3OLxw==}
     engines: {node: '>=20.0.0'}
@@ -283,6 +293,10 @@ packages:
 
   '@aws-sdk/client-s3@3.1076.0':
     resolution: {integrity: sha512-gqI0asnN73cm5W71rixc7NYvOr3+/tuyzMhG2hW+4aC5q5XcHP0JAeF/Dpac6vEsQhJtmlhXJ0oDCsXrFFnvUQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-sagemaker@3.1136.0':
+    resolution: {integrity: sha512-Fiq3B7hHL8CqpuO89rxrzEnGjBPDtTossMDVTZEk36+LJ3uws8ETp7ju3zW+QPAuiHL09eOpp51zUBaaPt8aDg==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-secrets-manager@3.1076.0':
@@ -2589,6 +2603,19 @@ snapshots:
       '@smithy/types': 4.17.2
       tslib: 2.8.1
 
+  '@aws-sdk/client-kinesis@3.1076.0':
+    dependencies:
+      '@aws-crypto/sha256-browser': 5.2.0
+      '@aws-crypto/sha256-js': 5.2.0
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/credential-provider-node': 3.972.83
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.33.3
+      '@smithy/fetch-http-handler': 5.7.2
+      '@smithy/node-http-handler': 4.11.3
+      '@smithy/types': 4.17.2
+      tslib: 2.8.1
+
   '@aws-sdk/client-kms@3.1131.0':
     dependencies:
       '@aws-sdk/core': 3.978.0
@@ -2642,6 +2669,17 @@ snapshots:
       '@smithy/fetch-http-handler': 5.6.3
       '@smithy/node-http-handler': 4.9.3
       '@smithy/types': 4.15.1
+      tslib: 2.8.1
+
+  '@aws-sdk/client-sagemaker@3.1136.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/credential-provider-node': 3.972.83
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.33.3
+      '@smithy/fetch-http-handler': 5.7.2
+      '@smithy/node-http-handler': 4.11.3
+      '@smithy/types': 4.17.2
       tslib: 2.8.1
 
   '@aws-sdk/client-secrets-manager@3.1076.0':

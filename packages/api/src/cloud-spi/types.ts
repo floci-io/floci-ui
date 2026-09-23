@@ -78,11 +78,13 @@ export interface FieldSchema {
     label: string
     type: FieldType
     required: boolean
+    requiredWhen?: {field: string; equals: string}
     description?: string
     group?: string
     span?: boolean
     valuePath?: string
     defaultValue?: string
+    visibleWhen?: {field: string; equals: string}
     validation?: {
         pattern?: string
         minLength?: number
@@ -178,7 +180,7 @@ export type KnownResourceType =
     | 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'dynamodb-table'
     | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function'
     | 'secret' | 'iam-user' | 'servicebus-namespace' | 'queue' | 'fifo-queue'
-    | 'topic' | 'event-bus' | 'rest-api' | 'stack' | 'email' | 'sql-server'
+    | 'topic' | 'kinesis-stream' | 'event-bus' | 'rest-api' | 'stack' | 'email' | 'sql-server'
     | 'postgres-flexible-server' | 'load-balancer' | 'state-machine' | 'scheduler-job' | 'key' | 'parameter' | 'cloud-run-service' | 'log-group'
 
 export interface CloudResource {

@@ -21,6 +21,7 @@ interface ResourceTableProps {
   onToggleSelectAll?: () => void;
   setAllSelected?: (value: boolean) => void;
   isAllSelected?: boolean;
+  canDeleteResource?: (resource: CloudResource) => boolean;
 }
 
 export function ResourceTable({
@@ -38,11 +39,15 @@ export function ResourceTable({
   onToggleSelectAll,
   setAllSelected,
   isAllSelected = false,
+  canDeleteResource,
 }: ResourceTableProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const canDelete = schema.actions.includes('delete');
   const canEdit = schema.actions.includes('update') && Boolean(schema.updateFields?.length) && Boolean(onEdit);
-  const hasActions = canDelete || canEdit || Boolean(dataPath && resources.some((resource) => dataPath(resource)));
+  const rowCanDelete = (resource: CloudResource) => canDelete && (canDeleteResource?.(resource) ?? true);
+  const hasActions = canEdit
+    || resources.some((resource) => rowCanDelete(resource))
+    || Boolean(dataPath && resources.some((resource) => dataPath(resource)));
 
   if (resources.length === 0) {
     const emptyTitle = `No ${schema.displayName} found.`;
@@ -86,6 +91,7 @@ export function ResourceTable({
       <tbody>
         {resources.map((resource) => {
           const explorePath = dataPath?.(resource);
+          const canDeleteRow = rowCanDelete(resource);
           return (
             <tr key={resource.id} className={selectedId === resource.id ? 'selected' : ''}>
               {isDeleteMulti && (
@@ -93,7 +99,9 @@ export function ResourceTable({
                   <input
                     type="checkbox"
                     aria-label={`Select ${resource.name || resource.id}`}
-                    checked={selectedItems?.some((item) => item.id === resource.id) ?? false}
+                    checked={canDeleteRow && (selectedItems?.some((item) => item.id === resource.id) ?? false)}
+                    disabled={!canDeleteRow}
+                    title={canDeleteRow ? undefined : `${resource.name} cannot be deleted`}
                     onChange={() => {
                       onToggleSelect?.(resource);
                     }}
@@ -132,7 +140,7 @@ export function ResourceTable({
                         <Pencil size={13} />
                       </button>
                     )}
-                    {canDelete && (
+                    {canDeleteRow && (
                       confirmId === resource.id ? (
                         <div
                           className="table-confirm-actions"
