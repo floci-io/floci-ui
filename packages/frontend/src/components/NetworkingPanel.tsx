@@ -1563,7 +1563,17 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
             <div className="widget" style={{marginTop: 16}}>
                 <div className="widget-header"><Network size={14}/><h3 style={{marginLeft: 6}}>Networking</h3></div>
                 <div className="widget-body">
-                    <p style={{fontSize: 12, color: 'var(--text-2)'}}>Networking management coming soon for {cloud.toUpperCase()}.</p>
+                    {/*
+                      * Azure has a working VNet adapter, so the table above this panel is
+                      * live — saying "coming soon" under it would contradict what the user
+                      * can already see. What is genuinely AWS-only is this panel's extra
+                      * workflows (subnets, security groups, gateways, route tables, EIPs).
+                      */}
+                    <p style={{fontSize: 12, color: 'var(--text-2)'}}>
+                        {cloud === 'azure'
+                            ? 'Virtual networks are managed in the table above. Subnets, security groups, gateways and route tables are AWS-only today.'
+                            : `Networking management coming soon for ${cloud.toUpperCase()}.`}
+                    </p>
                 </div>
             </div>
         )

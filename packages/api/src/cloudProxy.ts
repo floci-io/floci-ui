@@ -12,6 +12,7 @@ import {AzureServiceBusAdapter} from './adapter-azure/AzureServiceBusAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
 import {AzureAksAdapter} from './adapter-azure/AzureAksAdapter'
 import {AzureComputeAdapter} from './adapter-azure/AzureComputeAdapter'
+import {AzureNetworkingAdapter} from './adapter-azure/AzureNetworkingAdapter'
 import {GcpStorageAdapter} from './adapter-gcp/GcpStorageAdapter'
 import {GcpCloudFunctionsAdapter} from './adapter-gcp/GcpCloudFunctionsAdapter'
 import {GcpCloudSqlAdapter} from './adapter-gcp/GcpCloudSqlAdapter'
@@ -84,6 +85,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AzureAksAdapter(),
         new AzureNoSqlAdapter(),
         new AzureComputeAdapter(),
+        new AzureNetworkingAdapter(),
         new GcpStorageAdapter(),
         new GcpCloudFunctionsAdapter(),
         new GcpCloudSqlAdapter(),
