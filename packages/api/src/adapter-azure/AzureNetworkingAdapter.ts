@@ -58,22 +58,30 @@ interface AzureVnet {
     }
 }
 
+/**
+ * Serializes create() by target VNet so a duplicate-name check followed by a
+ * PUT is not a check-then-act race: without this, two concurrent creates for
+ * the same name can both pass the existence check before either PUTs, and
+ * the runtime's upsert lets the second silently overwrite the first instead
+ * of returning ConflictError.
+ *
+ * Module-level, not a field on the adapter: `cloudProxy.ts` builds one
+ * `AzureNetworkingAdapter` per account-scoped registry (`serviceForAccount`'s
+ * cache), but Azure is account-neutral here — every instance talks to the
+ * same `AzureRestRuntimeClient` singleton in `azure.ts` and the same
+ * floci-az runtime. A per-instance lock would only serialize creates issued
+ * under the same account header, not two concurrent creates for the same
+ * VNet under different accounts. One API process serves one local Floci
+ * instance, so this in-memory map is enough; it never needs to coordinate
+ * across processes.
+ */
+const createLocks = new Map<string, Promise<unknown>>()
+
 export class AzureNetworkingAdapter implements CloudServiceAdapter {
     readonly cloud = 'azure' as const
     readonly service = 'networking' as const
 
     private subscriptionId: string | null = null
-
-    /**
-     * Serializes create() by target VNet so a duplicate-name check followed by
-     * a PUT is not a check-then-act race: without this, two concurrent creates
-     * for the same name can both pass the existence check before either PUTs,
-     * and the runtime's upsert lets the second silently overwrite the first
-     * instead of returning ConflictError. One API process serves one local
-     * Floci instance, so an in-memory lock is enough; it never needs to
-     * coordinate across processes.
-     */
-    private readonly createLocks = new Map<string, Promise<unknown>>()
 
     constructor(private readonly client: AzureRuntimeClient = azure) {}
 
@@ -178,13 +186,13 @@ export class AzureNetworkingAdapter implements CloudServiceAdapter {
      * the map does not grow for the life of the process.
      */
     private withCreateLock<T>(key: string, action: () => Promise<T>): Promise<T> {
-        const previous = this.createLocks.get(key) ?? Promise.resolve()
+        const previous = createLocks.get(key) ?? Promise.resolve()
         const settled = previous.catch(() => undefined)
         const run = settled.then(action)
         const tracked = run.catch(() => undefined)
-        this.createLocks.set(key, tracked)
+        createLocks.set(key, tracked)
         void tracked.then(() => {
-            if (this.createLocks.get(key) === tracked) this.createLocks.delete(key)
+            if (createLocks.get(key) === tracked) createLocks.delete(key)
         })
         return run
     }

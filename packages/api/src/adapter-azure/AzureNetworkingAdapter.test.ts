@@ -369,6 +369,26 @@ describe('AzureNetworkingAdapter', () => {
         expect(calls.filter((c) => c.init?.method === 'PUT')).toHaveLength(1)
     })
 
+    test('serializes concurrent creates across two adapter instances for the same name', async () => {
+        // cloudProxy.ts's serviceForAccount caches one CloudProxyService (and
+        // therefore one AzureNetworkingAdapter) per account id, but Azure is
+        // account-neutral: both instances hit the same floci-az runtime, so
+        // the lock must not be per-instance state or two different accounts
+        // racing the same VNet name would both pass the existence check.
+        const calls = runtimeStub([], [{name: 'rg-app'}])
+        const a = adapter()
+        const b = adapter()
+
+        const [first, second] = await Promise.allSettled([
+            a.create({values: {...validValues, name: 'cross-account-racer'}}),
+            b.create({values: {...validValues, name: 'cross-account-racer'}}),
+        ])
+
+        const outcomes = [first.status, second.status].sort()
+        expect(outcomes).toEqual(['fulfilled', 'rejected'])
+        expect(calls.filter((c) => c.init?.method === 'PUT')).toHaveLength(1)
+    })
+
     test('does not serialize creates of different names', async () => {
         runtimeStub([], [{name: 'rg-app'}])
         const a = adapter()
