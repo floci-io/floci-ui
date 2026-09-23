@@ -72,7 +72,7 @@ Run these before opening a PR:
 ```bash
 pnpm lint          # eslint (frontend)
 pnpm type-check    # tsc on both packages
-pnpm test          # bun test (api)
+pnpm test          # bun test (api) + vitest (frontend)
 pnpm build         # production build
 ```
 
