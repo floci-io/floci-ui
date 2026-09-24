@@ -1,160 +1,401 @@
 import {describe, expect, test} from 'bun:test'
 import {
+    CreatePolicyCommand,
+    CreateRoleCommand,
     CreateUserCommand,
+    DeletePolicyCommand,
+    DeleteRoleCommand,
     DeleteUserCommand,
+    GetPolicyCommand,
+    GetPolicyVersionCommand,
+    GetRoleCommand,
     GetUserCommand,
-    ListUsersCommand,
     type IAMClient,
+    ListPoliciesCommand,
+    ListRolesCommand,
+    ListUsersCommand,
 } from '@aws-sdk/client-iam'
 import {AwsIamAdapter} from './AwsIamAdapter'
+import {ConflictError, NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 
-function fakeClient(handler: (command: unknown) => unknown): IAMClient {
-    return {
-        send: async (command: unknown) => handler(command),
+type SendResult = Record<string, unknown>
+
+function stubIam(handler: (command: object) => SendResult | Promise<SendResult>) {
+    const sent: object[] = []
+    const client = {
+        async send(command: object) {
+            sent.push(command)
+            return handler(command)
+        },
     } as unknown as IAMClient
+    return {client, sent}
 }
 
-const alice = {
+const user = {
     UserName: 'alice',
-    UserId: 'AIDAALICE',
-    Arn: 'arn:aws:iam::000000000000:user/team/alice',
-    Path: '/team/',
-    CreateDate: new Date('2026-01-02T03:04:05.000Z'),
+    UserId: 'AIDA99A311H4GBZ3N9UX',
+    Arn: 'arn:aws:iam::000000000000:user/alice',
+    Path: '/',
+    CreateDate: new Date('2026-07-28T10:00:00.000Z'),
+}
+
+const role = {
+    RoleName: 'deployer',
+    RoleId: 'AROAPZ9FQ6LJB8HKPRID',
+    Arn: 'arn:aws:iam::000000000000:role/deployer',
+    Path: '/service/',
+    CreateDate: new Date('2026-07-28T11:00:00.000Z'),
+    AssumeRolePolicyDocument: '%7B%22Version%22%3A%222012-10-17%22%7D',
+    Description: 'CI deploy role',
+}
+
+const policy = {
+    PolicyName: 'read-buckets',
+    PolicyId: 'ANPAJ2UCCR6DPCEXAMPLE',
+    Arn: 'arn:aws:iam::000000000000:policy/read-buckets',
+    Path: '/',
+    CreateDate: new Date('2026-07-28T12:00:00.000Z'),
+    AttachmentCount: 2,
+    DefaultVersionId: 'v1',
+}
+
+/** Answers each List/Get/Create command the way the runtime does. */
+function runtimeStub() {
+    return stubIam((command) => {
+        if (command instanceof ListUsersCommand) return {Users: [user], IsTruncated: false}
+        if (command instanceof ListRolesCommand) return {Roles: [role], IsTruncated: false}
+        if (command instanceof ListPoliciesCommand) return {Policies: [policy], IsTruncated: false}
+        if (command instanceof GetUserCommand) return {User: user}
+        if (command instanceof GetRoleCommand) return {Role: role}
+        if (command instanceof GetPolicyCommand) return {Policy: policy}
+        if (command instanceof CreateUserCommand) return {User: user}
+        if (command instanceof CreateRoleCommand) return {Role: role}
+        if (command instanceof CreatePolicyCommand) return {Policy: policy}
+        return {}
+    })
 }
 
 describe('AwsIamAdapter', () => {
-    test('lists every page and maps IAM users to normalized resources', async () => {
-        const adapter = new AwsIamAdapter(fakeClient((command) => {
-            if (!(command instanceof ListUsersCommand)) throw new Error('Unexpected command')
-            if (!command.input.Marker) return {Users: [alice], IsTruncated: true, Marker: 'next'}
-            return {Users: [{...alice, UserName: 'bob', UserId: 'AIDABOB'}], IsTruncated: false}
-        }))
+    test('identifies itself as the AWS IAM adapter', () => {
+        const adapter = new AwsIamAdapter(runtimeStub().client)
 
-        const result = await adapter.list()
+        expect(adapter.cloud).toBe('aws')
+        expect(adapter.service).toBe('identity')
+        expect(adapter.schema().displayName).toBe('AWS IAM')
+    })
 
-        expect(result).toHaveLength(2)
-        expect(result[0]).toMatchObject({
-            id: 'alice',
+    test('lists all three kinds when no facet is given', async () => {
+        const {client} = runtimeStub()
+        const resources = await new AwsIamAdapter(client).list()
+
+        // Policies are keyed by ARN, because GetPolicy and DeletePolicy take one.
+        expect(resources.map((r) => r.id)).toEqual(['user/alice', 'role/deployer', `policy/${policy.Arn}`])
+        expect(resources.map((r) => r.type)).toEqual(['iam-user', 'iam-role', 'iam-policy'])
+    })
+
+    describe('the kind facet narrows the listing', () => {
+        const cases: Array<[string, string, unknown]> = [
+            ['users', 'user/alice', ListUsersCommand],
+            ['roles', 'role/deployer', ListRolesCommand],
+            ['policies', `policy/${policy.Arn}`, ListPoliciesCommand],
+        ]
+
+        for (const [kind, expectedId, command] of cases) {
+            test(`kind=${kind} lists only ${kind}`, async () => {
+                const {client, sent} = runtimeStub()
+                const resources = await new AwsIamAdapter(client).list({filters: {kind}})
+
+                expect(resources.map((r) => r.id)).toEqual([expectedId])
+                expect(sent).toHaveLength(1)
+                expect(sent[0]).toBeInstanceOf(command as never)
+            })
+        }
+    })
+
+    test('rejects a kind the schema does not offer', async () => {
+        const {client} = runtimeStub()
+
+        await expect(new AwsIamAdapter(client).list({filters: {kind: 'wizards'}})).rejects.toThrow(ValidationError)
+    })
+
+    test('only asks for customer-managed policies', async () => {
+        // Real IAM returns close to a thousand AWS-managed policies without
+        // Scope=Local, which would bury the account's own policies.
+        const {client, sent} = runtimeStub()
+        await new AwsIamAdapter(client).list({filters: {kind: 'policies'}})
+
+        expect((sent[0] as ListPoliciesCommand).input.Scope).toBe('Local')
+    })
+
+    test('maps a user, a role and a policy onto the shared shape', async () => {
+        const {client} = runtimeStub()
+        const [asUser, asRole, asPolicy] = await new AwsIamAdapter(client).list()
+
+        expect(asUser).toMatchObject({
+            id: 'user/alice',
             name: 'alice',
-            cloud: 'aws',
             service: 'identity',
             type: 'iam-user',
-            region: null,
-            createdAt: '2026-01-02T03:04:05.000Z',
+            createdAt: '2026-07-28T10:00:00.000Z',
         })
-        expect(result[0].metadata).toMatchObject({
-            identityService: 'iam',
-            userId: 'AIDAALICE',
-            path: '/team/',
+        expect(asUser?.metadata).toMatchObject({arn: user.Arn, path: '/', userId: user.UserId})
+        expect(asRole?.metadata).toMatchObject({path: '/service/', description: 'CI deploy role'})
+        expect(asPolicy?.metadata).toMatchObject({attachmentCount: 2, defaultVersionId: 'v1'})
+    })
+
+    test('decodes the URL-encoded trust policy the runtime returns', async () => {
+        // IAM returns AssumeRolePolicyDocument percent-encoded; showing that raw in
+        // the inspector is unreadable.
+        const {client} = runtimeStub()
+        const resource = await new AwsIamAdapter(client).get('role/deployer')
+
+        expect(resource?.metadata.assumeRolePolicyDocument).toBe('{"Version":"2012-10-17"}')
+    })
+
+    test('follows the pagination marker', async () => {
+        let call = 0
+        const {client, sent} = stubIam((command) => {
+            if (!(command instanceof ListUsersCommand)) return {}
+            call += 1
+            if (call === 1) return {Users: [user], IsTruncated: true, Marker: 'page-2'}
+            return {Users: [{...user, UserName: 'bob'}], IsTruncated: false}
+        })
+
+        const resources = await new AwsIamAdapter(client).list({filters: {kind: 'users'}})
+
+        expect(resources.map((r) => r.name)).toEqual(['alice', 'bob'])
+        expect((sent[1] as ListUsersCommand).input.Marker).toBe('page-2')
+    })
+
+    test('filters by search across name, id and arn', async () => {
+        const {client} = runtimeStub()
+        const adapter = new AwsIamAdapter(client)
+
+        await expect(adapter.list({search: 'alic'})).resolves.toHaveLength(1)
+        await expect(adapter.list({search: 'role/deployer'})).resolves.toHaveLength(1)
+        await expect(adapter.list({search: 'nope'})).resolves.toHaveLength(0)
+    })
+
+    describe('inspect addresses a resource by kind and identifier', () => {
+        const cases: Array<[string, unknown]> = [
+            ['user/alice', GetUserCommand],
+            ['role/deployer', GetRoleCommand],
+            ['policy/arn:aws:iam::000000000000:policy/read-buckets', GetPolicyCommand],
+        ]
+
+        for (const [id, command] of cases) {
+            test(`${id.split('/')[0]} uses ${(command as {name: string}).name}`, async () => {
+                const {client, sent} = runtimeStub()
+                const resource = await new AwsIamAdapter(client).get(id)
+
+                expect(sent[0]).toBeInstanceOf(command as never)
+                expect(resource).not.toBeNull()
+            })
+        }
+    })
+
+    describe('inspecting a policy loads its document', () => {
+        const POLICY_ID = `policy/${policy.Arn}`
+
+        test('fetches the default version and exposes the decoded document', async () => {
+            // Roles surface a decoded trust policy, so a policy has to surface the
+            // document it was created with, that is the thing being audited.
+            const {client, sent} = stubIam((command) => {
+                if (command instanceof GetPolicyCommand) return {Policy: policy}
+                if (command instanceof GetPolicyVersionCommand) {
+                    return {PolicyVersion: {VersionId: 'v1', Document: '%7B%22Statement%22%3A%5B%5D%7D'}}
+                }
+                return {}
+            })
+            const resource = await new AwsIamAdapter(client).get(POLICY_ID)
+
+            const versionCall = sent.find((c) => c instanceof GetPolicyVersionCommand) as GetPolicyVersionCommand
+            expect(versionCall.input.PolicyArn).toBe(policy.Arn)
+            expect(versionCall.input.VersionId).toBe('v1')
+            expect(resource?.metadata.policyDocument).toBe('{"Statement":[]}')
+        })
+
+        test('leaves a document the runtime did not encode untouched', async () => {
+            // Real IAM percent-encodes the document; the local runtime returns it
+            // literal, so decoding must be a no-op rather than a corruption.
+            const {client} = stubIam((command) => {
+                if (command instanceof GetPolicyCommand) return {Policy: policy}
+                if (command instanceof GetPolicyVersionCommand) {
+                    return {PolicyVersion: {VersionId: 'v1', Document: '{"Statement":[]}'}}
+                }
+                return {}
+            })
+            const resource = await new AwsIamAdapter(client).get(POLICY_ID)
+
+            expect(resource?.metadata.policyDocument).toBe('{"Statement":[]}')
+        })
+
+        test('still inspects the policy when the version lookup fails', async () => {
+            const {client} = stubIam((command) => {
+                if (command instanceof GetPolicyCommand) return {Policy: policy}
+                if (command instanceof GetPolicyVersionCommand) {
+                    throw Object.assign(new Error('Rate exceeded'), {name: 'ThrottlingException'})
+                }
+                return {}
+            })
+            const resource = await new AwsIamAdapter(client).get(POLICY_ID)
+
+            expect(resource?.name).toBe('read-buckets')
+            expect(resource?.metadata.policyDocument).toBeUndefined()
+            expect(resource?.metadata.policyDocumentUnavailable).toBe(true)
+        })
+
+        test('does not fetch the document while listing', async () => {
+            // One GetPolicyVersion per row would turn a list into an N+1.
+            const {client, sent} = runtimeStub()
+            await new AwsIamAdapter(client).list({filters: {kind: 'policies'}})
+
+            expect(sent.some((c) => c instanceof GetPolicyVersionCommand)).toBe(false)
         })
     })
 
-    test('filters users by search term', async () => {
-        const adapter = new AwsIamAdapter(fakeClient(() => ({
-            Users: [alice, {...alice, UserName: 'bob'}],
-            IsTruncated: false,
-        })))
+    test('rejects an id that does not name a kind', async () => {
+        const {client} = runtimeStub()
 
-        const result = await adapter.list({search: 'ALI'})
-
-        expect(result.map((resource) => resource.name)).toEqual(['alice'])
+        await expect(new AwsIamAdapter(client).get('alice')).rejects.toThrow(ValidationError)
+        await expect(new AwsIamAdapter(client).get('wizard/merlin')).rejects.toThrow(ValidationError)
     })
 
-    test('gets and maps one IAM user', async () => {
-        const adapter = new AwsIamAdapter(fakeClient((command) => {
-            expect(command).toBeInstanceOf(GetUserCommand)
-            return {User: alice}
-        }))
-
-        const result = await adapter.get('alice')
-
-        expect(result?.id).toBe('alice')
-        expect(result?.metadata.arn).toBe(alice.Arn)
+    test('returns null when an entity does not exist', async () => {
+        const {client} = stubIam(() => {
+            throw Object.assign(new Error('NoSuchEntity'), {
+                name: 'NoSuchEntity',
+                $metadata: {httpStatusCode: 404},
+            })
+        })
+        await expect(new AwsIamAdapter(client).get('user/ghost')).resolves.toBeNull()
     })
 
-    test('returns null when IAM reports a missing user', async () => {
-        const adapter = new AwsIamAdapter(fakeClient(() => {
-            throw Object.assign(new Error('missing'), {name: 'NoSuchEntityException'})
-        }))
+    test('creates a user with an optional path', async () => {
+        const {client, sent} = runtimeStub()
+        const resource = await new AwsIamAdapter(client).create({values: {kind: 'users', name: 'alice', path: '/team/'}})
 
-        await expect(adapter.get('missing')).resolves.toBeNull()
+        expect(sent[0]).toBeInstanceOf(CreateUserCommand)
+        expect((sent[0] as CreateUserCommand).input).toEqual({UserName: 'alice', Path: '/team/'})
+        expect(resource.id).toBe('user/alice')
     })
 
-    test('creates an IAM user with an optional path', async () => {
-        const adapter = new AwsIamAdapter(fakeClient((command) => {
-            expect(command).toBeInstanceOf(CreateUserCommand)
-            expect((command as CreateUserCommand).input).toEqual({UserName: 'alice', Path: '/team/'})
-            return {User: alice}
-        }))
+    test('creates a role with its trust policy', async () => {
+        const {client, sent} = runtimeStub()
+        await new AwsIamAdapter(client).create({
+            values: {kind: 'roles', name: 'deployer', assumeRolePolicyDocument: '{"Version":"2012-10-17"}'},
+        })
 
-        const result = await adapter.create({values: {userName: 'alice', path: '/team/'}})
+        const command = sent[0] as CreateRoleCommand
+        expect(command).toBeInstanceOf(CreateRoleCommand)
+        expect(command.input.AssumeRolePolicyDocument).toBe('{"Version":"2012-10-17"}')
+    })
 
-        expect(result.id).toBe('alice')
+    test('creates a policy with its document', async () => {
+        const {client, sent} = runtimeStub()
+        await new AwsIamAdapter(client).create({
+            values: {kind: 'policies', name: 'read-buckets', policyDocument: '{"Statement":[]}'},
+        })
+
+        expect((sent[0] as CreatePolicyCommand).input.PolicyDocument).toBe('{"Statement":[]}')
     })
 
     test('reports an empty create response as a runtime error', async () => {
-        const adapter = new AwsIamAdapter(fakeClient(() => ({})))
+        const {client} = stubIam(() => ({}))
 
-        await expect(adapter.create({values: {userName: 'alice'}})).rejects.toMatchObject({
+        await expect(new AwsIamAdapter(client).create({values: {kind: 'users', name: 'alice'}})).rejects.toMatchObject({
             name: 'RuntimeError',
-            message: 'AWS IAM did not return the created user',
+            message: 'IAM did not return the created resource for alice',
         })
     })
 
-    test('rejects invalid user names before calling IAM', async () => {
-        let called = false
-        const adapter = new AwsIamAdapter(fakeClient(() => {
-            called = true
-            return {}
-        }))
+    test('requires the document each kind cannot be created without', async () => {
+        // A role with no trust policy and a policy with no document are both
+        // rejected by IAM, so they are rejected here with a message that says
+        // which field is missing for the chosen kind.
+        const {client} = runtimeStub()
+        const adapter = new AwsIamAdapter(client)
 
-        await expect(adapter.create({values: {userName: 'not valid'}})).rejects.toThrow('Use a valid IAM user name')
-        await expect(adapter.create({values: {userName: 'alice', path: 'team'}})).rejects.toThrow('Use a valid IAM path')
-        expect(called).toBeFalse()
+        await expect(adapter.create({values: {kind: 'roles', name: 'r'}})).rejects.toThrow(
+            new ValidationError('assumeRolePolicyDocument is required when kind is roles'),
+        )
+        await expect(adapter.create({values: {kind: 'policies', name: 'p'}})).rejects.toThrow(
+            new ValidationError('policyDocument is required when kind is policies'),
+        )
     })
 
-    test('deletes the requested IAM user', async () => {
-        const adapter = new AwsIamAdapter(fakeClient((command) => {
-            expect(command).toBeInstanceOf(DeleteUserCommand)
-            expect((command as DeleteUserCommand).input.UserName).toBe('alice')
-            return {}
-        }))
+    test('rejects a document that is not JSON', async () => {
+        const {client} = runtimeStub()
 
-        await adapter.delete('alice')
+        await expect(
+            new AwsIamAdapter(client).create({values: {kind: 'policies', name: 'p', policyDocument: 'not json'}}),
+        ).rejects.toThrow(ValidationError)
     })
 
-    test('reports a delete of a missing IAM user as not found', async () => {
-        const adapter = new AwsIamAdapter(fakeClient(() => {
-            throw Object.assign(new Error('The user with name alice cannot be found.'), {name: 'NoSuchEntityException'})
-        }))
+    test('requires kind and name', async () => {
+        const {client} = runtimeStub()
+        const adapter = new AwsIamAdapter(client)
 
-        await expect(adapter.delete('alice')).rejects.toMatchObject({
+        await expect(adapter.create({values: {}})).rejects.toThrow(new ValidationError('kind is required'))
+        await expect(adapter.create({values: {kind: 'users'}})).rejects.toThrow(new ValidationError('name is required'))
+    })
+
+    test('rejects an invalid name before calling IAM', async () => {
+        const {client, sent} = runtimeStub()
+
+        await expect(
+            new AwsIamAdapter(client).create({values: {kind: 'users', name: 'not valid'}}),
+        ).rejects.toThrow('Letters, digits and + = , . @ _ - only.')
+        expect(sent).toHaveLength(0)
+    })
+
+    test('rejects an invalid path before calling IAM', async () => {
+        const {client, sent} = runtimeStub()
+
+        await expect(
+            new AwsIamAdapter(client).create({values: {kind: 'users', name: 'alice', path: 'team'}}),
+        ).rejects.toThrow('Use a valid IAM path')
+        expect(sent).toHaveLength(0)
+    })
+
+    describe('delete dispatches on the kind in the id', () => {
+        const cases: Array<[string, unknown]> = [
+            ['user/alice', DeleteUserCommand],
+            ['role/deployer', DeleteRoleCommand],
+            ['policy/arn:aws:iam::000000000000:policy/read-buckets', DeletePolicyCommand],
+        ]
+
+        for (const [id, command] of cases) {
+            test(id.split('/')[0], async () => {
+                const {client, sent} = runtimeStub()
+                await new AwsIamAdapter(client).delete(id)
+
+                expect(sent[0]).toBeInstanceOf(command as never)
+            })
+        }
+    })
+
+    test('reports a delete of a missing entity as not found', async () => {
+        const {client} = stubIam(() => {
+            throw Object.assign(new Error('The role with name deployer cannot be found.'), {name: 'NoSuchEntityException'})
+        })
+
+        await expect(new AwsIamAdapter(client).delete('role/deployer')).rejects.toMatchObject({
             name: 'NotFoundError',
-            message: 'IAM user alice not found',
+            message: 'IAM role deployer not found',
         })
     })
 
     test('reports a delete blocked by attached resources as a conflict', async () => {
-        const adapter = new AwsIamAdapter(fakeClient(() => {
-            throw Object.assign(new Error('Cannot delete entity, must delete access keys first.'), {
+        const {client} = stubIam(() => {
+            throw Object.assign(new Error('Cannot delete entity, must detach policies first.'), {
                 name: 'DeleteConflictException',
             })
-        }))
+        })
 
-        await expect(adapter.delete('alice')).rejects.toMatchObject({
+        await expect(new AwsIamAdapter(client).delete('user/alice')).rejects.toMatchObject({
             name: 'ConflictError',
             message: expect.stringContaining('IAM user alice still has attached resources'),
-        })
-    })
-
-    test('returns the AWS IAM schema', () => {
-        const adapter = new AwsIamAdapter(fakeClient(() => ({})))
-
-        expect(adapter.schema()).toMatchObject({
-            cloud: 'aws',
-            service: 'identity',
-            displayName: 'AWS IAM users',
-            actions: ['list', 'create', 'delete', 'inspect'],
         })
     })
 })
