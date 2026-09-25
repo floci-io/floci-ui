@@ -179,7 +179,7 @@ export interface ServiceSchema {
 export type KnownResourceType =
     | 'bucket' | 'container' | 'cluster' | 'db-instance' | 'cosmos-database' | 'dynamodb-table'
     | 'instance' | 'image' | 'vpc' | 'lambda' | 'azure-function' | 'gcp-function'
-    | 'secret' | 'iam-user' | 'servicebus-namespace' | 'queue' | 'fifo-queue'
+    | 'secret' | 'iam-user' | 'user-pool' | 'servicebus-namespace' | 'queue' | 'fifo-queue'
     | 'topic' | 'kinesis-stream' | 'event-bus' | 'rest-api' | 'stack' | 'email' | 'sql-server'
     | 'postgres-flexible-server' | 'load-balancer' | 'state-machine' | 'scheduler-job' | 'key' | 'parameter' | 'cloud-run-service' | 'log-group'
 
