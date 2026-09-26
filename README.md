@@ -445,7 +445,7 @@ make logs
 
 Prerequisites:
 
-- Node.js 20+
+- Node.js 22.22+ (CI uses 24)
 - pnpm 9+
 - Bun
 - A running local runtime: Floci core, and optionally Floci-AZ / Floci-GCP
