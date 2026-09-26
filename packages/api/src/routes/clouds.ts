@@ -4,6 +4,7 @@ import type {
     CloudProvider,
     CloudServiceType,
     CreateDatabaseSnapshotInput,
+    CreateLambdaTriggerInput,
     KmsEncryptionAlgorithm,
     ServiceSchema,
     SqlConnectionInput,
@@ -503,6 +504,41 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
             const deployment = await svc(c).getAppConfigDeployment(cloud, c.req.param('id'), c.req.param('environmentId'), deploymentNumber)
             if (!deployment) return c.json({error: 'Deployment not found'}, 404)
             return c.json(deployment)
+        })
+    })
+
+    app.get('/:cloud/services/serverless/resources/:id/triggers', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const triggers = await svc(c).listLambdaTriggers(cloud, c.req.param('id'))
+            return c.json(triggers)
+        })
+    })
+
+    app.post('/:cloud/services/serverless/resources/:id/triggers', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const input = await c.req.json<CreateLambdaTriggerInput>()
+            const trigger = await svc(c).createLambdaTrigger(cloud, c.req.param('id'), input)
+            return c.json(trigger, 201)
+        })
+    })
+
+    app.delete('/:cloud/services/serverless/resources/:id/triggers/:triggerId', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const options = {
+                type: c.req.query('type') ?? undefined,
+                bucket: c.req.query('bucket') ?? undefined,
+            }
+            await svc(c).deleteLambdaTrigger(cloud, c.req.param('id'), c.req.param('triggerId'), options)
+            return c.json({ok: true})
         })
     })
 

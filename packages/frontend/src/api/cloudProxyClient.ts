@@ -23,9 +23,12 @@ import type {
   CreateDatabaseSnapshotInput,
   CreateKubernetesFargateProfileInput,
   CreateKubernetesNodegroupInput,
+  CreateLambdaTriggerInput,
   DatabaseSnapshot,
+  DeleteLambdaTriggerOptions,
   KubernetesFargateProfile,
   KubernetesNodegroup,
+  LambdaTrigger,
   LogsInsightsQueryInput,
   LogsInsightsQueryResult,
   NoSqlItem,
@@ -70,7 +73,7 @@ export async function listCloudServices(
   return res.data;
 }
 
-export async function getCloudStatus(
+export async function  getCloudStatus(
   cloud: CloudProvider,
   signal?: AbortSignal,
 ): Promise<CloudStatus> {
@@ -921,6 +924,51 @@ export async function getAppConfigDeployment(
   );
   return res.data;
 }
+
+export async function listLambdaTriggers(
+  cloud: CloudProvider,
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<LambdaTrigger[]> {
+  const res = await apiClient.call<LambdaTrigger[]>(
+    apiEndpointKeys.clouds.serverless.triggers.list,
+    requestOptions(cloud, "serverless", { signal }),
+    { cloud, id: functionName },
+  );
+  return res.data;
+}
+
+export async function createLambdaTrigger(
+  cloud: CloudProvider,
+  functionName: string,
+  input: CreateLambdaTriggerInput,
+): Promise<LambdaTrigger> {
+  const res = await apiClient.call<LambdaTrigger, CreateLambdaTriggerInput>(
+    apiEndpointKeys.clouds.serverless.triggers.create,
+    requestOptions(cloud, "serverless", { body: input }),
+    { cloud, id: functionName },
+  );
+  return res.data;
+}
+
+export async function deleteLambdaTrigger(
+  cloud: CloudProvider,
+  functionName: string,
+  triggerId: string,
+  options?: DeleteLambdaTriggerOptions,
+): Promise<void> {
+  await apiClient.call(
+    apiEndpointKeys.clouds.serverless.triggers.delete,
+    requestOptions(cloud, "serverless", {
+      params: {
+        type: options?.type,
+        bucket: options?.bucket,
+      },
+    }),
+    { cloud, id: functionName, triggerId },
+  );
+}
+
 
 function requestOptions<TBody = unknown>(
   cloud: CloudProvider,

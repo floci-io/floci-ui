@@ -23,6 +23,5 @@ export function getPath(source: unknown, path: string): unknown {
 
         current = (current as Record<string, unknown>)[segment]
     }
-
     return current
 }

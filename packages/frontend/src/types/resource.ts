@@ -262,3 +262,42 @@ export interface AppConfigDeployment {
   completedAt: string | null
   description: string | null
 }
+
+export interface LambdaTriggerDetails {
+  events?: string[]
+  prefix?: string
+  suffix?: string
+  batchSize?: number
+  startingPosition?: string
+  filterCriteria?: Record<string, unknown>
+}
+
+export interface LambdaTrigger {
+  id: string
+  type: 's3' | 'dynamodb' | 'sqs' | 'kinesis'
+  sourceArn: string
+  sourceName: string
+  status: string
+  createdAt?: string | null
+  details: LambdaTriggerDetails
+}
+
+export interface CreateLambdaTriggerInput {
+  type: 's3' | 'dynamodb' | 'sqs' | 'kinesis'
+  bucketName?: string
+  events?: string[]
+  prefix?: string
+  suffix?: string
+  tableName?: string
+  queueNameOrUrl?: string
+  streamName?: string
+  batchSize?: number
+  startingPosition?: 'LATEST' | 'TRIM_HORIZON' | 'AT_TIMESTAMP'
+  enabled?: boolean
+  filterCriteria?: Record<string, unknown>
+}
+
+export interface DeleteLambdaTriggerOptions {
+  type?: string
+  bucket?: string
+}

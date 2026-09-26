@@ -64,7 +64,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsDatabaseAdapter(createRdsService(clients.rds), clients.rds),
         new AwsComputeAdapter(ec2Service),
         new AwsNetworkingAdapter(ec2Service),
-        new AwsServerlessAdapter(clients.lambda),
+        new AwsServerlessAdapter(clients.lambda, clients.s3, clients.dynamodb, clients.sqs, clients.kinesis),
         new AwsLogsAdapter(clients.logs),
         new AwsParameterStoreAdapter(clients.ssm),
         new AwsKmsAdapter(clients.kms),

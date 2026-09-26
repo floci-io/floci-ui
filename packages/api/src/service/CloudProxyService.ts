@@ -14,7 +14,9 @@ import type {
     CreateDatabaseSnapshotInput,
     CreateKubernetesFargateProfileInput,
     CreateKubernetesNodegroupInput,
+    CreateLambdaTriggerInput,
     CreateResourceInput,
+    DeleteLambdaTriggerOptions,
     AppConfigConfigurationProfile,
     AppConfigDeployment,
     AppConfigDeploymentStrategy,
@@ -23,6 +25,7 @@ import type {
     DatabaseSnapshot,
     KubernetesFargateProfile,
     KubernetesNodegroup,
+    LambdaTrigger,
     LogsInsightsQueryInput,
     LogsInsightsQueryResult,
     KmsDecryptInput,
@@ -573,6 +576,24 @@ export class CloudProxyService {
 
     async getAppConfigDeployment(cloud: CloudProvider, applicationId: string, environmentId: string, deploymentNumber: number): Promise<AppConfigDeployment | null> {
         return this.appConfigAdapter(cloud).getAppConfigDeployment!(applicationId, environmentId, deploymentNumber)
+    }
+
+    async listLambdaTriggers(cloud: CloudProvider, functionName: string): Promise<LambdaTrigger[]> {
+        const adapter = this.requireAdapter(cloud, 'serverless')
+        if (!adapter.listLambdaTriggers) throw new NotSupportedError(`Lambda triggers are not supported for ${cloud}/serverless`)
+        return adapter.listLambdaTriggers(functionName)
+    }
+
+    async createLambdaTrigger(cloud: CloudProvider, functionName: string, input: CreateLambdaTriggerInput): Promise<LambdaTrigger> {
+        const adapter = this.requireAdapter(cloud, 'serverless')
+        if (!adapter.createLambdaTrigger) throw new NotSupportedError(`Lambda triggers are not supported for ${cloud}/serverless`)
+        return adapter.createLambdaTrigger(functionName, input)
+    }
+
+    async deleteLambdaTrigger(cloud: CloudProvider, functionName: string, triggerId: string, options?: DeleteLambdaTriggerOptions): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'serverless')
+        if (!adapter.deleteLambdaTrigger) throw new NotSupportedError(`Lambda triggers are not supported for ${cloud}/serverless`)
+        await adapter.deleteLambdaTrigger(functionName, triggerId, options)
     }
 
     private requireAdapter(cloud: CloudProvider, service: CloudServiceType) {

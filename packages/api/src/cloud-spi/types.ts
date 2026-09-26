@@ -452,6 +452,45 @@ export interface CreateResourceInput {
 export interface UpdateResourceInput {
     values: Record<string, unknown>
 }
+export interface LambdaTriggerDetails {
+    events?: string[]
+    prefix?: string
+    suffix?: string
+    batchSize?: number
+    startingPosition?: string
+    filterCriteria?: Record<string, unknown>
+}
+
+export interface LambdaTrigger {
+    id: string
+    type: 's3' | 'dynamodb' | 'sqs' | 'kinesis'
+    sourceArn: string
+    sourceName: string
+    status: string
+    createdAt?: string | null
+    details: LambdaTriggerDetails
+}
+
+export interface CreateLambdaTriggerInput {
+    type: 's3' | 'dynamodb' | 'sqs' | 'kinesis'
+    bucketName?: string
+    events?: string[]
+    prefix?: string
+    suffix?: string
+    tableName?: string
+    queueNameOrUrl?: string
+    streamName?: string
+    batchSize?: number
+    startingPosition?: 'LATEST' | 'TRIM_HORIZON' | 'AT_TIMESTAMP'
+    enabled?: boolean
+    filterCriteria?: Record<string, unknown>
+}
+
+export interface DeleteLambdaTriggerOptions {
+    type?: string
+    bucket?: string
+}
+
 export interface ServerlessInvokeResult {
     statusCode: number
     payload: string
@@ -583,4 +622,7 @@ export interface CloudServiceAdapter {
     deleteAppConfigDeploymentStrategy?(strategyId: string): Promise<void>
     startAppConfigDeployment?(applicationId: string, environmentId: string, input: CreateResourceInput): Promise<AppConfigDeployment>
     getAppConfigDeployment?(applicationId: string, environmentId: string, deploymentNumber: number): Promise<AppConfigDeployment | null>
+    listLambdaTriggers?(functionName: string): Promise<LambdaTrigger[]>
+    createLambdaTrigger?(functionName: string, input: CreateLambdaTriggerInput): Promise<LambdaTrigger>
+    deleteLambdaTrigger?(functionName: string, triggerId: string, options?: DeleteLambdaTriggerOptions): Promise<void>
 }

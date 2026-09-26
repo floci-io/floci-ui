@@ -120,6 +120,13 @@ export const apiEndpointKeys = {
         delete: "clouds.services.configuration.deployment-strategies.delete",
       },
     },
+    serverless: {
+      triggers: {
+        list: "clouds.services.serverless.triggers.list",
+        create: "clouds.services.serverless.triggers.create",
+        delete: "clouds.services.serverless.triggers.delete",
+      },
+    },
   },
   aws: {
     eks: {
@@ -693,6 +700,31 @@ export const endpointRegistry: EndpointRegistry = new Map([
       telemetry: { service: "cloud-proxy" },
     },
   ],
+  [
+    apiEndpointKeys.clouds.serverless.triggers.list,
+    {
+      path: "/clouds/:cloud/services/serverless/resources/:id/triggers",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.serverless.triggers.create,
+    {
+      path: "/clouds/:cloud/services/serverless/resources/:id/triggers",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.serverless.triggers.delete,
+    {
+      path: "/clouds/:cloud/services/serverless/resources/:id/triggers/:triggerId",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+
 
   [
     apiEndpointKeys.clouds.childCollections.list,
