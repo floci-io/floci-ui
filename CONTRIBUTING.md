@@ -27,7 +27,7 @@ Floci emulators. Never have the frontend reach a cloud endpoint directly.
 
 ### Prerequisites
 
-- Node.js 22.22+ (CI uses 24)
+- Node.js 22.22.2+ or 24.15+ (CI uses 24)
 - pnpm 9+
 - [Bun](https://bun.sh/) (required by `packages/api`)
 - Docker (optional, only for running the full stack via `docker compose`)
