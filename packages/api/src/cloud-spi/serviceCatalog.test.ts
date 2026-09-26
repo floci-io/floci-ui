@@ -45,6 +45,15 @@ describe('SERVICE_CATALOG', () => {
         expect(displayNameFor(workflows, 'gcp')).toBe('Workflows')
     })
 
+    test('keeps Cognito separate from the IAM identity category', () => {
+        const cognito = catalogEntry('cognito')!
+
+        expect(cognito.group).toBe('Security')
+        expect(cognito.iconKey).toBe('iam')
+        expect(cognito.order).toBeGreaterThan(catalogEntry('identity')!.order)
+        expect(isServiceType('cognito')).toBe(true)
+    })
+
     test('orders entries by group then in-group order', () => {
         const positions = SERVICE_CATALOG_ENTRIES.map((entry) => [
             SERVICE_GROUP_ORDER.indexOf(entry.group),

@@ -127,6 +127,7 @@ export const SERVICE_CATALOG = {
         order: 15,
     },
     identity: {displayName: 'Identity', iconKey: 'iam', group: 'Security', order: 5},
+    cognito: {displayName: 'Cognito', iconKey: 'iam', group: 'Security', order: 6},
     apigateway: {displayName: 'API Gateway', iconKey: 'apigateway', group: 'Integration', order: 10},
     email: {
         displayName: 'Email',

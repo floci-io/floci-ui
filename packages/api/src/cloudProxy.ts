@@ -32,6 +32,7 @@ import {AwsStepFunctionsAdapter} from './adapter-aws/AwsStepFunctionsAdapter'
 import {AwsLoadBalancingAdapter} from './adapter-aws/AwsLoadBalancingAdapter'
 import {AwsEventBridgeAdapter} from './adapter-aws/AwsEventBridgeAdapter'
 import {AwsIamAdapter} from './adapter-aws/AwsIamAdapter'
+import {AwsCognitoAdapter} from './adapter-aws/AwsCognitoAdapter'
 import {AwsApiGatewayAdapter} from './adapter-aws/AwsApiGatewayAdapter'
 import {AwsCloudFormationAdapter} from './adapter-aws/AwsCloudFormationAdapter'
 import {AwsSecretsAdapter} from './adapter-aws/AwsSecretsAdapter'
@@ -72,6 +73,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsLoadBalancingAdapter(clients.elbv2),
         new AwsEventBridgeAdapter(clients.eventbridge),
         new AwsIamAdapter(clients.iam),
+        new AwsCognitoAdapter(clients.cognito),
         new AwsApiGatewayAdapter(clients.apiGateway),
         new AwsCloudFormationAdapter(clients.cloudformation),
         new AwsSecretsAdapter(clients.secretsManager),
