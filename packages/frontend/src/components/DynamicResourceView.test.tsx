@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +9,7 @@ import {
   listCloudResources,
 } from "@/api/cloudProxyClient";
 import { DynamicResourceView } from "@/components/DynamicResourceView";
+import { DEFAULT_ACCOUNT_ID, setAccountId } from "@/lib/accountStore";
 import type { CloudStatus } from "@/types/cloud";
 import type { CloudResource } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
@@ -65,6 +66,7 @@ const cloudStatus: CloudStatus = {
 describe("DynamicResourceView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
     vi.mocked(getServiceSchema).mockResolvedValue(schema);
     vi.mocked(listCloudResources).mockResolvedValue([summary]);
     vi.mocked(getCloudResource).mockResolvedValue(detail);
@@ -103,5 +105,100 @@ describe("DynamicResourceView", () => {
         "arn:aws:cognito-idp:us-east-1:000000000000:userpool/pool-1",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("refreshes the selected resource details with the resource list", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const user = userEvent.setup();
+    const refreshedDetail: CloudResource = {
+      ...detail,
+      metadata: {
+        ...detail.metadata,
+        arn: "arn:aws:cognito-idp:us-east-1:000000000000:userpool/pool-1-refreshed",
+        userCount: 4,
+      },
+    };
+    let resolveRefresh: (resource: CloudResource) => void = () => undefined;
+    const refreshResult = new Promise<CloudResource>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    vi.mocked(getCloudResource)
+      .mockResolvedValueOnce(detail)
+      .mockImplementationOnce(() => refreshResult);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="cognito"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("pool-a"));
+    expect(
+      await screen.findByText(
+        "arn:aws:cognito-idp:us-east-1:000000000000:userpool/pool-1",
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => expect(getCloudResource).toHaveBeenCalledTimes(2));
+    expect(
+      screen.queryByText(
+        "arn:aws:cognito-idp:us-east-1:000000000000:userpool/pool-1",
+      ),
+    ).not.toBeInTheDocument();
+
+    resolveRefresh(refreshedDetail);
+    expect(
+      await screen.findByText(
+        "arn:aws:cognito-idp:us-east-1:000000000000:userpool/pool-1-refreshed",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not retain inspected details after switching AWS accounts", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="cognito"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("pool-a"));
+    expect(
+      await screen.findByText(
+        "arn:aws:cognito-idp:us-east-1:000000000000:userpool/pool-1",
+      ),
+    ).toBeInTheDocument();
+
+    act(() => {
+      setAccountId("111111111111");
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(
+          "arn:aws:cognito-idp:us-east-1:000000000000:userpool/pool-1",
+        ),
+      ).not.toBeInTheDocument(),
+    );
   });
 });
