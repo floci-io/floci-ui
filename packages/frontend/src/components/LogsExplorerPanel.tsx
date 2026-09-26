@@ -1,9 +1,9 @@
 import {useEffect, useState} from 'react'
-import {createPortal} from 'react-dom'
 import {ChevronRight, Maximize2, Minimize2, RefreshCw, ScrollText} from 'lucide-react'
 import {useQueries} from '@tanstack/react-query'
 import {listChildCollections, listCollectionItems} from '@/api/cloudProxyClient'
 import {EmptyState} from '@/components/EmptyState'
+import {ExpandablePanel} from '@/components/ExpandablePanel'
 import {formatBytes, formatDateTime} from '@/lib/format'
 import {timeAgo} from '@/lib/utils'
 import type {CloudProvider} from '@/types/cloud'
@@ -232,14 +232,9 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
         </section>
     )
 
-    if (!expanded) return summary
-
-    return createPortal(
-        <div className="modal-overlay" onClick={() => setExpanded(false)}>
-            <div className="logs-query-modal" onClick={(event) => event.stopPropagation()}>
-                {content}
-            </div>
-        </div>,
-        document.body,
+    return (
+        <ExpandablePanel expanded={expanded} onCollapse={() => setExpanded(false)}>
+            {expanded ? content : summary}
+        </ExpandablePanel>
     )
 }

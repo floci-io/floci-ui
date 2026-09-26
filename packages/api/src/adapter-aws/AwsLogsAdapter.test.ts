@@ -56,6 +56,26 @@ describe('AwsLogsAdapter resources', () => {
         expect(calls[0].input).toMatchObject({logGroupNamePrefix: '/floci'})
     })
 
+    // Real DescribeLogGroups pages at 50 groups per call — a fleet larger than
+    // that must not silently look complete after the first page.
+    test('follows nextToken to collect every page', async () => {
+        let call = 0
+        const {client, calls} = stubClient({
+            DescribeLogGroupsCommand: () => {
+                call += 1
+                if (call === 1) return {logGroups: [{logGroupName: '/floci/a'}], nextToken: 'page-2'}
+                return {logGroups: [{logGroupName: '/floci/b'}]}
+            },
+        })
+        const adapter = new AwsLogsAdapter(client)
+
+        const result = await adapter.list()
+
+        expect(result.map((r) => r.id)).toEqual(['/floci/a', '/floci/b'])
+        expect(calls[0].input.nextToken).toBeUndefined()
+        expect(calls[1].input.nextToken).toBe('page-2')
+    })
+
     test('get returns null for a group the runtime does not have', async () => {
         const {client} = stubClient({DescribeLogGroupsCommand: () => ({logGroups: []})})
         const adapter = new AwsLogsAdapter(client)
@@ -212,6 +232,48 @@ describe('AwsLogsAdapter queryLogs', () => {
 
         await expect(adapter.queryLogs('/floci/probe', {queryString: 'fields @message', startTime: 0, endTime: 1}))
             .rejects.toThrow()
+    })
+
+    test('sends logGroupNames (plural) when given more than one group', async () => {
+        const {client, calls} = stubClient({
+            StartQueryCommand: () => ({queryId: 'q-4'}),
+            GetQueryResultsCommand: () => ({status: 'Complete', results: []}),
+        })
+        const adapter = new AwsLogsAdapter(client)
+
+        await adapter.queryLogs(['/floci/probe', '/floci/probe-two'], {
+            queryString: 'fields @message',
+            startTime: 0,
+            endTime: 1,
+        })
+
+        expect(calls[0]).toMatchObject({
+            command: 'StartQueryCommand',
+            input: {logGroupNames: ['/floci/probe', '/floci/probe-two']},
+        })
+        expect(calls[0].input.logGroupName).toBeUndefined()
+    })
+
+    test('still sends the singular logGroupName field for a one-element array', async () => {
+        const {client, calls} = stubClient({
+            StartQueryCommand: () => ({queryId: 'q-5'}),
+            GetQueryResultsCommand: () => ({status: 'Complete', results: []}),
+        })
+        const adapter = new AwsLogsAdapter(client)
+
+        await adapter.queryLogs(['/floci/probe'], {queryString: 'fields @message', startTime: 0, endTime: 1})
+
+        expect(calls[0]).toMatchObject({command: 'StartQueryCommand', input: {logGroupName: '/floci/probe'}})
+        expect(calls[0].input.logGroupNames).toBeUndefined()
+    })
+
+    test('rejects an empty log group list before calling the runtime', async () => {
+        const {client, calls} = stubClient({})
+        const adapter = new AwsLogsAdapter(client)
+
+        await expect(adapter.queryLogs([], {queryString: 'fields @message', startTime: 0, endTime: 1}))
+            .rejects.toThrow()
+        expect(calls).toEqual([])
     })
 })
 
