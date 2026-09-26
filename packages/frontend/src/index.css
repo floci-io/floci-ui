@@ -541,17 +541,19 @@ pre,
     white-space: nowrap;
 }
 
-.account-switcher {
+.account-switcher,
+.cloud-switcher {
     position: relative;
 }
 
-.topbar-status:empty + .account-switcher {
+.topbar-status:empty + .cloud-switcher {
     margin-left: auto;
 }
 
 .account-trigger {
     display: inline-flex;
     align-items: center;
+    flex-shrink: 0;
     gap: 8px;
     height: 30px;
     padding: 0 8px;
@@ -574,6 +576,11 @@ pre,
     line-height: 1.15;
 }
 
+.account-label,
+.account-value {
+    white-space: nowrap;
+}
+
 .account-label {
     font-size: 11px;
     letter-spacing: 0.06em;
@@ -584,6 +591,24 @@ pre,
 .account-value {
     font-variant-numeric: tabular-nums;
     font-weight: 600;
+}
+
+/* Below ~680px the topbar's fixed-width controls (search, theme toggle, two
+   switcher buttons, connection badge) sum to more than the viewport, and
+   since the row never wraps the overflow was clipped off past the edge
+   instead of shrinking. Drop each control's text, keeping only the icons
+   (full detail stays in each control's title/aria-label and, for the
+   switchers, in the popover once opened). */
+@media (max-width: 680px) {
+    .kbd {
+        display: none;
+    }
+
+    .account-meta,
+    .connection-state,
+    .connection-target {
+        display: none;
+    }
 }
 
 .account-popover {
@@ -1072,8 +1097,7 @@ pre,
 }
 
 .button:disabled,
-.icon-btn:disabled,
-.selector-pill:disabled {
+.icon-btn:disabled {
     cursor: not-allowed;
     opacity: 0.55;
 }
@@ -1213,35 +1237,6 @@ pre,
     color: var(--text);
     font-size: 13px;
     line-height: 1.6;
-}
-
-.cloud-selector {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.selector-pill {
-    min-height: 32px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid var(--input-border);
-    border-radius: 4px;
-    background: var(--raised);
-    color: var(--text);
-    padding: 0 12px;
-    font-size: 12px;
-}
-
-.selector-pill.active {
-    border-color: var(--link);
-    background: var(--link-tint-hover);
-    color: var(--text-bright);
-}
-
-.selector-pill.soon {
-    border-style: dashed;
 }
 
 .dynamic-resource-view {
@@ -2924,48 +2919,6 @@ pre,
 .cloud-console-home {
     display: grid;
     gap: 14px;
-}
-
-.console-provider-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    border: 1px solid var(--border);
-    border-left-width: 3px;
-    border-radius: 4px;
-    background: var(--elevated);
-    padding: 16px;
-}
-
-.console-provider-banner.ready {
-    border-left-color: var(--status-ok);
-}
-
-.console-provider-banner.pending {
-    border-left-color: var(--status-warn);
-}
-
-.console-provider-banner.unavailable {
-    border-left-color: var(--status-error);
-}
-
-.console-provider-banner h3 {
-    margin: 2px 0 4px;
-    color: var(--text-bright);
-    font-size: 20px;
-}
-
-.console-provider-banner p {
-    margin: 0;
-    color: var(--text-2);
-    font-size: 13px;
-}
-
-.console-provider-actions {
-    display: flex;
-    justify-content: flex-end;
-    flex: 0 0 auto;
 }
 
 .console-summary {
