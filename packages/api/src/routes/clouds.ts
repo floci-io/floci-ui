@@ -5,6 +5,7 @@ import type {
     CloudServiceType,
     CreateDatabaseSnapshotInput,
     KmsEncryptionAlgorithm,
+    ServiceSchema,
     SqlConnectionInput,
 } from '../cloud-spi/types'
 import {clampLimit, type PageQuery} from '../cloud-spi/childCollections'
@@ -119,7 +120,11 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) return c.json({error: 'Unknown cloud or service'}, 404)
 
         return withRuntime(c, async () => {
-            const resources = await svc(c).listResources(cloud, serviceType, {search: c.req.query('search')})
+            const service = svc(c)
+            const resources = await service.listResources(cloud, serviceType, {
+                search: c.req.query('search'),
+                filters: declaredFilters(service.schema(cloud, serviceType), (name) => c.req.query(name)),
+            })
             return c.json(resources)
         })
     })
@@ -889,6 +894,29 @@ async function withSensitiveRuntime(c: Context, handler: () => Promise<Response>
         const message = body.code === 'invalid_request' ? 'KMS rejected the request' : body.error
         return c.json({error: message, code: body.code, message}, status)
     }
+}
+
+/**
+ * Collect values for the facets a service's schema actually declares.
+ *
+ * Driven by the schema rather than by "every query param that is not `search`",
+ * so a stray or stale param never reaches an adapter that did not ask for it,
+ * the same reason the service catalog gates unknown service slugs. `search` is
+ * excluded because it is carried separately on `ResourceQuery`.
+ */
+function declaredFilters(
+    schema: ServiceSchema | null,
+    valueFor: (name: string) => string | undefined,
+): Record<string, string> | undefined {
+    const filters: Record<string, string> = {}
+
+    for (const filter of schema?.filters ?? []) {
+        if (filter.name === 'search') continue
+        const value = valueFor(filter.name)
+        if (value !== undefined && value !== '') filters[filter.name] = value
+    }
+
+    return Object.keys(filters).length > 0 ? filters : undefined
 }
 
 export default createCloudRoutes()

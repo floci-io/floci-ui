@@ -229,13 +229,14 @@ Current gaps:
 
 AWS only, through the generic identity service category.
 
-- List and inspect IAM users.
-- Create and delete IAM users.
-- IAM user paths are supported during creation.
+- List, inspect, create, and delete IAM users, roles, and customer-managed policies.
+- A `kind` facet (`users` | `roles` | `policies`) narrows the list to one kind at a time; the API accepts it today, and rendering it as a console control is tracked as follow-up frontend work.
+- Roles surface their decoded trust policy; policies surface their default version's decoded document on inspect.
+- IAM paths are supported during creation for all three kinds.
 
 Current gaps:
 
-- Roles, groups, policies, access keys, and other advanced IAM workflows are not exposed yet.
+- Groups, access keys, and other advanced IAM workflows are not exposed yet.
 - No Azure or GCP identity adapter yet.
 
 </details>
