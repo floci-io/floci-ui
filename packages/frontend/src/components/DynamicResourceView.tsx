@@ -6,6 +6,7 @@ import {
   createCloudResource,
   clearEmailInbox,
   deleteCloudResource,
+  getCloudResource,
   getServiceSchema,
   listCloudResources,
   updateCloudResource,
@@ -98,6 +99,20 @@ export function DynamicResourceView({
     queryFn: ({ signal }) => listCloudResources(cloud, service, search, signal),
     enabled:
       schemaQuery.isSuccess &&
+      serviceAvailability === "available" &&
+      cloudStatus?.runtime === "reachable",
+  });
+  const selectedForService =
+    selected?.cloud === cloud && selected.service === service
+      ? selected
+      : undefined;
+  const resourceDetailQuery = useQuery({
+    queryKey: ["cloud-resource", cloud, service, selectedForService?.id],
+    queryFn: ({ signal }) =>
+      getCloudResource(cloud, service, selectedForService!.id, signal),
+    enabled:
+      selectedForService !== undefined &&
+      schemaQuery.data?.actions.includes("inspect") === true &&
       serviceAvailability === "available" &&
       cloudStatus?.runtime === "reachable",
   });
@@ -396,10 +411,11 @@ export function DynamicResourceView({
   const isAllSelected =
     selectableResources.length > 0 &&
     selectableResources.every((r) => selectedItems.some((s) => s.id === r.id));
-  const activeSelected =
-    selected?.cloud === cloud && selected.service === service
-      ? selected
-      : undefined;
+  const activeSelected = selectedForService;
+  const inspectedResource =
+    resourceDetailQuery.data?.id === activeSelected?.id
+      ? resourceDetailQuery.data
+      : activeSelected;
   const runtimeReachable = cloudStatus?.runtime === "reachable";
   const resourceCapabilityInputs =
     schema.capabilities?.resourceActions ?? schema.actions;
@@ -709,7 +725,7 @@ export function DynamicResourceView({
         </section>
         {activeSelected && !showDatabaseSnapshots && (
           <ResourceInspector
-            resource={activeSelected}
+            resource={inspectedResource}
             object={selectedObject}
             cloud={cloud}
             runtimeReachable={canUseRuntime}
