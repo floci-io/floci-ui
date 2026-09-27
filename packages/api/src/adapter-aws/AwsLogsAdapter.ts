@@ -94,10 +94,19 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const prefix = query.search?.trim()
-        const response = await this.client.send(
-            new DescribeLogGroupsCommand(prefix ? {logGroupNamePrefix: prefix} : {}),
-        )
-        return (response.logGroups ?? []).map(toResource)
+        const logGroups: LogGroupShape[] = []
+        let nextToken: string | undefined
+        do {
+            const response = await this.client.send(
+                new DescribeLogGroupsCommand({
+                    ...(prefix ? {logGroupNamePrefix: prefix} : {}),
+                    nextToken,
+                }),
+            )
+            logGroups.push(...(response.logGroups ?? []))
+            nextToken = response.nextToken
+        } while (nextToken)
+        return logGroups.map(toResource)
     }
 
     async get(id: string): Promise<CloudResource | null> {
@@ -120,20 +129,27 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
         await this.client.send(new DeleteLogGroupCommand({logGroupName: id}))
     }
 
-    async queryLogs(logGroupName: string, input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult> {
+    async queryLogs(logGroupNames: string | string[], input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult> {
         const queryString = input.queryString.trim()
         if (!queryString) throw new ValidationError('A query string is required.')
 
+        const groups = Array.isArray(logGroupNames) ? logGroupNames : [logGroupNames]
+        if (groups.length === 0) throw new ValidationError('At least one log group is required.')
+
+        // StartQuery accepts exactly one of logGroupName or logGroupNames — a
+        // single-element array still goes through the singular field, so the
+        // existing per-row single-log-group call site sends the identical wire
+        // shape it always has.
         const {queryId} = await this.client.send(
             new StartQueryCommand({
-                logGroupName,
+                ...(groups.length === 1 ? {logGroupName: groups[0]} : {logGroupNames: groups}),
                 startTime: input.startTime,
                 endTime: input.endTime,
                 queryString,
                 limit: input.limit,
             }),
         )
-        if (!queryId) throw new NotFoundError(`Floci did not return a query id for ${logGroupName}.`)
+        if (!queryId) throw new NotFoundError(`Floci did not return a query id for ${groups.join(', ')}.`)
 
         const deadline = Date.now() + (this.queryPoll.timeoutMs ?? QUERY_POLL_TIMEOUT_MS)
         const pollInterval = this.queryPoll.intervalMs ?? QUERY_POLL_INTERVAL_MS

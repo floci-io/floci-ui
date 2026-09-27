@@ -13,7 +13,7 @@
     "build": "pnpm --filter @floci/frontend build",
     "lint": "pnpm --filter @floci/frontend lint",
     "type-check": "pnpm --filter @floci/api type-check && pnpm --filter @floci/frontend type-check",
-    "test": "pnpm --filter @floci/api test",
+    "test": "pnpm --filter @floci/api test && pnpm --filter @floci/frontend test",
     "dev:api": "sh -c 'PORT=${PORT:-4501} pnpm --filter @floci/api dev'",
     "start:api": "sh -c 'PORT=${PORT:-4501} pnpm --filter @floci/api start'"
   }

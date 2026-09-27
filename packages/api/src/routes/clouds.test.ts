@@ -581,7 +581,7 @@ describe('cloud schema routes', () => {
     })
 
     test('runs a Logs Insights query through the route', async () => {
-        let received: {logGroupName?: string; queryString?: string; startTime?: number; endTime?: number; limit?: number} = {}
+        let received: {logGroupName?: string | string[]; queryString?: string; startTime?: number; endTime?: number; limit?: number} = {}
         const app = appWithRoutes([mockAdapter('aws', {
             service: 'logs',
             schema: awsLogsSchema,
@@ -632,6 +632,79 @@ describe('cloud schema routes', () => {
         const res = await app.request('/api/clouds/aws/services/logs/resources/%2Ffloci%2Fprobe/query', {
             method: 'POST',
             body: JSON.stringify({queryString: 'fields @message', endTime: 2000}),
+        })
+
+        expect(res.status).toBe(400)
+    })
+
+    test('runs a Logs Insights query across multiple log groups through the service-level route', async () => {
+        let received: {logGroupNames?: string[]; queryString?: string; startTime?: number; endTime?: number; limit?: number} = {}
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'logs',
+            schema: awsLogsSchema,
+            queryLogs: async (logGroupNames, input): Promise<LogsInsightsQueryResult> => {
+                received = {logGroupNames: logGroupNames as string[], ...input}
+                return {queryId: 'q-multi', status: 'Complete', rows: [{'@message': 'hello'}]}
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/logs/query', {
+            method: 'POST',
+            body: JSON.stringify({
+                logGroupNames: ['/floci/probe', '/floci/probe-two'],
+                queryString: 'fields @message',
+                startTime: 1000,
+                endTime: 2000,
+            }),
+        })
+        const body = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(body).toEqual({queryId: 'q-multi', status: 'Complete', rows: [{'@message': 'hello'}]})
+        expect(received).toEqual({
+            logGroupNames: ['/floci/probe', '/floci/probe-two'],
+            queryString: 'fields @message',
+            startTime: 1000,
+            endTime: 2000,
+            limit: undefined,
+        })
+    })
+
+    test('rejects a multi-group Logs Insights query with an empty logGroupNames array', async () => {
+        let called = false
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'logs',
+            schema: awsLogsSchema,
+            queryLogs: async (): Promise<LogsInsightsQueryResult> => {
+                called = true
+                return {queryId: 'q-1', status: 'Complete', rows: []}
+            },
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/logs/query', {
+            method: 'POST',
+            body: JSON.stringify({logGroupNames: [], queryString: 'fields @message', startTime: 1000, endTime: 2000}),
+        })
+
+        expect(res.status).toBe(400)
+        expect(called).toBe(false)
+    })
+
+    test('rejects a multi-group Logs Insights query over the log group limit', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            service: 'logs',
+            schema: awsLogsSchema,
+            queryLogs: async (): Promise<LogsInsightsQueryResult> => ({queryId: 'q-1', status: 'Complete', rows: []}),
+        })])
+
+        const res = await app.request('/api/clouds/aws/services/logs/query', {
+            method: 'POST',
+            body: JSON.stringify({
+                logGroupNames: Array.from({length: 51}, (_, i) => `/floci/group-${i}`),
+                queryString: 'fields @message',
+                startTime: 1000,
+                endTime: 2000,
+            }),
         })
 
         expect(res.status).toBe(400)

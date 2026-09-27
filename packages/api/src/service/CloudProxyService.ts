@@ -448,10 +448,10 @@ export class CloudProxyService {
         return adapter.querySql(serverId, connection, query)
     }
 
-    async queryLogs(cloud: CloudProvider, logGroupName: string, input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult> {
+    async queryLogs(cloud: CloudProvider, logGroupNames: string | string[], input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult> {
         const adapter = this.requireAdapter(cloud, 'logs')
         if (!adapter.queryLogs) throw new NotSupportedError(`Logs Insights query is not supported for ${cloud}/logs`)
-        return adapter.queryLogs(logGroupName, input)
+        return adapter.queryLogs(logGroupNames, input)
     }
 
     async listNoSqlItems(cloud: CloudProvider, resourceId: string): Promise<NoSqlItem[]> {

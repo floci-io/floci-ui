@@ -111,7 +111,7 @@ Requires a running Floci core (`:4566`) — see `README.md` / `docker compose` (
 
     pnpm lint          # eslint, frontend
     pnpm type-check    # tsc on both packages
-    pnpm test          # bun test, packages/api
+    pnpm test          # bun test (packages/api) + vitest (packages/frontend)
     pnpm build         # production build
 
 ---

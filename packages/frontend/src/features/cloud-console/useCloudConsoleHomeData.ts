@@ -5,7 +5,6 @@ import {
     cloudQueryKeys,
     useCloudServicesQuery,
     useCloudStatusQuery,
-    useCloudsQuery,
 } from '@/api/queries/cloudQueries'
 import {serviceIcon} from '@/components/serviceIcons'
 import {
@@ -27,7 +26,6 @@ import type {ConsoleServiceCard} from './types'
  * placeholder cards — so it could disagree with both the sidebar and the API.
  */
 export function useCloudConsoleHomeData(cloud: CloudProvider) {
-    const cloudsQuery = useCloudsQuery()
     const servicesQuery = useCloudServicesQuery(cloud)
     const statusQuery = useCloudStatusQuery(cloud)
     const status = statusQuery.data
@@ -100,7 +98,6 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
     const activeServices = services.filter((service) => service.availability === 'available').length
 
     return {
-        cloudsQuery,
         status,
         runtimeLabel: runtimeEndpointLabel(status),
         runtimeState: runtimeLabelFor(status, statusQuery.isLoading),

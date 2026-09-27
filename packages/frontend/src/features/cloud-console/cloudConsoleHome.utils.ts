@@ -45,18 +45,6 @@ export function serviceMetaLabel(status: CloudStatus | undefined, loading: boole
     return label
 }
 
-export function cloudName(cloud: CloudProvider): string {
-    if (cloud === 'aws') return 'AWS Local Runtime'
-    if (cloud === 'azure') return 'Azure Local Runtime'
-    return 'GCP Local Runtime'
-}
-
-export function providerDescription(cloud: CloudProvider): string {
-    if (cloud === 'aws') return 'Storage, runtime infrastructure, and AWS-specific pages are backed by Floci AWS Core.'
-    if (cloud === 'azure') return 'Storage is backed by Floci-AZ through the same normalized storage contract.'
-    return 'Storage is backed by Floci-GCP through the same normalized storage contract.'
-}
-
 export function adapterLabel(cloud: CloudProvider, status?: CloudStatus): string {
     if (!status?.adapterRegistered) return 'Coming soon'
     return `${cloud.toUpperCase()} Adapter`

@@ -1,11 +1,10 @@
 import {useMemo, useState} from 'react'
 import {Cloud, X} from 'lucide-react'
-import {Navigate, useNavigate, useParams} from 'react-router-dom'
+import {Navigate, useParams} from 'react-router-dom'
 import {useQuery} from '@tanstack/react-query'
 import {Link} from 'react-router-dom'
 import {getServiceSchema} from '@/api/cloudProxyClient'
-import {useCloudServicesQuery, useCloudStatusQuery, useCloudsQuery} from '@/api/queries/cloudQueries'
-import {CloudSelector} from '@/components/CloudSelector'
+import {useCloudServicesQuery, useCloudStatusQuery} from '@/api/queries/cloudQueries'
 import {DynamicResourceView} from '@/components/DynamicResourceView'
 import {EmptyState} from '@/components/EmptyState'
 import {normalizeCapabilities, withRuntimeState, withServiceAvailability} from '@/lib/capabilities'
@@ -13,14 +12,12 @@ import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatu
 import type {ServiceSchema} from '@/types/schema'
 
 export function CloudExplorerPage() {
-    const navigate = useNavigate()
     const params = useParams()
     const routeCloud = normalizeCloud(params.cloud)
     const cloud = routeCloud ?? 'aws'
     const service = params.service ?? ''
     const [infoOpen, setInfoOpen] = useState(false)
 
-    const cloudsQuery = useCloudsQuery()
     const servicesQuery = useCloudServicesQuery(cloud)
     const statusQuery = useCloudStatusQuery(cloud)
     const schemaQuery = useQuery({
@@ -63,14 +60,6 @@ export function CloudExplorerPage() {
                     <label>
                         <span>Service</span>
                         <div className="service-selector-readonly">{selectedService?.displayName ?? service}</div>
-                    </label>
-                    <label>
-                        <span>Cloud</span>
-                        <CloudSelector
-                            clouds={cloudsQuery.data ?? []}
-                            selected={cloud}
-                            onSelect={(nextCloud) => navigate(`/cloud-explorer/${nextCloud}/storage`)}
-                        />
                     </label>
                 </div>
             </div>

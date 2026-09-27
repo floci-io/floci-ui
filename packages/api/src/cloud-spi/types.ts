@@ -433,6 +433,16 @@ export interface AppConfigDeployment {
 
 export interface ResourceQuery {
     search?: string
+    /**
+     * Values for the non-search facets a schema declares in `filters`.
+     *
+     * Needed because some services hold several kinds of resource in one category,
+     * IAM lists users, roles and policies, and a free-text search cannot express
+     * "only roles". The route populates this from query params, but only for
+     * names the service's own schema declares, so an unknown param is ignored
+     * rather than reaching an adapter that never asked for it.
+     */
+    filters?: Record<string, string>
 }
 
 export interface CreateResourceInput {
@@ -544,7 +554,7 @@ export interface CloudServiceAdapter {
     listSqlDatabases?(serverId: string, connection: SqlConnectionInput): Promise<SqlDatabase[]>
     listSqlTables?(serverId: string, connection: SqlConnectionInput): Promise<SqlTable[]>
     querySql?(serverId: string, connection: SqlConnectionInput, query: string): Promise<SqlQueryResult>
-    queryLogs?(logGroupName: string, input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult>
+    queryLogs?(logGroupNames: string | string[], input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult>
     listNoSqlItems?(resourceId: string): Promise<NoSqlItem[]>
     putNoSqlItem?(resourceId: string, document: Record<string, unknown>): Promise<NoSqlItem>
     listKubernetesNodegroups?(clusterId: string): Promise<KubernetesNodegroup[]>
