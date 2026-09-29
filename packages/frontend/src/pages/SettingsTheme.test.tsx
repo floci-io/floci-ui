@@ -11,7 +11,7 @@ function ResolvedTheme() {
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('SettingsPage theme preference', () => {
+describe('Settings theme preference', () => {
     it('follows system changes until the user chooses a fixed theme', async () => {
         let dark = false
         const listeners = new Set<() => void>()
