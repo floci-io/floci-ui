@@ -54,7 +54,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 |---|---|---|---|---|---|
 | Compute | Compute | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | No | No |
 | Compute | EKS / AKS / GKE / k8s Engine | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) | No |
-| Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | No |
+| Compute | Serverless / Functions | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) | No |
 | Compute | SageMaker AI | Yes (list, create, delete, inspect) | No | No | No |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |

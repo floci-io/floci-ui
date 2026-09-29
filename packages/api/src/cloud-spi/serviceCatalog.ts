@@ -78,8 +78,11 @@ export const SERVICE_CATALOG = {
     },
     serverless: {
         displayName: 'Serverless',
+        displayNameByCloud: {oci: 'Functions'},
         description: 'Run functions without managing servers.',
-        iconKey: 'serverless', group: 'Compute', order: 30,
+        iconKey: 'serverless',
+        group: 'Compute',
+        order: 30,
     },
     containers: {
         displayName: 'Containers',

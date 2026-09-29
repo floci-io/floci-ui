@@ -35,7 +35,8 @@ export function ServerlessInvokePanel({
     resource?.service === "serverless" &&
     (resource.type === "lambda" ||
       resource.type === "azure-function" ||
-      resource.type === "gcp-function");
+      resource.type === "gcp-function" ||
+      resource.type === "oci-function");
 
   const canInvoke = Boolean(resource && isSupportedResource && runtimeReachable);
   const canSubmit = canInvoke && !validationError;
@@ -45,7 +46,9 @@ export function ServerlessInvokePanel({
       ? "Lambda function"
       : cloud === "azure"
         ? "Azure Function"
-        : "Google Cloud Function";
+        : cloud === "oci"
+          ? "OCI function"
+          : "Google Cloud Function";
 
   const invokeMutation = useMutation({
     mutationFn: () =>
@@ -89,7 +92,7 @@ const clearPayload = () => {
         <div className="empty compact">
           <h3>Select a serverless function</h3>
           <p>
-            Select a Lambda function, Azure Function, or Google Cloud Function to
+            Select a Lambda function, Azure Function, Google Cloud Function, or OCI function to
             invoke it from Cloud Explorer.
           </p>
         </div>
