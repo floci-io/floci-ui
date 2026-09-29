@@ -151,7 +151,7 @@ export const SERVICE_CATALOG = {
     },
     streams: {
         displayName: 'Streams',
-        displayNameByCloud: {aws: 'Kinesis'},
+        displayNameByCloud: {aws: 'Kinesis', oci: 'Streaming'},
         description: 'Collect and process streaming data in real time.',
         iconKey: 'streams',
         group: 'Integration',
