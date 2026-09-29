@@ -8,9 +8,12 @@
     <script>
       (function () {
         var t = localStorage.getItem("floci-theme");
+        var theme = t === "system"
+          ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : (t === "light" ? "light" : "dark");
         document.documentElement.setAttribute(
           "data-theme",
-          t === "light" ? "light" : "dark",
+          theme,
         );
       })();
     </script>
