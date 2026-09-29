@@ -8,7 +8,9 @@ project and all contributions are welcome.
 
 - **Bug reports**: open an issue with a minimal reproduction (steps, expected vs. actual)
 - **Feature requests**: open an issue describing the console feature or service page you need
-- **Pull requests**: bug fixes, new service UI, or UX improvements
+- **Pull requests**: bug fixes, new service UI, or UX improvements (layout and look-and-feel
+  changes start as a Discussion first, see [UI and Design Changes](#ui-and-design-changes))
+- **Design ideas**: open a Discussion in [Ideas](https://github.com/floci-io/floci-ui/discussions/categories/ideas) to propose a change to how the console looks or is organised
 - **Service coverage**: wire a new Floci-backed service into the console
 
 ## Project Layout
@@ -179,6 +181,34 @@ When wiring a new service into the console, follow these rules:
 - Keep service status notes in the README accurate.
 - Add verification notes for any newly wired operations.
 
+## UI and Design Changes
+
+The console's layout and look and feel are a product decision, so changes to them follow
+**Discussion, then issue, then PR**:
+
+1. **Discussion.** Open a Discussion in the [Ideas category](https://github.com/floci-io/floci-ui/discussions/categories/ideas)
+   describing the idea, with a mockup or screenshots and the problem it solves.
+2. **Issue.** Once a maintainer accepts the idea in the Discussion, an issue is opened from it.
+3. **PR.** Implement it in a PR that closes that issue (`Closes #N`).
+
+This applies to changes such as:
+
+- the app shell: header, sidebar, navigation grouping or order, header controls
+- moving a control or a piece of information to a different place, or adding a new global
+  page or settings surface
+- theme, colours, typography, spacing, icons, or density
+- restyling a shared component (tables, forms, the inspector, Console Home cards) in a way
+  that changes how every service looks
+- new descriptive copy shown across services
+
+It does **not** apply to a new service rendered through the existing Cloud Explorer views,
+a bug fix that restores the intended layout or behaviour, or an accessibility fix. Those can
+go straight to a PR.
+
+A layout or look-and-feel PR without an accepted Discussion will be asked to start one
+before it can be reviewed further. Your work is not wasted: the screenshots from the PR are
+a great starting point for the Discussion.
+
 ## Pull Request Guidelines
 
 1. Branch off `main`: `git checkout -b feat/my-feature`
@@ -186,6 +216,8 @@ When wiring a new service into the console, follow these rules:
 3. Make sure `pnpm lint`, `pnpm type-check`, `pnpm test`, and `pnpm build` all pass before requesting review.
 4. Keep PRs focused: one feature or fix per PR.
 5. Reference any related issues in the PR description.
+6. For layout or look-and-feel changes, close an issue that came from an accepted Discussion
+   (see [UI and Design Changes](#ui-and-design-changes)).
 
 Docker images are never built on contributor PRs, so merging to `main` is always cheap.
 

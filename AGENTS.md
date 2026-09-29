@@ -41,6 +41,11 @@ Critical rules:
 - Do not have the frontend call AWS/Azure/GCP endpoints directly — always go through `packages/api`
 - Do not introduce decorative data or fake operational metrics — unwired states stay empty
 - Do not perform broad refactors unless the task explicitly requires them
+- Do not change the console's layout or look and feel (app shell, navigation, theme, moving
+  controls, restyling shared components) unless the task implements an issue that came from
+  an accepted Discussion; see "UI and Design Changes" in `CONTRIBUTING.md`. Exempt, and fine
+  to do directly: a new service rendered through the existing Cloud Explorer views, a bug fix
+  that restores the intended layout or behaviour, and an accessibility fix
 
 ---
 
