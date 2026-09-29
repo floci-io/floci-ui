@@ -71,4 +71,26 @@ describe("KmsCryptoPanel", () => {
 
     expect(screen.queryByText("old-account-result")).not.toBeInTheDocument();
   });
+
+  test("accepts an OCI key whose lifecycle state is ENABLED", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{...resource, cloud: "oci", status: "ENABLED"}}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+  });
+
+  test("blocks an OCI key pending deletion", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{...resource, cloud: "oci", status: "PENDING_DELETION", metadata: {...resource.metadata, enabled: false}}}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Key not enabled")).toBeInTheDocument();
+  });
 });

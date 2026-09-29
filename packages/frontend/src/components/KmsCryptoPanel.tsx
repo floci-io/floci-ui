@@ -22,7 +22,8 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
   const accountId = useAccountId();
   const keySpec = metadataString(resource, "keySpec");
   const keyUsage = metadataString(resource, "keyUsage");
-  const keyEnabled = resource?.status === "Enabled" && resource.metadata.enabled === true;
+  // AWS reports "Enabled", OCI "ENABLED".
+  const keyEnabled = resource?.status?.toUpperCase() === "ENABLED" && resource.metadata.enabled === true;
   const [mode, setMode] = useState<CryptoMode>("encrypt");
   const [plaintext, setPlaintext] = useState("");
   const [ciphertext, setCiphertext] = useState("");

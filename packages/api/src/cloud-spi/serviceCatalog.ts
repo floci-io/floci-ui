@@ -190,7 +190,7 @@ export const SERVICE_CATALOG = {
     },
     kms: {
         displayName: 'Key Management',
-        displayNameByCloud: {aws: 'KMS'},
+        displayNameByCloud: {aws: 'KMS', oci: 'Vault'},
         description: 'Create and manage encryption keys.',
         iconKey: 'kms',
         group: 'Security',
