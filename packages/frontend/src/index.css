@@ -4432,9 +4432,15 @@ button.console-service-card {
         flex-direction: column;
     }
 
+    .settings-section :is(.account-switcher, .cloud-switcher) {
+        width: 248px;
+        max-width: 100%;
+    }
+
     .settings-section .account-popover {
         left: 0;
         right: auto;
+        width: 100%;
     }
 }
 /* ── Settings page ── */
