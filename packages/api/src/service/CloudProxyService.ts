@@ -89,6 +89,7 @@ export class CloudProxyService {
             {id: 'aws', displayName: 'AWS', availability: 'available'},
             {id: 'azure', displayName: 'Azure', availability: 'available'},
             {id: 'gcp', displayName: 'GCP', availability: 'available'},
+            {id: 'oci', displayName: 'OCI', availability: 'available'},
         ]
     }
 

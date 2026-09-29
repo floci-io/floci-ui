@@ -1,4 +1,4 @@
-export type CloudProvider = 'aws' | 'azure' | 'gcp'
+export type CloudProvider = 'aws' | 'azure' | 'gcp' | 'oci'
 export type CloudAvailability = 'available' | 'coming_soon'
 
 export type KnownCloudServiceType =

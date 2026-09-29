@@ -7,6 +7,7 @@ import flociMarkWhite from '@/assets/floci-mark-white.svg'
 import flociMarkBlack from '@/assets/floci-mark-black.svg'
 import {useTheme} from '@/lib/useTheme'
 import {useSidebar} from '@/lib/useSidebar'
+import {isCloudProvider} from '@/lib/cloudProvider'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus} from '@/api/cloudProxyClient'
 import {useCloudServicesQuery, useCloudsQuery} from '@/api/queries/cloudQueries'
@@ -365,7 +366,7 @@ function TopbarSearch() {
     )
 }
 
-function activeCloudFromPath(pathname: string): 'aws' | 'azure' | 'gcp' {
-    const match = pathname.match(/^\/(?:cloud-explorer|console)\/(aws|azure|gcp)(?:\/|$)/)
-    return (match?.[1] ?? 'aws') as 'aws' | 'azure' | 'gcp'
+function activeCloudFromPath(pathname: string): CloudProvider {
+    const segment = pathname.match(/^\/(?:cloud-explorer|console)\/([^/]+)/)?.[1]
+    return isCloudProvider(segment) ? segment : 'aws'
 }

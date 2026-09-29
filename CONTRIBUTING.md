@@ -49,7 +49,7 @@ frontend (`:4500`).
 
 ```bash
 docker compose up                        # AWS-only
-docker compose --profile multicloud up   # adds Azure + GCP emulators
+docker compose --profile multicloud up   # adds Azure + GCP + OCI emulators
 ```
 
 **Option B, local dev (three terminals):**

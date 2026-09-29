@@ -80,7 +80,7 @@ function mockAdapter(cloud: CloudProvider, overrides: Partial<CloudServiceAdapte
  */
 function stubProbes(overrides: Partial<Record<CloudProvider, RuntimeProbe>> = {}): Record<CloudProvider, RuntimeProbe> {
     const reachable: RuntimeProbe = async () => {}
-    return {aws: reachable, azure: reachable, gcp: reachable, ...overrides}
+    return {aws: reachable, azure: reachable, gcp: reachable, oci: reachable, ...overrides}
 }
 
 function unreachable(message: string): RuntimeProbe {
@@ -983,7 +983,7 @@ describe('KMS crypto routes', () => {
 
 describe('service descriptors', () => {
     test('every descriptor carries nav metadata for every cloud', async () => {
-        for (const cloud of ['aws', 'azure', 'gcp']) {
+        for (const cloud of ['aws', 'azure', 'gcp', 'oci']) {
             const res = await appWithRoutes().request(`/api/clouds/${cloud}/services`)
             const body = await res.json()
 
@@ -1002,7 +1002,7 @@ describe('service descriptors', () => {
     })
 
     test('every unavailable service explains itself', async () => {
-        for (const cloud of ['aws', 'azure', 'gcp']) {
+        for (const cloud of ['aws', 'azure', 'gcp', 'oci']) {
             const body = await (await appWithRoutes().request(`/api/clouds/${cloud}/services`)).json()
             const unexplained = body.filter(
                 (d: {availability: string; reason?: string}) => d.availability === 'coming_soon' && !d.reason,

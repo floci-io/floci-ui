@@ -16,12 +16,12 @@ emulator. It is an AWS-Console-style UI for a locally running cloud runtime.
 
 It does **not** emulate anything itself. The frontend renders cloud resources; the API
 translates the UI's REST/JSON requests into cloud-SDK calls against the locally running
-Floci emulators (AWS, Azure, GCP).
+Floci emulators (AWS, Azure, GCP, OCI).
 
 - pnpm workspace monorepo, two packages:
   - `packages/frontend` — React + Vite + TypeScript, served on port `4500`
   - `packages/api` — Bun + Hono + AWS SDK v3, served on port `4501`
-- Emulator endpoints it talks to: Floci core (AWS) `:4566`, Floci-AZ `:4577`, Floci-GCP `:4588`
+- Emulator endpoints it talks to: Floci core (AWS) `:4566`, Floci-AZ `:4577`, Floci-GCP `:4588`, Floci-OCI `:4599`
 
 ---
 
@@ -38,7 +38,7 @@ When making changes, follow these priorities:
 Critical rules:
 
 - Do not add custom protocols just for the UI unless the core project accepts that contract
-- Do not have the frontend call AWS/Azure/GCP endpoints directly — always go through `packages/api`
+- Do not have the frontend call AWS/Azure/GCP/OCI endpoints directly — always go through `packages/api`
 - Do not introduce decorative data or fake operational metrics — unwired states stay empty
 - Do not perform broad refactors unless the task explicitly requires them
 
@@ -50,7 +50,7 @@ Critical rules:
 Browser (React/Vite :4500)
   → /api/*  (Hono, Bun :4501)
     → CloudProxyService → CloudAdapterRegistry → CloudServiceAdapter
-      → AWS SDK v3 (:4566) | Floci-AZ HTTP (:4577) | Floci-GCP HTTP (:4588)
+      → AWS SDK v3 (:4566) | Floci-AZ HTTP (:4577) | Floci-GCP HTTP (:4588) | Floci-OCI HTTP (:4599)
 ```
 
 The repo is mid-migration from an older **AWS-only per-service** style to a newer
@@ -62,7 +62,7 @@ for all new work; the legacy routes survive only for deep EC2 panels and Secrets
 - `packages/api/src/cloud-spi/serviceCatalog.ts` — **the single source of truth for which
   services exist.** `CloudServiceType` derives from its keys; nav metadata (display name,
   icon hint, group, route) is served to the frontend from here.
-- `packages/api/src/cloud-spi/types.ts` — `CloudProvider` (`aws|azure|gcp`), the
+- `packages/api/src/cloud-spi/types.ts` — `CloudProvider` (`aws|azure|gcp|oci`), the
   `CloudServiceAdapter` interface, `ServiceSchema`, and the status shapes.
 - `packages/api/src/cloud-spi/errors.ts` — the typed errors adapters throw; mapped to HTTP
   once in `routes/clouds.ts` (with `adapter-aws/awsErrors.ts` for SDK failures).
@@ -105,7 +105,7 @@ from the schema — most services need **no bespoke UI**.
     pnpm dev:web      # frontend only
 
 Requires a running Floci core (`:4566`) — see `README.md` / `docker compose` (use the
-`multicloud` profile to also start Azure + GCP).
+`multicloud` profile to also start Azure + GCP + OCI).
 
 ### Checks (run all before finishing)
 
@@ -129,8 +129,8 @@ This is the canonical pattern (also referenced by the open service-coverage issu
    column to surface a `metadata.*` field.
 3. `src/adapter-<cloud>/<Cloud><Service>Adapter.ts implements CloudServiceAdapter` with a
    `.test.ts` alongside. Model: `src/adapter-aws/AwsStorageAdapter.ts`. AWS adapters use AWS
-   SDK v3 against `FLOCI_ENDPOINT`; Azure/GCP adapters take the shared runtime client
-   (`AzureRuntimeClient` in `azure.ts`, `GcpRuntimeClient` in `gcp.ts`) — do not hand-roll fetch.
+   SDK v3 against `FLOCI_ENDPOINT`; Azure/GCP/OCI adapters take the shared runtime client
+   (`AzureRuntimeClient` in `azure.ts`, `GcpRuntimeClient` in `gcp.ts`, `OciRuntimeClient` in `oci.ts`) — do not hand-roll fetch.
 4. Register it in `src/cloudProxy.ts`.
 
 That is it. `services()` derives availability from the registry, `schema()` serves only

@@ -35,6 +35,7 @@ services:
       AWS_SECRET_ACCESS_KEY: test
       FLOCI_GCP_ENDPOINT: http://floci-gcp:4588
       FLOCI_GCP_PROJECT: floci-local
+      FLOCI_OCI_ENDPOINT: http://floci-oci:4599
       PORT: "4501"
     depends_on:
       - floci
@@ -79,6 +80,19 @@ services:
     volumes:
       # Cloud SQL instances are real Postgres containers; see the note on `floci`.
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - floci_default
+
+  floci-oci:
+    image: floci/floci-oci
+    profiles: ["multicloud"]
+    ports:
+      - "4599:4599"
+    environment:
+      # Functions and OKE run real Fn/k3s sidecars only with the Docker socket
+      # mounted; mock mode keeps their control planes usable without it.
+      FLOCI_OCI_SERVICES_FUNCTIONS_MOCK: "true"
+      FLOCI_OCI_SERVICES_OKE_MOCK: "true"
     networks:
       - floci_default
 
