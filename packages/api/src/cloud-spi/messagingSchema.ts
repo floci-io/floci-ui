@@ -80,6 +80,55 @@ export function awsMessagingSchema(): ServiceSchema {
     }
 }
 
+const ociQueueColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'status', label: 'State', format: 'badge'},
+    {name: 'messages', label: 'Visible Messages', path: 'metadata.approximateMessages'},
+    {name: 'createdAt', label: 'Created At', format: 'datetime'},
+]
+
+export function ociMessagingSchema(): ServiceSchema {
+    return {
+        cloud: 'oci',
+        service: 'messaging',
+        displayName: 'OCI Queue',
+        fields: [
+            {
+                name: 'displayName',
+                label: 'Queue Name',
+                type: 'text',
+                required: true,
+                description: 'Up to 255 characters. Created in the tenancy root compartment.',
+            },
+            {
+                name: 'visibilityInSeconds',
+                label: 'Visibility Timeout',
+                type: 'text',
+                required: false,
+                description: 'Seconds a received message stays hidden (0-43200). Defaults to 30.',
+            },
+            {
+                name: 'retentionInSeconds',
+                label: 'Retention Period',
+                type: 'text',
+                required: false,
+                description: 'Seconds a message is kept (10-604800). Defaults to 86400 (1 day). Cannot be changed later.',
+            },
+            {
+                name: 'deadLetterQueueDeliveryCount',
+                label: 'Dead Letter Delivery Count',
+                type: 'text',
+                required: false,
+                description: 'Deliveries before a message moves to the dead letter queue (0-20). 0 disables it.',
+            },
+        ],
+        actions: ['list', 'create', 'inspect', 'delete'],
+        filters: messagingFilters,
+        columns: ociQueueColumns,
+        capabilities: {resourceActions: crudCapabilities('queue')},
+    }
+}
+
 export function gcpMessagingSchema(): ServiceSchema {
     return {
         cloud: 'gcp',

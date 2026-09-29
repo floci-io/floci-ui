@@ -23,6 +23,7 @@ import {GcpSecretManagerAdapter} from './adapter-gcp/GcpSecretManagerAdapter'
 import {GcpSchedulerAdapter} from './adapter-gcp/GcpSchedulerAdapter'
 import {OciStorageAdapter} from './adapter-oci/OciStorageAdapter'
 import {OciIdentityAdapter} from './adapter-oci/OciIdentityAdapter'
+import {OciQueueAdapter} from './adapter-oci/OciQueueAdapter'
 import {AwsSqsAdapter} from './adapter-aws/AwsSqsAdapter'
 import {CloudProxyService} from './service/CloudProxyService'
 import {AzureServerlessAdapter} from './adapter-azure/AzureServerlessAdapter'
@@ -100,6 +101,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new GcpSchedulerAdapter(),
         new OciStorageAdapter(),
         new OciIdentityAdapter(),
+        new OciQueueAdapter(),
         new AwsSqsAdapter(clients.sqs),
         new AzureServerlessAdapter(),
         new AzureKeyVaultAdapter(),
