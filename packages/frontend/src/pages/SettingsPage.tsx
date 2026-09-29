@@ -21,7 +21,7 @@ export function SettingsPage() {
                     <div className="settings-row">
                         <div className="settings-row-text">
                             <span className="settings-label">Theme</span>
-                            <span className="settings-description">Switch between light and dark mode</span>
+                            <span className="settings-description">Choose light, dark, or your system preference</span>
                         </div>
                         <div className="settings-toggle-group" role="radiogroup" aria-label="Theme">
                             <button
@@ -41,6 +41,15 @@ export function SettingsPage() {
                                 onClick={() => setTheme('light')}
                             >
                                 Light
+                            </button>
+                            <button
+                                type="button"
+                                className={`settings-toggle-btn${theme === 'system' ? ' active' : ''}`}
+                                role="radio"
+                                aria-checked={theme === 'system'}
+                                onClick={() => setTheme('system')}
+                            >
+                                System
                             </button>
                         </div>
                     </div>

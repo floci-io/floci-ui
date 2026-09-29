@@ -163,9 +163,9 @@ export function Layout() {
     const location = useLocation()
     const navigate = useNavigate()
     const activeCloud = activeCloudFromPath(location.pathname)
-    const {theme} = useTheme()
+    const {resolvedTheme} = useTheme()
     const {collapsed, toggle: toggleSidebar, toggleRef} = useSidebar()
-    const isDark = theme === 'dark'
+    const isDark = resolvedTheme === 'dark'
     const {data, isError} = useQuery({
         queryKey: ['cloud-status', activeCloud],
         queryFn: ({signal}) => getCloudStatus(activeCloud, signal),
