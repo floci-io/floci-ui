@@ -997,8 +997,19 @@ describe('service descriptors', () => {
                 expect(typeof descriptor.group).toBe('string')
                 expect(typeof descriptor.order).toBe('number')
                 expect(descriptor.displayName.length).toBeGreaterThan(0)
+                expect(descriptor.description.length).toBeGreaterThan(0)
             }
         }
+    })
+
+    test('returns the provider-specific service introduction', async () => {
+        const aws = await (await appWithRoutes().request('/api/clouds/aws/services')).json()
+        const gcp = await (await appWithRoutes().request('/api/clouds/gcp/services')).json()
+
+        expect(aws.find((d: {service: string}) => d.service === 'messaging').description)
+            .toBe('Queue messages between applications.')
+        expect(gcp.find((d: {service: string}) => d.service === 'messaging').description)
+            .toBe('Publish and subscribe to messages across applications.')
     })
 
     test('every unavailable service explains itself', async () => {

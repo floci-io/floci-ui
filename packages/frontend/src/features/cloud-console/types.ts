@@ -4,6 +4,7 @@ import type {CloudAvailability, CloudProvider, CloudStatus} from '@/types/cloud'
 export interface ConsoleServiceCard {
     id: string
     label: string
+    description: string
     status: CloudAvailability
     count?: number
     icon: ElementType

@@ -29,6 +29,7 @@ export interface CloudServiceDescriptor {
     cloud: CloudProvider
     service: CloudServiceType
     displayName: string
+    description: string
     availability: CloudAvailability
     /** Why the service is unavailable. Always set when availability is coming_soon. */
     reason?: string

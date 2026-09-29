@@ -53,7 +53,7 @@ export function CloudExplorerPage() {
                     <Cloud size={20}/>
                     <div>
                         <h1>Cloud Explorer</h1>
-                        <p className="muted">Unified local runtime console</p>
+                        <p className="muted">{selectedService?.description ?? 'Unified local runtime console'}</p>
                     </div>
                 </div>
                 <div className="cloud-header-selectors">
@@ -133,6 +133,7 @@ function ServiceInfoDialog({
                     <div>
                         <p className="eyebrow">Service Information</p>
                         <h3>{schema?.displayName ?? descriptor?.displayName ?? service}</h3>
+                        {descriptor?.description && <p className="muted">{descriptor.description}</p>}
                     </div>
                     <button className="icon-btn" type="button" onClick={onClose} aria-label="Close" title="Close">
                         <X size={14} aria-hidden="true"/>

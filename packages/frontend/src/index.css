@@ -3150,6 +3150,14 @@ button.console-service-card {
     border-style: dashed;
 }
 
+.console-service-description {
+    margin: 14px 0 0;
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
 .console-service-meta {
     display: grid;
     gap: 3px;
@@ -3291,6 +3299,26 @@ button.console-service-card {
     .console-summary,
     .console-service-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .console-service-card {
+        padding: 14px;
+    }
+
+    .console-service-card .service-card-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .console-service-card .service-icon {
+        width: 36px;
+        height: 36px;
+    }
+
+    .console-service-card h3 {
+        font-size: 16px;
+        overflow-wrap: anywhere;
     }
 
     .dynamic-form,

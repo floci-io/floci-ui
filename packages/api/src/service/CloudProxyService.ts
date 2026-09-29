@@ -52,7 +52,7 @@ import type {
 } from '../cloud-spi/childCollections'
 import {NotSupportedError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
-import {SERVICE_CATALOG_ENTRIES, displayNameFor, routeFor} from '../cloud-spi/serviceCatalog'
+import {SERVICE_CATALOG_ENTRIES, descriptionFor, displayNameFor, routeFor} from '../cloud-spi/serviceCatalog'
 import {toHttpError} from '../cloud-spi/errors'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
 import {endpointFor, runtimeProbes, type RuntimeProbe} from './runtimeProbe'
@@ -107,6 +107,7 @@ export class CloudProxyService {
                 cloud,
                 service: entry.service,
                 displayName,
+                description: descriptionFor(entry, cloud),
                 availability,
                 reason: override.reason ?? unavailableReason(availability, cloud, displayName),
                 route: routeFor(entry, cloud),

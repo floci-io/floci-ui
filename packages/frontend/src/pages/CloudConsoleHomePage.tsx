@@ -23,6 +23,7 @@ export function CloudConsoleHomePage() {
         ? data.serviceCards.filter((s) =>
             s.label.toLowerCase().includes(search) ||
             s.id.toLowerCase().includes(search) ||
+            s.description.toLowerCase().includes(search) ||
             s.meta?.toLowerCase().includes(search)
           )
         : data.serviceCards
