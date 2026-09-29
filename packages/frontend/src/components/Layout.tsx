@@ -82,7 +82,7 @@ function CloudServiceNav({collapsed}: {collapsed: boolean}) {
     const filteredServices = search
         ? allServices.filter((s) =>
             s.displayName.toLowerCase().includes(search) ||
-            s.description.toLowerCase().includes(search) ||
+            s.description?.toLowerCase().includes(search) ||
             s.service.toLowerCase().includes(search) ||
             s.group.toLowerCase().includes(search)
           )

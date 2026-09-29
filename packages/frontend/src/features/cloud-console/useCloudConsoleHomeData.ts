@@ -72,7 +72,7 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
                 return {
                     id: service.service,
                     label: service.displayName,
-                    description: service.description,
+                    description: service.description ?? '',
                     status: service.availability,
                     count: counts?.count,
                     icon: serviceIcon(service.iconKey),
