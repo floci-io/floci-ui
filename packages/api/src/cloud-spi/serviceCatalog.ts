@@ -70,7 +70,7 @@ export const SERVICE_CATALOG = {
     },
     k8s: {
         displayName: 'k8s Engine',
-        displayNameByCloud: {aws: 'EKS', azure: 'AKS', gcp: 'GKE'},
+        displayNameByCloud: {aws: 'EKS', azure: 'AKS', gcp: 'GKE', oci: 'OKE'},
         description: 'Managed Kubernetes clusters for containerized workloads.',
         iconKey: 'k8s',
         group: 'Compute',
