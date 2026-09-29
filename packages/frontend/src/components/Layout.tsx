@@ -1,4 +1,4 @@
-import {NavLink, Outlet, useLocation, useNavigate, useSearchParams} from 'react-router-dom'
+import {NavLink, Outlet, useLocation, useSearchParams} from 'react-router-dom'
 import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Search, Settings} from 'lucide-react'
 import {useCallback, useEffect, useRef, useState} from 'react'
 import flociWhite from '@/assets/floci-white.svg'
@@ -9,9 +9,7 @@ import {useTheme} from '@/lib/useTheme'
 import {useSidebar} from '@/lib/useSidebar'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus} from '@/api/cloudProxyClient'
-import {useCloudServicesQuery, useCloudsQuery} from '@/api/queries/cloudQueries'
-import {AccountSwitcher} from '@/components/AccountSwitcher'
-import {CloudSwitcher} from '@/components/CloudSwitcher'
+import {useCloudServicesQuery} from '@/api/queries/cloudQueries'
 import {serviceIcon} from '@/components/serviceIcons'
 import type {CloudProvider, CloudServiceDescriptor, RuntimeReachability} from '@/types/cloud'
 
@@ -161,7 +159,6 @@ function groupByGroup(services: CloudServiceDescriptor[]): Array<[string, CloudS
 
 export function Layout() {
     const location = useLocation()
-    const navigate = useNavigate()
     const activeCloud = activeCloudFromPath(location.pathname)
     const {theme} = useTheme()
     const {collapsed, toggle: toggleSidebar, toggleRef} = useSidebar()
@@ -175,19 +172,6 @@ export function Layout() {
     const isConnected = status === 'reachable'
     const connectionLabel = isConnected ? 'Connected' : 'Not connected'
     const connectionTarget = data?.endpoint ?? activeCloud
-    const cloudsQuery = useCloudsQuery()
-
-    // Cloud Explorer is service-scoped, and a service available on the current
-    // cloud may not exist on the next one, so switching there lands on storage
-    // (every cloud has it) instead of carrying over a possibly-invalid service.
-    function selectCloud(nextCloud: CloudProvider) {
-        if (location.pathname.startsWith('/cloud-explorer/')) {
-            navigate(`/cloud-explorer/${nextCloud}/storage`)
-        } else {
-            navigate(`/console/${nextCloud}`)
-        }
-    }
-
     return (
         <div className="app">
             <a className="skip-link" href="#main-content">Skip to content</a>
@@ -229,8 +213,6 @@ export function Layout() {
                 <header className="topbar">
                     <TopbarSearch/>
                     <div id="topbar-status" className="topbar-status"/>
-                    <CloudSwitcher clouds={cloudsQuery.data ?? []} selected={activeCloud} onSelect={selectCloud}/>
-                    <AccountSwitcher/>
                     <div
                         className={`connection ${isConnected ? 'connected' : 'disconnected'}`}
                         title={`${connectionLabel} — ${connectionTarget}`}

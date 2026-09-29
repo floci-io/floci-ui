@@ -546,7 +546,7 @@ pre,
     position: relative;
 }
 
-.topbar-status:empty + .cloud-switcher {
+.topbar-status:empty + .connection {
     margin-left: auto;
 }
 
@@ -593,18 +593,12 @@ pre,
     font-weight: 600;
 }
 
-/* Below ~680px the topbar's fixed-width controls (search, theme toggle, two
-   switcher buttons, connection badge) sum to more than the viewport, and
-   since the row never wraps the overflow was clipped off past the edge
-   instead of shrinking. Drop each control's text, keeping only the icons
-   (full detail stays in each control's title/aria-label and, for the
-   switchers, in the popover once opened). */
+/* Keep the connection badge compact on narrow screens. */
 @media (max-width: 680px) {
     .kbd {
         display: none;
     }
 
-    .account-meta,
     .connection-state,
     .connection-target {
         display: none;
@@ -4426,6 +4420,22 @@ button.console-service-card {
     background: var(--accent-tint);
     color: var(--text-bright);
     font-weight: 600;
+}
+
+.settings-section + .settings-section {
+    margin-top: 16px;
+}
+
+@media (max-width: 600px) {
+    .settings-section .settings-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .settings-section .account-popover {
+        left: 0;
+        right: auto;
+    }
 }
 /* ── Settings page ── */
 
