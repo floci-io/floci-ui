@@ -205,7 +205,7 @@ export const SERVICE_CATALOG = {
     },
     secrets: {
         displayName: 'Secrets Manager',
-        displayNameByCloud: {azure: 'Key Vault', gcp: 'Secret Manager'},
+        displayNameByCloud: {azure: 'Key Vault', gcp: 'Secret Manager', oci: 'Vault Secrets'},
         description: 'Store and manage application secrets.',
         iconKey: 'secrets',
         group: 'Security',

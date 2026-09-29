@@ -73,7 +73,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Provisioning | AppConfig / Configuration | Yes (list, create, delete, inspect) | No | No | No |
 | Security | Identity | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
 | Security | Cognito | Yes (list, create, delete, inspect) | No | No | No |
-| Security | Secrets Manager / Key Vault / Secret Manager | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | No |
+| Security | Secrets Manager / Key Vault / Secret Manager / Vault Secrets | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Security | KMS / Key Management / Vault | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
 | Security | Parameter Store | Yes (list, create, delete, inspect) | No | No | No |
 | Observability | CloudWatch Logs / Logs | Yes (list, create, delete, inspect) | No | No | No |
