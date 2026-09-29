@@ -31,6 +31,14 @@ test('Settings switcher menus fit within narrow screens', async ({page}) => {
                     && bounds.right <= row.right + 1 && bounds.right <= window.innerWidth
             })
             expect(fits, `${width}px ${String(name)} menu overflows its Settings row`).toBe(true)
+            if (typeof name !== 'string') {
+                const accountIdFits = await menu.locator('.account-option-id').first().evaluate((element) => {
+                    const bounds = element.getBoundingClientRect()
+                    return bounds.height <= 20 && element.scrollWidth <= element.clientWidth + 1
+                })
+                expect(accountIdFits, `${width}px account ID wraps or clips`).toBe(true)
+                await expect(menu.locator('.account-tag').first()).toBeVisible()
+            }
             await trigger.click()
         }
     }

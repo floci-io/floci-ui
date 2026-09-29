@@ -4442,6 +4442,24 @@ button.console-service-card {
         right: auto;
         width: 100%;
     }
+
+    .settings-section .account-option {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    .settings-section .account-option-id {
+        flex: 1 0 auto;
+        white-space: nowrap;
+    }
+
+    .settings-section .account-option > svg {
+        order: 1;
+    }
+
+    .settings-section .account-tag {
+        order: 2;
+    }
 }
 /* ── Settings page ── */
 
