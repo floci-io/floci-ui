@@ -774,6 +774,40 @@ describe('cloud schema routes', () => {
         expect(body.message).toBe('bucketName is required')
     })
 
+    test('rejects non-object resource create bodies before calling the adapter', async () => {
+        const adapter = mockAdapter('aws')
+        let delegatedValues: Record<string, unknown> | undefined
+        let calls = 0
+        const app = appWithRoutes([mockAdapter('aws', {
+            create: async (input) => {
+                calls += 1
+                delegatedValues = input.values
+                return adapter.create(input)
+            },
+        })])
+        const path = '/api/clouds/aws/services/storage/resources'
+
+        for (const payload of ['null', '[]', '"text"', '42', 'true', '{']) {
+            const res = await app.request(path, {
+                method: 'POST',
+                headers: {'content-type': 'application/json'},
+                body: payload,
+            })
+            expect(res.status).toBe(400)
+            expect((await res.json()).code).toBe('invalid_request')
+        }
+        expect(calls).toBe(0)
+
+        const valid = await app.request(path, {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({bucketName: 'orders'}),
+        })
+        expect(valid.status).toBe(201)
+        expect(calls).toBe(1)
+        expect(delegatedValues).toEqual({bucketName: 'orders'})
+    })
+
     // Before typed errors these AWS SDK failures all collapsed into a blanket 502.
     const sdkCases: Array<{name: string; status: number; code: string}> = [
         {name: 'BucketAlreadyOwnedByYou', status: 409, code: 'resource_conflict'},

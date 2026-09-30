@@ -16,17 +16,32 @@ export class AzureTableAdapter implements CloudServiceAdapter {
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const body = await this.tableJson(tablePath(this.client), {method: 'GET'})
-        if (!isRecord(body) || !Array.isArray(body.value)) {
-            throw new RuntimeError('Azure Table Storage returned an invalid table list')
-        }
-
-        const resources = body.value.map((item) => {
-            if (!isRecord(item) || typeof item.TableName !== 'string') {
-                throw new RuntimeError('Azure Table Storage returned a table without a name')
+        const resources: CloudResource[] = []
+        const seenTokens = new Set<string>()
+        let nextTableName: string | undefined
+        do {
+            const path = nextTableName
+                ? `${tablePath(this.client)}?${new URLSearchParams({NextTableName: nextTableName})}`
+                : tablePath(this.client)
+            const {body, response} = await this.tableJson(path, {method: 'GET'})
+            if (!isRecord(body) || !Array.isArray(body.value)) {
+                throw new RuntimeError('Azure Table Storage returned an invalid table list')
             }
-            return toTableResource(item.TableName, this.client.accountName)
-        })
+
+            for (const item of body.value) {
+                if (!isRecord(item) || typeof item.TableName !== 'string') {
+                    throw new RuntimeError('Azure Table Storage returned a table without a name')
+                }
+                resources.push(toTableResource(item.TableName, this.client.accountName))
+            }
+            const continuation = response.headers.get('x-ms-continuation-NextTableName')?.trim()
+            if (continuation && seenTokens.has(continuation)) {
+                throw new RuntimeError('Azure Table Storage repeated a continuation token')
+            }
+            if (continuation) seenTokens.add(continuation)
+            nextTableName = continuation
+        } while (nextTableName)
+
         const search = query.search?.trim().toLowerCase()
         return search ? resources.filter((resource) => resource.name.toLowerCase().includes(search)) : resources
     }
@@ -37,10 +52,10 @@ export class AzureTableAdapter implements CloudServiceAdapter {
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
-        const tableName = typeof input.values.tableName === 'string' ? input.values.tableName.trim() : ''
+        const tableName = typeof input.values?.tableName === 'string' ? input.values.tableName.trim() : ''
         validateTableName(tableName)
 
-        const body = await this.tableJson(tablePath(this.client), {
+        const {body} = await this.tableJson(tablePath(this.client), {
             method: 'POST',
             body: JSON.stringify({TableName: tableName}),
             headers: {'content-type': 'application/json'},
@@ -56,14 +71,14 @@ export class AzureTableAdapter implements CloudServiceAdapter {
         await this.client.fetch(`${tablePath(this.client)}('${id}')`, {method: 'DELETE'})
     }
 
-    private async tableJson(path: string, init: RequestInit): Promise<unknown> {
+    private async tableJson(path: string, init: RequestInit): Promise<{body: unknown; response: Response}> {
         const response = await this.client.fetch(path, {
             ...init,
             headers: {accept: 'application/json', ...(init.headers ?? {})},
         })
         if (!response) throw new RuntimeError('Azure Table Storage returned an empty response')
         try {
-            return await response.json()
+            return {body: await response.json(), response}
         } catch (cause) {
             throw new RuntimeError('Azure Table Storage returned invalid JSON', {cause})
         }

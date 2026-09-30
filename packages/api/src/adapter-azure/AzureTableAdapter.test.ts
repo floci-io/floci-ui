@@ -46,6 +46,61 @@ describe('AzureTableAdapter', () => {
         await expect(new AzureTableAdapter(client).list()).resolves.toEqual([])
     })
 
+    test('follows Azure table continuation headers for listing and inspection', async () => {
+        const paths: string[] = []
+        const client = testClient(async (path) => {
+            paths.push(path)
+            if (path === '/devstoreaccount1-table/Tables') {
+                return new Response(JSON.stringify({value: [{TableName: 'Orders'}]}), {
+                    headers: {'x-ms-continuation-NextTableName': 'next/a+b'},
+                })
+            }
+            if (path === '/devstoreaccount1-table/Tables?NextTableName=next%2Fa%2Bb') {
+                return jsonResponse({value: [{TableName: 'AuditLog'}]})
+            }
+            throw new Error(`Unexpected table request: ${path}`)
+        })
+        const adapter = new AzureTableAdapter(client)
+
+        await expect(adapter.list({search: 'audit'})).resolves.toMatchObject([{id: 'AuditLog'}])
+        expect((await adapter.get('AuditLog'))?.id).toBe('AuditLog')
+        expect(paths).toEqual([
+            '/devstoreaccount1-table/Tables',
+            '/devstoreaccount1-table/Tables?NextTableName=next%2Fa%2Bb',
+            '/devstoreaccount1-table/Tables',
+            '/devstoreaccount1-table/Tables?NextTableName=next%2Fa%2Bb',
+        ])
+    })
+
+    test('rejects repeated Azure table continuation tokens', async () => {
+        let calls = 0
+        const client = testClient(async () => {
+            calls += 1
+            if (calls > 2) throw new Error('unexpected third table page')
+            return new Response(JSON.stringify({value: []}), {
+                headers: {'x-ms-continuation-NextTableName': 'repeat'},
+            })
+        })
+
+        await expect(new AzureTableAdapter(client).list()).rejects.toThrow('repeated a continuation token')
+        expect(calls).toBe(2)
+    })
+
+    test('does not truncate a valid table listing after 100 pages', async () => {
+        let calls = 0
+        const client = testClient(async () => {
+            calls += 1
+            return new Response(JSON.stringify({value: [{TableName: `Table${calls}`}]}), {
+                headers: calls < 101 ? {'x-ms-continuation-NextTableName': `page-${calls + 1}`} : {},
+            })
+        })
+
+        const resources = await new AzureTableAdapter(client).list()
+        expect(resources).toHaveLength(101)
+        expect(resources.at(-1)?.id).toBe('Table101')
+        expect(calls).toBe(101)
+    })
+
     test('gets a table from the listing and reports missing tables as null', async () => {
         const client = testClient(async () => jsonResponse({value: [{TableName: 'Orders'}]}))
         const adapter = new AzureTableAdapter(client)
@@ -149,6 +204,13 @@ describe('AzureTableAdapter', () => {
         expect(await schema.json()).toMatchObject({service: 'table', actions: ['list', 'create', 'delete', 'inspect']})
 
         const resources = `${base}/table/resources`
+        const invalid = await app.request(resources, {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: 'null',
+        })
+        expect(invalid.status).toBe(400)
+
         const created = await app.request(resources, {
             method: 'POST',
             headers: {'content-type': 'application/json'},

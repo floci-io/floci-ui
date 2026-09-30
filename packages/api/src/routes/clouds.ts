@@ -909,7 +909,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) return c.json({error: 'Unknown cloud or service'}, 404)
 
         return withRuntime(c, async () => {
-            const values = await c.req.json<Record<string, unknown>>()
+            const values = await jsonBody<Record<string, unknown>>(c)
             const resource = await svc(c).createResource(cloud, serviceType, {values})
             return c.json(resource, 201)
         })
