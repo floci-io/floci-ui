@@ -1,5 +1,5 @@
 import {SaxesParser} from 'saxes'
-import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {azureQueueSchema} from '../cloud-spi/queueSchema'
 import {azure, type AzureRuntimeClient} from '../azure'
 import type {
@@ -62,7 +62,8 @@ export class AzureQueueAdapter implements CloudServiceAdapter {
             throw new ValidationError('Use a valid Azure queue name: 3-63 lowercase letters, numbers, or single hyphens.')
         }
 
-        await this.client.fetch(queuePath(this.client, name), {method: 'PUT'})
+        const response = await this.client.fetch(queuePath(this.client, name), {method: 'PUT'})
+        if (response?.status === 204) throw new ConflictError(`Queue ${name} already exists`)
         return toResource(name)
     }
 

@@ -2,7 +2,7 @@ import {afterEach, describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
 import {AzureQueueAdapter} from './AzureQueueAdapter'
 import {AzureRestRuntimeClient} from '../azure'
-import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {createCloudAdapterRegistry, createCloudProxyService} from '../cloudProxy'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
@@ -107,8 +107,8 @@ describe('AzureQueueAdapter', () => {
         await expect(adapter().get('missing')).resolves.toBeNull()
     })
 
-    test('creates a queue through the Azure Storage endpoint, including an idempotent 204', async () => {
-        const calls = stubFetch(() => new Response(null, {status: 204}))
+    test('creates a queue through the Azure Storage endpoint', async () => {
+        const calls = stubFetch(() => new Response(null, {status: 201}))
 
         await expect(adapter().create({values: {queueName: '  orders  '}})).resolves.toMatchObject({
             id: 'orders', name: 'orders', service: 'queue',
@@ -116,6 +116,12 @@ describe('AzureQueueAdapter', () => {
         expect(calls).toHaveLength(1)
         expect(calls[0]?.url).toBe(`${ROOT}/orders`)
         expect(calls[0]?.init?.method).toBe('PUT')
+    })
+
+    test('reports an existing queue instead of claiming an idempotent 204 created it', async () => {
+        stubFetch(() => new Response(null, {status: 204}))
+
+        await expect(adapter().create({values: {queueName: 'orders'}})).rejects.toBeInstanceOf(ConflictError)
     })
 
     test('validates queue names before contacting the runtime', async () => {
@@ -151,6 +157,7 @@ describe('AzureQueueAdapter', () => {
                     : new Response(null, {status: 404})
             }
             if (url === `${ROOT}/orders` && init?.method === 'PUT') {
+                if (queues.has('orders')) return new Response(null, {status: 204})
                 queues.add('orders')
                 return new Response(null, {status: 201})
             }
@@ -177,6 +184,12 @@ describe('AzureQueueAdapter', () => {
         })
         expect(created.status).toBe(201)
         expect((await created.json()).id).toBe('orders')
+
+        const duplicate = await app.request(`${path}/resources`, {
+            method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({queueName: 'orders'}),
+        })
+        expect(duplicate.status).toBe(409)
+        expect((await duplicate.json()).code).toBe('resource_conflict')
 
         const listed = await app.request(`${path}/resources`)
         expect((await listed.json())).toMatchObject([{id: 'orders'}])
