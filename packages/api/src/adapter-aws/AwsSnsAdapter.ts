@@ -21,6 +21,7 @@ export class AwsSnsAdapter implements CloudServiceAdapter {
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const topics: CloudResource[] = []
+        const seenTokens = new Set<string>()
         let nextToken: string | undefined
         do {
             const response = await this.sns.send(new ListTopicsCommand({NextToken: nextToken}))
@@ -28,6 +29,10 @@ export class AwsSnsAdapter implements CloudServiceAdapter {
                 if (topic.TopicArn) topics.push(topicResource(topic.TopicArn))
             }
             nextToken = response.NextToken
+            if (nextToken) {
+                if (seenTokens.has(nextToken)) throw new RuntimeError('SNS ListTopics repeated a continuation token')
+                seenTokens.add(nextToken)
+            }
         } while (nextToken)
 
         const search = query.search?.trim().toLowerCase()

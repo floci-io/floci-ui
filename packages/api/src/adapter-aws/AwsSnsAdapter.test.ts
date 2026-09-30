@@ -64,6 +64,20 @@ describe('AwsSnsAdapter', () => {
         expect(sent).toHaveLength(2)
     })
 
+    test('rejects a repeated ListTopics continuation token', async () => {
+        let requests = 0
+        const client = {
+            async send() {
+                requests += 1
+                if (requests > 2) throw new Error('unexpected third page request')
+                return {Topics: [{TopicArn: TOPIC_ARN}], NextToken: 'repeat'}
+            },
+        } as unknown as SNSClient
+
+        await expect(new AwsSnsAdapter(client).list()).rejects.toThrow('SNS ListTopics repeated a continuation token')
+        expect(requests).toBe(2)
+    })
+
     test('searches topic names without fetching attributes for every row', async () => {
         const {client, sent} = stubSns({pages: [{Topics: [{TopicArn: TOPIC_ARN}, {TopicArn: FIFO_ARN}]}]})
         const topics = await new AwsSnsAdapter(client).list({search: ' .FIFO '})
