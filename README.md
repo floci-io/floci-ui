@@ -58,6 +58,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) |
 | Compute | SageMaker AI | Yes (list, create, delete, inspect) | No | No |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
+| Storage | Table Storage | No | Yes (list, create, delete, inspect) | No |
 | Databases | Database | Yes (list, create, update, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
 | Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No |
 | Networking | Networking | Yes (list) | Yes (list, inspect, create, delete) | No |
@@ -107,6 +108,8 @@ Cloud Explorer storage is the most complete unified category today.
 - AWS S3 buckets are normalized as `storage` resources with type `bucket`.
 - Azure Blob containers are normalized as `storage` resources with type `container`.
 - GCP Cloud Storage buckets are normalized as `storage` resources with type `bucket`.
+- Azure Table Storage tables are listed, created, inspected, and deleted through the
+  Azure Table REST API at `/{account}-table/Tables`.
 - Shared resource table, shared inspector, runtime status strip, and schema-driven create/delete flows.
 - Object/blob browser with prefix navigation.
 - Upload, download, delete, copy, and create-folder-prefix actions.
@@ -118,6 +121,7 @@ Current gaps:
 - No bulk multi-select actions yet.
 - No tag/policy/version management in the unified view.
 - Folder creation is prefix-based, not a real filesystem directory.
+- Table Storage entity browsing and editing are not yet wired into Cloud Explorer.
 
 </details>
 

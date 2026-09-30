@@ -99,6 +99,11 @@ export const SERVICE_CATALOG = {
         description: 'Store and manage files and objects.',
         iconKey: 'storage', group: 'Storage', order: 10,
     },
+    table: {
+        displayName: 'Table Storage',
+        description: 'Manage Azure Storage tables.',
+        iconKey: 'database', group: 'Storage', order: 20,
+    },
     database: {
         displayName: 'Database',
         description: 'Create and manage relational databases.',
