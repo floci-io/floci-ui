@@ -17,6 +17,10 @@ export type ResourceActionName =
     | 'stop'
     | 'reboot'
     | 'updateTags'
+    | 'sendMessage'
+    | 'receiveMessages'
+    | 'deleteMessage'
+    | 'purgeQueue'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
 export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'
 export type KubernetesActionName =

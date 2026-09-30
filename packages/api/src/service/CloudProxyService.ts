@@ -33,7 +33,9 @@ import type {
     KmsEncryptInput,
     KmsEncryptResult,
     NoSqlItem,
+    QueueMessage,
     ResourceQuery,
+    SendQueueMessageResult,
     ServerlessInvokeResult,
     SqlConnectionInput,
     SqlDatabase,
@@ -267,6 +269,31 @@ export class CloudProxyService {
         if (!adapter.invoke) throw new NotSupportedError(`${cloud}/${service} invoke is not supported`)
         return adapter.invoke(id, payload)
     }
+
+    async sendQueueMessage(cloud: CloudProvider, service: CloudServiceType, id: string, body: string): Promise<SendQueueMessageResult> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.sendMessage) throw new NotSupportedError(`${cloud}/${service} sendMessage is not supported`)
+        return adapter.sendMessage(id, body)
+    }
+
+    async receiveQueueMessages(cloud: CloudProvider, service: CloudServiceType, id: string, maxMessages?: number): Promise<QueueMessage[]> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.receiveMessages) throw new NotSupportedError(`${cloud}/${service} receiveMessages is not supported`)
+        return adapter.receiveMessages(id, maxMessages)
+    }
+
+    async deleteQueueMessage(cloud: CloudProvider, service: CloudServiceType, id: string, receiptHandle: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.deleteMessage) throw new NotSupportedError(`${cloud}/${service} deleteMessage is not supported`)
+        await adapter.deleteMessage(id, receiptHandle)
+    }
+
+    async purgeQueue(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.purgeQueue) throw new NotSupportedError(`${cloud}/${service} purgeQueue is not supported`)
+        await adapter.purgeQueue(id)
+    }
+
     async listObjects(cloud: CloudProvider, service: CloudServiceType, resourceId: string, prefix?: string): Promise<StorageObjectList> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.listObjects) throw new NotSupportedError(`Object listing is not supported for ${cloud}/${service}`)

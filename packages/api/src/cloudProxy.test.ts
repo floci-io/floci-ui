@@ -31,6 +31,10 @@ const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> =
     stop: 'stop',
     reboot: 'reboot',
     updateTags: 'updateTags',
+    sendMessage: 'sendMessage',
+    receiveMessages: 'receiveMessages',
+    deleteMessage: 'deleteMessage',
+    purgeQueue: 'purgeQueue',
 }
 
 const METHOD_FOR_DATABASE_ACTION = {

@@ -113,6 +113,10 @@ export type ResourceActionName =
     | 'stop'
     | 'reboot'
     | 'updateTags'
+    | 'sendMessage'
+    | 'receiveMessages'
+    | 'deleteMessage'
+    | 'purgeQueue'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
 export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'
 export type KubernetesActionName =
@@ -527,6 +531,19 @@ export interface KmsDecryptResult {
     keyId: string
     encryptionAlgorithm: KmsEncryptionAlgorithm
 }
+
+export interface QueueMessage {
+    messageId: string
+    body: string
+    receiptHandle: string
+    attributes?: Record<string, string>
+    md5OfBody?: string
+}
+
+export interface SendQueueMessageResult {
+    messageId: string
+    md5OfMessageBody?: string
+}
 /**
  * Lets a registered adapter correct its own advertised availability.
  *
@@ -562,6 +579,10 @@ export interface CloudServiceAdapter {
     invoke?(id: string, payload: string): Promise<ServerlessInvokeResult>
     encrypt?(id: string, input: KmsEncryptInput): Promise<KmsEncryptResult>
     decrypt?(id: string, input: KmsDecryptInput): Promise<KmsDecryptResult>
+    sendMessage?(id: string, body: string): Promise<SendQueueMessageResult>
+    receiveMessages?(id: string, maxMessages?: number): Promise<QueueMessage[]>
+    deleteMessage?(id: string, receiptHandle: string): Promise<void>
+    purgeQueue?(id: string): Promise<void>
     // Lifecycle verbs. Optional because most categories have no notion of them;
     // an adapter that advertises one in `capabilities` must implement it, which
     // cloudProxy.test.ts enforces.

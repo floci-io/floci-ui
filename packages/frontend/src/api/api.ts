@@ -24,6 +24,10 @@ export const apiEndpointKeys = {
       invoke: "clouds.services.resources.invoke",
       encrypt: "clouds.services.resources.encrypt",
       decrypt: "clouds.services.resources.decrypt",
+      sendMessage: "clouds.services.resources.messages.send",
+      receiveMessages: "clouds.services.resources.messages.receive",
+      deleteMessage: "clouds.services.resources.messages.delete",
+      purgeQueue: "clouds.services.resources.purge",
     },
     storage: {
       objects: {
@@ -321,6 +325,38 @@ export const endpointRegistry: EndpointRegistry = new Map([
       path: "/clouds/:cloud/services/kms/resources/:id/decrypt",
       method: "POST",
       telemetry: { service: "kms" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.sendMessage,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/messages",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.receiveMessages,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/messages",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.deleteMessage,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/messages",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.purgeQueue,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/purge",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
     },
   ],
   [
