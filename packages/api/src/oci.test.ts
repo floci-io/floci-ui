@@ -87,6 +87,26 @@ describe('OciRestRuntimeClient.listAll', () => {
             `${ENDPOINT}/n/ns/b?compartmentId=c&page=p2`,
         ])
     })
+
+    test('follows more than 100 pages', async () => {
+        const calls = stubFetch((url) => {
+            const page = Number(new URL(url).searchParams.get('page') ?? '0')
+            return new Response(`[{"n":${page}}]`, {
+                status: 200,
+                headers: page < 150 ? {'opc-next-page': String(page + 1)} : {},
+            })
+        })
+
+        await expect(client().listAll('/n/ns/b')).resolves.toHaveLength(151)
+        expect(calls).toHaveLength(151)
+    })
+
+    test('stops when the runtime repeats a page token', async () => {
+        const calls = stubFetch(() => new Response('[{"name":"a"}]', {status: 200, headers: {'opc-next-page': 'p2'}}))
+
+        await expect(client().listAll('/n/ns/b')).resolves.toHaveLength(2)
+        expect(calls).toHaveLength(2)
+    })
 })
 
 describe('OciRestRuntimeClient.namespace', () => {
@@ -126,6 +146,11 @@ describe('OciRestRuntimeClient.health', () => {
         await client().health()
 
         expect(calls[0]).toBe(`${ENDPOINT}/_floci-oci/health`)
+    })
+
+    test('reports a 4xx as unavailable, since the endpoint is not Floci-OCI', async () => {
+        stubFetch(() => new Response('', {status: 404}))
+        await expect(client().health()).rejects.toBeInstanceOf(RuntimeUnavailableError)
     })
 
     test('reports 5xx as unavailable', async () => {

@@ -43,9 +43,6 @@ interface OciListObjects {
 /** ListObjects returns only `name` unless the other fields are asked for. */
 const OBJECT_FIELDS = 'name,size,timeCreated,timeModified,etag,storageTier'
 
-/** Guards against a runtime that keeps returning the same `nextStartWith`. */
-const MAX_OBJECT_PAGES = 100
-
 export class OciStorageAdapter implements CloudServiceAdapter {
     readonly cloud = 'oci' as const
     readonly service = 'storage' as const
@@ -94,8 +91,11 @@ export class OciStorageAdapter implements CloudServiceAdapter {
         const objects: OciObjectSummary[] = []
         // A page can end inside a folder group, so the next page repeats that prefix.
         const prefixes = new Set<string>()
+        // Stops on a `nextStartWith` seen before, so a runtime that repeats one cannot loop forever.
+        const seen = new Set<string>()
         let start: string | undefined
-        for (let page = 0; page < MAX_OBJECT_PAGES; page += 1) {
+        do {
+            if (start) seen.add(start)
             const qs = new URLSearchParams({delimiter: '/', fields: OBJECT_FIELDS})
             if (prefix) qs.set('prefix', prefix)
             if (start) qs.set('start', start)
@@ -103,8 +103,7 @@ export class OciStorageAdapter implements CloudServiceAdapter {
             objects.push(...(body?.objects ?? []))
             for (const folder of body?.prefixes ?? []) prefixes.add(folder)
             start = body?.nextStartWith
-            if (!start) break
-        }
+        } while (start && !seen.has(start))
 
         return {
             prefix,

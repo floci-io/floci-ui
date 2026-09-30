@@ -120,6 +120,26 @@ describe('OciStorageAdapter', () => {
         expect(listing.objects.map((o) => o.key)).toEqual(['a', 'b'])
     })
 
+    test('lists past 100 object pages', async () => {
+        const calls = stubFetch((url) => {
+            const page = Number(new URL(url).searchParams.get('start') ?? '0')
+            return json(page < 150
+                ? {objects: [{name: `o${page}`}], nextStartWith: String(page + 1)}
+                : {objects: [{name: `o${page}`}]})
+        })
+        const listing = await adapter().listObjects('app')
+
+        expect(calls).toHaveLength(151)
+        expect(listing.objects).toHaveLength(151)
+    })
+
+    test('stops when the runtime repeats a nextStartWith', async () => {
+        const calls = stubFetch(() => json({objects: [{name: 'a'}], nextStartWith: 'a'}))
+        await adapter().listObjects('app')
+
+        expect(calls).toHaveLength(2)
+    })
+
     test('reports a folder once when a page boundary splits its group', async () => {
         stubFetch((url) => url.includes('start=')
             ? json({prefixes: ['m/'], objects: [{name: 'z'}]})

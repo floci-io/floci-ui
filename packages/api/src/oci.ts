@@ -3,9 +3,6 @@ import {RuntimeUnavailableError, httpStatusToCloudError} from './cloud-spi/error
 /** Floci-OCI's health endpoint; like Floci-GCP it does not answer `/_floci/health`. */
 const OCI_HEALTH_PATH = '/_floci-oci/health'
 
-/** Guards against a runtime that keeps returning the same page token. */
-const MAX_PAGES = 100
-
 export interface OciRuntimeFetchOptions {
     emptyOnNotFound?: boolean
 }
@@ -76,14 +73,16 @@ export class OciRestRuntimeClient implements OciRuntimeClient {
 
     async listAll<T>(path: string): Promise<T[]> {
         const items: T[] = []
+        // Stops on a token seen before, so a runtime that repeats one cannot loop forever.
+        const seen = new Set<string>()
         let page: string | null = null
-        for (let count = 0; count < MAX_PAGES; count += 1) {
+        do {
             const res = await this.fetch(page ? withQuery(path, 'page', page) : path)
             if (!res) break
             items.push(...((await res.json()) as T[]))
+            if (page) seen.add(page)
             page = res.headers.get('opc-next-page')
-            if (!page) break
-        }
+        } while (page && !seen.has(page))
         return items
     }
 
@@ -111,7 +110,8 @@ export class OciRestRuntimeClient implements OciRuntimeClient {
                 {cause: error},
             )
         }
-        if (res.status >= 500) {
+        // Any non-2xx counts: a 404 here means the endpoint is not Floci-OCI.
+        if (!res.ok) {
             throw new RuntimeUnavailableError(`Floci-OCI at ${this.endpoint} returned HTTP ${res.status}`)
         }
     }
