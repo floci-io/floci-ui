@@ -57,6 +57,15 @@ describe('SERVICE_CATALOG', () => {
         expect(isServiceType('cognito')).toBe(true)
     })
 
+    test('keeps Azure Queue Storage separate from Service Bus', () => {
+        const queue = catalogEntry('queue')!
+
+        expect(queue.group).toBe('Integration')
+        expect(routeFor(queue, 'azure')).toBe('queue')
+        expect(displayNameFor(queue, 'azure')).toBe('Queue Storage')
+        expect(queue.iconKey).toBe('queue')
+    })
+
     test('orders entries by group then in-group order', () => {
         const positions = SERVICE_CATALOG_ENTRIES.map((entry) => [
             SERVICE_GROUP_ORDER.indexOf(entry.group),
@@ -116,12 +125,12 @@ describe('isServiceType', () => {
     })
 
     test('rejects unknown slugs so routes 404 instead of failing later', () => {
-        for (const slug of ['queue', 'stroage', '', 'constructor', '__proto__', 'toString']) {
+        for (const slug of ['stroage', '', 'constructor', '__proto__', 'toString']) {
             expect(isServiceType(slug)).toBe(false)
         }
     })
 
     test('catalogEntry returns undefined for an unknown slug', () => {
-        expect(catalogEntry('queue')).toBeUndefined()
+        expect(catalogEntry('unknown')).toBeUndefined()
     })
 })

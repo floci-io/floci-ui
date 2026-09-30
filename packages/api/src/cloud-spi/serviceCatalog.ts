@@ -148,6 +148,13 @@ export const SERVICE_CATALOG = {
         group: 'Integration',
         order: 10,
     },
+    queue: {
+        displayName: 'Queue Storage',
+        description: 'Create and inspect Azure Storage queues.',
+        iconKey: 'queue',
+        group: 'Integration',
+        order: 11,
+    },
     streams: {
         displayName: 'Streams',
         displayNameByCloud: {aws: 'Kinesis'},

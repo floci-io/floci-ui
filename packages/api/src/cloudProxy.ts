@@ -9,6 +9,7 @@ import {AzureNoSqlAdapter} from './adapter-azure/AzureNoSqlAdapter'
 import {AwsDynamoDbAdapter} from './adapter-aws/AwsDynamoDbAdapter'
 import {AzureDatabaseAdapter} from './adapter-azure/AzureDatabaseAdapter'
 import {AzureServiceBusAdapter} from './adapter-azure/AzureServiceBusAdapter'
+import {AzureQueueAdapter} from './adapter-azure/AzureQueueAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
 import {AzureAksAdapter} from './adapter-azure/AzureAksAdapter'
 import {AzureComputeAdapter} from './adapter-azure/AzureComputeAdapter'
@@ -83,6 +84,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsSageMakerAdapter(clients.sagemaker),
         new AzureStorageAdapter(),
         new AzureServiceBusAdapter(),
+        new AzureQueueAdapter(),
         new AzureDatabaseAdapter(),
         new AzureAksAdapter(),
         new AzureNoSqlAdapter(),
