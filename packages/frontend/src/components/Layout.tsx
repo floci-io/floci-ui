@@ -12,6 +12,7 @@ import {getCloudStatus} from '@/api/cloudProxyClient'
 import {useCloudServicesQuery, useCloudsQuery} from '@/api/queries/cloudQueries'
 import {AccountSwitcher} from '@/components/AccountSwitcher'
 import {CloudSwitcher} from '@/components/CloudSwitcher'
+import {ThemeToggle} from '@/components/ThemeToggle'
 import {serviceIcon} from '@/components/serviceIcons'
 import type {CloudProvider, CloudServiceDescriptor, RuntimeReachability} from '@/types/cloud'
 
@@ -228,6 +229,7 @@ export function Layout() {
             <div className="shell">
                 <header className="topbar">
                     <TopbarSearch/>
+                    <ThemeToggle/>
                     <div id="topbar-status" className="topbar-status"/>
                     <CloudSwitcher clouds={cloudsQuery.data ?? []} selected={activeCloud} onSelect={selectCloud}/>
                     <AccountSwitcher/>

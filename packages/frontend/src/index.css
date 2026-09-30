@@ -600,6 +600,11 @@ pre,
    (full detail stays in each control's title/aria-label and, for the
    switchers, in the popover once opened). */
 @media (max-width: 680px) {
+    .topbar {
+        gap: 8px;
+        padding: 0 12px;
+    }
+
     .kbd {
         display: none;
     }
