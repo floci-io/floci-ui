@@ -33,10 +33,10 @@ function connectionDotClass(status: ConnectionStatus): string {
 /** Matches today's service count, so the real nav causes no layout jump. */
 const SKELETON_ROWS = 7
 
-function NavItem({to, icon, label, collapsed}: { to: string; icon: React.ElementType; label: string; collapsed: boolean }) {
+function NavItem({to, icon, label, collapsed, state}: { to: string; icon: React.ElementType; label: string; collapsed: boolean; state?: {fromCloudExplorer: true} }) {
     const Icon = icon
     return (
-        <NavLink className="nav-link" to={to} title={collapsed ? label : undefined}>
+        <NavLink className="nav-link" to={to} state={state} title={collapsed ? label : undefined}>
             <Icon size={14} aria-hidden="true"/>
             <span>{label}</span>
         </NavLink>
@@ -160,6 +160,8 @@ function groupByGroup(services: CloudServiceDescriptor[]): Array<[string, CloudS
 export function Layout() {
     const location = useLocation()
     const activeCloud = activeCloudFromPath(location.pathname)
+    const fromCloudExplorer = location.pathname.startsWith('/cloud-explorer/')
+        || (location.state as {fromCloudExplorer?: boolean} | null)?.fromCloudExplorer === true
     const {theme} = useTheme()
     const {collapsed, toggle: toggleSidebar, toggleRef} = useSidebar()
     const isDark = theme === 'dark'
@@ -187,7 +189,8 @@ export function Layout() {
                         <div className="nav-section">
                             <span className="nav-label">General</span>
                             <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home" collapsed={collapsed}/>
-                            <NavItem to={`/console/${activeCloud}/settings`} icon={Settings} label="Settings" collapsed={collapsed}/>
+                            <NavItem to={`/console/${activeCloud}/settings`} icon={Settings} label="Settings" collapsed={collapsed}
+                                     state={fromCloudExplorer ? {fromCloudExplorer: true} : undefined}/>
                         </div>
                         <CloudServiceNav collapsed={collapsed}/>
                     </nav>
@@ -260,9 +263,9 @@ function TopbarSearch() {
                 }
                 return next
             },
-            {replace: true},
+            {replace: true, state: location.state},
         )
-    }, [setSearchParams])
+    }, [setSearchParams, location.state])
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value

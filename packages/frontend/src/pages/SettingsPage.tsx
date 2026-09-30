@@ -1,5 +1,5 @@
 import {Settings} from 'lucide-react'
-import {useNavigate, useParams} from 'react-router-dom'
+import {useLocation, useNavigate, useParams} from 'react-router-dom'
 import {AccountSwitcher} from '@/components/AccountSwitcher'
 import {CloudSwitcher} from '@/components/CloudSwitcher'
 import {useCloudsQuery} from '@/api/queries/cloudQueries'
@@ -8,10 +8,16 @@ import type {CloudProvider} from '@/types/cloud'
 
 export function SettingsPage() {
     const navigate = useNavigate()
+    const location = useLocation()
+    const fromCloudExplorer = (location.state as {fromCloudExplorer?: boolean} | null)?.fromCloudExplorer === true
     const {cloud: routeCloud} = useParams()
     const cloud: CloudProvider = routeCloud === 'azure' || routeCloud === 'gcp' ? routeCloud : 'aws'
     const cloudsQuery = useCloudsQuery()
     const {theme, setTheme} = useTheme()
+
+    function selectCloud(nextCloud: CloudProvider) {
+        navigate(fromCloudExplorer ? `/cloud-explorer/${nextCloud}/storage` : `/console/${nextCloud}`)
+    }
 
     return (
         <>
@@ -35,7 +41,7 @@ export function SettingsPage() {
                         <CloudSwitcher
                             clouds={cloudsQuery.data ?? []}
                             selected={cloud}
-                            onSelect={(nextCloud) => navigate(`/console/${nextCloud}`)}
+                            onSelect={selectCloud}
                         />
                     </div>
                     <div className="settings-row">
