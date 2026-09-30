@@ -11,6 +11,7 @@ import { SFNClient } from "@aws-sdk/client-sfn";
 import { ElasticLoadBalancingV2Client } from "@aws-sdk/client-elastic-load-balancing-v2";
 import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
 import { SQSClient } from "@aws-sdk/client-sqs";
+import { SNSClient } from "@aws-sdk/client-sns";
 import { IAMClient } from "@aws-sdk/client-iam";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { APIGatewayClient } from "@aws-sdk/client-api-gateway";
@@ -61,6 +62,7 @@ export type AwsClients = {
   elbv2: ElasticLoadBalancingV2Client;
   eventbridge: EventBridgeClient;
   sqs: SQSClient;
+  sns: SNSClient;
   iam: IAMClient;
   dynamodb: DynamoDBClient;
   apiGateway: APIGatewayClient;
@@ -95,6 +97,7 @@ function buildClients(accountId: string): AwsClients {
     elbv2: new ElasticLoadBalancingV2Client(base),
     eventbridge: new EventBridgeClient(base),
     sqs: new SQSClient(base),
+    sns: new SNSClient(base),
     iam: new IAMClient(base),
     dynamodb: new DynamoDBClient(base),
     apiGateway: new APIGatewayClient(base),

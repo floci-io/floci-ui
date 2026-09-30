@@ -148,6 +148,11 @@ export const SERVICE_CATALOG = {
         group: 'Integration',
         order: 10,
     },
+    sns: {
+        displayName: 'SNS',
+        description: 'Publish notifications through topics and subscriptions.',
+        iconKey: 'messaging', group: 'Integration', order: 11,
+    },
     streams: {
         displayName: 'Streams',
         displayNameByCloud: {aws: 'Kinesis'},

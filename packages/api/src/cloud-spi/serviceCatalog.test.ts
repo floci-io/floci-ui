@@ -57,6 +57,14 @@ describe('SERVICE_CATALOG', () => {
         expect(isServiceType('cognito')).toBe(true)
     })
 
+    test('keeps SNS separate from the SQS messaging adapter', () => {
+        const sns = catalogEntry('sns')!
+        expect(sns.group).toBe('Integration')
+        expect(sns.order).toBeGreaterThan(catalogEntry('messaging')!.order)
+        expect(displayNameFor(sns, 'aws')).toBe('SNS')
+        expect(routeFor(sns, 'aws')).toBe('sns')
+    })
+
     test('orders entries by group then in-group order', () => {
         const positions = SERVICE_CATALOG_ENTRIES.map((entry) => [
             SERVICE_GROUP_ORDER.indexOf(entry.group),
