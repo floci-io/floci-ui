@@ -150,7 +150,7 @@ export const SERVICE_CATALOG = {
     },
     sns: {
         displayName: 'SNS',
-        description: 'Publish notifications through topics and subscriptions.',
+        description: 'Manage standard and FIFO notification topics.',
         iconKey: 'messaging', group: 'Integration', order: 11,
     },
     streams: {
