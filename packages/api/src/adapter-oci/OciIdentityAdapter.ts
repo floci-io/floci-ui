@@ -162,6 +162,18 @@ export class OciIdentityAdapter implements CloudServiceAdapter {
             throw new ValidationError('The root compartment (tenancy) cannot be deleted')
         }
         const kind = kindOf(id)
+        if (kind === 'compartments') {
+            // List shows only the tenancy's direct children, so delete stays in that scope.
+            const compartment = await this.client.json<OciIdentityResource>(
+                this.itemPath(kind, id),
+                {method: 'GET'},
+                {emptyOnNotFound: true},
+            )
+            if (!compartment) return
+            if (compartment.compartmentId !== this.client.tenancyId) {
+                throw new ValidationError('Only compartments directly under the root compartment can be deleted here')
+            }
+        }
         await this.client.fetch(this.itemPath(kind, id), {method: 'DELETE'}, {emptyOnNotFound: true})
     }
 

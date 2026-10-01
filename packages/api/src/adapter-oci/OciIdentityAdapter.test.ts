@@ -262,15 +262,31 @@ describe('OciIdentityAdapter', () => {
     })
 
     test('returns once a compartment delete is accepted', async () => {
-        const calls = stubFetch(() => new Response(null, {status: 202, headers: {'opc-work-request-id': 'ocid1.workrequest.oc1..w'}}))
+        const calls = stubFetch((_url, init) => init?.method === 'DELETE'
+            ? new Response(null, {status: 202, headers: {'opc-work-request-id': 'ocid1.workrequest.oc1..w'}})
+            : json({id: COMPARTMENT, compartmentId: TENANCY, lifecycleState: 'ACTIVE'}))
         await adapter().delete(COMPARTMENT)
 
+        expect(calls.map((call) => call.init?.method)).toEqual(['GET', 'DELETE'])
+        expect(calls[1]?.url).toBe(`${API}/compartments/${encodeURIComponent(COMPARTMENT)}`)
+    })
+
+    test('refuses to delete a nested compartment the list does not show', async () => {
+        const calls = stubFetch(() => json({id: COMPARTMENT, compartmentId: 'ocid1.compartment.oc1..parent', lifecycleState: 'ACTIVE'}))
+        await expect(adapter().delete(COMPARTMENT)).rejects.toBeInstanceOf(ValidationError)
+        expect(calls.map((call) => call.init?.method)).toEqual(['GET'])
+    })
+
+    test('treats deleting a missing compartment as done', async () => {
+        const calls = stubFetch(() => json({code: 'NotAuthorizedOrNotFound', message: 'nope'}, {status: 404}))
+        await expect(adapter().delete(COMPARTMENT)).resolves.toBeUndefined()
         expect(calls).toHaveLength(1)
-        expect(calls[0]?.url).toBe(`${API}/compartments/${encodeURIComponent(COMPARTMENT)}`)
     })
 
     test('surfaces a compartment with active children as a conflict', async () => {
-        stubFetch(() => json({code: 'Conflict', message: 'has active child compartments'}, {status: 409}))
+        stubFetch((_url, init) => init?.method === 'DELETE'
+            ? json({code: 'Conflict', message: 'has active child compartments'}, {status: 409})
+            : json({id: COMPARTMENT, compartmentId: TENANCY, lifecycleState: 'ACTIVE'}))
         await expect(adapter().delete(COMPARTMENT)).rejects.toBeInstanceOf(ConflictError)
     })
 
