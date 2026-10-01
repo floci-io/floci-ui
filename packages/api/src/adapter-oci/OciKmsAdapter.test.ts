@@ -289,6 +289,20 @@ describe('OciKmsAdapter', () => {
             expect((calls[0]?.body as {vaultType: string}).vaultType).toBe('DEFAULT')
         })
 
+        test('reports a key the runtime placed in another vault', async () => {
+            stubFetch((url) => {
+                if (url === `${BASE}/vaults/${VAULT_ID}`) return json(vault())
+                if (url === `${BASE}/keys`) return json(key({vaultId: VAULT2_ID}))
+                return notFound()
+            })
+            const error = await adapter()
+                .create({values: {resourceType: 'key', displayName: 'app-key', vaultId: VAULT_ID}})
+                .catch((e: unknown) => e)
+
+            expect(error).toBeInstanceOf(ConflictError)
+            expect((error as Error).message).toContain(VAULT2_ID)
+        })
+
         test('creates a key on the chosen vault management plane', async () => {
             const calls = stubFetch((url) => {
                 if (url === `${BASE}/vaults/${VAULT_ID}`) return json(vault())
@@ -361,9 +375,27 @@ describe('OciKmsAdapter', () => {
 
     describe('delete', () => {
         test('schedules vault deletion instead of deleting', async () => {
-            const calls = stubFetch(() => json(vault({lifecycleState: 'PENDING_DELETION'})))
+            const calls = stubFetch((url) => json(vault(url.endsWith('/scheduleDeletion') ? {lifecycleState: 'PENDING_DELETION'} : {})))
             await adapter().delete(VAULT_ID)
-            expect(calls).toEqual([{url: `${BASE}/vaults/${VAULT_ID}/actions/scheduleDeletion`, method: 'POST', body: {}}])
+            expect(calls).toEqual([
+                {url: `${BASE}/vaults/${VAULT_ID}`, method: 'GET', body: undefined},
+                {url: `${BASE}/vaults/${VAULT_ID}/actions/scheduleDeletion`, method: 'POST', body: {}},
+            ])
+        })
+
+        test('refuses to schedule a vault or key that is already pending deletion', async () => {
+            const vaultCalls = stubFetch(() => json(vault({lifecycleState: 'PENDING_DELETION', timeOfDeletion: '2026-10-30T00:00:00Z'})))
+            await expect(adapter().delete(VAULT_ID)).rejects.toThrow(/already scheduled for deletion for 2026-10-30/)
+            expect(vaultCalls.some((c) => c.method === 'POST')).toBe(false)
+
+            const keyCalls = runtime({key: {lifecycleState: 'PENDING_DELETION'}})
+            await expect(adapter().delete(KEY_ID)).rejects.toBeInstanceOf(ConflictError)
+            expect(keyCalls.some((c) => c.method === 'POST')).toBe(false)
+        })
+
+        test('reports a missing vault as not found', async () => {
+            stubFetch(() => notFound())
+            await expect(adapter().delete(VAULT_ID)).rejects.toBeInstanceOf(NotFoundError)
         })
 
         test('schedules key deletion on its vault management plane', async () => {

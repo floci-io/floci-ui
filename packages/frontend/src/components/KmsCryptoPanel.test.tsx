@@ -83,6 +83,18 @@ describe("KmsCryptoPanel", () => {
     expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
+  test("offers RSA encryption for an RSA-3072 key", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{...resource, cloud: "oci", status: "ENABLED", metadata: {...resource.metadata, keySpec: "RSA_3072"}}}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.getByLabelText("Encryption algorithm")).toHaveValue("RSAES_OAEP_SHA_256");
+  });
+
   test("blocks an OCI key pending deletion", () => {
     render(
       <KmsCryptoPanel

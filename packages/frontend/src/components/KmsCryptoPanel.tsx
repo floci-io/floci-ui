@@ -56,7 +56,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
   const isKmsKey = resource?.service === "kms" && resource.type === "key";
   const isSupportedKey = keyUsage === "ENCRYPT_DECRYPT" && keyEnabled && isEncryptKeySpec(keySpec);
   const canSubmit = Boolean(isKmsKey && isSupportedKey && runtimeReachable && !pending);
-  const isRsa = keySpec === "RSA_2048" || keySpec === "RSA_4096";
+  const isRsa = isRsaKeySpec(keySpec);
 
   const changeMode = (next: CryptoMode) => {
     if (next === mode) return;
@@ -233,13 +233,17 @@ function metadataString(resource: CloudResource | undefined, key: string): strin
 }
 
 function defaultAlgorithm(keySpec: string | null): KmsEncryptionAlgorithm {
-  return keySpec === "RSA_2048" || keySpec === "RSA_4096"
+  return isRsaKeySpec(keySpec)
     ? "RSAES_OAEP_SHA_256"
     : "SYMMETRIC_DEFAULT";
 }
 
+function isRsaKeySpec(keySpec: string | null): boolean {
+  return keySpec === "RSA_2048" || keySpec === "RSA_3072" || keySpec === "RSA_4096";
+}
+
 function isEncryptKeySpec(keySpec: string | null): boolean {
-  return keySpec === "SYMMETRIC_DEFAULT" || keySpec === "RSA_2048" || keySpec === "RSA_4096";
+  return keySpec === "SYMMETRIC_DEFAULT" || isRsaKeySpec(keySpec);
 }
 
 function operationUnavailableReason(

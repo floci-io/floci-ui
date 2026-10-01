@@ -147,6 +147,9 @@ export class OciKmsAdapter implements CloudServiceAdapter {
     /** ScheduleVaultDeletion / ScheduleKeyDeletion, with OCI's default window. */
     async delete(id: string): Promise<void> {
         if (isVaultId(id)) {
+            const vault = await this.getVault(id)
+            if (!vault) throw new NotFoundError(`Vault ${id} was not found`)
+            assertNotPendingDeletion('Vault', id, vault)
             await this.client.fetch(`${KMS_API}/vaults/${encodeURIComponent(id)}/actions/scheduleDeletion`, {
                 method: 'POST',
                 headers: JSON_HEADERS,
@@ -154,7 +157,8 @@ export class OciKmsAdapter implements CloudServiceAdapter {
             })
             return
         }
-        const {vault} = await this.requireKey(id)
+        const {key, vault} = await this.requireKey(id)
+        assertNotPendingDeletion('Key', id, key)
         await this.client.fetch(
             vaultPlanePath(vault?.managementEndpoint, `/keys/${encodeURIComponent(id)}/actions/scheduleDeletion`),
             {method: 'POST', headers: JSON_HEADERS, body: '{}'},
@@ -244,7 +248,14 @@ export class OciKmsAdapter implements CloudServiceAdapter {
             }),
         })
         if (!key?.id) throw new RuntimeError('OCI KMS did not return the created key')
-        return this.keyResource(key, key.vaultId === vault.id ? vault.displayName : undefined)
+        // The vault is chosen by the management endpoint the call reaches. A runtime that
+        // serves every vault from one endpoint picks its own, so a mismatch is reported.
+        if (key.vaultId && vault.id && key.vaultId !== vault.id) {
+            throw new ConflictError(
+                `The runtime created key ${displayName} (${key.id}) in vault ${key.vaultId}, not the selected ${vault.displayName ?? vault.id}`,
+            )
+        }
+        return this.keyResource(key, vault.displayName)
     }
 
     private async vaultForNewKey(vaultId: string | undefined): Promise<OciVault> {
@@ -432,6 +443,13 @@ export function vaultPlanePath(endpoint: string | undefined, path: string): stri
         }
     }
     return `${base}${KMS_API}${path}`
+}
+
+/** A resource already pending deletion is refused rather than reported as deleted again. */
+function assertNotPendingDeletion(kind: string, id: string, resource: {lifecycleState?: string; timeOfDeletion?: string}): void {
+    if (resource.lifecycleState !== 'PENDING_DELETION' && resource.lifecycleState !== 'SCHEDULING_DELETION') return
+    const when = resource.timeOfDeletion ? ` for ${resource.timeOfDeletion}` : ''
+    throw new ConflictError(`${kind} ${id} is already scheduled for deletion${when}`)
 }
 
 function validateCryptoKey(
