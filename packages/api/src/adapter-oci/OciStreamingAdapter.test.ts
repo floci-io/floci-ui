@@ -53,6 +53,16 @@ describe('OciStreamingAdapter', () => {
         expect(schema.actions).toEqual(['list', 'create', 'inspect', 'delete'])
     })
 
+    test('lists only columns the ListStreams summary carries', () => {
+        expect(adapter().schema().columns.map((column) => column.name)).not.toContain('retention')
+    })
+
+    test('limits the retention field to the 24 to 168 hours the adapter accepts', () => {
+        const pattern = new RegExp(adapter().schema().fields.find((field) => field.name === 'retentionInHours')?.validation?.pattern ?? '')
+        expect(['24', '72', '168'].every((value) => pattern.test(value))).toBe(true)
+        expect(['10', '23', '169', '024'].some((value) => pattern.test(value))).toBe(false)
+    })
+
     test('lists streams in the tenancy root compartment', async () => {
         const calls = stubFetch(() => json([summary()]))
         const [resource] = await adapter().list()

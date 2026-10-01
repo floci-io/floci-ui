@@ -75,7 +75,6 @@ const ociStreamColumns: TableColumnSchema[] = [
     {name: 'name', label: 'Stream Name'},
     {name: 'status', label: 'Lifecycle State', format: 'badge'},
     {name: 'partitions', label: 'Partitions', path: 'metadata.partitions'},
-    {name: 'retention', label: 'Retention (hours)', path: 'metadata.retentionInHours', emptyText: '-'},
     {name: 'ocid', label: 'OCID', path: 'metadata.ocid', format: 'code'},
     {name: 'createdAt', label: 'Created At', format: 'datetime'},
 ]
@@ -118,7 +117,7 @@ export function ociStreamingSchema(): ServiceSchema {
                 defaultValue: '24',
                 description: 'Between 24 and 168 hours. Defaults to 24.',
                 validation: {
-                    pattern: '^[0-9]+$',
+                    pattern: '^(?:2[4-9]|[3-9][0-9]|1[0-5][0-9]|16[0-8])$',
                     message: 'Retention must be a whole number of hours between 24 and 168.',
                 },
             },
