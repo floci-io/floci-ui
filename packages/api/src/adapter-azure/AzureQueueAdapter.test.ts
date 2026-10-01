@@ -185,6 +185,12 @@ describe('AzureQueueAdapter', () => {
         expect(created.status).toBe(201)
         expect((await created.json()).id).toBe('orders')
 
+        const invalid = await app.request(`${path}/resources`, {
+            method: 'POST', headers: {'content-type': 'application/json'}, body: 'null',
+        })
+        expect(invalid.status).toBe(400)
+        expect((await invalid.json()).code).toBe('invalid_request')
+
         const duplicate = await app.request(`${path}/resources`, {
             method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({queueName: 'orders'}),
         })

@@ -56,7 +56,7 @@ export class AzureQueueAdapter implements CloudServiceAdapter {
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
-        const name = typeof input.values.queueName === 'string' ? input.values.queueName.trim() : ''
+        const name = typeof input.values?.queueName === 'string' ? input.values.queueName.trim() : ''
         if (!name) throw new ValidationError('queueName is required')
         if (!isValidQueueName(name)) {
             throw new ValidationError('Use a valid Azure queue name: 3-63 lowercase letters, numbers, or single hyphens.')
