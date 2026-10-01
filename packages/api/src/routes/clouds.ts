@@ -942,7 +942,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
 }
 
 function isCloudProvider(value: string): value is CloudProvider {
-    return value === 'aws' || value === 'azure' || value === 'gcp'
+    return value === 'aws' || value === 'azure' || value === 'gcp' || value === 'oci'
 }
 
 async function jsonBody<T>(c: Context): Promise<T> {

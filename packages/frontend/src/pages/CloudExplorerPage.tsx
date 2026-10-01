@@ -8,6 +8,7 @@ import {useCloudServicesQuery, useCloudStatusQuery} from '@/api/queries/cloudQue
 import {DynamicResourceView} from '@/components/DynamicResourceView'
 import {EmptyState} from '@/components/EmptyState'
 import {normalizeCapabilities, withRuntimeState, withServiceAvailability} from '@/lib/capabilities'
+import {isCloudProvider} from '@/lib/cloudProvider'
 import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatus} from '@/types/cloud'
 import type {ServiceSchema} from '@/types/schema'
 
@@ -90,7 +91,7 @@ export function CloudExplorerPage() {
 }
 
 function normalizeCloud(value?: string): CloudProvider | null {
-    return value === 'aws' || value === 'azure' || value === 'gcp' ? value : null
+    return isCloudProvider(value) ? value : null
 }
 
 function ServiceInfoDialog({

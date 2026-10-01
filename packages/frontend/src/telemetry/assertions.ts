@@ -5,6 +5,7 @@ const CLOUD_PROVIDERS: ReadonlySet<CloudProvider> = new Set([
   "aws",
   "azure",
   "gcp",
+  "oci",
   "system",
 ]);
 

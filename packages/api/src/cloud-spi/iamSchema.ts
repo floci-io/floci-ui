@@ -118,3 +118,118 @@ export function awsIamSchema(): ServiceSchema {
         columns: iamColumns,
     }
 }
+
+/**
+ * OCI Identity holds four kinds of resource, all scoped here to the tenancy
+ * (root compartment): its child compartments, users, groups and policies.
+ */
+export const OCI_IDENTITY_KINDS = ['compartments', 'users', 'groups', 'policies'] as const
+export type OciIdentityKind = (typeof OCI_IDENTITY_KINDS)[number]
+
+export const OCI_IDENTITY_KIND_SINGULAR = {
+    compartments: 'compartment',
+    users: 'user',
+    groups: 'group',
+    policies: 'policy',
+} as const
+
+/** User names may be email-shaped; the other kinds may not contain `@` or `+`. */
+export const OCI_IDENTITY_NAME_PATTERN = '^[A-Za-z0-9._+@-]+$'
+export const OCI_IDENTITY_NAME_MAX_LENGTH = 100
+export const OCI_IDENTITY_NAME_MESSAGE =
+    'Up to 100 letters, digits, periods, dashes and underscores. User names may also contain + and @.'
+export const OCI_IDENTITY_DESCRIPTION_MAX_LENGTH = 400
+
+const ociIdentityColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'type', label: 'Kind', format: 'badge'},
+    {name: 'status', label: 'State', format: 'badge'},
+    {name: 'description', label: 'Description', path: 'metadata.description', emptyText: '-'},
+    {name: 'ocid', label: 'OCID', path: 'metadata.ocid', format: 'code'},
+    {name: 'createdAt', label: 'Created', format: 'datetime'},
+]
+
+/** `kind` is API-only today, for the same reason as the AWS IAM facet above. */
+const ociIdentityFilters: FieldSchema[] = [
+    {name: 'search', label: 'Search', type: 'text', required: false},
+    {
+        name: 'kind',
+        label: 'Kind',
+        type: 'select',
+        required: false,
+        description: 'Leave unset to list compartments, users, groups and policies together.',
+        options: OCI_IDENTITY_KINDS.map((value) => ({label: value, value})),
+    },
+]
+
+const ociIdentityResourceActions: CapabilitySchema<ResourceActionName>[] = [
+    {name: 'list', label: 'List identity resources', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'create', label: 'Create', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'delete', label: 'Delete', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'inspect', label: 'Inspect', enabled: true, status: 'available', runtimeRequired: true},
+]
+
+export function ociIdentitySchema(): ServiceSchema {
+    return {
+        cloud: 'oci',
+        service: 'identity',
+        displayName: 'OCI Identity',
+        fields: [
+            {
+                name: 'kind',
+                label: 'Kind',
+                type: 'select',
+                required: true,
+                group: 'Required',
+                options: OCI_IDENTITY_KINDS.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'name',
+                label: 'Name',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                description: 'Unique in the tenancy. Users, groups and policies cannot be renamed later.',
+                validation: {
+                    pattern: OCI_IDENTITY_NAME_PATTERN,
+                    minLength: 1,
+                    maxLength: OCI_IDENTITY_NAME_MAX_LENGTH,
+                    message: OCI_IDENTITY_NAME_MESSAGE,
+                },
+            },
+            {
+                name: 'description',
+                label: 'Description',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                description: 'OCI requires a description for every identity resource.',
+                validation: {minLength: 1, maxLength: OCI_IDENTITY_DESCRIPTION_MAX_LENGTH},
+            },
+            {
+                name: 'email',
+                label: 'Email',
+                type: 'text',
+                required: false,
+                visibleWhen: {field: 'kind', equals: 'users'},
+                group: 'Users only',
+                description: 'Optional contact email for the user.',
+            },
+            {
+                name: 'statements',
+                label: 'Policy Statements',
+                type: 'textarea',
+                required: false,
+                requiredWhen: {field: 'kind', equals: 'policies'},
+                visibleWhen: {field: 'kind', equals: 'policies'},
+                span: true,
+                group: 'Policies only',
+                description: 'One statement per line, for example: Allow group Developers to manage buckets in tenancy',
+            },
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {resourceActions: ociIdentityResourceActions},
+        filters: ociIdentityFilters,
+        columns: ociIdentityColumns,
+    }
+}

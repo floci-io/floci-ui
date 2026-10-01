@@ -10,11 +10,12 @@ import {DynamoDbTableExplorer} from '@/components/DynamoDbTableExplorer'
 import {useAccountId} from '@/lib/accountStore'
 import {dataExplorerKind} from '@/lib/dataExplorer'
 import type {CloudProvider} from '@/types/cloud'
+import {isCloudProvider} from '@/lib/cloudProvider'
 
 export function DatabaseDataPage() {
     const {cloud, service, resourceId} = useParams()
     const accountId = useAccountId()
-    if ((cloud !== 'aws' && cloud !== 'azure' && cloud !== 'gcp') || !service || !resourceId) {
+    if (!isCloudProvider(cloud) || !service || !resourceId) {
         return <div className="content"><DataNotice title="Invalid data workspace" detail="Check the cloud, service, and resource in this link."/>
             <Link to="/console/aws">Console Home</Link></div>
     }
