@@ -1,4 +1,4 @@
-import {ConflictError, NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, NotImplementedByRuntimeError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     OCI_DISPLAY_NAME_MAX_LENGTH,
     OCI_KEY_SHAPES,
@@ -86,6 +86,13 @@ const OCI_ALGORITHM: Record<KmsEncryptionAlgorithm, OciEncryptionAlgorithm> = {
 
 const KMS_API = '/20180608'
 const JSON_HEADERS = {'content-type': 'application/json'}
+
+/**
+ * Floci-OCI gaps, refused here rather than offered: its crypto plane runs AES-GCM only and
+ * never reads `associatedData`, so an RSA call fails and a context would not be bound.
+ */
+const FLOCI_OCI_NO_RSA_ENCRYPT = 'Floci-OCI does not support RSA encryption yet'
+const FLOCI_OCI_NO_ASSOCIATED_DATA = 'Floci-OCI does not bind an encryption context (associatedData) yet'
 
 /** OCI Encrypt accepts at most 4 KiB of plaintext. */
 const PLAINTEXT_MAX_BYTES = 4_096
@@ -180,7 +187,6 @@ export class OciKmsAdapter implements CloudServiceAdapter {
                 keyId: id,
                 plaintext: toBase64(input.plaintext),
                 encryptionAlgorithm: OCI_ALGORITHM[input.encryptionAlgorithm],
-                ...(hasEntries(input.encryptionContext) ? {associatedData: input.encryptionContext} : {}),
             }),
         })
         if (!res?.ciphertext) throw new RuntimeError('OCI KMS did not return ciphertext')
@@ -204,7 +210,6 @@ export class OciKmsAdapter implements CloudServiceAdapter {
                 keyId: id,
                 ciphertext: toBase64(input.ciphertextBlob),
                 encryptionAlgorithm: OCI_ALGORITHM[input.encryptionAlgorithm],
-                ...(hasEntries(input.encryptionContext) ? {associatedData: input.encryptionContext} : {}),
             }),
         })
         if (typeof res?.plaintext !== 'string') throw new RuntimeError('OCI KMS did not return plaintext')
@@ -415,6 +420,8 @@ export class OciKmsAdapter implements CloudServiceAdapter {
                 keyShapeLabel: keyShapeLabel(algorithm, length, key.keyShape?.curveId),
                 keyUsage: algorithm === 'ECDSA' ? 'SIGN_VERIFY' : algorithm ? 'ENCRYPT_DECRYPT' : undefined,
                 keySpec: keySpec(algorithm, length),
+                cryptoUnavailableReason: algorithm === 'RSA' ? FLOCI_OCI_NO_RSA_ENCRYPT : null,
+                encryptionContextSupported: false,
                 enabled: key.lifecycleState === 'ENABLED',
                 timeOfDeletion: key.timeOfDeletion ?? null,
                 freeformTags: key.freeformTags ?? {},
@@ -463,6 +470,7 @@ function validateCryptoKey(
     const keyAlgorithm = key.keyShape?.algorithm ?? key.algorithm
     if (keyAlgorithm === 'AES') {
         if (algorithm !== 'SYMMETRIC_DEFAULT') throw new ValidationError('AES keys require SYMMETRIC_DEFAULT (AES_256_GCM)')
+        if (hasEntries(encryptionContext)) throw new NotImplementedByRuntimeError(FLOCI_OCI_NO_ASSOCIATED_DATA)
         return
     }
     if (keyAlgorithm === 'RSA') {
@@ -470,7 +478,7 @@ function validateCryptoKey(
             throw new ValidationError('RSA keys require an RSAES_OAEP encryption algorithm')
         }
         if (hasEntries(encryptionContext)) throw new ValidationError('RSA keys do not support encryptionContext')
-        return
+        throw new NotImplementedByRuntimeError(FLOCI_OCI_NO_RSA_ENCRYPT)
     }
     throw new ValidationError(`${keyAlgorithm ?? 'This'} keys cannot encrypt or decrypt`)
 }

@@ -95,6 +95,36 @@ describe("KmsCryptoPanel", () => {
     expect(screen.getByLabelText("Encryption algorithm")).toHaveValue("RSAES_OAEP_SHA_256");
   });
 
+  test("shows the runtime's reason for a key it cannot use", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{
+          ...resource,
+          cloud: "oci",
+          status: "ENABLED",
+          metadata: {...resource.metadata, keySpec: "RSA_2048", cryptoUnavailableReason: "Floci-OCI does not support RSA encryption yet"},
+        }}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Floci-OCI does not support RSA encryption yet")).toBeInTheDocument();
+    const buttons = screen.getAllByRole("button", {name: /Encrypt$/});
+    expect(buttons[buttons.length - 1]).toBeDisabled();
+  });
+
+  test("hides the encryption context when the runtime does not bind it", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{...resource, cloud: "oci", status: "ENABLED", metadata: {...resource.metadata, encryptionContextSupported: false}}}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Encryption context (optional JSON)")).not.toBeInTheDocument();
+  });
+
   test("blocks an OCI key pending deletion", () => {
     render(
       <KmsCryptoPanel

@@ -22,6 +22,9 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
   const accountId = useAccountId();
   const keySpec = metadataString(resource, "keySpec");
   const keyUsage = metadataString(resource, "keyUsage");
+  // Set by an adapter whose runtime cannot run crypto for this key, e.g. RSA on Floci-OCI.
+  const runtimeGap = metadataString(resource, "cryptoUnavailableReason");
+  const contextSupported = resource?.metadata.encryptionContextSupported !== false;
   // AWS reports "Enabled", OCI "ENABLED".
   const keyEnabled = resource?.status?.toUpperCase() === "ENABLED" && resource.metadata.enabled === true;
   const [mode, setMode] = useState<CryptoMode>("encrypt");
@@ -54,7 +57,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
   }, [accountId, resource?.id, keySpec]);
 
   const isKmsKey = resource?.service === "kms" && resource.type === "key";
-  const isSupportedKey = keyUsage === "ENCRYPT_DECRYPT" && keyEnabled && isEncryptKeySpec(keySpec);
+  const isSupportedKey = keyUsage === "ENCRYPT_DECRYPT" && keyEnabled && isEncryptKeySpec(keySpec) && !runtimeGap;
   const canSubmit = Boolean(isKmsKey && isSupportedKey && runtimeReachable && !pending);
   const isRsa = isRsaKeySpec(keySpec);
 
@@ -83,7 +86,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
     activeRequest.current = controller;
     setPending(true);
     try {
-      const encryptionContext = isRsa ? undefined : parseEncryptionContext(contextText);
+      const encryptionContext = isRsa || !contextSupported ? undefined : parseEncryptionContext(contextText);
       if (mode === "encrypt") {
         if (!plaintext) throw new Error("Enter plaintext to encrypt.");
         const response = await encryptKmsResource(cloud, resource.id, {
@@ -143,7 +146,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
           </p>
         </div>
         <span className={`runtime-state ${canSubmit ? "ready" : "pending"}`}>
-          {canSubmit ? "Ready" : operationUnavailableReason(keyUsage, keyEnabled, keySpec, runtimeReachable)}
+          {canSubmit ? "Ready" : runtimeGap ?? operationUnavailableReason(keyUsage, keyEnabled, keySpec, runtimeReachable)}
         </span>
       </div>
 
@@ -188,7 +191,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
           style={{minHeight: 120}}
         />
 
-        {!isRsa && (
+        {!isRsa && contextSupported && (
           <>
             <label className="metric-label" htmlFor="kms-encryption-context">Encryption context (optional JSON)</label>
             <textarea

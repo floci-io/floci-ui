@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, test} from 'bun:test'
 import {OciKmsAdapter, vaultPlanePath} from './OciKmsAdapter'
 import {OciRestRuntimeClient} from '../oci'
-import {ConflictError, NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, NotImplementedByRuntimeError, NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 
 const originalFetch = globalThis.fetch
 const ENDPOINT = 'http://localhost:4599'
@@ -418,11 +418,7 @@ describe('OciKmsAdapter', () => {
             const calls = runtime({
                 onCrypto: () => json({ciphertext: Buffer.from('sealed').toString('base64'), keyId: KEY_ID, keyVersionId: 'v1'}),
             })
-            const result = await adapter().encrypt(KEY_ID, {
-                plaintext,
-                encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
-                encryptionContext: {tenant: 'a'},
-            })
+            const result = await adapter().encrypt(KEY_ID, {plaintext, encryptionAlgorithm: 'SYMMETRIC_DEFAULT'})
 
             expect(calls.at(-1)).toEqual({
                 url: `${BASE}/encrypt`,
@@ -431,7 +427,6 @@ describe('OciKmsAdapter', () => {
                     keyId: KEY_ID,
                     plaintext: Buffer.from('hello').toString('base64'),
                     encryptionAlgorithm: 'AES_256_GCM',
-                    associatedData: {tenant: 'a'},
                 },
             })
             expect(new TextDecoder().decode(result.ciphertextBlob)).toBe('sealed')
@@ -440,21 +435,44 @@ describe('OciKmsAdapter', () => {
 
         test('decrypts and maps the returned algorithm back', async () => {
             const calls = runtime({
-                key: {keyShape: {algorithm: 'RSA', length: 256}},
-                onCrypto: () => json({plaintext: Buffer.from('hello').toString('base64'), keyId: KEY_ID, encryptionAlgorithm: 'RSA_OAEP_SHA_256'}),
+                onCrypto: () => json({plaintext: Buffer.from('hello').toString('base64'), keyId: KEY_ID, encryptionAlgorithm: 'AES_256_GCM'}),
             })
             const result = await adapter().decrypt(KEY_ID, {
                 ciphertextBlob: new Uint8Array([1, 2, 3]),
-                encryptionAlgorithm: 'RSAES_OAEP_SHA_256',
+                encryptionAlgorithm: 'SYMMETRIC_DEFAULT',
             })
 
             expect(calls.at(-1)?.body).toEqual({
                 keyId: KEY_ID,
                 ciphertext: Buffer.from([1, 2, 3]).toString('base64'),
-                encryptionAlgorithm: 'RSA_OAEP_SHA_256',
+                encryptionAlgorithm: 'AES_256_GCM',
             })
             expect(new TextDecoder().decode(result.plaintext)).toBe('hello')
-            expect(result.encryptionAlgorithm).toBe('RSAES_OAEP_SHA_256')
+            expect(result.encryptionAlgorithm).toBe('SYMMETRIC_DEFAULT')
+        })
+
+        test('refuses what Floci-OCI cannot do: RSA crypto and an encryption context', async () => {
+            const rsa = runtime({key: {keyShape: {algorithm: 'RSA', length: 256}}})
+            await expect(adapter().encrypt(KEY_ID, {plaintext, encryptionAlgorithm: 'RSAES_OAEP_SHA_256'})).rejects.toBeInstanceOf(NotImplementedByRuntimeError)
+            await expect(
+                adapter().decrypt(KEY_ID, {ciphertextBlob: new Uint8Array([1]), encryptionAlgorithm: 'RSAES_OAEP_SHA_256'}),
+            ).rejects.toBeInstanceOf(NotImplementedByRuntimeError)
+            expect(rsa.some((c) => c.url.endsWith('/encrypt') || c.url.endsWith('/decrypt'))).toBe(false)
+
+            const aes = runtime()
+            await expect(
+                adapter().encrypt(KEY_ID, {plaintext, encryptionAlgorithm: 'SYMMETRIC_DEFAULT', encryptionContext: {tenant: 'a'}}),
+            ).rejects.toThrow(/encryption context/)
+            expect(aes.some((c) => c.url.endsWith('/encrypt'))).toBe(false)
+        })
+
+        test('tells the crypto panel which keys it can use', async () => {
+            runtime({key: {keyShape: {algorithm: 'RSA', length: 384}}})
+            const rsa = await adapter().get(KEY_ID)
+            expect(rsa?.metadata).toMatchObject({keySpec: 'RSA_3072', cryptoUnavailableReason: 'Floci-OCI does not support RSA encryption yet', encryptionContextSupported: false})
+
+            runtime()
+            expect((await adapter().get(KEY_ID))?.metadata).toMatchObject({keySpec: 'SYMMETRIC_DEFAULT', cryptoUnavailableReason: null})
         })
 
         test('rejects mismatched algorithms, sign-only keys and RSA context before calling crypto', async () => {
