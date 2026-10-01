@@ -1,4 +1,4 @@
-import {NotFoundError, ValidationError} from '../cloud-spi/errors'
+import {NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {ociMessagingSchema} from '../cloud-spi/messagingSchema'
 import {oci, type OciRuntimeClient} from '../oci'
 import type {
@@ -18,9 +18,6 @@ import type {
  */
 
 const API = '/20210201'
-
-/** Guards against a runtime that keeps returning the same page token. */
-const MAX_PAGES = 100
 
 /** `Queue` from GetQueue, or the slimmer `QueueSummary` from ListQueues. */
 interface OciQueue {
@@ -44,6 +41,9 @@ interface OciQueueStats {
     queue?: {visibleMessages?: number; inFlightMessages?: number; sizeInBytes?: number}
     dlq?: {visibleMessages?: number; inFlightMessages?: number; sizeInBytes?: number}
 }
+
+/** Work request states that mean the operation will never complete. */
+const FAILED_STATES = new Set(['FAILED', 'CANCELED'])
 
 interface OciWorkRequest {
     id?: string
@@ -104,12 +104,20 @@ export class OciQueueAdapter implements CloudServiceAdapter {
 
         // CreateQueue answers with only a work request; the queue OCID lives in
         // its resources. On real OCI the queue is still CREATING at this point.
-        const workRequest = await this.workRequest(res?.headers.get('opc-work-request-id') ?? null)
-        const queueId = workRequest?.resources?.find((resource) => resource.entityType === 'QUEUE')?.identifier
-        if (queueId) {
-            const created = await this.get(queueId).catch(() => null)
-            if (created) return created
+        const workRequestId = res?.headers.get('opc-work-request-id') ?? null
+        const workRequest = await this.workRequest(workRequestId)
+        if (workRequest?.status && FAILED_STATES.has(workRequest.status)) {
+            throw new RuntimeError(`OCI Queue did not create ${displayName}: work request ${workRequest.id ?? workRequestId} ${workRequest.status}`)
         }
+        const queueId = workRequest?.resources?.find((resource) => resource.entityType === 'QUEUE')?.identifier
+        // Inspect and delete address a queue by OCID, so a create without one is not reported as done.
+        if (!queueId) {
+            throw new RuntimeError(
+                `OCI Queue accepted ${displayName} but did not report its OCID (work request ${workRequestId ?? 'missing'}); refresh the list to find it`,
+            )
+        }
+        const created = await this.get(queueId).catch(() => null)
+        if (created) return created
         return this.toResource(
             {id: queueId, displayName, compartmentId: this.client.tenancyId, lifecycleState: 'CREATING'},
             null,
@@ -130,17 +138,21 @@ export class OciQueueAdapter implements CloudServiceAdapter {
     /** ListQueues wraps its page in `{items:[...]}`, so `listAll` does not apply. */
     private async listQueues(): Promise<OciQueue[]> {
         const queues: OciQueue[] = []
+        // Stops on a token seen before, so a runtime that repeats one cannot loop forever.
+        const seen = new Set<string>()
         let page: string | null = null
-        for (let count = 0; count < MAX_PAGES; count += 1) {
+        do {
             const qs = new URLSearchParams({compartmentId: this.client.tenancyId})
-            if (page) qs.set('page', page)
+            if (page) {
+                qs.set('page', page)
+                seen.add(page)
+            }
             const res = await this.client.fetch(`${API}/queues?${qs}`)
             if (!res) break
             const body = (await res.json()) as OciCollection<OciQueue>
             queues.push(...(body.items ?? []))
             page = res.headers.get('opc-next-page')
-            if (!page) break
-        }
+        } while (page && !seen.has(page))
         return queues
     }
 

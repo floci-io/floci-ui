@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, test} from 'bun:test'
 import {OciQueueAdapter} from './OciQueueAdapter'
 import {OciRestRuntimeClient} from '../oci'
-import {NotFoundError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
+import {NotFoundError, RuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 
 const originalFetch = globalThis.fetch
 const ENDPOINT = 'http://localhost:4599'
@@ -109,6 +109,29 @@ describe('OciQueueAdapter', () => {
         expect(calls.filter((c) => !c.url.endsWith('/stats'))).toHaveLength(2)
     })
 
+    test('follows more than 100 list pages', async () => {
+        const calls = stubFetch((url) => {
+            const page = Number(new URL(url).searchParams.get('page') ?? '0')
+            return new Response(JSON.stringify({items: [{...QUEUE, id: `q${page}`, lifecycleState: 'CREATING'}]}), {
+                status: 200,
+                headers: page < 150 ? {'opc-next-page': String(page + 1)} : {},
+            })
+        })
+
+        await expect(adapter().list()).resolves.toHaveLength(151)
+        expect(calls).toHaveLength(151)
+    })
+
+    test('stops when the runtime repeats a page token', async () => {
+        const calls = stubFetch(() => new Response(JSON.stringify({items: [{...QUEUE, lifecycleState: 'CREATING'}]}), {
+            status: 200,
+            headers: {'opc-next-page': 'p2'},
+        }))
+
+        await adapter().list()
+        expect(calls).toHaveLength(2)
+    })
+
     test('keeps a queue whose stats cannot be read and skips stats for non-active queues', async () => {
         const calls = stubFetch((url) => {
             if (url === LIST_URL) {
@@ -183,9 +206,36 @@ describe('OciQueueAdapter', () => {
     })
 
     test('omits blank optional settings from the create body', async () => {
-        const calls = stubFetch((url, init) => (init?.method === 'POST' ? accepted() : notFound()))
+        const calls = stubFetch((url, init) => {
+            if (init?.method === 'POST') return accepted()
+            if (url.includes('/workRequests/')) return json({id: WR_ID, status: 'SUCCEEDED', resources: [{entityType: 'QUEUE', identifier: QUEUE_ID}]})
+            return url.endsWith('/stats') ? json(STATS) : json({...QUEUE, displayName: 'bare'})
+        })
         await adapter().create({values: {displayName: 'bare', visibilityInSeconds: '', retentionInSeconds: ' '}})
         expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({displayName: 'bare', compartmentId: TENANCY})
+    })
+
+    test('reports a failed work request instead of a created queue', async () => {
+        stubFetch((url, init) => {
+            if (init?.method === 'POST') return accepted()
+            if (url.includes('/workRequests/')) {
+                return json({id: WR_ID, status: 'FAILED', resources: [{entityType: 'QUEUE', identifier: QUEUE_ID}]})
+            }
+            return notFound()
+        })
+        const error = await adapter().create({values: {displayName: 'orders'}}).catch((e: unknown) => e)
+
+        expect(error).toBeInstanceOf(RuntimeError)
+        expect((error as Error).message).toContain('FAILED')
+    })
+
+    test('does not report a queue as created without its OCID', async () => {
+        stubFetch((url, init) => {
+            if (init?.method === 'POST') return accepted()
+            if (url.includes('/workRequests/')) return json({id: WR_ID, status: 'IN_PROGRESS', resources: []})
+            return notFound()
+        })
+        await expect(adapter().create({values: {displayName: 'orders'}})).rejects.toBeInstanceOf(RuntimeError)
     })
 
     test('reports a still-creating queue when it cannot be read back yet', async () => {
