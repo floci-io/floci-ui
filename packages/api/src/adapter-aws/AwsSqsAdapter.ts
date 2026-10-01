@@ -1,9 +1,13 @@
 import {
     CreateQueueCommand,
+    DeleteMessageCommand,
     DeleteQueueCommand,
     GetQueueAttributesCommand,
     GetQueueUrlCommand,
     ListQueuesCommand,
+    PurgeQueueCommand,
+    ReceiveMessageCommand,
+    SendMessageCommand,
     type SQSClient,
 } from '@aws-sdk/client-sqs'
 import {NotFoundError, ValidationError} from '../cloud-spi/errors'
@@ -13,7 +17,9 @@ import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
+    QueueMessage,
     ResourceQuery,
+    SendQueueMessageResult,
     ServiceSchema,
 } from '../cloud-spi/types'
 
@@ -111,6 +117,53 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
         await this.sqs.send(new DeleteQueueCommand({QueueUrl: url}))
     }
 
+    async sendMessage(id: string, body: string): Promise<SendQueueMessageResult> {
+        const url = await this.requireQueueUrl(id)
+        // Real SQS requires MessageGroupId on every send to a FIFO queue. Derive
+        // a default from the queue name so a FIFO send works without a form field.
+        const res = await this.sqs.send(
+            new SendMessageCommand({
+                QueueUrl: url,
+                MessageBody: body,
+                ...(isFifoName(id) ? {MessageGroupId: id.replace(/\.fifo$/, '')} : {}),
+            }),
+        )
+        return {messageId: res.MessageId ?? '', md5OfMessageBody: res.MD5OfMessageBody}
+    }
+
+    async receiveMessages(id: string, maxMessages = 10): Promise<QueueMessage[]> {
+        const url = await this.requireQueueUrl(id)
+        const res = await this.sqs.send(
+            new ReceiveMessageCommand({
+                QueueUrl: url,
+                MaxNumberOfMessages: Math.min(Math.max(maxMessages, 1), 10),
+                // VisibilityTimeout 0 keeps this a non-consuming peek: messages
+                // stay available in the queue instead of being hidden for the
+                // queue's default visibility period.
+                VisibilityTimeout: 0,
+                MessageSystemAttributeNames: ['All'],
+                MessageAttributeNames: ['All'],
+            }),
+        )
+        return (res.Messages ?? []).map((message) => ({
+            messageId: message.MessageId ?? '',
+            body: message.Body ?? '',
+            receiptHandle: message.ReceiptHandle ?? '',
+            attributes: message.Attributes,
+            md5OfBody: message.MD5OfBody,
+        }))
+    }
+
+    async deleteMessage(id: string, receiptHandle: string): Promise<void> {
+        const url = await this.requireQueueUrl(id)
+        await this.sqs.send(new DeleteMessageCommand({QueueUrl: url, ReceiptHandle: receiptHandle}))
+    }
+
+    async purgeQueue(id: string): Promise<void> {
+        const url = await this.requireQueueUrl(id)
+        await this.sqs.send(new PurgeQueueCommand({QueueUrl: url}))
+    }
+
     /** Listing queue names is cheaper than describing each one. */
     async health(): Promise<void> {
         await this.sqs.send(new ListQueuesCommand({}))
@@ -124,6 +177,12 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
             if (isQueueMissing(error)) return null
             throw error
         }
+    }
+
+    private async requireQueueUrl(name: string): Promise<string> {
+        const url = await this.queueUrl(name)
+        if (!url) throw new NotFoundError(`Queue ${name} does not exist`)
+        return url
     }
 
     private async attributesFor(url: string): Promise<QueueAttributes> {

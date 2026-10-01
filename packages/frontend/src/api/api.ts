@@ -24,6 +24,10 @@ export const apiEndpointKeys = {
       invoke: "clouds.services.resources.invoke",
       encrypt: "clouds.services.resources.encrypt",
       decrypt: "clouds.services.resources.decrypt",
+      sendMessage: "clouds.services.resources.messages.send",
+      receiveMessages: "clouds.services.resources.messages.receive",
+      deleteMessage: "clouds.services.resources.messages.delete",
+      purgeQueue: "clouds.services.resources.purge",
     },
     storage: {
       objects: {
@@ -119,6 +123,13 @@ export const apiEndpointKeys = {
         list: "clouds.services.configuration.deployment-strategies.list",
         create: "clouds.services.configuration.deployment-strategies.create",
         delete: "clouds.services.configuration.deployment-strategies.delete",
+      },
+    },
+    serverless: {
+      triggers: {
+        list: "clouds.services.serverless.triggers.list",
+        create: "clouds.services.serverless.triggers.create",
+        delete: "clouds.services.serverless.triggers.delete",
       },
     },
   },
@@ -314,6 +325,38 @@ export const endpointRegistry: EndpointRegistry = new Map([
       path: "/clouds/:cloud/services/kms/resources/:id/decrypt",
       method: "POST",
       telemetry: { service: "kms" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.sendMessage,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/messages",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.receiveMessages,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/messages",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.deleteMessage,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/messages",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.purgeQueue,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/purge",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
     },
   ],
   [
@@ -702,6 +745,31 @@ export const endpointRegistry: EndpointRegistry = new Map([
       telemetry: { service: "cloud-proxy" },
     },
   ],
+  [
+    apiEndpointKeys.clouds.serverless.triggers.list,
+    {
+      path: "/clouds/:cloud/services/serverless/resources/:id/triggers",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.serverless.triggers.create,
+    {
+      path: "/clouds/:cloud/services/serverless/resources/:id/triggers",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.serverless.triggers.delete,
+    {
+      path: "/clouds/:cloud/services/serverless/resources/:id/triggers/:triggerId",
+      method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+
 
   [
     apiEndpointKeys.clouds.childCollections.list,

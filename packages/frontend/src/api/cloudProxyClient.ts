@@ -23,9 +23,12 @@ import type {
   CreateDatabaseSnapshotInput,
   CreateKubernetesFargateProfileInput,
   CreateKubernetesNodegroupInput,
+  CreateLambdaTriggerInput,
   DatabaseSnapshot,
+  DeleteLambdaTriggerOptions,
   KubernetesFargateProfile,
   KubernetesNodegroup,
+  LambdaTrigger,
   LogsInsightsQueryInput,
   LogsInsightsQueryResult,
   NoSqlItem,
@@ -70,7 +73,7 @@ export async function listCloudServices(
   return res.data;
 }
 
-export async function getCloudStatus(
+export async function  getCloudStatus(
   cloud: CloudProvider,
   signal?: AbortSignal,
 ): Promise<CloudStatus> {
@@ -282,6 +285,76 @@ export async function decryptKmsResource(
     { cloud, id },
   );
   return res.data;
+}
+
+export interface QueueMessage {
+  messageId: string;
+  body: string;
+  receiptHandle: string;
+  attributes?: Record<string, string>;
+  md5OfBody?: string;
+}
+
+export interface SendQueueMessageResult {
+  messageId: string;
+  md5OfMessageBody?: string;
+}
+
+export async function sendQueueMessage(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: string,
+  signal?: AbortSignal,
+): Promise<SendQueueMessageResult> {
+  const res = await apiClient.call<SendQueueMessageResult, { body: string }>(
+    apiEndpointKeys.clouds.resources.sendMessage,
+    requestOptions(cloud, service, { signal, body: { body } }),
+    { cloud, service, id },
+  );
+  return res.data;
+}
+
+export async function receiveQueueMessages(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  maxMessages?: number,
+  signal?: AbortSignal,
+): Promise<QueueMessage[]> {
+  const res = await apiClient.call<{ messages: QueueMessage[] }>(
+    apiEndpointKeys.clouds.resources.receiveMessages,
+    requestOptions(cloud, service, { signal, params: { maxMessages } }),
+    { cloud, service, id },
+  );
+  return res.data.messages;
+}
+
+export async function deleteQueueMessage(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  receiptHandle: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.resources.deleteMessage,
+    requestOptions(cloud, service, { signal, params: { receiptHandle } }),
+    { cloud, service, id },
+  );
+}
+
+export async function purgeQueue(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void>(
+    apiEndpointKeys.clouds.resources.purgeQueue,
+    requestOptions(cloud, service, { signal }),
+    { cloud, service, id },
+  );
 }
 
 export async function listStorageObjects(
@@ -935,6 +1008,51 @@ export async function getAppConfigDeployment(
   );
   return res.data;
 }
+
+export async function listLambdaTriggers(
+  cloud: CloudProvider,
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<LambdaTrigger[]> {
+  const res = await apiClient.call<LambdaTrigger[]>(
+    apiEndpointKeys.clouds.serverless.triggers.list,
+    requestOptions(cloud, "serverless", { signal }),
+    { cloud, id: functionName },
+  );
+  return res.data;
+}
+
+export async function createLambdaTrigger(
+  cloud: CloudProvider,
+  functionName: string,
+  input: CreateLambdaTriggerInput,
+): Promise<LambdaTrigger> {
+  const res = await apiClient.call<LambdaTrigger, CreateLambdaTriggerInput>(
+    apiEndpointKeys.clouds.serverless.triggers.create,
+    requestOptions(cloud, "serverless", { body: input }),
+    { cloud, id: functionName },
+  );
+  return res.data;
+}
+
+export async function deleteLambdaTrigger(
+  cloud: CloudProvider,
+  functionName: string,
+  triggerId: string,
+  options?: DeleteLambdaTriggerOptions,
+): Promise<void> {
+  await apiClient.call(
+    apiEndpointKeys.clouds.serverless.triggers.delete,
+    requestOptions(cloud, "serverless", {
+      params: {
+        type: options?.type,
+        bucket: options?.bucket,
+      },
+    }),
+    { cloud, id: functionName, triggerId },
+  );
+}
+
 
 function requestOptions<TBody = unknown>(
   cloud: CloudProvider,

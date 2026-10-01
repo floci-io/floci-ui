@@ -8,6 +8,7 @@ import {useCloudServicesQuery, useCloudStatusQuery} from '@/api/queries/cloudQue
 import {DynamicResourceView} from '@/components/DynamicResourceView'
 import {EmptyState} from '@/components/EmptyState'
 import {normalizeCapabilities, withRuntimeState, withServiceAvailability} from '@/lib/capabilities'
+import {isCloudProvider} from '@/lib/cloudProvider'
 import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatus} from '@/types/cloud'
 import type {ServiceSchema} from '@/types/schema'
 
@@ -53,7 +54,7 @@ export function CloudExplorerPage() {
                     <Cloud size={20}/>
                     <div>
                         <h1>Cloud Explorer</h1>
-                        <p className="muted">Unified local runtime console</p>
+                        <p className="muted">{selectedService?.description ?? 'Unified local runtime console'}</p>
                     </div>
                 </div>
                 <div className="cloud-header-selectors">
@@ -90,7 +91,7 @@ export function CloudExplorerPage() {
 }
 
 function normalizeCloud(value?: string): CloudProvider | null {
-    return value === 'aws' || value === 'azure' || value === 'gcp' ? value : null
+    return isCloudProvider(value) ? value : null
 }
 
 function ServiceInfoDialog({
@@ -133,6 +134,7 @@ function ServiceInfoDialog({
                     <div>
                         <p className="eyebrow">Service Information</p>
                         <h3>{schema?.displayName ?? descriptor?.displayName ?? service}</h3>
+                        {descriptor?.description && <p className="muted">{descriptor.description}</p>}
                     </div>
                     <button className="icon-btn" type="button" onClick={onClose} aria-label="Close" title="Close">
                         <X size={14} aria-hidden="true"/>

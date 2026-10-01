@@ -7,11 +7,13 @@ import flociMarkWhite from '@/assets/floci-mark-white.svg'
 import flociMarkBlack from '@/assets/floci-mark-black.svg'
 import {useTheme} from '@/lib/useTheme'
 import {useSidebar} from '@/lib/useSidebar'
+import {isCloudProvider} from '@/lib/cloudProvider'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus} from '@/api/cloudProxyClient'
 import {useCloudServicesQuery, useCloudsQuery} from '@/api/queries/cloudQueries'
 import {AccountSwitcher} from '@/components/AccountSwitcher'
 import {CloudSwitcher} from '@/components/CloudSwitcher'
+import {ThemeToggle} from '@/components/ThemeToggle'
 import {serviceIcon} from '@/components/serviceIcons'
 import type {CloudProvider, CloudServiceDescriptor, RuntimeReachability} from '@/types/cloud'
 
@@ -82,6 +84,7 @@ function CloudServiceNav({collapsed}: {collapsed: boolean}) {
     const filteredServices = search
         ? allServices.filter((s) =>
             s.displayName.toLowerCase().includes(search) ||
+            s.description?.toLowerCase().includes(search) ||
             s.service.toLowerCase().includes(search) ||
             s.group.toLowerCase().includes(search)
           )
@@ -228,6 +231,7 @@ export function Layout() {
             <div className="shell">
                 <header className="topbar">
                     <TopbarSearch/>
+                    <ThemeToggle/>
                     <div id="topbar-status" className="topbar-status"/>
                     <CloudSwitcher clouds={cloudsQuery.data ?? []} selected={activeCloud} onSelect={selectCloud}/>
                     <AccountSwitcher/>
@@ -365,7 +369,7 @@ function TopbarSearch() {
     )
 }
 
-function activeCloudFromPath(pathname: string): 'aws' | 'azure' | 'gcp' {
-    const match = pathname.match(/^\/(?:cloud-explorer|console)\/(aws|azure|gcp)(?:\/|$)/)
-    return (match?.[1] ?? 'aws') as 'aws' | 'azure' | 'gcp'
+function activeCloudFromPath(pathname: string): CloudProvider {
+    const segment = pathname.match(/^\/(?:cloud-explorer|console)\/([^/]+)/)?.[1]
+    return isCloudProvider(segment) ? segment : 'aws'
 }

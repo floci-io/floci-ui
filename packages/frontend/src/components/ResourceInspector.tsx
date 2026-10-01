@@ -1,10 +1,14 @@
-import {useState} from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { ChevronDown, ChevronUp, Zap } from 'lucide-react'
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
 import { LogsExplorerPanel } from "@/components/LogsExplorerPanel";
 import { LogsQueryPanel } from "@/components/LogsQueryPanel";
+import { LambdaTriggerPanel } from "@/components/LambdaTriggerPanel";
+import { listLambdaTriggers } from "@/api/cloudProxyClient";
 import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource, StorageObject } from "@/types/resource";
-import {formatBytes} from "@/lib/format";
+import { formatBytes } from "@/lib/format";
 
 interface ResourceInspectorProps {
   resource?: CloudResource;
@@ -21,6 +25,21 @@ export function ResourceInspector({
   runtimeReachable,
   serviceName,
 }: ResourceInspectorProps) {
+  const [showTriggers, setShowTriggers] = useState(false);
+  const isLambda = Boolean(
+    resource && (resource.service === "serverless" || resource.type === "lambda")
+  );
+  const resourceCloud = cloud ?? resource?.cloud;
+  const isAwsLambda = isLambda && resourceCloud === "aws";
+
+  const triggersQuery = useQuery({
+    queryKey: ["lambda-triggers", resourceCloud, resource?.id],
+    queryFn: ({ signal }) =>
+      resource ? listLambdaTriggers(resourceCloud!, resource.id, signal) : Promise.resolve([]),
+    enabled: isAwsLambda && Boolean(runtimeReachable) && Boolean(resource),
+  });
+  const triggerCount = triggersQuery.data?.length ?? 0;
+
   if (!resource) {
     return (
       <div className="resource-inspector empty compact">
@@ -70,16 +89,60 @@ export function ResourceInspector({
     resource.service === "database" || resource.type === "db-instance";
   const isAwsDatabase = isDatabase && resource.cloud === "aws";
   const isK8sEngine = resource.service === "k8s" || resource.type === "cluster";
-  const isLambda =
-    resource.service === "serverless" || resource.type === "lambda";
   const isLogGroup = resource.cloud === "aws" && (resource.service === "logs" || resource.type === "log-group");
 
   return (
     <aside className="resource-inspector">
-      <div className="widget-header">
-        <h3>{resource.name}</h3>
-        <span className="badge neutral">{resource.type}</span>
+      <div className="widget-header" style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+        <h3
+          title={resource.name}
+          style={{
+            margin: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            flex: "1 1 auto",
+            minWidth: 0,
+          }}
+        >
+          {resource.name}
+        </h3>
+        <span className="badge neutral" style={{ flexShrink: 0 }}>
+          {resource.type}
+        </span>
+        {isLambda && resource.cloud === "aws" && (
+          <button
+            style={{
+              marginLeft: "auto",
+              flexShrink: 0,
+              whiteSpace: "nowrap",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+            className={`button compact ${showTriggers ? "primary" : "success"}`}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTriggers((prev) => !prev);
+            }}
+          >
+            <Zap size={13} style={{ flexShrink: 0 }} />
+            <span>Register Trigger ({triggerCount})</span>
+            {showTriggers ? <ChevronUp size={12} style={{ flexShrink: 0 }} /> : <ChevronDown size={12} style={{ flexShrink: 0 }} />}
+          </button>
+        )}
       </div>
+      {isLambda && resource.cloud === "aws" && showTriggers && (
+        <LambdaTriggerPanel
+          key={resource.id}
+          cloud={cloud ?? resource.cloud}
+          resource={resource}
+          runtimeReachable={runtimeReachable ?? false}
+          initialRegisterOpen={true}
+          onClose={() => setShowTriggers(false)}
+        />
+      )}
       <div className="inspector-grid">
         <InspectorItem label="Cloud" value={resource.cloud} />
         <InspectorItem label="Service" value={serviceName ?? resource.service} />
@@ -201,7 +264,7 @@ export function ResourceInspector({
   );
 }
 
-function EmailInspector({resource}: {resource: CloudResource}) {
+function EmailInspector({ resource }: { resource: CloudResource }) {
   const [tab, setTab] = useState<'preview' | 'text' | 'raw'>('preview')
   const source = getStringMetadata(resource.metadata.source) ?? '-'
   const toAddresses = getStringList(resource.metadata.toAddresses)
@@ -229,7 +292,7 @@ function EmailInspector({resource}: {resource: CloudResource}) {
         <InspectorItem label="Captured At" value={resource.createdAt ?? '-'} />
       </div>
       <section className="inspector-section">
-        <div className="drawer-tabs" style={{marginBottom: 10}}>
+        <div className="drawer-tabs" style={{ marginBottom: 10 }}>
           <button className={`drawer-tab ${activeTab === 'preview' ? 'active' : ''}`} disabled={!hasPreview} onClick={() => setTab('preview')}>Preview</button>
           <button className={`drawer-tab ${activeTab === 'text' ? 'active' : ''}`} disabled={!textBody} onClick={() => setTab('text')}>Text</button>
           <button className={`drawer-tab ${activeTab === 'raw' ? 'active' : ''}`} disabled={!rawData} onClick={() => setTab('raw')}>Raw</button>
@@ -240,14 +303,14 @@ function EmailInspector({resource}: {resource: CloudResource}) {
             sandbox=""
             referrerPolicy="no-referrer"
             srcDoc={safeEmailDocument(htmlBody)}
-            style={{width: '100%', minHeight: 260, border: '1px solid var(--border)', borderRadius: 4, background: '#fff'}}
+            style={{ width: '100%', minHeight: 260, border: '1px solid var(--border)', borderRadius: 4, background: '#fff' }}
           />
         ) : activeTab === 'preview' ? (
-          <pre className="metadata-block" style={{whiteSpace: 'pre-wrap', margin: 0}}>{textBody ?? 'No preview content captured.'}</pre>
+          <pre className="metadata-block" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{textBody ?? 'No preview content captured.'}</pre>
         ) : activeTab === 'text' ? (
-          <pre className="metadata-block" style={{whiteSpace: 'pre-wrap', margin: 0}}>{textBody ?? 'No text body captured.'}</pre>
+          <pre className="metadata-block" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{textBody ?? 'No text body captured.'}</pre>
         ) : (
-          <pre className="metadata-block" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0}}>{rawData ?? 'No raw MIME data captured.'}</pre>
+          <pre className="metadata-block" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>{rawData ?? 'No raw MIME data captured.'}</pre>
         )}
       </section>
     </aside>
@@ -433,11 +496,11 @@ function getSecurityGroups(
     const group = item as Record<string, unknown>;
     return typeof group.id === "string"
       ? [
-          {
-            id: group.id,
-            status: typeof group.status === "string" ? group.status : "-",
-          },
-        ]
+        {
+          id: group.id,
+          status: typeof group.status === "string" ? group.status : "-",
+        },
+      ]
       : [];
   });
 }

@@ -14,8 +14,8 @@ import {createCloudAdapterRegistry} from '../src/cloudProxy'
 import {SERVICE_CATALOG_ENTRIES, displayNameFor} from '../src/cloud-spi/serviceCatalog'
 import type {CloudProvider} from '../src/cloud-spi/types'
 
-const CLOUDS: CloudProvider[] = ['aws', 'azure', 'gcp']
-const CLOUD_LABELS: Record<CloudProvider, string> = {aws: 'AWS', azure: 'Azure', gcp: 'GCP'}
+const CLOUDS: CloudProvider[] = ['aws', 'azure', 'gcp', 'oci']
+const CLOUD_LABELS: Record<CloudProvider, string> = {aws: 'AWS', azure: 'Azure', gcp: 'GCP', oci: 'OCI'}
 
 const registry = createCloudAdapterRegistry()
 
