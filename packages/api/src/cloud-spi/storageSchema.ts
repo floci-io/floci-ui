@@ -137,9 +137,40 @@ export function gcpStorageSchema(): ServiceSchema {
     }
 }
 
+export function ociStorageSchema(): ServiceSchema {
+    return {
+        cloud: 'oci',
+        service: 'storage',
+        displayName: 'OCI Object Storage',
+        fields: [
+            {
+                name: 'bucketName',
+                label: 'Bucket Name',
+                type: 'text',
+                required: true,
+                description: 'Up to 256 characters. Letters, numbers, dashes, underscores, and periods.',
+                validation: {
+                    pattern: '^[A-Za-z0-9._-]{1,256}$',
+                    minLength: 1,
+                    maxLength: 256,
+                    message: 'Use a valid OCI bucket name: 1-256 letters, numbers, dashes, underscores, or periods.',
+                },
+            },
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {
+            resourceActions: storageResourceActions('Create bucket'),
+            objectActions: storageObjectActions,
+        },
+        filters: storageFilters,
+        columns: storageColumns,
+    }
+}
+
 export function storageSchemaFor(cloud: CloudProvider): ServiceSchema | null {
     if (cloud === 'aws') return awsStorageSchema()
     if (cloud === 'azure') return azureStorageSchema()
     if (cloud === 'gcp') return gcpStorageSchema()
+    if (cloud === 'oci') return ociStorageSchema()
     return null
 }

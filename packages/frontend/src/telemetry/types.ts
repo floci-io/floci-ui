@@ -1,4 +1,4 @@
-export type CloudProvider = "aws" | "azure" | "gcp" | "system";
+export type CloudProvider = "aws" | "azure" | "gcp" | "oci" | "system";
 
 export interface ApiRequestEvent {
   provider: CloudProvider;

@@ -21,6 +21,7 @@ export function runtimeDetailFor(cloud: CloudProvider, status?: CloudStatus): st
     if (status?.runtime === 'reachable') return 'Connected through Cloud Proxy API'
     if (status?.runtime === 'unavailable') return 'Start the selected runtime to load resources'
     if (cloud === 'gcp') return 'Waiting for Floci-GCP runtime status'
+    if (cloud === 'oci') return 'Waiting for Floci-OCI runtime status'
     return 'Waiting for runtime status'
 }
 
@@ -53,5 +54,6 @@ export function adapterLabel(cloud: CloudProvider, status?: CloudStatus): string
 export function runtimeName(cloud: CloudProvider): string {
     if (cloud === 'aws') return 'Floci AWS Core'
     if (cloud === 'azure') return 'Floci-AZ'
+    if (cloud === 'oci') return 'Floci-OCI'
     return 'Floci-GCP'
 }

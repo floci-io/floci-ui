@@ -128,8 +128,8 @@ const UNREACHABLE_CAUSE_CODES = new Set([
 ])
 
 /**
- * Map a runtime HTTP status onto the matching `CloudError`. Shared by the Azure
- * and GCP REST clients so both report a 404 or a 501 the same way.
+ * Map a runtime HTTP status onto the matching `CloudError`. Shared by the Azure,
+ * GCP and OCI REST clients so both report a 404 or a 501 the same way.
  */
 export function httpStatusToCloudError(status: number, message: string, options?: {cause?: unknown}): CloudError {
     if (status === 400) return new ValidationError(message, options)

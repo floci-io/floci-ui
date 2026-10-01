@@ -170,7 +170,7 @@ describe('AzureQueueAdapter', () => {
 
         const app = new Hono()
         const service = new CloudProxyService(new CloudAdapterRegistry([adapter()]), {
-            aws: async () => {}, azure: async () => {}, gcp: async () => {},
+            aws: async () => {}, azure: async () => {}, gcp: async () => {}, oci: async () => {},
         })
         app.route('/api/clouds', createCloudRoutes(service))
         const path = '/api/clouds/azure/services/queue'

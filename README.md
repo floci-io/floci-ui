@@ -50,36 +50,36 @@ than maintained by hand. Regenerate it after any change to either:
 cd packages/api && bun run scripts/service-matrix.ts
 ```
 
-| Group | Service | AWS | Azure | GCP |
-|---|---|---|---|---|
-| Compute | Compute | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | No |
-| Compute | EKS / AKS / GKE | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) |
-| Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) |
-| Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) |
-| Compute | SageMaker AI | Yes (list, create, delete, inspect) | No | No |
-| Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
-| Databases | Database | Yes (list, create, update, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
-| Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No |
-| Networking | Networking | Yes (list) | Yes (list, inspect, create, delete) | No |
-| Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No |
-| Integration | SQS / Messaging / Pub/Sub | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
-| Integration | API Gateway | Yes (list, create, delete, inspect) | No | No |
-| Integration | Queue Storage | No | Yes (list, create, inspect, delete) | No |
-| Integration | Kinesis / Streams | Yes (list, create, inspect, delete) | No | No |
-| Integration | EventBridge / Events | Yes (list, create, delete, inspect) | No | No |
-| Integration | SES Mailbox / Email | Yes (list, inspect) | No | No |
-| Integration | Cloud Scheduler | No | No | Yes (list, create, delete, inspect) |
-| Integration | Step Functions / Workflows | Yes (list, create, delete, inspect) | No | No |
-| Provisioning | CloudFormation / Infrastructure as Code | Yes (list, create, delete, inspect) | No | No |
-| Provisioning | AppConfig / Configuration | Yes (list, create, delete, inspect) | No | No |
-| Security | Identity | Yes (list, create, delete, inspect) | No | No |
-| Security | Cognito | Yes (list, create, delete, inspect) | No | No |
-| Security | Secrets Manager / Key Vault / Secret Manager | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) |
-| Security | KMS / Key Management | Yes (list, create, delete, inspect) | No | No |
-| Security | Parameter Store | Yes (list, create, delete, inspect) | No | No |
-| Observability | CloudWatch Logs / Logs | Yes (list, create, delete, inspect) | No | No |
+| Group | Service | AWS | Azure | GCP | OCI |
+|---|---|---|---|---|---|
+| Compute | Compute | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | No | No |
+| Compute | EKS / AKS / GKE / k8s Engine | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) | No |
+| Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | No |
+| Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) | No |
+| Compute | SageMaker AI | Yes (list, create, delete, inspect) | No | No | No |
+| Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
+| Databases | Database | Yes (list, create, update, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | No |
+| Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No | No |
+| Networking | Networking | Yes (list) | Yes (list, inspect, create, delete) | No | No |
+| Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No | No |
+| Integration | SQS / Messaging / Pub/Sub / Queue | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
+| Integration | API Gateway | Yes (list, create, delete, inspect) | No | No | No |
+| Integration | Queue Storage | No | Yes (list, create, inspect, delete) | No | No |
+| Integration | Kinesis / Streams / Streaming | Yes (list, create, inspect, delete) | No | No | Yes (list, create, inspect, delete) |
+| Integration | EventBridge / Events | Yes (list, create, delete, inspect) | No | No | No |
+| Integration | SES Mailbox / Email | Yes (list, inspect) | No | No | No |
+| Integration | Cloud Scheduler | No | No | Yes (list, create, delete, inspect) | No |
+| Integration | Step Functions / Workflows | Yes (list, create, delete, inspect) | No | No | No |
+| Provisioning | CloudFormation / Infrastructure as Code | Yes (list, create, delete, inspect) | No | No | No |
+| Provisioning | AppConfig / Configuration | Yes (list, create, delete, inspect) | No | No | No |
+| Security | Identity | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
+| Security | Cognito | Yes (list, create, delete, inspect) | No | No | No |
+| Security | Secrets Manager / Key Vault / Secret Manager | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | No |
+| Security | KMS / Key Management | Yes (list, create, delete, inspect) | No | No | No |
+| Security | Parameter Store | Yes (list, create, delete, inspect) | No | No | No |
+| Observability | CloudWatch Logs / Logs | Yes (list, create, delete, inspect) | No | No | No |
 
-Console Home is available for all three clouds.
+Console Home is available for all four clouds.
 
 Azure Queue Storage uses the emulator's Storage Queue REST API. The explorer lists,
 creates, inspects, and deletes queues; message send, peek, and delete controls are
@@ -112,6 +112,7 @@ Cloud Explorer storage is the most complete unified category today.
 - AWS S3 buckets are normalized as `storage` resources with type `bucket`.
 - Azure Blob containers are normalized as `storage` resources with type `container`.
 - GCP Cloud Storage buckets are normalized as `storage` resources with type `bucket`.
+- OCI Object Storage buckets in the tenancy root compartment are normalized as `storage` resources with type `bucket`.
 - Shared resource table, shared inspector, runtime status strip, and schema-driven create/delete flows.
 - Object/blob browser with prefix navigation.
 - Upload, download, delete, copy, and create-folder-prefix actions.
@@ -395,6 +396,7 @@ packages/
       adapter-aws/
       adapter-azure/
       adapter-gcp/
+      adapter-oci/
       routes/
       service/
   frontend/
@@ -432,7 +434,7 @@ Start AWS-only:
 docker compose up
 ```
 
-Start AWS + Azure + GCP:
+Start AWS + Azure + GCP + OCI:
 
 ```bash
 docker compose --profile multicloud up
@@ -454,7 +456,7 @@ Prerequisites:
 - Node.js 22.22.2+ or 24.15+ (CI uses 24)
 - pnpm 9+
 - Bun
-- A running local runtime: Floci core, and optionally Floci-AZ / Floci-GCP
+- A running local runtime: Floci core, and optionally Floci-AZ / Floci-GCP / Floci-OCI
 
 Install dependencies:
 
@@ -493,6 +495,7 @@ Optional local runtimes:
 
 - Floci-AZ on `http://localhost:4577`
 - Floci-GCP on `http://localhost:4588`
+- Floci-OCI on `http://localhost:4599`
 
 Start the UI stack:
 
@@ -522,6 +525,7 @@ FLOCI_AZURE_ENDPOINT=http://localhost:4577
 FLOCI_AZURE_ACCOUNT_NAME=devstoreaccount1
 FLOCI_GCP_ENDPOINT=http://localhost:4588
 FLOCI_GCP_PROJECT=floci-local
+FLOCI_OCI_ENDPOINT=http://localhost:4599
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=test
 AWS_SECRET_ACCESS_KEY=test
@@ -564,9 +568,11 @@ Check the runtime directly:
 curl http://localhost:4566/_floci/health
 curl http://localhost:4577/_floci/health
 curl http://localhost:4588/_floci-gcp/health
+curl http://localhost:4599/_floci-oci/health
 curl http://localhost:4501/api/clouds/aws/status
 curl http://localhost:4501/api/clouds/azure/status
 curl http://localhost:4501/api/clouds/gcp/status
+curl http://localhost:4501/api/clouds/oci/status
 ```
 
 ### A single service shows as unavailable while the cloud is connected
@@ -609,7 +615,7 @@ consoles for Floci too:
 - [floci-dash](https://github.com/ofsazib/floci-dash) — an AWS-Console-style dashboard
   for the Floci AWS runtime built on Cloudscape Design. It ships as a single Docker image
   and includes an EC2 web terminal. It targets the AWS runtime only, while Floci UI also
-  covers Azure and GCP, so pick whichever fits your stack.
+  covers Azure, GCP and OCI, so pick whichever fits your stack.
 
 Building something for Floci? Open a PR to add it here.
 

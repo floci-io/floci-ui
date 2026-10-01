@@ -138,11 +138,12 @@ export const SERVICE_CATALOG = {
     },
     messaging: {
         displayName: 'Messaging',
-        displayNameByCloud: {aws: 'SQS', gcp: 'Pub/Sub'},
+        displayNameByCloud: {aws: 'SQS', gcp: 'Pub/Sub', oci: 'Queue'},
         description: 'Exchange messages between applications.',
         descriptionByCloud: {
             aws: 'Queue messages between applications.',
             gcp: 'Publish and subscribe to messages across applications.',
+            oci: 'Queue messages between applications.',
         },
         iconKey: 'messaging',
         group: 'Integration',
@@ -157,7 +158,7 @@ export const SERVICE_CATALOG = {
     },
     streams: {
         displayName: 'Streams',
-        displayNameByCloud: {aws: 'Kinesis'},
+        displayNameByCloud: {aws: 'Kinesis', oci: 'Streaming'},
         description: 'Collect and process streaming data in real time.',
         iconKey: 'streams',
         group: 'Integration',
