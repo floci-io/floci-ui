@@ -21,5 +21,7 @@ export function useTheme() {
         localStorage.setItem('floci-theme', theme)
     }, [theme])
 
-    return {theme, setTheme}
+    const toggle = () => setTheme(theme === 'dark' ? 'light' : 'dark')
+
+    return {theme, setTheme, toggle}
 }

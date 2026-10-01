@@ -21,6 +21,10 @@ import {GcpCloudRunAdapter} from './adapter-gcp/GcpCloudRunAdapter'
 import {GcpPubSubAdapter} from './adapter-gcp/GcpPubSubAdapter'
 import {GcpSecretManagerAdapter} from './adapter-gcp/GcpSecretManagerAdapter'
 import {GcpSchedulerAdapter} from './adapter-gcp/GcpSchedulerAdapter'
+import {OciStorageAdapter} from './adapter-oci/OciStorageAdapter'
+import {OciIdentityAdapter} from './adapter-oci/OciIdentityAdapter'
+import {OciQueueAdapter} from './adapter-oci/OciQueueAdapter'
+import {OciStreamingAdapter} from './adapter-oci/OciStreamingAdapter'
 import {AwsSqsAdapter} from './adapter-aws/AwsSqsAdapter'
 import {AwsSnsAdapter} from './adapter-aws/AwsSnsAdapter'
 import {CloudProxyService} from './service/CloudProxyService'
@@ -48,8 +52,8 @@ import {createRdsService} from './services/rds'
 
 /**
  * Build the adapter registry for an account. The account id drives the AWS SDK
- * credentials (see aws.ts), so every AWS call is isolated to that account; Azure
- * and GCP adapters use their own runtime auth model and are account-neutral.
+ * credentials (see aws.ts), so every AWS call is isolated to that account; Azure,
+ * GCP and OCI adapters use their own runtime auth model and are account-neutral.
  *
  * Exported separately from the service so tests can assert registry contents —
  * notably that every adapter implements what its schema advertises — without
@@ -97,6 +101,10 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new GcpPubSubAdapter(),
         new GcpSecretManagerAdapter(),
         new GcpSchedulerAdapter(),
+        new OciStorageAdapter(),
+        new OciIdentityAdapter(),
+        new OciQueueAdapter(),
+        new OciStreamingAdapter(),
         new AwsSqsAdapter(clients.sqs),
         new AwsSnsAdapter(clients.sns),
         new AzureServerlessAdapter(),
