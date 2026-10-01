@@ -3,6 +3,7 @@ import {useLocation, useNavigate, useParams} from 'react-router-dom'
 import {AccountSwitcher} from '@/components/AccountSwitcher'
 import {CloudSwitcher} from '@/components/CloudSwitcher'
 import {useCloudsQuery} from '@/api/queries/cloudQueries'
+import {isCloudProvider} from '@/lib/cloudProvider'
 import {useTheme} from '@/lib/useTheme'
 import type {CloudProvider} from '@/types/cloud'
 
@@ -11,7 +12,7 @@ export function SettingsPage() {
     const location = useLocation()
     const fromCloudExplorer = (location.state as {fromCloudExplorer?: boolean} | null)?.fromCloudExplorer === true
     const {cloud: routeCloud} = useParams()
-    const cloud: CloudProvider = routeCloud === 'azure' || routeCloud === 'gcp' ? routeCloud : 'aws'
+    const cloud: CloudProvider = isCloudProvider(routeCloud) ? routeCloud : 'aws'
     const cloudsQuery = useCloudsQuery()
     const {theme, setTheme} = useTheme()
 

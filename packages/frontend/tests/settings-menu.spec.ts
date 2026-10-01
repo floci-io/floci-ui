@@ -7,12 +7,13 @@ async function mockCloudApi(page: Page) {
             await route.fulfill({json: [
                 {id: 'aws', displayName: 'AWS', availability: 'available'},
                 {id: 'azure', displayName: 'Azure', availability: 'available'},
+                {id: 'oci', displayName: 'OCI', availability: 'available'},
             ]})
         } else if (path.endsWith('/services')) {
             await route.fulfill({json: []})
         } else if (path.endsWith('/status')) {
             await route.fulfill({json: {
-                cloud: path.includes('/azure/') ? 'azure' : 'aws', runtime: 'reachable', adapterRegistered: true,
+                cloud: path.split('/')[3], runtime: 'reachable', adapterRegistered: true,
             }})
         } else {
             await route.fulfill({json: []})
@@ -75,4 +76,25 @@ test('cloud switching from direct Settings keeps the console landing', async ({p
     await page.getByRole('button', {name: 'Switch cloud, currently AWS'}).click()
     await page.getByRole('option', {name: 'Azure'}).click()
     await expect(page).toHaveURL(/\/console\/azure$/)
+})
+
+test('OCI Settings keeps one cloud and account control and shares the main theme toggle', async ({page}) => {
+    await mockCloudApi(page)
+    await page.goto('/console/oci/settings')
+
+    await expect(page.getByRole('button', {name: 'Switch cloud, currently OCI'})).toHaveCount(1)
+    await expect(page.getByRole('button', {name: /Switch AWS account/})).toHaveCount(1)
+    await expect(page.locator('.topbar .cloud-switcher, .topbar .account-switcher')).toHaveCount(0)
+
+    const toggle = page.getByRole('button', {name: 'Dark theme', exact: true})
+    await expect(toggle).toHaveCount(1)
+    await page.getByRole('radio', {name: 'Light', exact: true}).click()
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await toggle.click()
+    await expect(page.getByRole('radio', {name: 'Dark', exact: true})).toHaveAttribute('aria-checked', 'true')
+
+    await page.getByRole('button', {name: 'Switch cloud, currently OCI'}).click()
+    await expect(page.getByRole('option', {name: 'OCI'})).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('option', {name: 'AWS'}).click()
+    await expect(page).toHaveURL(/\/console\/aws$/)
 })

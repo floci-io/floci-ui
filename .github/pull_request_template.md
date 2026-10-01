@@ -28,3 +28,4 @@
 - [ ] New or updated tests added where it makes sense (`bun test` in `packages/api`)
 - [ ] No fake/mock data added — unwired states stay empty or show an explicit placeholder
 - [ ] Commit messages / PR title follow [Conventional Commits](https://www.conventionalcommits.org/)
+- [ ] Layout or look-and-feel changes close an issue that came from an accepted Discussion ([UI and Design Changes](https://github.com/floci-io/floci-ui/blob/main/CONTRIBUTING.md#ui-and-design-changes)), or this PR has none (new services through the existing views, bug fixes that restore the intended layout, and accessibility fixes are exempt)

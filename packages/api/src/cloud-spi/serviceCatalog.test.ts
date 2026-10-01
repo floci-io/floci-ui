@@ -5,6 +5,7 @@ import {
     SERVICE_GROUP_ORDER,
     SERVICE_TYPES,
     catalogEntry,
+    descriptionFor,
     displayNameFor,
     isServiceType,
     routeFor,
@@ -14,6 +15,8 @@ describe('SERVICE_CATALOG', () => {
     test('every entry carries the metadata the nav needs', () => {
         for (const entry of SERVICE_CATALOG_ENTRIES) {
             expect(entry.displayName.length).toBeGreaterThan(0)
+            expect(entry.description.trim().length).toBeGreaterThan(0)
+            expect(entry.description.length).toBeLessThanOrEqual(90)
             expect(entry.iconKey.length).toBeGreaterThan(0)
             expect(SERVICE_GROUP_ORDER).toContain(entry.group)
             expect(Number.isFinite(entry.order)).toBe(true)
@@ -95,6 +98,13 @@ describe('SERVICE_CATALOG', () => {
         expect(displayNameFor(k8s, 'gcp')).toBe('GKE')
         // No override -> the shared display name.
         expect(displayNameFor(catalogEntry('storage')!, 'gcp')).toBe('Storage')
+    })
+
+    test('resolves per-cloud descriptions without promising the wrong messaging model', () => {
+        const messaging = catalogEntry('messaging')!
+        expect(descriptionFor(messaging, 'aws')).toContain('Queue')
+        expect(descriptionFor(messaging, 'gcp')).toContain('Publish and subscribe')
+        expect(descriptionFor(messaging, 'azure')).toBe(messaging.description)
     })
 })
 

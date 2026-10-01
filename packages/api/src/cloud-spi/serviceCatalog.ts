@@ -39,6 +39,8 @@ export interface ServiceCatalogMetadata {
     displayName: string
     /** Per-cloud display override, e.g. 'EKS' vs 'AKS' vs 'GKE'. */
     displayNameByCloud?: Partial<Record<CloudProvider, string>>
+    description: string
+    descriptionByCloud?: Partial<Record<CloudProvider, string>>
     /** Resolved to a component client-side; an unknown key degrades to a default. */
     iconKey: string
     group: ServiceGroup
@@ -61,39 +63,67 @@ export interface ServiceCatalogMetadata {
 }
 
 export const SERVICE_CATALOG = {
-    compute: {displayName: 'Compute', iconKey: 'compute', group: 'Compute', order: 10},
+    compute: {
+        displayName: 'Compute',
+        description: 'Virtual machines for running applications and workloads.',
+        iconKey: 'compute', group: 'Compute', order: 10,
+    },
     k8s: {
         displayName: 'k8s Engine',
         displayNameByCloud: {aws: 'EKS', azure: 'AKS', gcp: 'GKE'},
+        description: 'Managed Kubernetes clusters for containerized workloads.',
         iconKey: 'k8s',
         group: 'Compute',
         order: 20,
     },
-    serverless: {displayName: 'Serverless', iconKey: 'serverless', group: 'Compute', order: 30},
+    serverless: {
+        displayName: 'Serverless',
+        description: 'Run functions without managing servers.',
+        iconKey: 'serverless', group: 'Compute', order: 30,
+    },
     containers: {
         displayName: 'Containers',
         displayNameByCloud: {gcp: 'Cloud Run'},
+        description: 'Deploy and run containerized applications.',
         iconKey: 'containers',
         group: 'Compute',
         order: 40,
     },
-    sagemaker: {displayName: 'SageMaker AI', iconKey: 'sagemaker', group: 'Compute', order: 50},
-    storage: {displayName: 'Storage', iconKey: 'storage', group: 'Storage', order: 10},
-    database: {displayName: 'Database', iconKey: 'database', group: 'Databases', order: 10},
+    sagemaker: {
+        displayName: 'SageMaker AI',
+        description: 'Build and host machine learning models.',
+        iconKey: 'sagemaker', group: 'Compute', order: 50,
+    },
+    storage: {
+        displayName: 'Storage',
+        description: 'Store and manage files and objects.',
+        iconKey: 'storage', group: 'Storage', order: 10,
+    },
+    database: {
+        displayName: 'Database',
+        description: 'Create and manage relational databases.',
+        iconKey: 'database', group: 'Databases', order: 10,
+    },
     nosql: {
         displayName: 'NoSQL',
         // Both labels are declared even though each arrives with its own adapter,
         // so this row reads the same whichever of the two lands first. A label for
         // a cloud with no adapter is inert: availability comes from the registry.
         displayNameByCloud: {aws: 'DynamoDB', azure: 'Cosmos DB NoSQL'},
+        description: 'Store and query non-relational data.',
         iconKey: 'nosql',
         group: 'Databases',
         order: 20,
     },
-    networking: {displayName: 'Networking', iconKey: 'networking', group: 'Networking', order: 10},
+    networking: {
+        displayName: 'Networking',
+        description: 'Connect and isolate cloud resources in virtual networks.',
+        iconKey: 'networking', group: 'Networking', order: 10,
+    },
     workflows: {
         displayName: 'Workflows',
         displayNameByCloud: {aws: 'Step Functions'},
+        description: 'Coordinate application steps and long-running processes.',
         iconKey: 'workflows',
         group: 'Integration',
         order: 30,
@@ -101,20 +131,28 @@ export const SERVICE_CATALOG = {
     loadbalancing: {
         displayName: 'Load Balancing',
         displayNameByCloud: {aws: 'ELB'},
+        description: 'Distribute incoming traffic across application targets.',
         iconKey: 'loadbalancing',
         group: 'Networking',
         order: 20,
     },
     messaging: {
         displayName: 'Messaging',
-        displayNameByCloud: {aws: 'SQS', gcp: 'Pub/Sub'},
+        displayNameByCloud: {aws: 'SQS', gcp: 'Pub/Sub', oci: 'Queue'},
+        description: 'Exchange messages between applications.',
+        descriptionByCloud: {
+            aws: 'Queue messages between applications.',
+            gcp: 'Publish and subscribe to messages across applications.',
+            oci: 'Queue messages between applications.',
+        },
         iconKey: 'messaging',
         group: 'Integration',
         order: 10,
     },
     streams: {
         displayName: 'Streams',
-        displayNameByCloud: {aws: 'Kinesis'},
+        displayNameByCloud: {aws: 'Kinesis', oci: 'Streaming'},
+        description: 'Collect and process streaming data in real time.',
         iconKey: 'streams',
         group: 'Integration',
         order: 12,
@@ -122,16 +160,30 @@ export const SERVICE_CATALOG = {
     events: {
         displayName: 'Events',
         displayNameByCloud: {aws: 'EventBridge'},
+        description: 'Route events from producers to application targets.',
         iconKey: 'events',
         group: 'Integration',
         order: 15,
     },
-    identity: {displayName: 'Identity', iconKey: 'iam', group: 'Security', order: 5},
-    cognito: {displayName: 'Cognito', iconKey: 'iam', group: 'Security', order: 6},
-    apigateway: {displayName: 'API Gateway', iconKey: 'apigateway', group: 'Integration', order: 10},
+    identity: {
+        displayName: 'Identity',
+        description: 'Manage identities and access to cloud resources.',
+        iconKey: 'iam', group: 'Security', order: 5,
+    },
+    cognito: {
+        displayName: 'Cognito',
+        description: 'Manage user pools and application sign-in.',
+        iconKey: 'iam', group: 'Security', order: 6,
+    },
+    apigateway: {
+        displayName: 'API Gateway',
+        description: 'Create and manage APIs for application clients.',
+        iconKey: 'apigateway', group: 'Integration', order: 10,
+    },
     email: {
         displayName: 'Email',
         displayNameByCloud: {aws: 'SES Mailbox'},
+        description: 'Send and inspect application email.',
         iconKey: 'email',
         group: 'Integration',
         order: 20,
@@ -139,12 +191,14 @@ export const SERVICE_CATALOG = {
     kms: {
         displayName: 'Key Management',
         displayNameByCloud: {aws: 'KMS'},
+        description: 'Create and manage encryption keys.',
         iconKey: 'kms',
         group: 'Security',
         order: 20,
     },
     parameters: {
         displayName: 'Parameter Store',
+        description: 'Store configuration values for applications.',
         iconKey: 'parameters',
         group: 'Security',
         order: 30,
@@ -152,6 +206,7 @@ export const SERVICE_CATALOG = {
     secrets: {
         displayName: 'Secrets Manager',
         displayNameByCloud: {azure: 'Key Vault', gcp: 'Secret Manager'},
+        description: 'Store and manage application secrets.',
         iconKey: 'secrets',
         group: 'Security',
         order: 10,
@@ -161,6 +216,7 @@ export const SERVICE_CATALOG = {
     iac: {
         displayName: 'Infrastructure as Code',
         displayNameByCloud: {aws: 'CloudFormation'},
+        description: 'Provision resources from infrastructure templates.',
         iconKey: 'iac',
         group: 'Provisioning',
         order: 10,
@@ -168,6 +224,7 @@ export const SERVICE_CATALOG = {
     configuration: {
         displayName: 'Configuration',
         displayNameByCloud: {aws: 'AppConfig'},
+        description: 'Manage and deploy application configuration.',
         iconKey: 'configuration',
         group: 'Provisioning',
         order: 20,
@@ -175,6 +232,7 @@ export const SERVICE_CATALOG = {
     scheduler: {
         displayName: 'Cloud Scheduler',
         displayNameByCloud: {gcp: 'Cloud Scheduler'},
+        description: 'Run jobs on a schedule.',
         iconKey: 'scheduler',
         group: 'Integration',
         order: 20,
@@ -182,6 +240,7 @@ export const SERVICE_CATALOG = {
     logs: {
         displayName: 'Logs',
         displayNameByCloud: {aws: 'CloudWatch Logs'},
+        description: 'Collect and inspect application logs.',
         iconKey: 'logs',
         group: 'Observability',
         order: 10,
@@ -217,6 +276,10 @@ export function isServiceType(value: string): value is CloudServiceType {
 
 export function displayNameFor(entry: ServiceCatalogEntry, cloud: CloudProvider): string {
     return entry.displayNameByCloud?.[cloud] ?? entry.displayName
+}
+
+export function descriptionFor(entry: ServiceCatalogEntry, cloud: CloudProvider): string {
+    return entry.descriptionByCloud?.[cloud] ?? entry.description
 }
 
 export function routeFor(entry: ServiceCatalogEntry, cloud?: CloudProvider): string {

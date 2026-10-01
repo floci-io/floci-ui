@@ -63,6 +63,7 @@ export function ServiceGrid({services, runtimeReachable, onNavigate, searchQuery
                                 </span>
                             </div>
                         </div>
+                        <p className="console-service-description">{service.description}</p>
                         <div className="console-service-meta">
                             <strong>{service.count ?? '-'}</strong>
                             <span>{service.meta}</span>

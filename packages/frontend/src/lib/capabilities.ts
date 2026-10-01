@@ -30,6 +30,10 @@ const actionLabels: Record<CapabilityActionName, string> = {
     listFargateProfiles: 'List Fargate profiles',
     createFargateProfile: 'Create Fargate profile',
     deleteFargateProfile: 'Delete Fargate profile',
+    sendMessage: 'Send message',
+    receiveMessages: 'Receive messages',
+    deleteMessage: 'Delete message',
+    purgeQueue: 'Purge queue',
 }
 
 export function normalizeCapabilities<TAction extends CapabilityActionName>(capabilities: Array<CapabilityInput<TAction>> = []): Array<CapabilitySchema<TAction>> {

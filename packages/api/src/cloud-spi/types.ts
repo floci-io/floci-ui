@@ -10,7 +10,7 @@ import type {
 
 export type {CloudServiceType, ServiceGroup}
 
-export type CloudProvider = 'aws' | 'azure' | 'gcp'
+export type CloudProvider = 'aws' | 'azure' | 'gcp' | 'oci'
 
 export type CloudAvailability = 'available' | 'coming_soon'
 
@@ -29,6 +29,7 @@ export interface CloudServiceDescriptor {
     cloud: CloudProvider
     service: CloudServiceType
     displayName: string
+    description: string
     availability: CloudAvailability
     /** Why the service is unavailable. Always set when availability is coming_soon. */
     reason?: string
@@ -113,6 +114,10 @@ export type ResourceActionName =
     | 'stop'
     | 'reboot'
     | 'updateTags'
+    | 'sendMessage'
+    | 'receiveMessages'
+    | 'deleteMessage'
+    | 'purgeQueue'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
 export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'
 export type KubernetesActionName =
@@ -452,6 +457,45 @@ export interface CreateResourceInput {
 export interface UpdateResourceInput {
     values: Record<string, unknown>
 }
+export interface LambdaTriggerDetails {
+    events?: string[]
+    prefix?: string
+    suffix?: string
+    batchSize?: number
+    startingPosition?: string
+    filterCriteria?: Record<string, unknown>
+}
+
+export interface LambdaTrigger {
+    id: string
+    type: 's3' | 'dynamodb' | 'sqs' | 'kinesis'
+    sourceArn: string
+    sourceName: string
+    status: string
+    createdAt?: string | null
+    details: LambdaTriggerDetails
+}
+
+export interface CreateLambdaTriggerInput {
+    type: 's3' | 'dynamodb' | 'sqs' | 'kinesis'
+    bucketName?: string
+    events?: string[]
+    prefix?: string
+    suffix?: string
+    tableName?: string
+    queueNameOrUrl?: string
+    streamName?: string
+    batchSize?: number
+    startingPosition?: 'LATEST' | 'TRIM_HORIZON' | 'AT_TIMESTAMP'
+    enabled?: boolean
+    filterCriteria?: Record<string, unknown>
+}
+
+export interface DeleteLambdaTriggerOptions {
+    type?: string
+    bucket?: string
+}
+
 export interface ServerlessInvokeResult {
     statusCode: number
     payload: string
@@ -488,6 +532,19 @@ export interface KmsDecryptResult {
     keyId: string
     encryptionAlgorithm: KmsEncryptionAlgorithm
 }
+
+export interface QueueMessage {
+    messageId: string
+    body: string
+    receiptHandle: string
+    attributes?: Record<string, string>
+    md5OfBody?: string
+}
+
+export interface SendQueueMessageResult {
+    messageId: string
+    md5OfMessageBody?: string
+}
 /**
  * Lets a registered adapter correct its own advertised availability.
  *
@@ -523,6 +580,10 @@ export interface CloudServiceAdapter {
     invoke?(id: string, payload: string): Promise<ServerlessInvokeResult>
     encrypt?(id: string, input: KmsEncryptInput): Promise<KmsEncryptResult>
     decrypt?(id: string, input: KmsDecryptInput): Promise<KmsDecryptResult>
+    sendMessage?(id: string, body: string): Promise<SendQueueMessageResult>
+    receiveMessages?(id: string, maxMessages?: number): Promise<QueueMessage[]>
+    deleteMessage?(id: string, receiptHandle: string): Promise<void>
+    purgeQueue?(id: string): Promise<void>
     // Lifecycle verbs. Optional because most categories have no notion of them;
     // an adapter that advertises one in `capabilities` must implement it, which
     // cloudProxy.test.ts enforces.
@@ -583,4 +644,7 @@ export interface CloudServiceAdapter {
     deleteAppConfigDeploymentStrategy?(strategyId: string): Promise<void>
     startAppConfigDeployment?(applicationId: string, environmentId: string, input: CreateResourceInput): Promise<AppConfigDeployment>
     getAppConfigDeployment?(applicationId: string, environmentId: string, deploymentNumber: number): Promise<AppConfigDeployment | null>
+    listLambdaTriggers?(functionName: string): Promise<LambdaTrigger[]>
+    createLambdaTrigger?(functionName: string, input: CreateLambdaTriggerInput): Promise<LambdaTrigger>
+    deleteLambdaTrigger?(functionName: string, triggerId: string, options?: DeleteLambdaTriggerOptions): Promise<void>
 }

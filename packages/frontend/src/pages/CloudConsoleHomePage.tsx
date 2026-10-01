@@ -7,6 +7,7 @@ import {
 } from '@/features/cloud-console/CloudConsoleSections'
 import {useCloudConsoleHomeData} from '@/features/cloud-console/useCloudConsoleHomeData'
 import type {CloudProvider} from '@/types/cloud'
+import {isCloudProvider} from '@/lib/cloudProvider'
 
 export function CloudConsoleHomePage() {
     const navigate = useNavigate()
@@ -23,6 +24,7 @@ export function CloudConsoleHomePage() {
         ? data.serviceCards.filter((s) =>
             s.label.toLowerCase().includes(search) ||
             s.id.toLowerCase().includes(search) ||
+            s.description?.toLowerCase().includes(search) ||
             s.meta?.toLowerCase().includes(search)
           )
         : data.serviceCards
@@ -66,5 +68,5 @@ export function CloudConsoleHomePage() {
 }
 
 function normalizeCloud(value?: string): CloudProvider | null {
-    return value === 'aws' || value === 'azure' || value === 'gcp' ? value : null
+    return isCloudProvider(value) ? value : null
 }

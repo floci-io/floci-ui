@@ -1,10 +1,14 @@
 import {describe, expect, test} from 'bun:test'
 import {
     CreateQueueCommand,
+    DeleteMessageCommand,
     DeleteQueueCommand,
     GetQueueAttributesCommand,
     GetQueueUrlCommand,
     ListQueuesCommand,
+    PurgeQueueCommand,
+    ReceiveMessageCommand,
+    SendMessageCommand,
     type SQSClient,
 } from '@aws-sdk/client-sqs'
 import {AwsSqsAdapter} from './AwsSqsAdapter'
@@ -29,6 +33,7 @@ function stubSqs(handlers: {
     queues?: string[]
     attributes?: Record<string, string>
     missingQueue?: boolean
+    messages?: Array<{MessageId: string; Body: string; ReceiptHandle: string}>
 } = {}) {
     const sent: object[] = []
     const client = {
@@ -50,6 +55,12 @@ function stubSqs(handlers: {
             }
             if (command instanceof CreateQueueCommand) {
                 return {QueueUrl: `${BASE}/${(command as CreateQueueCommand).input.QueueName}`}
+            }
+            if (command instanceof SendMessageCommand) {
+                return {MessageId: 'msg-1', MD5OfMessageBody: 'abc123'}
+            }
+            if (command instanceof ReceiveMessageCommand) {
+                return {Messages: handlers.messages ?? []}
             }
             return {}
         },
@@ -240,5 +251,81 @@ describe('AwsSqsAdapter', () => {
 
         const create = sent.find((command) => command instanceof CreateQueueCommand)
         expect(create?.input.Attributes).toEqual({VisibilityTimeout: '30'})
+    })
+
+    test('sends a message by resolving the queue URL first', async () => {
+        const {client, sent} = stubSqs()
+        const result = await new AwsSqsAdapter(client).sendMessage('orders-queue', 'hello')
+
+        expect(sent[0]).toBeInstanceOf(GetQueueUrlCommand)
+        const send = sent[1] as SendMessageCommand
+        expect(send).toBeInstanceOf(SendMessageCommand)
+        expect(send.input.QueueUrl).toBe(`${BASE}/orders-queue`)
+        expect(send.input.MessageBody).toBe('hello')
+        expect(send.input.MessageGroupId).toBeUndefined()
+        expect(result).toEqual({messageId: 'msg-1', md5OfMessageBody: 'abc123'})
+    })
+
+    test('sets MessageGroupId when sending to a FIFO queue', async () => {
+        const {client, sent} = stubSqs()
+        await new AwsSqsAdapter(client).sendMessage('orders.fifo', 'hello')
+
+        const send = sent[1] as SendMessageCommand
+        expect(send.input.MessageGroupId).toBe('orders')
+    })
+
+    test('reports a missing queue on send rather than a runtime error', async () => {
+        const {client} = stubSqs({missingQueue: true})
+        await expect(new AwsSqsAdapter(client).sendMessage('nope', 'hi')).rejects.toBeInstanceOf(NotFoundError)
+    })
+
+    test('receives messages as a non-consuming peek', async () => {
+        const {client, sent} = stubSqs({
+            messages: [{MessageId: 'msg-1', Body: 'hello', ReceiptHandle: 'handle-1'}],
+        })
+        const messages = await new AwsSqsAdapter(client).receiveMessages('orders-queue')
+
+        const receive = sent[1] as ReceiveMessageCommand
+        expect(receive).toBeInstanceOf(ReceiveMessageCommand)
+        expect(receive.input.VisibilityTimeout).toBe(0)
+        expect(messages).toEqual([{messageId: 'msg-1', body: 'hello', receiptHandle: 'handle-1', attributes: undefined, md5OfBody: undefined}])
+    })
+
+    test('clamps maxMessages to the SQS-documented 1-10 range', async () => {
+        const {client, sent} = stubSqs()
+        await new AwsSqsAdapter(client).receiveMessages('orders-queue', 50)
+        expect((sent[1] as ReceiveMessageCommand).input.MaxNumberOfMessages).toBe(10)
+
+        await new AwsSqsAdapter(client).receiveMessages('orders-queue', 0)
+        expect((sent[3] as ReceiveMessageCommand).input.MaxNumberOfMessages).toBe(1)
+    })
+
+    test('deletes a message by receipt handle', async () => {
+        const {client, sent} = stubSqs()
+        await new AwsSqsAdapter(client).deleteMessage('orders-queue', 'handle-1')
+
+        expect(sent[0]).toBeInstanceOf(GetQueueUrlCommand)
+        const del = sent[1] as DeleteMessageCommand
+        expect(del).toBeInstanceOf(DeleteMessageCommand)
+        expect(del.input.QueueUrl).toBe(`${BASE}/orders-queue`)
+        expect(del.input.ReceiptHandle).toBe('handle-1')
+    })
+
+    test('reports a missing queue on message delete rather than silently succeeding', async () => {
+        const {client} = stubSqs({missingQueue: true})
+        await expect(new AwsSqsAdapter(client).deleteMessage('nope', 'handle-1')).rejects.toBeInstanceOf(NotFoundError)
+    })
+
+    test('purges a queue by resolving its URL first', async () => {
+        const {client, sent} = stubSqs()
+        await new AwsSqsAdapter(client).purgeQueue('orders-queue')
+
+        expect(sent[0]).toBeInstanceOf(GetQueueUrlCommand)
+        expect((sent[1] as PurgeQueueCommand).input.QueueUrl).toBe(`${BASE}/orders-queue`)
+    })
+
+    test('reports a missing queue on purge rather than silently succeeding', async () => {
+        const {client} = stubSqs({missingQueue: true})
+        await expect(new AwsSqsAdapter(client).purgeQueue('nope')).rejects.toBeInstanceOf(NotFoundError)
     })
 })

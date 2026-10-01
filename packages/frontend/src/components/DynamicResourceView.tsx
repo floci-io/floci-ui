@@ -41,6 +41,7 @@ import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { AppConfigPanel } from "@/components/AppConfigPanel";
 import { KmsCryptoPanel } from "@/components/KmsCryptoPanel";
+import { SqsMessagingPanel } from "@/components/SqsMessagingPanel";
 import { LogsQueryPanel } from "@/components/LogsQueryPanel";
 import { SageMakerDashboardPanel } from "@/components/SageMakerDashboardPanel";
 
@@ -841,6 +842,13 @@ export function DynamicResourceView({
       )}
       {service === "kms" && (
         <KmsCryptoPanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "messaging" && cloud === "aws" && (
+        <SqsMessagingPanel
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}

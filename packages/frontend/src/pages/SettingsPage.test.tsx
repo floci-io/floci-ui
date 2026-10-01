@@ -12,6 +12,7 @@ vi.mock('@/api/queries/cloudQueries', () => ({
             {id: 'aws', displayName: 'AWS', availability: 'available'},
             {id: 'azure', displayName: 'Azure', availability: 'available'},
             {id: 'gcp', displayName: 'GCP', availability: 'available'},
+            {id: 'oci', displayName: 'OCI', availability: 'available'},
         ],
     }),
 }))
@@ -60,5 +61,16 @@ describe('SettingsPage', () => {
         await user.click(screen.getByRole('option', {name: 'Azure'}))
 
         expect(screen.getByText('Selected /cloud-explorer/azure/storage')).toBeInTheDocument()
+    })
+
+    it('keeps OCI selected in Settings and can switch back to AWS', async () => {
+        const user = userEvent.setup()
+        renderSettings('/console/oci/settings')
+
+        await user.click(screen.getByRole('button', {name: 'Switch cloud, currently OCI'}))
+        expect(screen.getByRole('option', {name: 'OCI'})).toHaveAttribute('aria-selected', 'true')
+        await user.click(screen.getByRole('option', {name: 'AWS'}))
+
+        expect(screen.getByText('Selected /console/aws')).toBeInTheDocument()
     })
 })

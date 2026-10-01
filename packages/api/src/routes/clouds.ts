@@ -4,6 +4,7 @@ import type {
     CloudProvider,
     CloudServiceType,
     CreateDatabaseSnapshotInput,
+    CreateLambdaTriggerInput,
     KmsEncryptionAlgorithm,
     ServiceSchema,
     SqlConnectionInput,
@@ -538,6 +539,41 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.get('/:cloud/services/serverless/resources/:id/triggers', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const triggers = await svc(c).listLambdaTriggers(cloud, c.req.param('id'))
+            return c.json(triggers)
+        })
+    })
+
+    app.post('/:cloud/services/serverless/resources/:id/triggers', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const input = await c.req.json<CreateLambdaTriggerInput>()
+            const trigger = await svc(c).createLambdaTrigger(cloud, c.req.param('id'), input)
+            return c.json(trigger, 201)
+        })
+    })
+
+    app.delete('/:cloud/services/serverless/resources/:id/triggers/:triggerId', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
+
+        return withRuntime(c, async () => {
+            const options = {
+                type: c.req.query('type') ?? undefined,
+                bucket: c.req.query('bucket') ?? undefined,
+            }
+            await svc(c).deleteLambdaTrigger(cloud, c.req.param('id'), c.req.param('triggerId'), options)
+            return c.json({ok: true})
+        })
+    })
+
     // Child collections, parameterised by service. All the literal-segment
     // routes above (Cosmos containers, SQL, NoSQL items, email inbox, k8s
     // nodegroups/fargate profiles) must stay registered before these, or the
@@ -761,6 +797,70 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.post('/:cloud/services/:service/resources/:id/messages', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) {
+            return c.json({error: 'Unknown cloud or service'}, 404)
+        }
+
+        return withRuntime(c, async () => {
+            const body = await jsonBody<{body?: unknown}>(c)
+            if (typeof body.body !== 'string' || body.body.length === 0) {
+                throw new ValidationError('body is required')
+            }
+            const result = await svc(c).sendQueueMessage(cloud, serviceType, c.req.param('id'), body.body)
+            return c.json(result)
+        })
+    })
+
+    app.get('/:cloud/services/:service/resources/:id/messages', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) {
+            return c.json({error: 'Unknown cloud or service'}, 404)
+        }
+
+        const maxMessagesParam = c.req.query('maxMessages')
+        const maxMessages = maxMessagesParam ? Number(maxMessagesParam) : undefined
+        if (maxMessagesParam !== undefined && (!Number.isFinite(maxMessages) || maxMessages! < 1)) {
+            return c.json({error: 'maxMessages must be a positive number'}, 400)
+        }
+
+        return withRuntime(c, async () => {
+            const messages = await svc(c).receiveQueueMessages(cloud, serviceType, c.req.param('id'), maxMessages)
+            return c.json({messages})
+        })
+    })
+
+    app.delete('/:cloud/services/:service/resources/:id/messages', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) {
+            return c.json({error: 'Unknown cloud or service'}, 404)
+        }
+
+        const receiptHandle = c.req.query('receiptHandle') ?? ''
+        if (!receiptHandle) return c.json({error: 'receiptHandle is required'}, 400)
+        return withRuntime(c, async () => {
+            await svc(c).deleteQueueMessage(cloud, serviceType, c.req.param('id'), receiptHandle)
+            return c.json({ok: true})
+        })
+    })
+
+    app.post('/:cloud/services/:service/resources/:id/purge', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) {
+            return c.json({error: 'Unknown cloud or service'}, 404)
+        }
+
+        return withRuntime(c, async () => {
+            await svc(c).purgeQueue(cloud, serviceType, c.req.param('id'))
+            return c.json({ok: true})
+        })
+    })
+
     app.post('/:cloud/services/kms/resources/:id/encrypt', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
@@ -842,7 +942,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
 }
 
 function isCloudProvider(value: string): value is CloudProvider {
-    return value === 'aws' || value === 'azure' || value === 'gcp'
+    return value === 'aws' || value === 'azure' || value === 'gcp' || value === 'oci'
 }
 
 async function jsonBody<T>(c: Context): Promise<T> {

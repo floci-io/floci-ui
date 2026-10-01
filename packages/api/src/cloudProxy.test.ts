@@ -15,7 +15,7 @@ import type {CloudProvider, CloudServiceAdapter, CloudServiceType, DatabaseActio
  * answers 501. These tests make the contract mechanical instead of a convention.
  */
 
-const CLOUDS: CloudProvider[] = ['aws', 'azure', 'gcp']
+const CLOUDS: CloudProvider[] = ['aws', 'azure', 'gcp', 'oci']
 
 /** Adapter method that must exist for a capability to claim `available`. */
 const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> = {
@@ -31,6 +31,10 @@ const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> =
     stop: 'stop',
     reboot: 'reboot',
     updateTags: 'updateTags',
+    sendMessage: 'sendMessage',
+    receiveMessages: 'receiveMessages',
+    deleteMessage: 'deleteMessage',
+    purgeQueue: 'purgeQueue',
 }
 
 const METHOD_FOR_DATABASE_ACTION = {

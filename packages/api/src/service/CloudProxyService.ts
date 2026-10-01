@@ -14,7 +14,9 @@ import type {
     CreateDatabaseSnapshotInput,
     CreateKubernetesFargateProfileInput,
     CreateKubernetesNodegroupInput,
+    CreateLambdaTriggerInput,
     CreateResourceInput,
+    DeleteLambdaTriggerOptions,
     AppConfigConfigurationProfile,
     AppConfigDeployment,
     AppConfigDeploymentStrategy,
@@ -23,6 +25,7 @@ import type {
     DatabaseSnapshot,
     KubernetesFargateProfile,
     KubernetesNodegroup,
+    LambdaTrigger,
     LogsInsightsQueryInput,
     LogsInsightsQueryResult,
     KmsDecryptInput,
@@ -30,7 +33,9 @@ import type {
     KmsEncryptInput,
     KmsEncryptResult,
     NoSqlItem,
+    QueueMessage,
     ResourceQuery,
+    SendQueueMessageResult,
     ServerlessInvokeResult,
     SqlConnectionInput,
     SqlDatabase,
@@ -52,7 +57,7 @@ import type {
 } from '../cloud-spi/childCollections'
 import {NotSupportedError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
-import {SERVICE_CATALOG_ENTRIES, displayNameFor, routeFor} from '../cloud-spi/serviceCatalog'
+import {SERVICE_CATALOG_ENTRIES, descriptionFor, displayNameFor, routeFor} from '../cloud-spi/serviceCatalog'
 import {toHttpError} from '../cloud-spi/errors'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
 import {endpointFor, runtimeProbes, type RuntimeProbe} from './runtimeProbe'
@@ -86,6 +91,7 @@ export class CloudProxyService {
             {id: 'aws', displayName: 'AWS', availability: 'available'},
             {id: 'azure', displayName: 'Azure', availability: 'available'},
             {id: 'gcp', displayName: 'GCP', availability: 'available'},
+            {id: 'oci', displayName: 'OCI', availability: 'available'},
         ]
     }
 
@@ -107,6 +113,7 @@ export class CloudProxyService {
                 cloud,
                 service: entry.service,
                 displayName,
+                description: descriptionFor(entry, cloud),
                 availability,
                 reason: override.reason ?? unavailableReason(availability, cloud, displayName),
                 route: routeFor(entry, cloud),
@@ -264,6 +271,31 @@ export class CloudProxyService {
         if (!adapter.invoke) throw new NotSupportedError(`${cloud}/${service} invoke is not supported`)
         return adapter.invoke(id, payload)
     }
+
+    async sendQueueMessage(cloud: CloudProvider, service: CloudServiceType, id: string, body: string): Promise<SendQueueMessageResult> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.sendMessage) throw new NotSupportedError(`${cloud}/${service} sendMessage is not supported`)
+        return adapter.sendMessage(id, body)
+    }
+
+    async receiveQueueMessages(cloud: CloudProvider, service: CloudServiceType, id: string, maxMessages?: number): Promise<QueueMessage[]> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.receiveMessages) throw new NotSupportedError(`${cloud}/${service} receiveMessages is not supported`)
+        return adapter.receiveMessages(id, maxMessages)
+    }
+
+    async deleteQueueMessage(cloud: CloudProvider, service: CloudServiceType, id: string, receiptHandle: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.deleteMessage) throw new NotSupportedError(`${cloud}/${service} deleteMessage is not supported`)
+        await adapter.deleteMessage(id, receiptHandle)
+    }
+
+    async purgeQueue(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.purgeQueue) throw new NotSupportedError(`${cloud}/${service} purgeQueue is not supported`)
+        await adapter.purgeQueue(id)
+    }
+
     async listObjects(cloud: CloudProvider, service: CloudServiceType, resourceId: string, prefix?: string): Promise<StorageObjectList> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.listObjects) throw new NotSupportedError(`Object listing is not supported for ${cloud}/${service}`)
@@ -573,6 +605,24 @@ export class CloudProxyService {
 
     async getAppConfigDeployment(cloud: CloudProvider, applicationId: string, environmentId: string, deploymentNumber: number): Promise<AppConfigDeployment | null> {
         return this.appConfigAdapter(cloud).getAppConfigDeployment!(applicationId, environmentId, deploymentNumber)
+    }
+
+    async listLambdaTriggers(cloud: CloudProvider, functionName: string): Promise<LambdaTrigger[]> {
+        const adapter = this.requireAdapter(cloud, 'serverless')
+        if (!adapter.listLambdaTriggers) throw new NotSupportedError(`Lambda triggers are not supported for ${cloud}/serverless`)
+        return adapter.listLambdaTriggers(functionName)
+    }
+
+    async createLambdaTrigger(cloud: CloudProvider, functionName: string, input: CreateLambdaTriggerInput): Promise<LambdaTrigger> {
+        const adapter = this.requireAdapter(cloud, 'serverless')
+        if (!adapter.createLambdaTrigger) throw new NotSupportedError(`Lambda triggers are not supported for ${cloud}/serverless`)
+        return adapter.createLambdaTrigger(functionName, input)
+    }
+
+    async deleteLambdaTrigger(cloud: CloudProvider, functionName: string, triggerId: string, options?: DeleteLambdaTriggerOptions): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'serverless')
+        if (!adapter.deleteLambdaTrigger) throw new NotSupportedError(`Lambda triggers are not supported for ${cloud}/serverless`)
+        await adapter.deleteLambdaTrigger(functionName, triggerId, options)
     }
 
     private requireAdapter(cloud: CloudProvider, service: CloudServiceType) {
