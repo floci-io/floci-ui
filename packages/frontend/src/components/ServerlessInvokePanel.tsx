@@ -86,7 +86,8 @@ const clearPayload = () => {
     window.setTimeout(() => setCopied(false), 1200);
   };
 
-  if (!resource || resource.service !== "serverless") {
+  // Non-function rows (an OCI application, for example) get the empty state, not a runtime badge.
+  if (!resource || resource.service !== "serverless" || !isSupportedResource) {
     return (
       <section className="table-panel">
         <div className="empty compact">

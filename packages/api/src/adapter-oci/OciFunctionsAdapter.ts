@@ -1,4 +1,4 @@
-import {NotFoundError, ValidationError} from '../cloud-spi/errors'
+import {NotFoundError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import {ociServerlessSchema} from '../cloud-spi/serverlessSchema'
 import {oci, type OciRuntimeClient} from '../oci'
 import type {
@@ -108,12 +108,13 @@ export class OciFunctionsAdapter implements CloudServiceAdapter {
                 {emptyOnNotFound: true},
             )
             if (!fn) return null
+            // The application only supplies a display name, so a failed lookup must not block inspecting the function.
             const app = fn.applicationId
                 ? await this.client.json<OciApplication>(
                     `${API}/applications/${encodeURIComponent(fn.applicationId)}`,
                     {method: 'GET'},
                     {emptyOnNotFound: true},
-                )
+                ).catch(() => null)
                 : null
             return this.functionResource(fn, app?.displayName)
         }
@@ -146,12 +147,18 @@ export class OciFunctionsAdapter implements CloudServiceAdapter {
             method: 'POST',
             headers: {'content-type': 'application/json'},
             body: payload || '{}',
-        }, {emptyOnNotFound: true})
+        }, {emptyOnNotFound: true, allowErrorStatus: true})
         if (!res) throw new NotFoundError(`Function ${id} not found`)
         const body = await res.text()
+        // A 503 means the invoke plane is not ready; any other failure is the function's
+        // own result (Fn answers 502 "function failed", Floci-OCI 500), kept in band.
+        if (res.status === 503) {
+            throw new RuntimeUnavailableError(`OCI Functions could not invoke ${id}: HTTP 503${body ? ` - ${body.slice(0, 500)}` : ''}`)
+        }
         return {
             statusCode: res.status,
             payload: body,
+            ...(res.ok ? {} : {functionError: `Function returned HTTP ${res.status}`}),
             executionDuration: Math.round(performance.now() - startedAt),
         }
     }

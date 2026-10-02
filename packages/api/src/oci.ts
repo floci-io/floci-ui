@@ -5,6 +5,8 @@ const OCI_HEALTH_PATH = '/_floci-oci/health'
 
 export interface OciRuntimeFetchOptions {
     emptyOnNotFound?: boolean
+    /** Return a non-2xx response instead of throwing, for calls whose error body is the result. */
+    allowErrorStatus?: boolean
 }
 
 /**
@@ -54,7 +56,7 @@ export class OciRestRuntimeClient implements OciRuntimeClient {
         }
 
         if (options.emptyOnNotFound && res.status === 404) return null
-        if (!res.ok) {
+        if (!res.ok && !options.allowErrorStatus) {
             const detail = await readErrorDetail(res)
             throw httpStatusToCloudError(
                 res.status,

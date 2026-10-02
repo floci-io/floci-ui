@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, test} from 'bun:test'
 import {OciFunctionsAdapter} from './OciFunctionsAdapter'
 import {OciRestRuntimeClient} from '../oci'
-import {ConflictError, NotFoundError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 
 const originalFetch = globalThis.fetch
 const ENDPOINT = 'http://localhost:4599'
@@ -254,6 +254,24 @@ describe('OciFunctionsAdapter', () => {
         expect(result.statusCode).toBe(200)
         expect(result.payload).toBe('{"message":"hi"}')
         expect(typeof result.executionDuration).toBe('number')
+    })
+
+    test('keeps a failing function response in the invoke result', async () => {
+        stubFetch(() => new Response('{"error":"boom from handler"}', {status: 502, headers: {'content-type': 'application/json'}}))
+        const result = await adapter().invoke(FN_ID, '{}')
+        expect(result).toMatchObject({statusCode: 502, payload: '{"error":"boom from handler"}', functionError: 'Function returned HTTP 502'})
+    })
+
+    test('reports an invoke plane that is not ready as runtime unavailable', async () => {
+        stubFetch(() => new Response('sidecar not ready', {status: 503}))
+        await expect(adapter().invoke(FN_ID, '{}')).rejects.toBeInstanceOf(RuntimeUnavailableError)
+    })
+
+    test('inspects a function even when its application lookup fails', async () => {
+        stubFetch((url) => url.includes('/functions/') ? json(fn) : json({code: 'TooManyRequests', message: 'slow down'}, {status: 429}))
+        const resource = await adapter().get(FN_ID)
+        expect(resource?.id).toBe(FN_ID)
+        expect(resource?.metadata.applicationName ?? null).toBeNull()
     })
 
     test('invoke rejects an application and reports a missing function', async () => {
