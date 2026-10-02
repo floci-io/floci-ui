@@ -78,8 +78,11 @@ export const SERVICE_CATALOG = {
     },
     serverless: {
         displayName: 'Serverless',
+        displayNameByCloud: {oci: 'Functions'},
         description: 'Run functions without managing servers.',
-        iconKey: 'serverless', group: 'Compute', order: 30,
+        iconKey: 'serverless',
+        group: 'Compute',
+        order: 30,
     },
     containers: {
         displayName: 'Containers',
@@ -190,7 +193,7 @@ export const SERVICE_CATALOG = {
     },
     kms: {
         displayName: 'Key Management',
-        displayNameByCloud: {aws: 'KMS'},
+        displayNameByCloud: {aws: 'KMS', oci: 'Vault'},
         description: 'Create and manage encryption keys.',
         iconKey: 'kms',
         group: 'Security',
@@ -205,7 +208,7 @@ export const SERVICE_CATALOG = {
     },
     secrets: {
         displayName: 'Secrets Manager',
-        displayNameByCloud: {azure: 'Key Vault', gcp: 'Secret Manager'},
+        displayNameByCloud: {azure: 'Key Vault', gcp: 'Secret Manager', oci: 'Vault Secrets'},
         description: 'Store and manage application secrets.',
         iconKey: 'secrets',
         group: 'Security',

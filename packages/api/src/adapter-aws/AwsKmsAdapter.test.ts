@@ -353,6 +353,21 @@ describe('AwsKmsAdapter', () => {
         expect(sent).toHaveLength(1)
     })
 
+    test('encrypts with an RSA_3072 key within its OAEP limit', async () => {
+        const {client, sent} = stubKms((command) => {
+            if (command instanceof DescribeKeyCommand) {
+                return {KeyMetadata: {...keyMetadata, KeySpec: 'RSA_3072'}}
+            }
+            return {CiphertextBlob: new Uint8Array([9]), KeyId: KEY_ARN, EncryptionAlgorithm: 'RSAES_OAEP_SHA_256'}
+        })
+        const adapter = new AwsKmsAdapter(client)
+
+        await expect(adapter.encrypt(KEY_ID, {plaintext: new Uint8Array(319), encryptionAlgorithm: 'RSAES_OAEP_SHA_256'}))
+            .rejects.toThrow('318 bytes or fewer')
+        await adapter.encrypt(KEY_ID, {plaintext: new Uint8Array(318), encryptionAlgorithm: 'RSAES_OAEP_SHA_256'})
+        expect(sent.at(-1)).toBeInstanceOf(EncryptCommand)
+    })
+
     test('rejects an encryption context for RSA keys', async () => {
         const {client, sent} = stubKms((command) => {
             if (command instanceof DescribeKeyCommand) {

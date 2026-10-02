@@ -51,6 +51,10 @@ const RSA_PLAINTEXT_MAX_BYTES = {
         RSAES_OAEP_SHA_1: 214,
         RSAES_OAEP_SHA_256: 190,
     },
+    RSA_3072: {
+        RSAES_OAEP_SHA_1: 342,
+        RSAES_OAEP_SHA_256: 318,
+    },
     RSA_4096: {
         RSAES_OAEP_SHA_1: 470,
         RSAES_OAEP_SHA_256: 446,
@@ -265,7 +269,7 @@ function validateCryptoKey(
         return
     }
 
-    if (keySpec !== 'RSA_2048' && keySpec !== 'RSA_4096') {
+    if (!isRsaEncryptKeySpec(keySpec)) {
         throw new ValidationError('Selected key spec does not support encryption and decryption')
     }
     if (algorithm !== 'RSAES_OAEP_SHA_1' && algorithm !== 'RSAES_OAEP_SHA_256') {
@@ -274,6 +278,10 @@ function validateCryptoKey(
     if (encryptionContext && Object.keys(encryptionContext).length > 0) {
         throw new ValidationError('RSA keys do not support encryptionContext')
     }
+}
+
+function isRsaEncryptKeySpec(keySpec: string | undefined): keySpec is keyof typeof RSA_PLAINTEXT_MAX_BYTES {
+    return keySpec !== undefined && keySpec in RSA_PLAINTEXT_MAX_BYTES
 }
 
 function validatePlaintextSize(
@@ -291,7 +299,7 @@ function validatePlaintextSize(
         return
     }
 
-    if (keySpec !== 'RSA_2048' && keySpec !== 'RSA_4096') return
+    if (!isRsaEncryptKeySpec(keySpec)) return
     if (algorithm !== 'RSAES_OAEP_SHA_1' && algorithm !== 'RSAES_OAEP_SHA_256') return
 
     const limit = RSA_PLAINTEXT_MAX_BYTES[keySpec][algorithm]
