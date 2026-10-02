@@ -27,7 +27,7 @@ test('Settings switcher menus fit within narrow screens', async ({page}) => {
 
     for (const width of [320, 390]) {
         await page.setViewportSize({width, height: 720})
-        await page.goto('/console/aws/settings')
+        await page.goto('/settings')
 
         for (const name of ['Switch cloud, currently AWS', /Switch AWS account/]) {
             const trigger = page.getByRole('button', {name})
@@ -58,10 +58,10 @@ test('cloud switching from Explorer Settings keeps the storage landing', async (
     await mockCloudApi(page)
     await page.goto('/cloud-explorer/aws/storage')
     await page.getByRole('link', {name: 'Settings'}).click()
-    await expect(page).toHaveURL(/\/console\/aws\/settings$/)
+    await expect(page).toHaveURL(/\/settings$/)
 
     await page.getByRole('textbox', {name: 'Search services, features, docs, and more'}).fill('storage')
-    await expect(page).toHaveURL(/\/console\/aws\/settings\?search=storage$/)
+    await expect(page).toHaveURL(/\/settings\?search=storage$/)
     await page.reload()
 
     await page.getByRole('button', {name: 'Switch cloud, currently AWS'}).click()
@@ -71,7 +71,7 @@ test('cloud switching from Explorer Settings keeps the storage landing', async (
 
 test('cloud switching from direct Settings keeps the console landing', async ({page}) => {
     await mockCloudApi(page)
-    await page.goto('/console/aws/settings')
+    await page.goto('/settings')
 
     await page.getByRole('button', {name: 'Switch cloud, currently AWS'}).click()
     await page.getByRole('option', {name: 'Azure'}).click()
@@ -80,7 +80,9 @@ test('cloud switching from direct Settings keeps the console landing', async ({p
 
 test('OCI Settings keeps one cloud and account control and shares the main theme toggle', async ({page}) => {
     await mockCloudApi(page)
-    await page.goto('/console/oci/settings')
+    await page.goto('/console/oci')
+    await page.getByRole('link', {name: 'Settings', exact: true}).click()
+    await expect(page).toHaveURL(/\/settings$/)
 
     await expect(page.getByRole('button', {name: 'Switch cloud, currently OCI'})).toHaveCount(1)
     await expect(page.getByRole('button', {name: /Switch AWS account/})).toHaveCount(1)

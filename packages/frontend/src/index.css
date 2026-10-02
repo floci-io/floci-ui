@@ -1820,6 +1820,20 @@ pre,
     justify-self: start;
 }
 
+.appconfig-editor-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.appconfig-unsaved {
+    font-style: normal;
+    color: #fbbf24;
+}
+
 .cosmos-list {
     max-height: 300px;
     overflow-y: auto;
@@ -3796,6 +3810,7 @@ button.console-service-card {
 .drawer-tab.active {
     color: var(--link);
     border-bottom-color: var(--link);
+    font-weight: 700;
 }
 
 /* ─── Object metadata display ────────────────────────────────────────────── */
@@ -4569,4 +4584,11 @@ button.console-service-card {
     background: var(--accent-tint);
     color: var(--text-bright);
     font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .settings-section .settings-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
 }

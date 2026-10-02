@@ -136,3 +136,90 @@ export function gcpSecretsSchema(): ServiceSchema {
         },
     }
 }
+
+// OCI Vault secret names: letters, numbers, hyphens, underscores and periods, unique per vault.
+export const OCI_SECRET_NAME_PATTERN = '^[A-Za-z0-9._\\-]{1,255}$'
+export const OCI_SECRET_NAME_MESSAGE =
+    'Use a valid OCI secret name: 1-255 letters, numbers, hyphens, underscores, or periods.'
+
+const ociSecretsColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Secret Name'},
+    {name: 'status', label: 'Lifecycle State', format: 'badge'},
+    {name: 'version', label: 'Current Version', emptyText: 'No content'},
+    {name: 'createdAt', label: 'Created At', format: 'datetime'},
+    {
+        name: 'timeOfDeletion',
+        label: 'Deletion Scheduled For',
+        path: 'metadata.timeOfDeletion',
+        format: 'datetime',
+        emptyText: '-',
+    },
+]
+
+export function ociSecretsSchema(): ServiceSchema {
+    return {
+        cloud: 'oci',
+        service: 'secrets',
+        displayName: 'OCI Vault Secrets',
+        fields: [
+            {
+                name: 'secretName',
+                label: 'Secret Name',
+                type: 'text',
+                required: true,
+                description: 'Unique within the vault. Letters, numbers, hyphens, underscores, and periods.',
+                validation: {
+                    minLength: 1,
+                    maxLength: 255,
+                    pattern: OCI_SECRET_NAME_PATTERN,
+                    message: OCI_SECRET_NAME_MESSAGE,
+                },
+            },
+            {
+                name: 'vaultId',
+                label: 'Vault OCID',
+                type: 'text',
+                required: true,
+                description:
+                    'OCID of an ACTIVE vault in the tenancy root compartment (ocid1.vault...). '
+                    + 'Create a vault in OCI Vault first; the console never creates one for you.',
+                validation: {pattern: '^ocid1\\.vault\\..+$', message: 'Enter a vault OCID (ocid1.vault...).'},
+            },
+            {
+                name: 'keyId',
+                label: 'Master Encryption Key OCID',
+                type: 'text',
+                required: true,
+                description: 'OCID of an ENABLED AES key in that vault (ocid1.key...). OCI encrypts the secret with it.',
+                validation: {pattern: '^ocid1\\.key\\..+$', message: 'Enter a key OCID (ocid1.key...).'},
+            },
+            {
+                name: 'secretValue',
+                label: 'Secret Value',
+                type: 'password',
+                required: true,
+                description: 'Stored as version 1, base64-encoded as OCI requires. Never read back into the console.',
+                span: true,
+            },
+            {
+                name: 'description',
+                label: 'Description',
+                type: 'text',
+                required: false,
+            },
+        ],
+        actions: ['list', 'create', 'inspect', 'delete'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List secrets', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create secret', enabled: true, status: 'available', runtimeRequired: true},
+                // OCI has no DELETE for secrets: ScheduleSecretDeletion moves the secret to
+                // PENDING_DELETION (30 days out by default) and it stays listed until then.
+                {name: 'delete', label: 'Schedule secret deletion', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect metadata and versions', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+        filters: secretsFilters,
+        columns: ociSecretsColumns,
+    }
+}

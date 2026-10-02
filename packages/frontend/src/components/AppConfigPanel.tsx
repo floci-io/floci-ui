@@ -1,5 +1,5 @@
 import {FormEvent, useEffect, useMemo, useState} from 'react'
-import {Plus, RefreshCw, Rocket, SlidersHorizontal, Trash2} from 'lucide-react'
+import {Pencil, Plus, RefreshCw, Rocket, SlidersHorizontal, Trash2, Undo2} from 'lucide-react'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {
     createAppConfigConfigurationProfile,
@@ -24,6 +24,18 @@ import {useAccountId} from '@/lib/accountStore'
 
 const TERMINAL_DEPLOYMENT_STATES = new Set(['COMPLETE', 'ROLLED_BACK', 'STOPPED'])
 const PROFILE_TYPES = ['AWS.Freeform', 'AWS.AppConfig.FeatureFlags']
+const DEFAULT_CONTENT_TYPE = 'application/json'
+
+/** The parse error of `content` when `contentType` is JSON and it is not valid JSON, else undefined. */
+function jsonError(contentType: string, content: string): string | undefined {
+    if (!/json/i.test(contentType) || !content.trim()) return undefined
+    try {
+        JSON.parse(content)
+        return undefined
+    } catch (error) {
+        return error instanceof Error ? error.message : 'Invalid JSON'
+    }
+}
 
 interface AppConfigPanelProps {
     cloud: CloudProvider
@@ -57,8 +69,11 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
     const [environmentName, setEnvironmentName] = useState('')
     const [profileName, setProfileName] = useState('')
     const [profileType, setProfileType] = useState(PROFILE_TYPES[0])
-    const [versionContent, setVersionContent] = useState('')
-    const [versionContentType, setVersionContentType] = useState('application/json')
+    // The editor shows the version being edited (the latest unless "Edit from this version" picked another) until
+    // the user types: `draft` is the typed content, undefined while untouched.
+    const [editBaseVersion, setEditBaseVersion] = useState<number>()
+    const [draft, setDraft] = useState<string>()
+    const [contentTypeDraft, setContentTypeDraft] = useState<string>()
     const [versionDescription, setVersionDescription] = useState('')
     const [strategyName, setStrategyName] = useState('')
     const [strategyBake, setStrategyBake] = useState('')
@@ -115,6 +130,19 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
         queryFn: ({signal}) => getAppConfigHostedConfigurationVersion(cloud, applicationId ?? '', selectedProfileId ?? '', selectedVersionNumber ?? 0, signal),
         enabled: Boolean(applicationId && selectedProfileId && selectedVersionNumber) && runtimeReachable,
     })
+    const latestVersionNumber = useMemo(
+        () => (versionsQuery.data ?? []).reduce<number | undefined>(
+            (latest, version) => (latest === undefined || version.versionNumber > latest ? version.versionNumber : latest),
+            undefined,
+        ),
+        [versionsQuery.data],
+    )
+    const baseVersionNumber = editBaseVersion ?? latestVersionNumber
+    const baseContentQuery = useQuery({
+        queryKey: ['appconfig-version-content', accountId, cloud, applicationId, selectedProfileId, baseVersionNumber],
+        queryFn: ({signal}) => getAppConfigHostedConfigurationVersion(cloud, applicationId ?? '', selectedProfileId ?? '', baseVersionNumber ?? 0, signal),
+        enabled: Boolean(applicationId && selectedProfileId && baseVersionNumber) && runtimeReachable,
+    })
     const deploymentQuery = useQuery({
         queryKey: ['appconfig-deployment', accountId, cloud, applicationId, activeDeployment?.environmentId, activeDeployment?.deploymentNumber],
         queryFn: ({signal}) => getAppConfigDeployment(cloud, applicationId ?? '', activeDeployment?.environmentId ?? '', activeDeployment?.deploymentNumber ?? 0, signal),
@@ -164,22 +192,32 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
     })
     const createVersionMut = useMutation({
         mutationFn: () => createAppConfigHostedConfigurationVersion(cloud, applicationId ?? '', selectedProfileId ?? '', {
-            content: versionContent,
-            contentType: versionContentType,
+            content: editorContent,
+            contentType: editorContentType,
             ...(versionDescription.trim() ? {description: versionDescription} : {}),
         }),
         onSuccess: (version) => {
-            setSelectedVersionNumber(version.versionNumber)
-            setVersionContent('')
-            setVersionDescription('')
+            // Publish: the new version becomes the one being edited, and the deploy form is ready for it.
+            // Only if that profile is still the one open: the user may have switched while this was in flight.
+            if (version.configurationProfileId === selectedProfileId) {
+                setSelectedVersionNumber(version.versionNumber)
+                setEditBaseVersion(version.versionNumber)
+                setDraft(undefined)
+                setContentTypeDraft(undefined)
+                setVersionDescription('')
+            }
+            setDeployProfileId(version.configurationProfileId)
+            setDeployVersion(String(version.versionNumber))
             void qc.invalidateQueries({queryKey: versionsKey})
-            void qc.invalidateQueries({queryKey: ['appconfig-versions', accountId, cloud, applicationId, deployProfileId]})
+            void qc.invalidateQueries({queryKey: ['appconfig-versions', accountId, cloud, applicationId, version.configurationProfileId]})
         },
     })
     const deleteVersionMut = useMutation({
         mutationFn: (versionNumber: number) => deleteAppConfigHostedConfigurationVersion(cloud, applicationId ?? '', selectedProfileId ?? '', versionNumber),
         onSuccess: (_, versionNumber) => {
             if (selectedVersionNumber === versionNumber) setSelectedVersionNumber(undefined)
+            // The typed draft survives; the editor falls back to the latest version as its base.
+            if (editBaseVersion === versionNumber) setEditBaseVersion(undefined)
             if (deployVersion === String(versionNumber)) setDeployVersion('')
             setConfirmVersion(null)
             void qc.invalidateQueries({queryKey: versionsKey})
@@ -227,6 +265,10 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
 
     useEffect(() => {
         setSelectedVersionNumber(undefined)
+        setEditBaseVersion(undefined)
+        setDraft(undefined)
+        setContentTypeDraft(undefined)
+        setVersionDescription('')
     }, [selectedProfileId])
 
     if (cloud !== 'aws') return null
@@ -248,6 +290,17 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
     const strategies = strategiesQuery.data ?? []
     const deployment = deploymentQuery.data ?? activeDeployment
     const canDeploy = Boolean(deployEnvironmentId && deployProfileId && deployVersion && deployStrategyId) && runtimeReachable
+    const baseContent = baseContentQuery.data?.content ?? ''
+    const editorContent = draft ?? baseContent
+    const editorContentType = contentTypeDraft ?? baseContentQuery.data?.contentType ?? DEFAULT_CONTENT_TYPE
+    const editorLoading = Boolean(baseVersionNumber) && baseContentQuery.isLoading
+    const contentError = jsonError(editorContentType, editorContent)
+    const dirty = (draft !== undefined && draft !== baseContent)
+        || (contentTypeDraft !== undefined && contentTypeDraft !== (baseContentQuery.data?.contentType ?? DEFAULT_CONTENT_TYPE))
+        || versionDescription.trim() !== ''
+    // With a base version, the editor must have loaded it: publishing over content the user never saw would drop it.
+    const baseReady = !baseVersionNumber || baseContentQuery.isSuccess
+    const canSave = Boolean(selectedProfileId) && runtimeReachable && dirty && baseReady && !contentError && Boolean(editorContent.trim())
 
     function submitEnvironment(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -261,7 +314,27 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
 
     function submitVersion(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
-        if (versionContent.trim()) createVersionMut.mutate()
+        if (canSave) createVersionMut.mutate()
+    }
+
+    function discardDraft(base: number | undefined = editBaseVersion) {
+        setEditBaseVersion(base)
+        setDraft(undefined)
+        setContentTypeDraft(undefined)
+        setVersionDescription('')
+    }
+
+    function editFromVersion(versionNumber: number) {
+        if (dirty && !window.confirm('Discard your unsaved changes and edit this version instead?')) return
+        discardDraft(versionNumber)
+    }
+
+    function formatJson() {
+        try {
+            setDraft(JSON.stringify(JSON.parse(editorContent), null, 2))
+        } catch {
+            // The invalid-JSON message already says why.
+        }
     }
 
     function submitStrategy(event: FormEvent<HTMLFormElement>) {
@@ -382,22 +455,44 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                     title={profiles.find((profile) => profile.id === selectedProfileId)?.name ?? 'Select profile'}
                     detail={`${versions.length} versions`}
                 />
+                <div className="appconfig-editor-status">
+                    {baseVersionNumber !== undefined ? (
+                        <span>
+                            Editing version <strong>{baseVersionNumber}</strong>
+                            {baseVersionNumber === latestVersionNumber ? ' (latest)' : ` (latest is ${latestVersionNumber})`}
+                        </span>
+                    ) : (
+                        <span>{selectedProfileId ? 'No versions yet: write the first configuration' : 'Select a profile to edit its configuration'}</span>
+                    )}
+                    {dirty && <em className="appconfig-unsaved">Unsaved changes</em>}
+                </div>
                 <form className="cosmos-inline-form" onSubmit={submitVersion}>
-                    <input className="input" value={versionContentType} onChange={(event) => setVersionContentType(event.target.value)} placeholder="Content type" disabled={!runtimeReachable}/>
-                    <input className="input" value={versionDescription} onChange={(event) => setVersionDescription(event.target.value)} placeholder="Description (optional)" disabled={!runtimeReachable}/>
-                    <button className="button" type="submit" disabled={!selectedProfileId || !runtimeReachable || createVersionMut.isPending || !versionContent.trim()}>
+                    <input className="input" value={editorContentType} onChange={(event) => setContentTypeDraft(event.target.value)} placeholder="Content type" aria-label="Content type" disabled={!selectedProfileId || !runtimeReachable}/>
+                    <input className="input" value={versionDescription} onChange={(event) => setVersionDescription(event.target.value)} placeholder="Description (optional)" aria-label="Version description" disabled={!selectedProfileId || !runtimeReachable}/>
+                    <button className="button primary" type="submit" disabled={!canSave || createVersionMut.isPending}>
                         <Plus size={14}/>
-                        {createVersionMut.isPending ? 'Saving' : 'Create version'}
+                        {createVersionMut.isPending ? 'Publishing' : 'Create new version'}
+                    </button>
+                    <button className="button" type="button" onClick={() => discardDraft()} disabled={!dirty}>
+                        <Undo2 size={14}/>
+                        Discard changes
+                    </button>
+                    <button className="button" type="button" onClick={formatJson} disabled={!/json/i.test(editorContentType) || Boolean(contentError) || !editorContent.trim()}>
+                        Format JSON
                     </button>
                 </form>
                 <textarea
-                    className="textarea code-textarea"
-                    value={versionContent}
-                    onChange={(event) => setVersionContent(event.target.value)}
-                    placeholder={selectedProfileId ? 'Configuration content' : 'Select a profile to add a version'}
+                    className={`textarea code-textarea ${contentError ? 'invalid' : ''}`}
+                    value={editorContent}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder={selectedProfileId ? (editorLoading ? 'Loading current configuration' : 'Configuration content') : 'Select a profile to edit its configuration'}
+                    aria-label="Configuration content"
+                    aria-invalid={Boolean(contentError)}
                     spellCheck={false}
-                    disabled={!selectedProfileId || !runtimeReachable}
+                    disabled={!selectedProfileId || !runtimeReachable || !baseReady}
                 />
+                {contentError && <div className="form-error">Invalid JSON: {contentError}</div>}
+                {baseContentQuery.error instanceof Error && <div className="form-error">{baseContentQuery.error.message}</div>}
                 {createVersionMut.error instanceof Error && <div className="form-error">{createVersionMut.error.message}</div>}
                 {versionsQuery.error instanceof Error && <div className="form-error">{versionsQuery.error.message}</div>}
                 {deleteVersionMut.error instanceof Error && <div className="form-error">{deleteVersionMut.error.message}</div>}
@@ -418,6 +513,9 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                                     <td onClick={() => setSelectedVersionNumber(version.versionNumber)}>{version.contentType ?? '-'}</td>
                                     <td onClick={() => setSelectedVersionNumber(version.versionNumber)}>{version.description ?? '-'}</td>
                                     <td className="table-actions">
+                                        <button className="icon-btn" type="button" title={`Edit from version ${version.versionNumber}`} onClick={() => editFromVersion(version.versionNumber)}>
+                                            <Pencil size={13}/>
+                                        </button>
                                         {confirmVersion === version.versionNumber ? (
                                             <button className="button danger compact" type="button" onClick={() => deleteVersionMut.mutate(version.versionNumber)}>Confirm</button>
                                         ) : (
@@ -431,7 +529,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                         </tbody>
                     </table>
                     {selectedProfileId && !versionsQuery.isLoading && versions.length === 0 && (
-                        <div className="empty compact"><h3>No hosted versions</h3><p>Create a version to store configuration content.</p></div>
+                        <div className="empty compact"><h3>No hosted versions</h3><p>Write the configuration above and create the first version.</p></div>
                     )}
                 </div>
                 {selectedVersionNumber !== undefined && (

@@ -2,8 +2,9 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {render, screen} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom'
-import {describe, expect, it, vi} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {DEFAULT_ACCOUNT_ID, setAccountId} from '@/lib/accountStore'
+import type {CloudProvider} from '@/types/cloud'
 import {SettingsPage} from './SettingsPage'
 
 vi.mock('@/api/queries/cloudQueries', () => ({
@@ -22,7 +23,9 @@ function SelectedDestination() {
     return <div>Selected {pathname}</div>
 }
 
-function renderSettings(initialEntry: string | {pathname: string; state: {fromCloudExplorer: true}}) {
+beforeEach(() => sessionStorage.clear())
+
+function renderSettings(initialEntry: string | {pathname: string; state: {cloud: CloudProvider; fromCloudExplorer?: boolean}}) {
     setAccountId(DEFAULT_ACCOUNT_ID)
     const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}})
 
@@ -30,7 +33,7 @@ function renderSettings(initialEntry: string | {pathname: string; state: {fromCl
         <QueryClientProvider client={queryClient}>
             <MemoryRouter initialEntries={[initialEntry]}>
                 <Routes>
-                    <Route path="/console/:cloud/settings" element={<SettingsPage/>}/>
+                    <Route path="/settings" element={<SettingsPage/>}/>
                     <Route path="/console/:cloud" element={<SelectedDestination/>}/>
                     <Route path="/cloud-explorer/:cloud/:service" element={<SelectedDestination/>}/>
                 </Routes>
@@ -42,7 +45,7 @@ function renderSettings(initialEntry: string | {pathname: string; state: {fromCl
 describe('SettingsPage', () => {
     it('sends a direct Settings cloud switch to Console Home', async () => {
         const user = userEvent.setup()
-        renderSettings('/console/aws/settings')
+        renderSettings('/settings')
 
         expect(screen.getByRole('button', {name: 'Switch cloud, currently AWS'})).toBeInTheDocument()
         expect(screen.getByRole('button', {name: /Switch AWS account/})).toBeInTheDocument()
@@ -55,7 +58,7 @@ describe('SettingsPage', () => {
 
     it('sends a cloud switch from Cloud Explorer to the new cloud storage view', async () => {
         const user = userEvent.setup()
-        renderSettings({pathname: '/console/aws/settings', state: {fromCloudExplorer: true}})
+        renderSettings({pathname: '/settings', state: {cloud: 'aws', fromCloudExplorer: true}})
 
         await user.click(screen.getByRole('button', {name: 'Switch cloud, currently AWS'}))
         await user.click(screen.getByRole('option', {name: 'Azure'}))
@@ -65,10 +68,22 @@ describe('SettingsPage', () => {
 
     it('keeps OCI selected in Settings and can switch back to AWS', async () => {
         const user = userEvent.setup()
-        renderSettings('/console/oci/settings')
+        renderSettings({pathname: '/settings', state: {cloud: 'oci'}})
 
         await user.click(screen.getByRole('button', {name: 'Switch cloud, currently OCI'}))
         expect(screen.getByRole('option', {name: 'OCI'})).toHaveAttribute('aria-selected', 'true')
+        await user.click(screen.getByRole('option', {name: 'AWS'}))
+
+        expect(screen.getByText('Selected /console/aws')).toBeInTheDocument()
+    })
+
+    it('recalls Azure on direct global Settings entry', async () => {
+        const user = userEvent.setup()
+        sessionStorage.setItem('floci-last-cloud', 'azure')
+        renderSettings('/settings')
+
+        await user.click(screen.getByRole('button', {name: 'Switch cloud, currently Azure'}))
+        expect(screen.getByRole('option', {name: 'Azure'})).toHaveAttribute('aria-selected', 'true')
         await user.click(screen.getByRole('option', {name: 'AWS'}))
 
         expect(screen.getByText('Selected /console/aws')).toBeInTheDocument()

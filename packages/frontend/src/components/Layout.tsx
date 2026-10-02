@@ -7,7 +7,7 @@ import flociMarkWhite from '@/assets/floci-mark-white.svg'
 import flociMarkBlack from '@/assets/floci-mark-black.svg'
 import {useTheme} from '@/lib/useTheme'
 import {useSidebar} from '@/lib/useSidebar'
-import {isCloudProvider} from '@/lib/cloudProvider'
+import {useActiveCloud} from '@/lib/useActiveCloud'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus} from '@/api/cloudProxyClient'
 import {useCloudServicesQuery} from '@/api/queries/cloudQueries'
@@ -35,7 +35,7 @@ function connectionDotClass(status: ConnectionStatus): string {
 /** Matches today's service count, so the real nav causes no layout jump. */
 const SKELETON_ROWS = 7
 
-function NavItem({to, icon, label, collapsed, state}: { to: string; icon: React.ElementType; label: string; collapsed: boolean; state?: {fromCloudExplorer: true} }) {
+function NavItem({to, icon, label, collapsed, state}: { to: string; icon: React.ElementType; label: string; collapsed: boolean; state?: {cloud: CloudProvider; fromCloudExplorer: boolean} }) {
     const Icon = icon
     return (
         <NavLink className="nav-link" to={to} state={state} title={collapsed ? label : undefined}>
@@ -53,11 +53,9 @@ function NavItem({to, icon, label, collapsed, state}: { to: string; icon: React.
  * availability could disagree with the API. Adding a service is now a catalog
  * row on the server and nothing here.
  */
-function CloudServiceNav({collapsed}: {collapsed: boolean}) {
-    const location = useLocation()
+function CloudServiceNav({collapsed, cloud}: {collapsed: boolean; cloud: CloudProvider}) {
     const [searchParams] = useSearchParams()
     const search = (searchParams.get('search') ?? '').trim().toLowerCase()
-    const cloud = activeCloudFromPath(location.pathname)
     const cloudLabel = cloud.toUpperCase()
     const {data, isPending, isError, refetch, isFetching} = useCloudServicesQuery(cloud)
 
@@ -162,12 +160,10 @@ function groupByGroup(services: CloudServiceDescriptor[]): Array<[string, CloudS
 
 export function Layout() {
     const location = useLocation()
-    const activeCloud = activeCloudFromPath(location.pathname)
-    const fromCloudExplorer = location.pathname.startsWith('/cloud-explorer/')
-        || (location.state as {fromCloudExplorer?: boolean} | null)?.fromCloudExplorer === true
-    const {theme} = useTheme()
+    const activeCloud = useActiveCloud()
+    const {resolvedTheme} = useTheme()
     const {collapsed, toggle: toggleSidebar, toggleRef} = useSidebar()
-    const isDark = theme === 'dark'
+    const isDark = resolvedTheme === 'dark'
     const {data, isError} = useQuery({
         queryKey: ['cloud-status', activeCloud],
         queryFn: ({signal}) => getCloudStatus(activeCloud, signal),
@@ -192,10 +188,15 @@ export function Layout() {
                         <div className="nav-section">
                             <span className="nav-label">General</span>
                             <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home" collapsed={collapsed}/>
-                            <NavItem to={`/console/${activeCloud}/settings`} icon={Settings} label="Settings" collapsed={collapsed}
-                                     state={fromCloudExplorer ? {fromCloudExplorer: true} : undefined}/>
+                            <NavItem
+                                to="/settings"
+                                icon={Settings}
+                                label="Settings"
+                                collapsed={collapsed}
+                                state={{cloud: activeCloud, fromCloudExplorer: location.pathname.startsWith('/cloud-explorer/') || location.state?.fromCloudExplorer === true}}
+                            />
                         </div>
-                        <CloudServiceNav collapsed={collapsed}/>
+                        <CloudServiceNav collapsed={collapsed} cloud={activeCloud}/>
                     </nav>
 
                     <div className="sidebar-footer">
@@ -352,9 +353,4 @@ function TopbarSearch() {
             <span className="kbd" aria-hidden="true">/</span>
         </div>
     )
-}
-
-function activeCloudFromPath(pathname: string): CloudProvider {
-    const segment = pathname.match(/^\/(?:cloud-explorer|console)\/([^/]+)/)?.[1]
-    return isCloudProvider(segment) ? segment : 'aws'
 }

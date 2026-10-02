@@ -1,9 +1,9 @@
 import {Settings} from 'lucide-react'
-import {useLocation, useNavigate, useParams} from 'react-router-dom'
+import {useLocation, useNavigate} from 'react-router-dom'
 import {AccountSwitcher} from '@/components/AccountSwitcher'
 import {CloudSwitcher} from '@/components/CloudSwitcher'
 import {useCloudsQuery} from '@/api/queries/cloudQueries'
-import {isCloudProvider} from '@/lib/cloudProvider'
+import {useActiveCloud} from '@/lib/useActiveCloud'
 import {useTheme} from '@/lib/useTheme'
 import type {CloudProvider} from '@/types/cloud'
 
@@ -11,8 +11,7 @@ export function SettingsPage() {
     const navigate = useNavigate()
     const location = useLocation()
     const fromCloudExplorer = (location.state as {fromCloudExplorer?: boolean} | null)?.fromCloudExplorer === true
-    const {cloud: routeCloud} = useParams()
-    const cloud: CloudProvider = isCloudProvider(routeCloud) ? routeCloud : 'aws'
+    const cloud = useActiveCloud()
     const cloudsQuery = useCloudsQuery()
     const {theme, setTheme} = useTheme()
 
@@ -58,7 +57,7 @@ export function SettingsPage() {
                     <div className="settings-row">
                         <div className="settings-row-text">
                             <span className="settings-label">Theme</span>
-                            <span className="settings-description">Switch between light and dark mode</span>
+                            <span className="settings-description">Choose light, dark, or your system preference</span>
                         </div>
                         <div className="settings-toggle-group" role="radiogroup" aria-label="Theme">
                             <button
@@ -78,6 +77,15 @@ export function SettingsPage() {
                                 onClick={() => setTheme('light')}
                             >
                                 Light
+                            </button>
+                            <button
+                                type="button"
+                                className={`settings-toggle-btn${theme === 'system' ? ' active' : ''}`}
+                                role="radio"
+                                aria-checked={theme === 'system'}
+                                onClick={() => setTheme('system')}
+                            >
+                                System
                             </button>
                         </div>
                     </div>
