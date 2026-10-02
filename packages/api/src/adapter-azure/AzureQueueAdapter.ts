@@ -24,7 +24,7 @@ export class AzureQueueAdapter implements CloudServiceAdapter {
         const names: string[] = []
         const seenMarkers = new Set<string>()
         let marker: string | null = null
-        for (let page = 0; page < 100; page += 1) {
+        while (true) {
             const params = new URLSearchParams({comp: 'list'})
             if (marker) params.set('marker', marker)
             const response = await this.client.fetch(`${accountPath(this.client)}?${params}`, {method: 'GET'})
@@ -41,8 +41,6 @@ export class AzureQueueAdapter implements CloudServiceAdapter {
             seenMarkers.add(result.nextMarker)
             marker = result.nextMarker
         }
-
-        throw new RuntimeError('Azure Queue Storage list exceeded 100 pages')
     }
 
     async get(id: string): Promise<CloudResource | null> {

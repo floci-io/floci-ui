@@ -231,9 +231,145 @@ export function gcpServerlessSchema(): ServiceSchema {
     }
 }
 
+/**
+ * OCI Functions lists applications and functions as one table because a
+ * function cannot exist without an application: the console must be able to
+ * create the application first, and the Kind column tells the two apart.
+ */
+const ociServerlessColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'kind', label: 'Kind', path: 'metadata.kind', format: 'badge'},
+    {name: 'status', label: 'State', format: 'badge', emptyText: '—'},
+    {name: 'application', label: 'Application', path: 'metadata.applicationName', emptyText: '—'},
+    {name: 'image', label: 'Image', path: 'metadata.image', format: 'code', emptyText: '—'},
+    {name: 'memory', label: 'Memory (MB)', path: 'metadata.memoryInMBs', emptyText: '—'},
+    {name: 'updatedAt', label: 'Last Updated', path: 'metadata.lastModified', format: 'datetime'},
+]
+
+const ociServerlessFields: FieldSchema[] = [
+    {
+        name: 'resourceType',
+        label: 'Resource Type',
+        type: 'select',
+        required: true,
+        defaultValue: 'function',
+        description: 'A function belongs to an application. Create the application first if none exists.',
+        options: [
+            {label: 'Function', value: 'function'},
+            {label: 'Application', value: 'application'},
+        ],
+    },
+    {
+        name: 'displayName',
+        label: 'Display Name',
+        type: 'text',
+        required: true,
+        description: 'Unique within the application (functions) or the compartment (applications).',
+    },
+    {
+        name: 'applicationId',
+        label: 'Application OCID',
+        type: 'text',
+        required: false,
+        requiredWhen: {field: 'resourceType', equals: 'function'},
+        visibleWhen: {field: 'resourceType', equals: 'function'},
+        group: 'Function',
+        description: 'OCID of an existing application (ocid1.fnapp...). Copy it from an Application row.',
+    },
+    {
+        name: 'image',
+        label: 'Image',
+        type: 'text',
+        required: false,
+        requiredWhen: {field: 'resourceType', equals: 'function'},
+        visibleWhen: {field: 'resourceType', equals: 'function'},
+        group: 'Function',
+        description: 'Fn FDK container image, for example iad.ocir.io/tenancy/repo/hello:0.0.1.',
+    },
+    {
+        name: 'memoryInMBs',
+        label: 'Memory (MB)',
+        type: 'text',
+        required: false,
+        requiredWhen: {field: 'resourceType', equals: 'function'},
+        visibleWhen: {field: 'resourceType', equals: 'function'},
+        group: 'Function',
+        defaultValue: '128',
+        description: 'Maximum memory for the function, in MB.',
+    },
+    {
+        name: 'timeoutInSeconds',
+        label: 'Timeout (seconds)',
+        type: 'text',
+        required: false,
+        visibleWhen: {field: 'resourceType', equals: 'function'},
+        group: 'Function',
+        description: 'Optional, up to 300. OCI defaults to 30.',
+    },
+    {
+        name: 'subnetIds',
+        label: 'Subnet OCIDs',
+        type: 'text',
+        required: false,
+        requiredWhen: {field: 'resourceType', equals: 'application'},
+        visibleWhen: {field: 'resourceType', equals: 'application'},
+        group: 'Application',
+        description: 'Comma-separated subnet OCIDs (ocid1.subnet...) the application runs in.',
+    },
+    {
+        name: 'shape',
+        label: 'Shape',
+        type: 'select',
+        required: false,
+        visibleWhen: {field: 'resourceType', equals: 'application'},
+        group: 'Application',
+        description: 'Optional processor architecture. OCI defaults to GENERIC_X86.',
+        options: [
+            {label: 'GENERIC_X86', value: 'GENERIC_X86'},
+            {label: 'GENERIC_ARM', value: 'GENERIC_ARM'},
+            {label: 'GENERIC_X86_ARM', value: 'GENERIC_X86_ARM'},
+        ],
+    },
+]
+
+export function ociServerlessSchema(): ServiceSchema {
+    return {
+        cloud: 'oci',
+        service: 'serverless',
+        displayName: 'OCI Functions',
+        fields: ociServerlessFields,
+        actions: ['list', 'create', 'inspect', 'delete'],
+        filters: [
+            {name: 'search', label: 'Search', type: 'text', required: false},
+            {
+                name: 'kind',
+                label: 'Kind',
+                type: 'select',
+                required: false,
+                description: 'Leave unset to list applications and functions together.',
+                options: [
+                    {label: 'Application', value: 'application'},
+                    {label: 'Function', value: 'function'},
+                ],
+            },
+        ],
+        columns: ociServerlessColumns,
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List applications and functions', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create application or function', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete application or function', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect application or function', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'invoke', label: 'Invoke function', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+    }
+}
+
 export function serverlessSchemaFor(cloud: CloudProvider): ServiceSchema | null {
     if (cloud === 'aws') return awsServerlessSchema()
     if (cloud === 'azure') return azureServerlessSchema()
     if (cloud === 'gcp') return gcpServerlessSchema()
+    if (cloud === 'oci') return ociServerlessSchema()
     return null
 }

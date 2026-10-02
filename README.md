@@ -53,8 +53,8 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Group | Service | AWS | Azure | GCP | OCI |
 |---|---|---|---|---|---|
 | Compute | Compute | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | No | No |
-| Compute | EKS / AKS / GKE / k8s Engine | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) | No |
-| Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | No |
+| Compute | EKS / AKS / GKE / OKE | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, update, inspect, delete) |
+| Compute | Serverless / Functions | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) | No |
 | Compute | SageMaker AI | Yes (list, create, delete, inspect) | No | No | No |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
@@ -74,8 +74,8 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Provisioning | AppConfig / Configuration | Yes (list, create, delete, inspect) | No | No | No |
 | Security | Identity | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
 | Security | Cognito | Yes (list, create, delete, inspect) | No | No | No |
-| Security | Secrets Manager / Key Vault / Secret Manager | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | No |
-| Security | KMS / Key Management | Yes (list, create, delete, inspect) | No | No | No |
+| Security | Secrets Manager / Key Vault / Secret Manager / Vault Secrets | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
+| Security | KMS / Key Management / Vault | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
 | Security | Parameter Store | Yes (list, create, delete, inspect) | No | No | No |
 | Observability | CloudWatch Logs / Logs | Yes (list, create, delete, inspect) | No | No | No |
 

@@ -86,6 +86,22 @@ describe('AzureQueueAdapter', () => {
         await expect(adapter().list()).rejects.toBeInstanceOf(RuntimeError)
     })
 
+    test('does not reject a valid queue listing after 100 pages', async () => {
+        let page = 0
+        const calls = stubFetch(() => {
+            page += 1
+            const nextMarker = page < 101 ? `page-${page + 1}` : ''
+            return new Response(`<EnumerationResults><Queues><Queue><Name>queue-${page}</Name></Queue></Queues><NextMarker>${nextMarker}</NextMarker></EnumerationResults>`)
+        })
+
+        const resources = await adapter().list()
+
+        expect(resources).toHaveLength(101)
+        expect(resources.at(-1)?.id).toBe('queue-101')
+        expect(calls).toHaveLength(101)
+        expect(calls.at(-1)?.url).toBe(`${ROOT}?comp=list&marker=page-101`)
+    })
+
     test('rejects malformed or unrelated XML instead of showing an empty list', async () => {
         stubFetch(() => new Response('<html>unavailable</html>'))
         await expect(adapter().list()).rejects.toBeInstanceOf(RuntimeError)
