@@ -22,6 +22,7 @@ const ALARM: MetricAlarm = {
     Period: 60,
     EvaluationPeriods: 1,
     ActionsEnabled: true,
+    Dimensions: [{Name: 'QueueName', Value: 'orders'}],
 }
 
 const VALID = {
@@ -38,18 +39,23 @@ const VALID = {
 function stubCloudWatch(options: {
     pages?: Array<{MetricAlarms?: MetricAlarm[]; NextToken?: string}>
     existing?: boolean
+    delayMs?: number
 } = {}) {
     const sent: object[] = []
-    let stored = options.existing ?? false
+    const stored = new Set<string>(options.existing ? [ALARM.AlarmName!] : [])
     const client = {
         async send(command: object) {
             sent.push(command)
+            if (options.delayMs) await new Promise((resolve) => setTimeout(resolve, options.delayMs))
             if (command instanceof PutMetricAlarmCommand) {
-                stored = true
+                stored.add(command.input.AlarmName!)
                 return {}
             }
             if (command instanceof DescribeAlarmsCommand) {
-                if (command.input.AlarmNames) return {MetricAlarms: stored ? [ALARM] : []}
+                if (command.input.AlarmNames) {
+                    const name = command.input.AlarmNames[0]
+                    return {MetricAlarms: stored.has(name) ? [{...ALARM, AlarmName: name}] : []}
+                }
                 const index = command.input.NextToken ? Number(command.input.NextToken) : 0
                 return options.pages?.[index] ?? {MetricAlarms: [ALARM]}
             }
@@ -106,6 +112,7 @@ describe('AwsCloudWatchAdapter', () => {
                 metric: 'AWS/SQS / ApproximateNumberOfMessagesVisible',
                 condition: 'Average > 100',
                 period: 60,
+                dimensions: [{Name: 'QueueName', Value: 'orders'}],
             },
         })
     })
@@ -136,6 +143,29 @@ describe('AwsCloudWatchAdapter', () => {
         const {client, sent} = stubCloudWatch({existing: true})
         await expect(new AwsCloudWatchAdapter(client).create({values: VALID})).rejects.toBeInstanceOf(ConflictError)
         expect(sent.some((command) => command instanceof PutMetricAlarmCommand)).toBe(false)
+    })
+
+    test('serializes overlapping creates of the same name so only one PutMetricAlarm is sent', async () => {
+        const {client, sent} = stubCloudWatch({delayMs: 5})
+        const adapter = new AwsCloudWatchAdapter(client)
+        const [first, second] = await Promise.allSettled([
+            adapter.create({values: VALID}),
+            adapter.create({values: {...VALID, threshold: '1'}}),
+        ])
+
+        expect(first.status).toBe('fulfilled')
+        expect(second.status).toBe('rejected')
+        expect((second as PromiseRejectedResult).reason).toBeInstanceOf(ConflictError)
+        expect(sent.filter((command) => command instanceof PutMetricAlarmCommand)).toHaveLength(1)
+    })
+
+    test('does not serialize creates of different names, and releases the lock after a failure', async () => {
+        const {client, sent} = stubCloudWatch({delayMs: 5})
+        const adapter = new AwsCloudWatchAdapter(client)
+        await adapter.create({values: VALID})
+        await expect(adapter.create({values: VALID})).rejects.toBeInstanceOf(ConflictError)
+        await adapter.create({values: {...VALID, name: 'other'}})
+        expect(sent.filter((command) => command instanceof PutMetricAlarmCommand)).toHaveLength(2)
     })
 
     test.each([

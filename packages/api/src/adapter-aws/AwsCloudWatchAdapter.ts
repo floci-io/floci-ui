@@ -26,6 +26,14 @@ export class AwsCloudWatchAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'cloudwatch' as const
 
+    /**
+     * One adapter exists per account-scoped registry and alarms live inside the
+     * account, so serializing per alarm name here is serializing per account and
+     * name. PutMetricAlarm is an upsert, so without it two concurrent creates can
+     * both pass the existence check and the second silently replaces the first.
+     */
+    private readonly createLocks = new Map<string, Promise<unknown>>()
+
     constructor(private readonly cloudwatch: CloudWatchClient) {}
 
     schema(): ServiceSchema {
@@ -82,21 +90,38 @@ export class AwsCloudWatchAdapter implements CloudServiceAdapter {
         const period = wholeNumber(values.period, 'Period')
         const evaluationPeriods = wholeNumber(values.evaluationPeriods, 'Evaluation periods')
 
-        if (await this.get(name)) throw new ConflictError(`Alarm ${name} already exists.`)
+        return this.withCreateLock(name, async () => {
+            if (await this.get(name)) throw new ConflictError(`Alarm ${name} already exists.`)
 
-        await this.cloudwatch.send(new PutMetricAlarmCommand({
-            AlarmName: name,
-            Namespace: namespace,
-            MetricName: metricName,
-            Statistic: statistic as Statistic,
-            ComparisonOperator: comparison as ComparisonOperator,
-            Threshold: threshold,
-            Period: period,
-            EvaluationPeriods: evaluationPeriods,
-        }))
-        const created = await this.get(name)
-        if (!created) throw new RuntimeError('PutMetricAlarm succeeded but the alarm was not returned by DescribeAlarms')
-        return created
+            await this.cloudwatch.send(new PutMetricAlarmCommand({
+                AlarmName: name,
+                Namespace: namespace,
+                MetricName: metricName,
+                Statistic: statistic as Statistic,
+                ComparisonOperator: comparison as ComparisonOperator,
+                Threshold: threshold,
+                Period: period,
+                EvaluationPeriods: evaluationPeriods,
+            }))
+            const created = await this.get(name)
+            if (!created) throw new RuntimeError('PutMetricAlarm succeeded but the alarm was not returned by DescribeAlarms')
+            return created
+        })
+    }
+
+    /**
+     * Chains callers of the same name so each runs after the last settles, and
+     * drops the entry once nothing is queued behind it.
+     */
+    private withCreateLock<T>(key: string, action: () => Promise<T>): Promise<T> {
+        const previous = this.createLocks.get(key) ?? Promise.resolve()
+        const run = previous.catch(() => undefined).then(action)
+        const tracked = run.catch(() => undefined)
+        this.createLocks.set(key, tracked)
+        void tracked.then(() => {
+            if (this.createLocks.get(key) === tracked) this.createLocks.delete(key)
+        })
+        return run
     }
 
     async delete(id: string): Promise<void> {
@@ -127,6 +152,7 @@ function alarmResource(alarm: MetricAlarm): CloudResource {
             stateUpdatedAt: alarm.StateUpdatedTimestamp?.toISOString() ?? null,
             namespace: alarm.Namespace ?? null,
             metricName: alarm.MetricName ?? null,
+            dimensions: alarm.Dimensions ?? [],
             metric: alarm.Namespace && alarm.MetricName ? `${alarm.Namespace} / ${alarm.MetricName}` : null,
             statistic: alarm.Statistic ?? null,
             comparisonOperator: alarm.ComparisonOperator ?? null,
