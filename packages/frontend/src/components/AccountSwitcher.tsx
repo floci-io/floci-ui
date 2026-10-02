@@ -110,7 +110,7 @@ export function AccountSwitcher() {
                             value={draft}
                             inputMode="numeric"
                             maxLength={12}
-                            placeholder="12-digit account id"
+                            placeholder="12-digit ID"
                             aria-label="New account id"
                             onChange={(event) => {
                                 setDraft(event.target.value.replace(/\D/g, ''))

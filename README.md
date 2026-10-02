@@ -64,6 +64,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No | No |
 | Integration | SQS / Messaging / Pub/Sub / Queue | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No | No |
+| Integration | SNS | Yes (list, create, inspect, delete) | No | No | No |
 | Integration | Queue Storage | No | Yes (list, create, inspect, delete) | No | No |
 | Integration | Kinesis / Streams / Streaming | Yes (list, create, inspect, delete) | No | No | Yes (list, create, inspect, delete) |
 | Integration | EventBridge / Events | Yes (list, create, delete, inspect) | No | No | No |
@@ -260,6 +261,18 @@ Current gaps:
 
 - Resources, methods, deployments, and stages are not yet exposed.
 - No Azure or GCP API Gateway adapter yet.
+
+</details>
+
+<details>
+<summary><strong>SNS</strong></summary>
+
+AWS SNS topics are available through the generic Cloud Explorer at
+`/cloud-explorer/aws/sns`.
+
+- List, create, inspect, and delete standard and FIFO topics using the AWS SNS API.
+- Topic ARNs are the resource IDs, so inspection and deletion target the exact topic.
+- Subscription management and publishing are not yet exposed in this view.
 
 </details>
 

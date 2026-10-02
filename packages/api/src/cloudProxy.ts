@@ -31,6 +31,7 @@ import {OciSecretsAdapter} from './adapter-oci/OciSecretsAdapter'
 import {OciFunctionsAdapter} from './adapter-oci/OciFunctionsAdapter'
 import {OciOkeAdapter} from './adapter-oci/OciOkeAdapter'
 import {AwsSqsAdapter} from './adapter-aws/AwsSqsAdapter'
+import {AwsSnsAdapter} from './adapter-aws/AwsSnsAdapter'
 import {CloudProxyService} from './service/CloudProxyService'
 import {AzureServerlessAdapter} from './adapter-azure/AzureServerlessAdapter'
 import {AzureKeyVaultAdapter} from './adapter-azure/AzureKeyVaultAdapter'
@@ -115,6 +116,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new OciFunctionsAdapter(),
         new OciOkeAdapter(),
         new AwsSqsAdapter(clients.sqs),
+        new AwsSnsAdapter(clients.sns),
         new AzureServerlessAdapter(),
         new AzureKeyVaultAdapter(),
     ])

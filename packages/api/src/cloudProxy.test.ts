@@ -167,6 +167,11 @@ describe('registered adapters honour their schema', () => {
 })
 
 describe('adapter capability advertisements match the runtime reality', () => {
+    test('registers SNS without replacing the SQS messaging adapter', () => {
+        expect(adapterFor('aws', 'messaging').schema().displayName).toBe('AWS SQS')
+        expect(adapterFor('aws', 'sns').schema().displayName).toBe('Amazon SNS')
+    })
+
     test('AWS database advertises instance and snapshot capabilities', () => {
         const schema = adapterFor('aws', 'database').schema()
 
