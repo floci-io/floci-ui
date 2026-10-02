@@ -115,9 +115,10 @@ export class OciOkeAdapter implements CloudServiceAdapter {
             kubernetesVersion,
         }))
         const id = await this.createdIdentifier(res, 'cluster')
-        const created = await this.get(id)
-        if (!created) throw new NotFoundError(`Cluster ${id} was accepted but could not be read back`)
-        return created
+        // Real OKE may not serve the cluster yet; the accepted create is reported as CREATING, not as a failure.
+        return (await this.get(id)) ?? this.toResource({
+            id, name, vcnId, kubernetesVersion, compartmentId: this.client.tenancyId, lifecycleState: 'CREATING',
+        })
     }
 
     async update(id: string, input: UpdateResourceInput): Promise<CloudResource> {
@@ -152,8 +153,9 @@ export class OciOkeAdapter implements CloudServiceAdapter {
 
     /**
      * Maps the provider-neutral input onto CreateNodePoolDetails: the first
-     * instance type is the node shape and the desired size is the per-subnet
-     * quantity. OCI has no node role, so `nodeRole` is ignored.
+     * instance type is the node shape, and the desired size is the pool total,
+     * split evenly across the subnets because `quantityPerSubnet` counts nodes in
+     * each subnet. OCI has no node role, so `nodeRole` is ignored.
      */
     async createKubernetesNodegroup(clusterId: string, input: CreateKubernetesNodegroupInput): Promise<KubernetesNodegroup> {
         const name = stringValue(input?.name)
@@ -166,12 +168,21 @@ export class OciOkeAdapter implements CloudServiceAdapter {
         if (!nodeShape) throw new ValidationError('A node shape is required, e.g. VM.Standard.E4.Flex')
         await this.assertNodeShape(clusterId, nodeShape)
 
-        const quantityPerSubnet = input.scalingConfig?.desiredSize ?? 1
-        if (!Number.isInteger(quantityPerSubnet) || quantityPerSubnet < 1) {
+        const desiredSize = input.scalingConfig?.desiredSize ?? 1
+        if (!Number.isInteger(desiredSize) || desiredSize < 1) {
             throw new ValidationError('Desired size must be a whole number of at least 1')
         }
 
+        // CreateNodePoolDetails needs exactly one of subnetIds or nodeConfigDetails.
         const subnetIds = (input.subnets ?? []).map(stringValue).filter(Boolean)
+        if (subnetIds.length === 0) throw new ValidationError('At least one subnet OCID is required for the node pool')
+        if (desiredSize % subnetIds.length !== 0) {
+            throw new ValidationError(
+                `Desired size ${desiredSize} must split evenly across ${subnetIds.length} subnets; OKE places the same number of nodes in each subnet`,
+            )
+        }
+        const quantityPerSubnet = desiredSize / subnetIds.length
+
         const res = await this.client.fetch(`${API}/nodePools`, jsonRequest('POST', {
             compartmentId: this.client.tenancyId,
             clusterId,
@@ -179,14 +190,16 @@ export class OciOkeAdapter implements CloudServiceAdapter {
             kubernetesVersion: cluster.kubernetesVersion,
             nodeShape,
             quantityPerSubnet,
-            ...(subnetIds.length > 0 ? {subnetIds} : {}),
+            subnetIds,
             ...(input.labels ? {initialNodeLabels: Object.entries(input.labels).map(([key, value]) => ({key, value}))} : {}),
             ...(input.tags ? {freeformTags: input.tags} : {}),
         }))
         const id = await this.createdIdentifier(res, 'nodepool')
         const pool = await this.client.json<OciNodePool>(nodePoolPath(id), {method: 'GET'}, {emptyOnNotFound: true})
-        if (!pool) throw new NotFoundError(`Node pool ${id} was accepted but could not be read back`)
-        return toNodegroup(pool, clusterId)
+        return toNodegroup(pool ?? {
+            id, name, clusterId, kubernetesVersion: cluster.kubernetesVersion, nodeShape, quantityPerSubnet, subnetIds,
+            lifecycleState: 'CREATING',
+        }, clusterId)
     }
 
     async deleteKubernetesNodegroup(clusterId: string, nodegroupId: string): Promise<void> {
@@ -230,6 +243,9 @@ export class OciOkeAdapter implements CloudServiceAdapter {
                 {method: 'GET'},
                 {emptyOnNotFound: true},
             )
+            if (workRequest?.status === 'FAILED' || workRequest?.status === 'CANCELED') {
+                throw new RuntimeError(`OKE did not create the ${entityType}: work request ${workRequestId} ${workRequest.status}`)
+            }
             const resource = workRequest?.resources?.find(
                 (entry) => entry.entityType?.toLowerCase() === entityType && entry.identifier,
             )
@@ -270,7 +286,10 @@ export class OciOkeAdapter implements CloudServiceAdapter {
 }
 
 function toNodegroup(pool: OciNodePool, clusterId: string): KubernetesNodegroup {
-    const size = pool.nodeConfigDetails?.size ?? pool.quantityPerSubnet
+    // quantityPerSubnet counts nodes in each subnet, so the pool total multiplies by the subnet count.
+    const perSubnet = pool.quantityPerSubnet
+    const size = pool.nodeConfigDetails?.size
+        ?? (typeof perSubnet === 'number' ? perSubnet * Math.max(pool.subnetIds?.length ?? 0, 1) : undefined)
     return {
         id: pool.id ?? '',
         name: pool.name ?? pool.id ?? '',

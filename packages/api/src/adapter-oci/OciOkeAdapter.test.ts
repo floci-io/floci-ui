@@ -184,6 +184,28 @@ describe('OciOkeAdapter', () => {
             .rejects.toBeInstanceOf(RuntimeError)
     })
 
+    test('reports a failed work request instead of a created cluster', async () => {
+        stubFetch((url, method) => {
+            if (url.includes('/clusterOptions/all')) return json(clusterOptions)
+            if (method === 'POST') return accepted()
+            if (url.includes('/workRequests/')) return json({...workRequest('cluster', CLUSTER_ID), status: 'FAILED'})
+            return json(cluster)
+        })
+        await expect(adapter().create({values: {clusterName: 'demo', vcnId: VCN_ID, kubernetesVersion: 'v1.30.1'}}))
+            .rejects.toThrow(/FAILED/)
+    })
+
+    test('reports an accepted cluster that cannot be read yet as CREATING', async () => {
+        stubFetch((url, method) => {
+            if (url.includes('/clusterOptions/all')) return json(clusterOptions)
+            if (method === 'POST') return accepted()
+            if (url.includes('/workRequests/')) return json(workRequest('cluster', CLUSTER_ID))
+            return new Response(null, {status: 404})
+        })
+        const resource = await adapter().create({values: {clusterName: 'demo', vcnId: VCN_ID, kubernetesVersion: 'v1.30.1'}})
+        expect(resource).toMatchObject({id: CLUSTER_ID, name: 'demo', status: 'CREATING'})
+    })
+
     test('validates create input before calling the runtime', async () => {
         const calls = stubFetch(() => json(clusterOptions))
         const instance = adapter()
@@ -314,6 +336,34 @@ describe('OciOkeAdapter', () => {
             .rejects.toThrow('Unsupported node shape')
         await expect(instance.createKubernetesNodegroup(CLUSTER_ID, {name: 'p', nodeRole: '', subnets: [], instanceTypes: ['VM.Standard2.1'], scalingConfig: {desiredSize: 0}}))
             .rejects.toBeInstanceOf(ValidationError)
+    })
+
+    test('splits the desired size across subnets and reports the pool total', async () => {
+        const subnets = ['ocid1.subnet.oc1.iad.s1', 'ocid1.subnet.oc1.iad.s2']
+        const calls = stubFetch((url, method) => {
+            if (url.includes('/nodePoolOptions/')) return json(nodePoolOptions)
+            if (method === 'POST') return accepted()
+            if (url.includes('/workRequests/')) return json(workRequest('nodepool', POOL_ID))
+            if (url.includes('/nodePools/')) return json({...pool, quantityPerSubnet: 2, subnetIds: subnets})
+            return json(cluster)
+        })
+        const nodegroup = await adapter().createKubernetesNodegroup(CLUSTER_ID, {
+            name: 'pool1', nodeRole: '', subnets, instanceTypes: ['VM.Standard.E4.Flex'], scalingConfig: {desiredSize: 4},
+        })
+
+        expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({quantityPerSubnet: 2, subnetIds: subnets})
+        expect(nodegroup.scalingConfig).toEqual({desiredSize: 4})
+    })
+
+    test('requires a subnet and a size that splits evenly across subnets', async () => {
+        const calls = stubFetch((url) => url.includes('/nodePoolOptions/') ? json(nodePoolOptions) : json(cluster))
+        const instance = adapter()
+        await expect(instance.createKubernetesNodegroup(CLUSTER_ID, {name: 'p', nodeRole: '', subnets: [' '], instanceTypes: ['VM.Standard2.1']}))
+            .rejects.toThrow('At least one subnet')
+        await expect(instance.createKubernetesNodegroup(CLUSTER_ID, {
+            name: 'p', nodeRole: '', subnets: ['ocid1.subnet.oc1.iad.s1', 'ocid1.subnet.oc1.iad.s2'], instanceTypes: ['VM.Standard2.1'], scalingConfig: {desiredSize: 3},
+        })).rejects.toThrow('split evenly')
+        expect(calls.some((call) => call.method === 'POST')).toBe(false)
     })
 
     test('rejects a node pool for a missing cluster', async () => {
