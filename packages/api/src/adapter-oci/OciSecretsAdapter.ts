@@ -1,6 +1,7 @@
-import {ValidationError} from '../cloud-spi/errors'
+import {NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {OCI_SECRET_NAME_MESSAGE, OCI_SECRET_NAME_PATTERN, ociSecretsSchema} from '../cloud-spi/secretsSchema'
 import {oci, type OciRuntimeClient} from '../oci'
+import {assertNotPendingDeletion, vaultPlanePath} from './OciKmsAdapter'
 import type {
     CloudResource,
     CloudServiceAdapter,
@@ -55,6 +56,7 @@ interface OciVault {
     id?: string
     displayName?: string
     lifecycleState?: string
+    managementEndpoint?: string
 }
 
 interface OciKey {
@@ -64,8 +66,6 @@ interface OciKey {
     algorithm?: string
     keyShape?: {algorithm?: string}
 }
-
-const PENDING_DELETION = 'PENDING_DELETION'
 
 export class OciSecretsAdapter implements CloudServiceAdapter {
     readonly cloud = 'oci' as const
@@ -112,8 +112,8 @@ export class OciSecretsAdapter implements CloudServiceAdapter {
         if (!keyId) throw new ValidationError('keyId is required: the OCID of an ENABLED AES key in the vault.')
         if (!secretValue) throw new ValidationError('secretValue is required')
 
-        await this.assertUsableVault(vaultId)
-        await this.assertUsableKey(keyId, vaultId)
+        const vault = await this.assertUsableVault(vaultId)
+        await this.assertUsableKey(keyId, vault)
 
         const secret = await this.client.json<OciSecret>('/20180608/secrets', {
             method: 'POST',
@@ -128,13 +128,16 @@ export class OciSecretsAdapter implements CloudServiceAdapter {
             }),
         })
 
-        return this.toResource(secret ?? {secretName, vaultId, keyId, compartmentId: this.client.tenancyId})
+        // Inspect and delete address a secret by OCID, so a create without one is not reported as done.
+        if (!secret?.id) throw new RuntimeError(`OCI Vault did not return the created secret ${secretName}`)
+        return this.toResource(secret)
     }
 
-    /** ScheduleSecretDeletion with OCI's default window; already-pending secrets are left alone. */
+    /** ScheduleSecretDeletion with OCI's default window, refused like the Vault keys adapter for a missing or pending secret. */
     async delete(id: string): Promise<void> {
         const secret = await this.fetchSecret(id)
-        if (!secret || secret.lifecycleState === PENDING_DELETION) return
+        if (!secret) throw new NotFoundError(`Secret ${id} was not found`)
+        assertNotPendingDeletion('Secret', id, secret)
         await this.client.fetch(`${secretPath(id)}/actions/scheduleDeletion`, {
             method: 'POST',
             headers: {'content-type': 'application/json'},
@@ -153,7 +156,7 @@ export class OciSecretsAdapter implements CloudServiceAdapter {
         const active = vaults.filter((vault) => vault.lifecycleState === 'ACTIVE')
         if (active.length === 0) {
             return 'No ACTIVE vault exists in the tenancy root compartment. Create a vault and an AES master '
-                + 'encryption key in OCI KMS before creating a secret.'
+                + 'encryption key in OCI Vault before creating a secret.'
         }
         return `vaultId is required. ACTIVE vaults: ${active.map(describeVault).join(', ')}.`
     }
@@ -162,36 +165,37 @@ export class OciSecretsAdapter implements CloudServiceAdapter {
      * Real OCI rejects a secret whose vault or key is unusable; Floci-OCI does not
      * check, so validate here to fail with a clear 400 instead of storing an orphan.
      */
-    private async assertUsableVault(vaultId: string): Promise<void> {
+    private async assertUsableVault(vaultId: string): Promise<OciVault> {
         const vault = await this.client.json<OciVault>(
             `/20180608/vaults/${encodeURIComponent(vaultId)}`,
             {method: 'GET'},
             {emptyOnNotFound: true},
         )
-        if (!vault) throw new ValidationError(`Vault ${vaultId} was not found. Create it in OCI KMS first.`)
+        if (!vault) throw new ValidationError(`Vault ${vaultId} was not found. Create it in OCI Vault first.`)
         if (vault.lifecycleState !== 'ACTIVE') {
             throw new ValidationError(`Vault ${vaultId} is ${vault.lifecycleState ?? 'not ACTIVE'}; secrets need an ACTIVE vault.`)
         }
+        return {...vault, id: vault.id ?? vaultId}
     }
 
-    // Real OCI serves keys from the vault's managementEndpoint; Floci-OCI returns its
-    // own host for that endpoint, so the key is read through the runtime client.
-    private async assertUsableKey(keyId: string, vaultId: string): Promise<void> {
+    /** GetKey goes to the vault's management plane, resolved the same way as the Vault keys adapter. */
+    private async assertUsableKey(keyId: string, vault: OciVault): Promise<void> {
         const key = await this.client.json<OciKey>(
-            `/20180608/keys/${encodeURIComponent(keyId)}`,
+            vaultPlanePath(vault.managementEndpoint, `/keys/${encodeURIComponent(keyId)}`),
             {method: 'GET'},
             {emptyOnNotFound: true},
         )
         if (!key) throw new ValidationError(`Key ${keyId} was not found.`)
-        if (key.vaultId && key.vaultId !== vaultId) {
-            throw new ValidationError(`Key ${keyId} belongs to vault ${key.vaultId}, not ${vaultId}.`)
+        // vaultId and keyShape are required on an OCI Key, so a key missing either is not accepted.
+        if (key.vaultId !== vault.id) {
+            throw new ValidationError(`Key ${keyId} belongs to vault ${key.vaultId ?? 'unknown'}, not ${vault.id}.`)
         }
         if (key.lifecycleState !== 'ENABLED') {
             throw new ValidationError(`Key ${keyId} is ${key.lifecycleState ?? 'not ENABLED'}; secrets need an ENABLED key.`)
         }
         const algorithm = key.keyShape?.algorithm ?? key.algorithm
-        if (algorithm && algorithm !== 'AES') {
-            throw new ValidationError(`Key ${keyId} is ${algorithm}; OCI Vault secrets need an AES key.`)
+        if (algorithm !== 'AES') {
+            throw new ValidationError(`Key ${keyId} is ${algorithm ?? 'of an unknown algorithm'}; OCI Vault secrets need an AES key.`)
         }
     }
 

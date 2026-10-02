@@ -182,7 +182,7 @@ export function ociSecretsSchema(): ServiceSchema {
                 required: true,
                 description:
                     'OCID of an ACTIVE vault in the tenancy root compartment (ocid1.vault...). '
-                    + 'Create a vault in OCI KMS first; the console never creates one for you.',
+                    + 'Create a vault in OCI Vault first; the console never creates one for you.',
                 validation: {pattern: '^ocid1\\.vault\\..+$', message: 'Enter a vault OCID (ocid1.vault...).'},
             },
             {

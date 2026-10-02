@@ -453,7 +453,7 @@ export function vaultPlanePath(endpoint: string | undefined, path: string): stri
 }
 
 /** A resource already pending deletion is refused rather than reported as deleted again. */
-function assertNotPendingDeletion(kind: string, id: string, resource: {lifecycleState?: string; timeOfDeletion?: string}): void {
+export function assertNotPendingDeletion(kind: string, id: string, resource: {lifecycleState?: string; timeOfDeletion?: string}): void {
     if (resource.lifecycleState !== 'PENDING_DELETION' && resource.lifecycleState !== 'SCHEDULING_DELETION') return
     const when = resource.timeOfDeletion ? ` for ${resource.timeOfDeletion}` : ''
     throw new ConflictError(`${kind} ${id} is already scheduled for deletion${when}`)

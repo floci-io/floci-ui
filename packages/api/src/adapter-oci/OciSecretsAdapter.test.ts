@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, test} from 'bun:test'
 import {OciSecretsAdapter, encodeSecretContent} from './OciSecretsAdapter'
 import {OciRestRuntimeClient} from '../oci'
-import {ConflictError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, RuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 
 const originalFetch = globalThis.fetch
 const ENDPOINT = 'http://localhost:4599'
@@ -296,6 +296,24 @@ describe('OciSecretsAdapter', () => {
         await expect(adapter().create(createInput())).rejects.toThrow('need an AES key')
     })
 
+    test('rejects a key whose vault or algorithm cannot be confirmed', async () => {
+        happyRuntime({key: {id: KEY, lifecycleState: 'ENABLED', keyShape: {algorithm: 'AES', length: 32}}})
+        await expect(adapter().create(createInput())).rejects.toThrow('belongs to vault unknown')
+
+        happyRuntime({key: {id: KEY, vaultId: VAULT, lifecycleState: 'ENABLED'}})
+        await expect(adapter().create(createInput())).rejects.toThrow('unknown algorithm')
+    })
+
+    test('does not report a secret as created without its OCID', async () => {
+        stubFetch((url, init) => {
+            if (url.includes('/vaults/')) return json(activeVault)
+            if (url.includes('/keys/')) return json(aesKey)
+            if (url === SECRETS && init?.method === 'POST') return json({secretName: 'db-password', lifecycleState: 'CREATING'})
+            return notFound()
+        })
+        await expect(adapter().create(createInput())).rejects.toBeInstanceOf(RuntimeError)
+    })
+
     test('maps a duplicate name to a ConflictError', async () => {
         stubFetch((url, init) => {
             if (url.includes('/vaults/')) return json(activeVault)
@@ -321,15 +339,16 @@ describe('OciSecretsAdapter', () => {
         expect(calls[1]?.init?.body).toBe('{}')
     })
 
-    test('delete leaves an already-pending secret alone', async () => {
-        const calls = stubFetch(() => json({id: SECRET, lifecycleState: 'PENDING_DELETION'}))
-        await adapter().delete(SECRET)
-        expect(calls).toHaveLength(1)
+    test('refuses to schedule a secret that is already pending deletion', async () => {
+        const calls = stubFetch(() => json({id: SECRET, lifecycleState: 'PENDING_DELETION', timeOfDeletion: '2026-10-31T00:00:00Z'}))
+        await expect(adapter().delete(SECRET)).rejects.toThrow(/already scheduled for deletion for 2026-10-31/)
+        await expect(adapter().delete(SECRET)).rejects.toBeInstanceOf(ConflictError)
+        expect(calls.every((call) => !call.url.endsWith('/scheduleDeletion'))).toBe(true)
     })
 
-    test('delete of a missing secret is a no-op', async () => {
+    test('reports deleting a missing secret as not found', async () => {
         const calls = stubFetch(() => notFound())
-        await adapter().delete(SECRET)
+        await expect(adapter().delete(SECRET)).rejects.toBeInstanceOf(NotFoundError)
         expect(calls).toHaveLength(1)
     })
 
