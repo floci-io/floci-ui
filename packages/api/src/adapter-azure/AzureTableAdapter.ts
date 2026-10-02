@@ -103,6 +103,9 @@ function toTableResource(tableName: string, accountName: string): CloudResource 
 }
 
 function validateTableName(name: string): void {
+    if (name.toLowerCase() === 'tables') {
+        throw new ValidationError('The table name "tables" is reserved by Azure Table Storage.')
+    }
     if (!TABLE_NAME_PATTERN.test(name)) {
         throw new ValidationError('Use a valid Azure table name: 3-63 letters and numbers, starting with a letter.')
     }

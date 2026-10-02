@@ -162,6 +162,71 @@ describe('AzureTableAdapter', () => {
         }])
     })
 
+    test.each(['tables', 'Tables', 'TABLES', 'tAbLeS'])(
+        'rejects the reserved table name %s before creating a table', async (tableName) => {
+            let calls = 0
+            const adapter = new AzureTableAdapter(testClient(async () => {
+                calls += 1
+                return jsonResponse({TableName: tableName}, 201)
+            }))
+
+            await expect(adapter.create({values: {tableName}})).rejects.toBeInstanceOf(ValidationError)
+            expect(calls).toBe(0)
+        },
+    )
+
+    test.each(['tables', 'Tables', 'TABLES', 'tAbLeS'])(
+        'rejects the reserved table name %s before deleting a table', async (tableName) => {
+            let calls = 0
+            const adapter = new AzureTableAdapter(testClient(async () => {
+                calls += 1
+                return new Response(null, {status: 204})
+            }))
+
+            await expect(adapter.delete(tableName)).rejects.toBeInstanceOf(ValidationError)
+            expect(calls).toBe(0)
+        },
+    )
+
+    test.each(['tables', 'Tables', 'TABLES', 'tAbLeS'])(
+        'returns a validation error for reserved name %s through the create route', async (tableName) => {
+            let calls = 0
+            const adapter = new AzureTableAdapter(testClient(async () => {
+                calls += 1
+                return jsonResponse({TableName: tableName}, 201)
+            }))
+            const registry = new CloudAdapterRegistry([adapter])
+            const app = new Hono()
+            app.route('/api/clouds', createCloudRoutes(new CloudProxyService(registry)))
+
+            const response = await app.request('/api/clouds/azure/services/table/resources', {
+                method: 'POST',
+                headers: {'content-type': 'application/json'},
+                body: JSON.stringify({tableName: ` ${tableName} `}),
+            })
+
+            expect(response.status).toBe(400)
+            expect(await response.json()).toMatchObject({code: 'invalid_request'})
+            expect(calls).toBe(0)
+        },
+    )
+
+    test.each(['Table', 'Tables1', 'TablesArchive'])(
+        'preserves valid table name %s near the reserved name', async (tableName) => {
+            const calls: RecordedCall[] = []
+            const adapter = new AzureTableAdapter(testClient(async (path, init) => {
+                calls.push({path, init})
+                return jsonResponse({TableName: tableName}, 201)
+            }))
+
+            const resource = await adapter.create({values: {tableName}})
+
+            expect(resource.name).toBe(tableName)
+            expect(calls).toHaveLength(1)
+            expect(JSON.parse(String(calls[0].init.body))).toEqual({TableName: tableName})
+        },
+    )
+
     test('does not hide malformed table listings or runtime conflicts', async () => {
         const malformed = new AzureTableAdapter(testClient(async () => jsonResponse({tables: []})))
         await expect(malformed.list()).rejects.toBeInstanceOf(RuntimeError)
