@@ -1,4 +1,4 @@
-import {NavLink, Outlet, useLocation, useNavigate, useSearchParams} from 'react-router-dom'
+import {NavLink, Outlet, useLocation, useSearchParams} from 'react-router-dom'
 import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Search, Settings} from 'lucide-react'
 import {useCallback, useEffect, useRef, useState} from 'react'
 import flociWhite from '@/assets/floci-white.svg'
@@ -7,12 +7,10 @@ import flociMarkWhite from '@/assets/floci-mark-white.svg'
 import flociMarkBlack from '@/assets/floci-mark-black.svg'
 import {useTheme} from '@/lib/useTheme'
 import {useSidebar} from '@/lib/useSidebar'
-import {isCloudProvider} from '@/lib/cloudProvider'
+import {useActiveCloud} from '@/lib/useActiveCloud'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus} from '@/api/cloudProxyClient'
-import {useCloudServicesQuery, useCloudsQuery} from '@/api/queries/cloudQueries'
-import {AccountSwitcher} from '@/components/AccountSwitcher'
-import {CloudSwitcher} from '@/components/CloudSwitcher'
+import {useCloudServicesQuery} from '@/api/queries/cloudQueries'
 import {ThemeToggle} from '@/components/ThemeToggle'
 import {serviceIcon} from '@/components/serviceIcons'
 import type {CloudProvider, CloudServiceDescriptor, RuntimeReachability} from '@/types/cloud'
@@ -37,10 +35,10 @@ function connectionDotClass(status: ConnectionStatus): string {
 /** Matches today's service count, so the real nav causes no layout jump. */
 const SKELETON_ROWS = 7
 
-function NavItem({to, icon, label, collapsed}: { to: string; icon: React.ElementType; label: string; collapsed: boolean }) {
+function NavItem({to, icon, label, collapsed, state}: { to: string; icon: React.ElementType; label: string; collapsed: boolean; state?: {cloud: CloudProvider; fromCloudExplorer: boolean} }) {
     const Icon = icon
     return (
-        <NavLink className="nav-link" to={to} title={collapsed ? label : undefined}>
+        <NavLink className="nav-link" to={to} state={state} title={collapsed ? label : undefined}>
             <Icon size={14} aria-hidden="true"/>
             <span>{label}</span>
         </NavLink>
@@ -55,11 +53,9 @@ function NavItem({to, icon, label, collapsed}: { to: string; icon: React.Element
  * availability could disagree with the API. Adding a service is now a catalog
  * row on the server and nothing here.
  */
-function CloudServiceNav({collapsed}: {collapsed: boolean}) {
-    const location = useLocation()
+function CloudServiceNav({collapsed, cloud}: {collapsed: boolean; cloud: CloudProvider}) {
     const [searchParams] = useSearchParams()
     const search = (searchParams.get('search') ?? '').trim().toLowerCase()
-    const cloud = activeCloudFromPath(location.pathname)
     const cloudLabel = cloud.toUpperCase()
     const {data, isPending, isError, refetch, isFetching} = useCloudServicesQuery(cloud)
 
@@ -164,11 +160,10 @@ function groupByGroup(services: CloudServiceDescriptor[]): Array<[string, CloudS
 
 export function Layout() {
     const location = useLocation()
-    const navigate = useNavigate()
-    const activeCloud = activeCloudFromPath(location.pathname)
-    const {theme} = useTheme()
+    const activeCloud = useActiveCloud()
+    const {resolvedTheme} = useTheme()
     const {collapsed, toggle: toggleSidebar, toggleRef} = useSidebar()
-    const isDark = theme === 'dark'
+    const isDark = resolvedTheme === 'dark'
     const {data, isError} = useQuery({
         queryKey: ['cloud-status', activeCloud],
         queryFn: ({signal}) => getCloudStatus(activeCloud, signal),
@@ -178,19 +173,6 @@ export function Layout() {
     const isConnected = status === 'reachable'
     const connectionLabel = isConnected ? 'Connected' : 'Not connected'
     const connectionTarget = data?.endpoint ?? activeCloud
-    const cloudsQuery = useCloudsQuery()
-
-    // Cloud Explorer is service-scoped, and a service available on the current
-    // cloud may not exist on the next one, so switching there lands on storage
-    // (every cloud has it) instead of carrying over a possibly-invalid service.
-    function selectCloud(nextCloud: CloudProvider) {
-        if (location.pathname.startsWith('/cloud-explorer/')) {
-            navigate(`/cloud-explorer/${nextCloud}/storage`)
-        } else {
-            navigate(`/console/${nextCloud}`)
-        }
-    }
-
     return (
         <div className="app">
             <a className="skip-link" href="#main-content">Skip to content</a>
@@ -206,9 +188,15 @@ export function Layout() {
                         <div className="nav-section">
                             <span className="nav-label">General</span>
                             <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home" collapsed={collapsed}/>
-                            <NavItem to={`/console/${activeCloud}/settings`} icon={Settings} label="Settings" collapsed={collapsed}/>
+                            <NavItem
+                                to="/settings"
+                                icon={Settings}
+                                label="Settings"
+                                collapsed={collapsed}
+                                state={{cloud: activeCloud, fromCloudExplorer: location.pathname.startsWith('/cloud-explorer/') || location.state?.fromCloudExplorer === true}}
+                            />
                         </div>
-                        <CloudServiceNav collapsed={collapsed}/>
+                        <CloudServiceNav collapsed={collapsed} cloud={activeCloud}/>
                     </nav>
 
                     <div className="sidebar-footer">
@@ -233,8 +221,6 @@ export function Layout() {
                     <TopbarSearch/>
                     <ThemeToggle/>
                     <div id="topbar-status" className="topbar-status"/>
-                    <CloudSwitcher clouds={cloudsQuery.data ?? []} selected={activeCloud} onSelect={selectCloud}/>
-                    <AccountSwitcher/>
                     <div
                         className={`connection ${isConnected ? 'connected' : 'disconnected'}`}
                         title={`${connectionLabel} — ${connectionTarget}`}
@@ -282,9 +268,9 @@ function TopbarSearch() {
                 }
                 return next
             },
-            {replace: true},
+            {replace: true, state: location.state},
         )
-    }, [setSearchParams])
+    }, [setSearchParams, location.state])
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
@@ -367,9 +353,4 @@ function TopbarSearch() {
             <span className="kbd" aria-hidden="true">/</span>
         </div>
     )
-}
-
-function activeCloudFromPath(pathname: string): CloudProvider {
-    const segment = pathname.match(/^\/(?:cloud-explorer|console)\/([^/]+)/)?.[1]
-    return isCloudProvider(segment) ? segment : 'aws'
 }

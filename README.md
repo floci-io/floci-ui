@@ -53,8 +53,8 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Group | Service | AWS | Azure | GCP | OCI |
 |---|---|---|---|---|---|
 | Compute | Compute | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | No | No |
-| Compute | EKS / AKS / GKE / k8s Engine | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) | No |
-| Compute | Serverless | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | No |
+| Compute | EKS / AKS / GKE / OKE | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, update, inspect, delete) |
+| Compute | Serverless / Functions | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) | No |
 | Compute | SageMaker AI | Yes (list, create, delete, inspect) | No | No | No |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
@@ -65,6 +65,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No | No |
 | Integration | SQS / Messaging / Pub/Sub / Queue | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No | No |
+| Integration | SNS | Yes (list, create, inspect, delete) | No | No | No |
 | Integration | Kinesis / Streams / Streaming | Yes (list, create, inspect, delete) | No | No | Yes (list, create, inspect, delete) |
 | Integration | EventBridge / Events | Yes (list, create, delete, inspect) | No | No | No |
 | Integration | SES Mailbox / Email | Yes (list, inspect) | No | No | No |
@@ -74,8 +75,8 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Provisioning | AppConfig / Configuration | Yes (list, create, delete, inspect) | No | No | No |
 | Security | Identity | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
 | Security | Cognito | Yes (list, create, delete, inspect) | No | No | No |
-| Security | Secrets Manager / Key Vault / Secret Manager | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | No |
-| Security | KMS / Key Management | Yes (list, create, delete, inspect) | No | No | No |
+| Security | Secrets Manager / Key Vault / Secret Manager / Vault Secrets | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
+| Security | KMS / Key Management / Vault | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
 | Security | Parameter Store | Yes (list, create, delete, inspect) | No | No | No |
 | Observability | CloudWatch Logs / Logs | Yes (list, create, delete, inspect) | No | No | No |
 
@@ -259,6 +260,18 @@ Current gaps:
 
 - Resources, methods, deployments, and stages are not yet exposed.
 - No Azure or GCP API Gateway adapter yet.
+
+</details>
+
+<details>
+<summary><strong>SNS</strong></summary>
+
+AWS SNS topics are available through the generic Cloud Explorer at
+`/cloud-explorer/aws/sns`.
+
+- List, create, inspect, and delete standard and FIFO topics using the AWS SNS API.
+- Topic ARNs are the resource IDs, so inspection and deletion target the exact topic.
+- Subscription management and publishing are not yet exposed in this view.
 
 </details>
 

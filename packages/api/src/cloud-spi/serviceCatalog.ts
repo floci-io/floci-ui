@@ -70,7 +70,7 @@ export const SERVICE_CATALOG = {
     },
     k8s: {
         displayName: 'k8s Engine',
-        displayNameByCloud: {aws: 'EKS', azure: 'AKS', gcp: 'GKE'},
+        displayNameByCloud: {aws: 'EKS', azure: 'AKS', gcp: 'GKE', oci: 'OKE'},
         description: 'Managed Kubernetes clusters for containerized workloads.',
         iconKey: 'k8s',
         group: 'Compute',
@@ -78,8 +78,11 @@ export const SERVICE_CATALOG = {
     },
     serverless: {
         displayName: 'Serverless',
+        displayNameByCloud: {oci: 'Functions'},
         description: 'Run functions without managing servers.',
-        iconKey: 'serverless', group: 'Compute', order: 30,
+        iconKey: 'serverless',
+        group: 'Compute',
+        order: 30,
     },
     containers: {
         displayName: 'Containers',
@@ -154,6 +157,11 @@ export const SERVICE_CATALOG = {
         group: 'Integration',
         order: 10,
     },
+    sns: {
+        displayName: 'SNS',
+        description: 'Manage standard and FIFO notification topics.',
+        iconKey: 'messaging', group: 'Integration', order: 11,
+    },
     streams: {
         displayName: 'Streams',
         displayNameByCloud: {aws: 'Kinesis', oci: 'Streaming'},
@@ -195,7 +203,7 @@ export const SERVICE_CATALOG = {
     },
     kms: {
         displayName: 'Key Management',
-        displayNameByCloud: {aws: 'KMS'},
+        displayNameByCloud: {aws: 'KMS', oci: 'Vault'},
         description: 'Create and manage encryption keys.',
         iconKey: 'kms',
         group: 'Security',
@@ -210,7 +218,7 @@ export const SERVICE_CATALOG = {
     },
     secrets: {
         displayName: 'Secrets Manager',
-        displayNameByCloud: {azure: 'Key Vault', gcp: 'Secret Manager'},
+        displayNameByCloud: {azure: 'Key Vault', gcp: 'Secret Manager', oci: 'Vault Secrets'},
         description: 'Store and manage application secrets.',
         iconKey: 'secrets',
         group: 'Security',

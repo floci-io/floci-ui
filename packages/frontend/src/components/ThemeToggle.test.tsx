@@ -1,6 +1,6 @@
 import {act, render, renderHook, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {beforeEach, describe, expect, test, vi} from "vitest";
+import {afterEach, beforeEach, describe, expect, test, vi} from "vitest";
 import {ThemeToggle} from "@/components/ThemeToggle";
 import {useTheme} from "@/lib/useTheme";
 
@@ -9,6 +9,8 @@ beforeEach(() => {
   act(() => result.current.setTheme("dark"));
   unmount();
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 function toggle() {
   return screen.getByRole("button", {name: "Dark theme"});
@@ -45,6 +47,53 @@ describe("ThemeToggle", () => {
     act(() => result.current.setTheme("light"));
 
     expect(toggle()).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test.each(["light", "dark"] as const)("follows a %s system theme until the header selects a fixed theme", async (colorScheme) => {
+    let dark = colorScheme === "dark";
+    const listeners = new Set<() => void>();
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      get matches() { return dark; },
+      media: "(prefers-color-scheme: dark)",
+      addEventListener: (_event: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_event: string, listener: () => void) => listeners.delete(listener),
+    })));
+    render(<ThemeToggle/>);
+    const {result} = renderHook(() => useTheme());
+
+    act(() => result.current.setTheme("system"));
+
+    expect(toggle()).toHaveAttribute("aria-pressed", String(dark));
+    expect(toggle()).toHaveAttribute("title", dark ? "Switch to light theme" : "Switch to dark theme");
+    expect(localStorage.getItem("floci-theme")).toBe("system");
+
+    act(() => {
+      dark = !dark;
+      listeners.forEach((listener) => listener());
+    });
+
+    expect(toggle()).toHaveAttribute("aria-pressed", String(dark));
+    expect(document.documentElement).toHaveAttribute("data-theme", dark ? "dark" : "light");
+    expect(localStorage.getItem("floci-theme")).toBe("system");
+
+    await userEvent.click(toggle());
+
+    expect(result.current.theme).toBe(colorScheme);
+    expect(toggle()).toHaveAttribute("aria-pressed", String(colorScheme === "dark"));
+    expect(document.documentElement).toHaveAttribute("data-theme", colorScheme);
+    expect(localStorage.getItem("floci-theme")).toBe(colorScheme);
+
+    act(() => {
+      dark = !dark;
+      listeners.forEach((listener) => listener());
+    });
+    act(() => {
+      dark = !dark;
+      listeners.forEach((listener) => listener());
+    });
+
+    expect(result.current.theme).toBe(colorScheme);
+    expect(document.documentElement).toHaveAttribute("data-theme", colorScheme);
   });
 
   test("restores the saved theme after a reload", async () => {

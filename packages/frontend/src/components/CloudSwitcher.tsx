@@ -8,7 +8,7 @@ interface CloudSwitcherProps {
     onSelect: (cloud: CloudProvider) => void
 }
 
-/** Header dropdown for cloud provider, styled after AccountSwitcher's popover. */
+/** Cloud provider dropdown, styled after AccountSwitcher's popover. */
 export function CloudSwitcher({clouds, selected, onSelect}: CloudSwitcherProps) {
     const [open, setOpen] = useState(false)
     const [focusedIndex, setFocusedIndex] = useState(0)

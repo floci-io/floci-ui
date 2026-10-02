@@ -71,4 +71,68 @@ describe("KmsCryptoPanel", () => {
 
     expect(screen.queryByText("old-account-result")).not.toBeInTheDocument();
   });
+
+  test("accepts an OCI key whose lifecycle state is ENABLED", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{...resource, cloud: "oci", status: "ENABLED"}}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+  });
+
+  test("offers RSA encryption for an RSA-3072 key", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{...resource, cloud: "oci", status: "ENABLED", metadata: {...resource.metadata, keySpec: "RSA_3072"}}}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.getByLabelText("Encryption algorithm")).toHaveValue("RSAES_OAEP_SHA_256");
+  });
+
+  test("shows the runtime's reason for a key it cannot use", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{
+          ...resource,
+          cloud: "oci",
+          status: "ENABLED",
+          metadata: {...resource.metadata, keySpec: "RSA_2048", cryptoUnavailableReason: "Floci-OCI does not support RSA encryption yet"},
+        }}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Floci-OCI does not support RSA encryption yet")).toBeInTheDocument();
+    const buttons = screen.getAllByRole("button", {name: /Encrypt$/});
+    expect(buttons[buttons.length - 1]).toBeDisabled();
+  });
+
+  test("hides the encryption context when the runtime does not bind it", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{...resource, cloud: "oci", status: "ENABLED", metadata: {...resource.metadata, encryptionContextSupported: false}}}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Encryption context (optional JSON)")).not.toBeInTheDocument();
+  });
+
+  test("blocks an OCI key pending deletion", () => {
+    render(
+      <KmsCryptoPanel
+        cloud="oci"
+        resource={{...resource, cloud: "oci", status: "PENDING_DELETION", metadata: {...resource.metadata, enabled: false}}}
+        runtimeReachable={true}
+      />,
+    );
+    expect(screen.getByText("Key not enabled")).toBeInTheDocument();
+  });
 });

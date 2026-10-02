@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronUp, Zap } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Copy, Zap } from 'lucide-react'
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
 import { LogsExplorerPanel } from "@/components/LogsExplorerPanel";
 import { LogsQueryPanel } from "@/components/LogsQueryPanel";
@@ -18,6 +18,8 @@ interface ResourceInspectorProps {
   serviceName?: string;
 }
 
+export type InspectorTab = 'plain' | 'json' | 'table';
+
 export function ResourceInspector({
   resource,
   object,
@@ -25,12 +27,29 @@ export function ResourceInspector({
   runtimeReachable,
   serviceName,
 }: ResourceInspectorProps) {
+  const [activeTab, setActiveTab] = useState<InspectorTab>('plain');
+  const [copiedJson, setCopiedJson] = useState(false);
   const [showTriggers, setShowTriggers] = useState(false);
   const isLambda = Boolean(
     resource && (resource.service === "serverless" || resource.type === "lambda")
   );
   const resourceCloud = cloud ?? resource?.cloud;
   const isAwsLambda = isLambda && resourceCloud === "aws";
+
+  useEffect(() => {
+    setCopiedJson(false);
+  }, [resource?.id, object?.key]);
+
+  const handleCopyJson = async (metadata: Record<string, unknown>) => {
+    try {
+      const text = JSON.stringify(metadata, null, 2);
+      await navigator.clipboard.writeText(text);
+      setCopiedJson(true);
+      setTimeout(() => setCopiedJson(false), 1500);
+    } catch {
+      setCopiedJson(false);
+    }
+  };
 
   const triggersQuery = useQuery({
     queryKey: ["lambda-triggers", resourceCloud, resource?.id],
@@ -57,20 +76,111 @@ export function ResourceInspector({
           <h3>{object.name}</h3>
           <span className="badge neutral">{object.type}</span>
         </div>
-        <div className="inspector-grid">
-          <InspectorItem label="Cloud" value={resource.cloud} />
-          <InspectorItem label="Resource" value={resource.name} />
-          <InspectorItem label="Key" value={object.key} />
-          <InspectorItem
-            label="Size"
-            value={object.size === null ? "-" : formatBytes(object.size)}
-          />
-          <InspectorItem
-            label="Last Modified"
-            value={object.lastModified ?? "-"}
-          />
+        <div className="drawer-tabs" role="tablist" aria-label="Metadata views">
+          <button
+            className={`drawer-tab ${activeTab === 'plain' ? 'active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'plain'}
+            aria-controls="object-tabpanel-plain"
+            id="object-tab-plain"
+            onClick={() => setActiveTab('plain')}
+          >
+            Plain Text
+          </button>
+          <button
+            className={`drawer-tab ${activeTab === 'json' ? 'active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'json'}
+            aria-controls="object-tabpanel-json"
+            id="object-tab-json"
+            onClick={() => setActiveTab('json')}
+          >
+            JSON
+          </button>
+          <button
+            className={`drawer-tab ${activeTab === 'table' ? 'active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'table'}
+            aria-controls="object-tabpanel-table"
+            id="object-tab-table"
+            onClick={() => setActiveTab('table')}
+          >
+            Table
+          </button>
         </div>
-        <MetadataPanel metadata={object.metadata} />
+        {activeTab === 'plain' && (
+          <div
+            role="tabpanel"
+            id="object-tabpanel-plain"
+            aria-labelledby="object-tab-plain"
+          >
+            <div className="inspector-grid">
+              <InspectorItem label="Cloud" value={resource.cloud} />
+              <InspectorItem label="Resource" value={resource.name} />
+              <InspectorItem label="Key" value={object.key} />
+              <InspectorItem
+                label="Size"
+                value={object.size === null ? "-" : formatBytes(object.size)}
+              />
+              <InspectorItem
+                label="Last Modified"
+                value={object.lastModified ?? "-"}
+              />
+            </div>
+          </div>
+        )}
+        {activeTab === 'json' && (
+          <div
+            role="tabpanel"
+            id="object-tabpanel-json"
+            aria-labelledby="object-tab-json"
+            style={{ position: "relative" }}
+          >
+            <button
+              className="button compact"
+              type="button"
+              title="Copy JSON data"
+              style={{
+                position: "absolute",
+                top: "8px",
+                right: "8px",
+                zIndex: 2,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "11px",
+                padding: "2px 8px",
+                height: "24px",
+              }}
+              onClick={() => handleCopyJson(object.metadata)}
+            >
+              {copiedJson ? (
+                <Check size={12} style={{ color: "var(--status-ok)" }} />
+              ) : (
+                <Copy size={12} />
+              )}
+              <span>{copiedJson ? "Copied" : "Copy"}</span>
+            </button>
+            <pre
+              className="metadata-block"
+              style={{ borderTop: "none", paddingTop: "36px" }}
+            >
+              {JSON.stringify(object.metadata, null, 2)}
+            </pre>
+          </div>
+        )}
+        {activeTab === 'table' && (
+          <div
+            role="tabpanel"
+            id="object-tabpanel-table"
+            aria-labelledby="object-tab-table"
+          >
+            <MetadataPanel metadata={object.metadata} />
+          </div>
+        )}
       </aside>
     );
   }
@@ -143,117 +253,215 @@ export function ResourceInspector({
           onClose={() => setShowTriggers(false)}
         />
       )}
-      <div className="inspector-grid">
-        <InspectorItem label="Cloud" value={resource.cloud} />
-        <InspectorItem label="Service" value={serviceName ?? resource.service} />
-        <InspectorItem label="Region" value={resource.region ?? "-"} />
-        <InspectorItem label="Created At" value={resource.createdAt ?? "-"} />
-        {resource.status && (
-          <InspectorItem label="Status" value={resource.status} />
-        )}
-        {resource.engine && (
-          <InspectorItem label="Engine" value={resource.engine} />
-        )}
-        {resource.version && (
-          <InspectorItem label="Version" value={resource.version} />
-        )}
-        {resource.instanceClass && (
-          <InspectorItem label="Class" value={resource.instanceClass} />
-        )}
-        {versioning && <InspectorItem label="Versioning" value={versioning} />}
-        {versioningEnabled !== null && (
-          <InspectorItem
-            label="Versioning Enabled"
-            value={versioningEnabled ? "Yes" : "No"}
-          />
-        )}
-        <InspectorItem
-          label="Tags"
-          value={tagsUnavailable ? "Unavailable" : `${tags.length}`}
-        />
-        {isLambda && (
-          <>
-            <InspectorItem
-              label="Runtime"
-              value={getStringMetadata(resource.metadata.runtime) ?? "-"}
-            />
-            <InspectorItem
-              label="Handler"
-              value={getStringMetadata(resource.metadata.handler) ?? "-"}
-            />
-            <InspectorItem
-              label="Package Type"
-              value={getStringMetadata(resource.metadata.packageType) ?? "-"}
-            />
-          </>
-        )}
+      <div className="drawer-tabs" role="tablist" aria-label="Metadata views">
+        <button
+          className={`drawer-tab ${activeTab === 'plain' ? 'active' : ''}`}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'plain'}
+          aria-controls="inspector-tabpanel-plain"
+          id="inspector-tab-plain"
+          onClick={() => setActiveTab('plain')}
+        >
+          Plain Text
+        </button>
+        <button
+          className={`drawer-tab ${activeTab === 'json' ? 'active' : ''}`}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'json'}
+          aria-controls="inspector-tabpanel-json"
+          id="inspector-tab-json"
+          onClick={() => setActiveTab('json')}
+        >
+          JSON
+        </button>
+        <button
+          className={`drawer-tab ${activeTab === 'table' ? 'active' : ''}`}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'table'}
+          aria-controls="inspector-tabpanel-table"
+          id="inspector-tab-table"
+          onClick={() => setActiveTab('table')}
+        >
+          Table
+        </button>
       </div>
-      <section className="inspector-section">
-        <p className="metric-label">Tags</p>
-        {tagsUnavailable ? (
-          <p className="muted compact-text">
-            Tags unavailable: the provider denied or failed the tag lookup.
-          </p>
-        ) : tags.length === 0 ? (
-          <p className="muted compact-text">
-            No tags returned for this resource.
-          </p>
-        ) : (
-          <div className="metadata-tags">
-            {tags.map((tag) => (
-              <span className="metadata-tag" key={`${tag.key}:${tag.value}`}>
-                <strong>{tag.key}</strong>
-                <span>{tag.value}</span>
-              </span>
-            ))}
+
+      {activeTab === 'plain' && (
+        <div
+          role="tabpanel"
+          id="inspector-tabpanel-plain"
+          aria-labelledby="inspector-tab-plain"
+        >
+          <div className="inspector-grid">
+            <InspectorItem label="Cloud" value={resource.cloud} />
+            <InspectorItem label="Service" value={serviceName ?? resource.service} />
+            <InspectorItem label="Region" value={resource.region ?? "-"} />
+            <InspectorItem label="Created At" value={resource.createdAt ?? "-"} />
+            {resource.status && (
+              <InspectorItem label="Status" value={resource.status} />
+            )}
+            {resource.engine && (
+              <InspectorItem label="Engine" value={resource.engine} />
+            )}
+            {resource.version && (
+              <InspectorItem label="Version" value={resource.version} />
+            )}
+            {resource.instanceClass && (
+              <InspectorItem label="Class" value={resource.instanceClass} />
+            )}
+            {versioning && <InspectorItem label="Versioning" value={versioning} />}
+            {versioningEnabled !== null && (
+              <InspectorItem
+                label="Versioning Enabled"
+                value={versioningEnabled ? "Yes" : "No"}
+              />
+            )}
+            {getStringMetadata(resource.metadata.arn) && !isLambda && (
+              <InspectorItem
+                label="ARN"
+                value={getStringMetadata(resource.metadata.arn)!}
+              />
+            )}
+            <InspectorItem
+              label="Tags"
+              value={tagsUnavailable ? "Unavailable" : `${tags.length}`}
+            />
+            {isLambda && (
+              <>
+                <InspectorItem
+                  label="Runtime"
+                  value={getStringMetadata(resource.metadata.runtime) ?? "-"}
+                />
+                <InspectorItem
+                  label="Handler"
+                  value={getStringMetadata(resource.metadata.handler) ?? "-"}
+                />
+                <InspectorItem
+                  label="Package Type"
+                  value={getStringMetadata(resource.metadata.packageType) ?? "-"}
+                />
+              </>
+            )}
           </div>
-        )}
-      </section>
-      {isDatabase && (
-        <DatabaseConnectionsSection metadata={resource.metadata} />
+          <section className="inspector-section">
+            <p className="metric-label">Tags</p>
+            {tagsUnavailable ? (
+              <p className="muted compact-text">
+                Tags unavailable: the provider denied or failed the tag lookup.
+              </p>
+            ) : tags.length === 0 ? (
+              <p className="muted compact-text">
+                No tags returned for this resource.
+              </p>
+            ) : (
+              <div className="metadata-tags">
+                {tags.map((tag) => (
+                  <span className="metadata-tag" key={`${tag.key}:${tag.value}`}>
+                    <strong>{tag.key}</strong>
+                    <span>{tag.value}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
+          {isDatabase && (
+            <DatabaseConnectionsSection metadata={resource.metadata} />
+          )}
+          {isAwsDatabase && <DatabaseLifecycleSection status={resource.status} />}
+          {isDatabase && !isAwsDatabase && (
+            <ProviderDatabaseSection cloud={resource.cloud} />
+          )}
+          {isK8sEngine && (
+            <K8sEngineDetails cloud={resource.cloud} clusterName={resource.name} />
+          )}
+          {isLambda && (
+            <section className="inspector-section">
+              <p className="metric-label">Lambda Details</p>
+              <div className="inspector-grid compact-grid">
+                <InspectorItem
+                  label="ARN"
+                  value={getStringMetadata(resource.metadata.arn) ?? "-"}
+                />
+                <InspectorItem
+                  label="Last Modified"
+                  value={getStringMetadata(resource.metadata.lastModified) ?? "-"}
+                />
+                <InspectorItem
+                  label="Memory"
+                  value={
+                    getNumberMetadata(resource.metadata.memorySize) === null
+                      ? "-"
+                      : `${getNumberMetadata(resource.metadata.memorySize)} MB`
+                  }
+                />
+                <InspectorItem
+                  label="Timeout"
+                  value={
+                    getNumberMetadata(resource.metadata.timeout) === null
+                      ? "-"
+                      : `${getNumberMetadata(resource.metadata.timeout)}s`
+                  }
+                />
+              </div>
+            </section>
+          )}
+        </div>
       )}
-      {isAwsDatabase && <DatabaseLifecycleSection status={resource.status} />}
-      {isDatabase && !isAwsDatabase && (
-        <ProviderDatabaseSection cloud={resource.cloud} />
+
+      {activeTab === 'json' && (
+        <div
+          role="tabpanel"
+          id="inspector-tabpanel-json"
+          aria-labelledby="inspector-tab-json"
+          style={{ position: "relative" }}
+        >
+          <button
+            className="button compact"
+            type="button"
+            title="Copy JSON data"
+            style={{
+              position: "absolute",
+              top: "8px",
+              right: "8px",
+              zIndex: 2,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              fontSize: "11px",
+              padding: "2px 8px",
+              height: "24px",
+            }}
+            onClick={() => handleCopyJson(resource.metadata)}
+          >
+            {copiedJson ? (
+              <Check size={12} style={{ color: "var(--status-ok)" }} />
+            ) : (
+              <Copy size={12} />
+            )}
+            <span>{copiedJson ? "Copied" : "Copy"}</span>
+          </button>
+          <pre
+            className="metadata-block"
+            style={{ borderTop: "none", paddingTop: "36px" }}
+          >
+            {JSON.stringify(resource.metadata, null, 2)}
+          </pre>
+        </div>
       )}
-      {isK8sEngine && (
-        <K8sEngineDetails cloud={resource.cloud} clusterName={resource.name} />
+
+      {activeTab === 'table' && (
+        <div
+          role="tabpanel"
+          id="inspector-tabpanel-table"
+          aria-labelledby="inspector-tab-table"
+        >
+          <MetadataPanel metadata={resource.metadata} />
+        </div>
       )}
-      {isLambda && (
-        <section className="inspector-section">
-          <p className="metric-label">Lambda Details</p>
-          <div className="inspector-grid compact-grid">
-            <InspectorItem
-              label="ARN"
-              value={getStringMetadata(resource.metadata.arn) ?? "-"}
-            />
-            <InspectorItem
-              label="Last Modified"
-              value={getStringMetadata(resource.metadata.lastModified) ?? "-"}
-            />
-            <InspectorItem
-              label="Memory"
-              value={
-                getNumberMetadata(resource.metadata.memorySize) === null
-                  ? "-"
-                  : `${getNumberMetadata(resource.metadata.memorySize)} MB`
-              }
-            />
-            <InspectorItem
-              label="Timeout"
-              value={
-                getNumberMetadata(resource.metadata.timeout) === null
-                  ? "-"
-                  : `${getNumberMetadata(resource.metadata.timeout)}s`
-              }
-            />
-          </div>
-        </section>
-      )}
-      <pre className="metadata-block">
-        {JSON.stringify(resource.metadata, null, 2)}
-      </pre>
-      <MetadataPanel metadata={resource.metadata} />
+
       {isLogGroup && cloud && (
         <>
           <LogsQueryPanel cloud={cloud} logGroupName={resource.id} runtimeReachable={runtimeReachable ?? false} />

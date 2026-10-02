@@ -546,7 +546,7 @@ pre,
     position: relative;
 }
 
-.topbar-status:empty + .cloud-switcher {
+.topbar-status:empty + .connection {
     margin-left: auto;
 }
 
@@ -593,12 +593,7 @@ pre,
     font-weight: 600;
 }
 
-/* Below ~680px the topbar's fixed-width controls (search, theme toggle, two
-   switcher buttons, connection badge) sum to more than the viewport, and
-   since the row never wraps the overflow was clipped off past the edge
-   instead of shrinking. Drop each control's text, keeping only the icons
-   (full detail stays in each control's title/aria-label and, for the
-   switchers, in the popover once opened). */
+/* Keep the connection badge compact on narrow screens. */
 @media (max-width: 680px) {
     .topbar {
         gap: 8px;
@@ -609,7 +604,6 @@ pre,
         display: none;
     }
 
-    .account-meta,
     .connection-state,
     .connection-target {
         display: none;
@@ -1824,6 +1818,20 @@ pre,
 
 .appconfig-panel .cosmos-inline-form .button {
     justify-self: start;
+}
+
+.appconfig-editor-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.appconfig-unsaved {
+    font-style: normal;
+    color: #fbbf24;
 }
 
 .cosmos-list {
@@ -3802,6 +3810,7 @@ button.console-service-card {
 .drawer-tab.active {
     color: var(--link);
     border-bottom-color: var(--link);
+    font-weight: 700;
 }
 
 /* ─── Object metadata display ────────────────────────────────────────────── */
@@ -4460,6 +4469,46 @@ button.console-service-card {
     color: var(--text-bright);
     font-weight: 600;
 }
+
+.settings-section + .settings-section {
+    margin-top: 16px;
+}
+
+@media (max-width: 600px) {
+    .settings-section .settings-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .settings-section :is(.account-switcher, .cloud-switcher) {
+        width: 248px;
+        max-width: 100%;
+    }
+
+    .settings-section .account-popover {
+        left: 0;
+        right: auto;
+        width: 100%;
+    }
+
+    .settings-section .account-option {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    .settings-section .account-option-id {
+        flex: 1 0 auto;
+        white-space: nowrap;
+    }
+
+    .settings-section .account-option > svg {
+        order: 1;
+    }
+
+    .settings-section .account-tag {
+        order: 2;
+    }
+}
 /* ── Settings page ── */
 
 .settings-section {
@@ -4535,4 +4584,11 @@ button.console-service-card {
     background: var(--accent-tint);
     color: var(--text-bright);
     font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .settings-section .settings-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
 }
