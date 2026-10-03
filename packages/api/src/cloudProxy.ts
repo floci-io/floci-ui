@@ -16,6 +16,7 @@ import {AzureNetworkingAdapter} from './adapter-azure/AzureNetworkingAdapter'
 import {GcpStorageAdapter} from './adapter-gcp/GcpStorageAdapter'
 import {GcpCloudFunctionsAdapter} from './adapter-gcp/GcpCloudFunctionsAdapter'
 import {GcpCloudSqlAdapter} from './adapter-gcp/GcpCloudSqlAdapter'
+import {GcpComputeAdapter} from './adapter-gcp/GcpComputeAdapter'
 import {GcpGkeAdapter} from './adapter-gcp/GcpGkeAdapter'
 import {GcpCloudRunAdapter} from './adapter-gcp/GcpCloudRunAdapter'
 import {GcpPubSubAdapter} from './adapter-gcp/GcpPubSubAdapter'
@@ -102,6 +103,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new GcpCloudFunctionsAdapter(),
         new GcpCloudSqlAdapter(),
         new GcpGkeAdapter(),
+        new GcpComputeAdapter(),
         new GcpCloudRunAdapter(),
         new GcpPubSubAdapter(),
         new GcpSecretManagerAdapter(),

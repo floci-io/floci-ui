@@ -100,10 +100,10 @@ export class CloudProxyService {
      * hardcoded per-cloud list. Registering an adapter is therefore the only
      * thing needed to make a service appear as available in the UI.
      */
-    services(cloud: CloudProvider): CloudServiceDescriptor[] {
-        return SERVICE_CATALOG_ENTRIES.map((entry) => {
+    async services(cloud: CloudProvider): Promise<CloudServiceDescriptor[]> {
+        return Promise.all(SERVICE_CATALOG_ENTRIES.map(async (entry) => {
             const adapter = this.registry.get(cloud, entry.service)
-            const override = adapter?.descriptorOverride?.() ?? {}
+            const override = (await adapter?.resolveDescriptorOverride?.()) ?? adapter?.descriptorOverride?.() ?? {}
             const derived: CloudAvailability = entry.legacyAvailability?.[cloud]
                 ?? (adapter ? 'available' : 'coming_soon')
             const availability = override.availability ?? derived
@@ -121,7 +121,7 @@ export class CloudProxyService {
                 group: entry.group,
                 order: entry.order,
             }
-        })
+        }))
     }
 
     /**

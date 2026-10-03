@@ -52,7 +52,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 
 | Group | Service | AWS | Azure | GCP | OCI |
 |---|---|---|---|---|---|
-| Compute | Compute | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | No | No |
+| Compute | Compute | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | No |
 | Compute | EKS / AKS / GKE / OKE | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, update, inspect, delete) |
 | Compute | Serverless / Functions | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) | No |
@@ -196,7 +196,7 @@ AWS only, through the unified shell plus AWS-specific panels where the workflow 
 
 Current gaps:
 
-- No Azure VM or GCP compute adapter yet.
+- GCP Compute Engine lists, inspects, creates and deletes instances, but needs a `floci/floci-gcp` build that serves Compute Engine (`nightly`); the 0.9.0 release has no `/compute/v1` routes, so the console reports Compute as coming soon whenever the runtime health does not list `compute`. Creation without a network uses the `default` network and the region's `default` subnet, creating them (custom-mode, as the runtime has no auto-mode) when missing; a custom network needs an explicit subnetwork. Start, stop and reset are implemented in the adapter but not yet exposed by the generic resource actions route.
 - Compute creation still uses an AWS-specific panel because it needs dependent selectors.
 
 </details>

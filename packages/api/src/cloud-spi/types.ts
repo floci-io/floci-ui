@@ -565,6 +565,12 @@ export interface CloudServiceAdapter {
     readonly service: CloudServiceType
     schema(): ServiceSchema
     descriptorOverride?(): CloudServiceDescriptorOverride
+    /**
+     * Runtime-derived override for a service whose availability depends on what
+     * the running emulator build serves. Takes precedence over `descriptorOverride`
+     * when `services()` is built; implementations must not throw.
+     */
+    resolveDescriptorOverride?(): Promise<CloudServiceDescriptorOverride>
     list(query?: ResourceQuery): Promise<CloudResource[]>
     get(id: string): Promise<CloudResource | null>
     create(input: CreateResourceInput): Promise<CloudResource>

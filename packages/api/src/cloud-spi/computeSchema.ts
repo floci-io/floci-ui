@@ -246,3 +246,135 @@ export function awsComputeSchema(): ServiceSchema {
         },
     }
 }
+
+/**
+ * Floci-GCP's Compute Engine catalog is a small deterministic fixture: regions
+ * default to us-central1 and europe-west1, each with zones a, b and c. Shared
+ * with the adapter so the form and the request cannot drift.
+ */
+export const GCP_COMPUTE_ZONES = [
+    'us-central1-a',
+    'us-central1-b',
+    'us-central1-c',
+    'europe-west1-a',
+    'europe-west1-b',
+    'europe-west1-c',
+] as const
+
+export const GCP_MACHINE_TYPES = [
+    'e2-standard-2',
+    'n2-standard-4',
+    'n2-standard-8',
+    'c3-standard-4',
+    'g2-standard-4',
+] as const
+
+/** Compute Engine resource names: RFC1035, 1-63 chars. */
+export const GCP_INSTANCE_NAME_PATTERN = '^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$'
+
+const gcpComputeColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'status', label: 'Status', format: 'badge'},
+    {name: 'instanceClass', label: 'Machine Type'},
+    {name: 'region', label: 'Zone'},
+    {name: 'internalIp', label: 'Internal IP', path: 'metadata.internalIp', format: 'code'},
+    {name: 'createdAt', label: 'Created', format: 'datetime'},
+]
+
+export function gcpComputeSchema(): ServiceSchema {
+    return {
+        cloud: 'gcp',
+        service: 'compute',
+        displayName: 'Google Compute Engine',
+        fields: [
+            {
+                name: 'name',
+                label: 'Instance Name',
+                type: 'text',
+                required: true,
+                span: true,
+                group: 'Required',
+                description: 'Lowercase letters, numbers and hyphens; must start with a letter.',
+                validation: {
+                    pattern: GCP_INSTANCE_NAME_PATTERN,
+                    minLength: 1,
+                    maxLength: 63,
+                    message: 'Use 1-63 lowercase letters, numbers or hyphens, starting with a letter.',
+                },
+            },
+            {
+                name: 'zone',
+                label: 'Zone',
+                type: 'select',
+                required: true,
+                group: 'Required',
+                options: GCP_COMPUTE_ZONES.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'machineType',
+                label: 'Machine Type',
+                type: 'select',
+                required: true,
+                options: GCP_MACHINE_TYPES.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'network',
+                label: 'VPC Network',
+                type: 'text',
+                required: false,
+                group: 'Networking',
+                description: 'Defaults to the default network, which is created with the region\'s default subnet if missing.',
+            },
+            {
+                name: 'subnetwork',
+                label: 'Subnetwork',
+                type: 'text',
+                required: false,
+                description: 'Subnetwork in the zone\'s region. Required for any network other than default; if only this is set, its network is used.',
+            },
+            {
+                name: 'diskSizeGb',
+                label: 'Boot Disk Size (GB)',
+                type: 'text',
+                required: false,
+                group: 'Optional',
+                description: 'Defaults to 10. The runtime has no public image catalog, so the boot disk is empty.',
+            },
+        ],
+        actions: ['list', 'inspect', 'create', 'delete'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create instance', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete instance', enabled: true, status: 'available', runtimeRequired: true},
+                {
+                    name: 'start',
+                    label: 'Start',
+                    enabled: false,
+                    status: 'coming_soon',
+                    reason: 'The adapter implements start, but the generic resource actions route is not wired yet.',
+                    runtimeRequired: true,
+                },
+                {
+                    name: 'stop',
+                    label: 'Stop',
+                    enabled: false,
+                    status: 'coming_soon',
+                    reason: 'The adapter implements stop, but the generic resource actions route is not wired yet.',
+                    runtimeRequired: true,
+                },
+                {
+                    name: 'reboot',
+                    label: 'Reset',
+                    enabled: false,
+                    status: 'coming_soon',
+                    reason: 'The adapter implements reset, but the generic resource actions route is not wired yet.',
+                    runtimeRequired: true,
+                },
+            ],
+        },
+        filters: computeFilters,
+        columns: gcpComputeColumns,
+    }
+}
