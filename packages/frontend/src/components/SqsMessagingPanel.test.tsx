@@ -1,4 +1,4 @@
-import {render, screen} from "@testing-library/react";
+import {fireEvent, render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, describe, expect, test, vi} from "vitest";
 import {
@@ -68,6 +68,54 @@ describe("SqsMessagingPanel", () => {
 
     expect(deleteQueueMessage).toHaveBeenCalledWith("aws", "messaging", "orders-queue", "handle-1");
     expect(screen.queryByText("hello")).not.toBeInTheDocument();
+  });
+
+  test("passes maxMessages to receiveQueueMessages and defaults to 10", async () => {
+    vi.mocked(receiveQueueMessages).mockResolvedValue([]);
+    const user = userEvent.setup();
+
+    render(<SqsMessagingPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.click(screen.getByRole("button", {name: "Receive"}));
+
+    // default value is 10
+    await user.click(screen.getByRole("button", {name: "Receive messages"}));
+    expect(receiveQueueMessages).toHaveBeenCalledWith("aws", "messaging", "orders-queue", 10);
+
+    // change to 25 — fireEvent.change is used because jsdom's number input
+    // does not support userEvent interactions reliably for value replacement.
+    fireEvent.change(screen.getByLabelText("Max messages to receive"), {target: {value: "25"}});
+    await user.click(screen.getByRole("button", {name: "Receive messages"}));
+    expect(receiveQueueMessages).toHaveBeenLastCalledWith("aws", "messaging", "orders-queue", 25);
+  });
+
+  test("shows message attributes in a collapsible block when present", async () => {
+    const received: QueueMessage[] = [
+      {
+        messageId: "msg-2",
+        body: "payload",
+        receiptHandle: "handle-2",
+        attributes: {SenderId: "AIDAJDPLRKLG7EXAMPLE", SentTimestamp: "1704067200000"},
+      },
+    ];
+    vi.mocked(receiveQueueMessages).mockResolvedValue(received);
+    const user = userEvent.setup();
+
+    render(<SqsMessagingPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.click(screen.getByRole("button", {name: "Receive"}));
+    await user.click(screen.getByRole("button", {name: "Receive messages"}));
+
+    expect(await screen.findByText("payload")).toBeInTheDocument();
+    
+    // attributes summary should be present
+    const summary = screen.getByText("Attributes (2)");
+    expect(summary).toBeInTheDocument();
+
+    // open the details block and verify contents
+    await user.click(summary);
+    expect(screen.getByText("SenderId")).toBeInTheDocument();
+    expect(screen.getByText("AIDAJDPLRKLG7EXAMPLE")).toBeInTheDocument();
   });
 
   test("disables actions when the runtime is unreachable", () => {
