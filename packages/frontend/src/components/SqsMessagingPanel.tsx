@@ -209,44 +209,40 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
             <p className="muted compact-text">
               A receive is a non-consuming peek: messages stay in the queue until you delete them here.
             </p>
-            <div style={{display: "flex", alignItems: "center", gap: 8}}>
-              <button
-                className="button primary"
-                type="button"
-                disabled={!canUseQueue || receiving}
-                onClick={() => void loadMessages()}
-              >
-                {receiving ? <Loader2 size={13} className="spin" /> : <Inbox size={13} />}
-                {receiving ? "Receiving" : "Receive messages"}
-              </button>
-              <label className="metric-label" htmlFor="sqs-max-messages" style={{margin: 0}}>
-                Max (up to 100)
-              </label>
-              <input
-                id="sqs-max-messages"
-                type="number"
-                className="button"
-                value={maxMessages}
-                min={1}
-                max={100}
-                disabled={!canUseQueue || receiving}
-                aria-label="Max messages to receive"
-                style={{width: 64, padding: "2px 6px", textAlign: "center"}}
-                onChange={(event) => {
-                  if (event.target.value === "") {
-                    setMaxMessages("");
-                  } else {
-                    const parsed = parseInt(event.target.value, 10);
-                    if (!isNaN(parsed)) setMaxMessages(parsed);
-                  }
-                }}
-                onBlur={(event) => {
-                  const val = parseInt(event.target.value, 10);
-                  const clamped = isNaN(val) ? 1 : Math.min(100, Math.max(1, val));
-                  setMaxMessages(clamped);
-                }}
-              />
-            </div>
+            <label className="metric-label" htmlFor="sqs-max-messages">Max messages (up to 100)</label>
+            <input
+              id="sqs-max-messages"
+              type="number"
+              className="button"
+              value={maxMessages}
+              min={1}
+              max={100}
+              disabled={!canUseQueue || receiving}
+              aria-label="Max messages to receive"
+              style={{width: 64, padding: "2px 6px", textAlign: "center", marginBottom: 12, display: "block"}}
+              onChange={(event) => {
+                if (event.target.value === "") {
+                  setMaxMessages("");
+                } else {
+                  const parsed = parseInt(event.target.value, 10);
+                  if (!isNaN(parsed)) setMaxMessages(parsed);
+                }
+              }}
+              onBlur={(event) => {
+                const val = parseInt(event.target.value, 10);
+                const clamped = isNaN(val) ? 1 : Math.min(100, Math.max(1, val));
+                setMaxMessages(clamped);
+              }}
+            />
+            <button
+              className="button primary"
+              type="button"
+              disabled={!canUseQueue || receiving}
+              onClick={() => void loadMessages()}
+            >
+              {receiving ? <Loader2 size={13} className="spin" /> : <Inbox size={13} />}
+              {receiving ? "Receiving" : "Receive messages"}
+            </button>
             {receiveError && <p className="error-text compact-text">{receiveError}</p>}
             {!receiving && messages.length === 0 && !hasPolled && (
               <p className="muted compact-text">No messages received yet. Click &ldquo;Receive messages&rdquo; to poll the queue.</p>

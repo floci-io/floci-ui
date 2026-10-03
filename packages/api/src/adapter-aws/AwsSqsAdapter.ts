@@ -136,8 +136,10 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
         const totalToFetch = Math.max(maxMessages, 1)
         const allMessages: QueueMessage[] = []
         const seenIds = new Set<string>()
+        let attempts = 0
 
-        while (allMessages.length < totalToFetch) {
+        while (allMessages.length < totalToFetch && attempts < 30) {
+            attempts++
             const batchSize = Math.min(totalToFetch - allMessages.length, 10)
             const res = await this.sqs.send(
                 new ReceiveMessageCommand({
@@ -160,18 +162,15 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
                 md5OfBody: message.MD5OfBody,
             }))
 
-            let newMessagesCount = 0
             for (const msg of batch) {
                 if (!seenIds.has(msg.messageId)) {
                     seenIds.add(msg.messageId)
                     allMessages.push(msg)
-                    newMessagesCount++
                 }
             }
 
-            // If we received fewer messages than we asked for, the queue is empty.
-            // Or if we found zero new messages, stop polling to prevent an infinite loop.
-            if (batch.length < batchSize || newMessagesCount === 0) {
+            // If a batch is entirely empty, no more messages are currently available to sample.
+            if (batch.length === 0) {
                 break
             }
         }
