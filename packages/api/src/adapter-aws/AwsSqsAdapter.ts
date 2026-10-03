@@ -136,15 +136,13 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
         const totalToFetch = Math.max(maxMessages, 1)
         const allMessages: QueueMessage[] = []
         const seenIds = new Set<string>()
-        let attempts = 0
 
-        while (allMessages.length < totalToFetch && attempts < 30) {
-            attempts++
-            const batchSize = Math.min(totalToFetch - allMessages.length, 10)
+        while (allMessages.length < totalToFetch) {
+            // Always request 10 messages to maximize the chance of sampling unseen ones.
             const res = await this.sqs.send(
                 new ReceiveMessageCommand({
                     QueueUrl: url,
-                    MaxNumberOfMessages: batchSize,
+                    MaxNumberOfMessages: 10,
                     // VisibilityTimeout 0 keeps this a non-consuming peek: messages
                     // stay available in the queue instead of being hidden for the
                     // queue's default visibility period.
@@ -162,15 +160,21 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
                 md5OfBody: message.MD5OfBody,
             }))
 
+            let newMessagesCount = 0
             for (const msg of batch) {
                 if (!seenIds.has(msg.messageId)) {
                     seenIds.add(msg.messageId)
-                    allMessages.push(msg)
+                    if (allMessages.length < totalToFetch) {
+                        allMessages.push(msg)
+                    }
+                    newMessagesCount++
                 }
             }
 
-            // If a batch is entirely empty, no more messages are currently available to sample.
-            if (batch.length === 0) {
+            // If a batch has less than 10 messages, SQS has exhausted its sampling.
+            // If it returns 10 but all of them are duplicates, no new messages were found.
+            // In either case, we stop polling instead of wasting requests.
+            if (batch.length < 10 || newMessagesCount === 0) {
                 break
             }
         }

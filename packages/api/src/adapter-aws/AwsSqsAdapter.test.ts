@@ -291,13 +291,13 @@ describe('AwsSqsAdapter', () => {
         expect(messages).toEqual([{messageId: 'msg-1', body: 'hello', receiptHandle: 'handle-1', attributes: undefined, md5OfBody: undefined}])
     })
 
-    test('clamps maxMessages to the SQS-documented 1-10 range', async () => {
+    test('always requests batches of 10 to maximize sampling efficiency', async () => {
         const {client, sent} = stubSqs()
         await new AwsSqsAdapter(client).receiveMessages('orders-queue', 50)
         expect((sent[1] as ReceiveMessageCommand).input.MaxNumberOfMessages).toBe(10)
 
         await new AwsSqsAdapter(client).receiveMessages('orders-queue', 0)
-        expect((sent[3] as ReceiveMessageCommand).input.MaxNumberOfMessages).toBe(1)
+        expect((sent[3] as ReceiveMessageCommand).input.MaxNumberOfMessages).toBe(10)
     })
 
     test('fetches multiple batches for maxMessages > 10 and deduplicates identical messages', async () => {
@@ -311,9 +311,9 @@ describe('AwsSqsAdapter', () => {
                     return {Messages: Array.from({length: 10}).map((_, i) => ({MessageId: `msg-${i}`}))}
                 }
                 if (callCount === 2) {
-                    // return 5 messages total: 3 duplicates, 2 new
+                    // return 10 messages total: 8 duplicates, 2 new
                     return {Messages: [
-                        {MessageId: 'msg-0'}, {MessageId: 'msg-1'}, {MessageId: 'msg-2'},
+                        ...Array.from({length: 8}).map((_, i) => ({MessageId: `msg-${i}`})),
                         {MessageId: 'msg-10'}, {MessageId: 'msg-11'}
                     ]}
                 }
@@ -324,9 +324,34 @@ describe('AwsSqsAdapter', () => {
 
         const messages = await new AwsSqsAdapter(client).receiveMessages('orders-queue', 15)
         
-        expect(callCount).toBe(3) // 10, then 5 requested (returned 5 with 2 new, length=12), then 3 requested (returned 0, breaks)
+        expect(callCount).toBe(3) // 10, then 10 requested (returned 10 with 2 new, length=12), then 10 requested (returned 0, breaks)
         expect(messages.length).toBe(12)
         expect(messages.filter(m => m.messageId === 'msg-0').length).toBe(1)
+    })
+
+    test('breaks early if a full batch contains only duplicates', async () => {
+        const {client} = stubSqs()
+        let callCount = 0
+        spyOn(client, 'send').mockImplementation(async (command) => {
+            if (command instanceof GetQueueUrlCommand) return {QueueUrl: 'url'}
+            if (command instanceof ReceiveMessageCommand) {
+                callCount++
+                if (callCount === 1) {
+                    return {Messages: Array.from({length: 10}).map((_, i) => ({MessageId: `msg-${i}`}))}
+                }
+                if (callCount === 2) {
+                    // 10 duplicates, no new messages
+                    return {Messages: Array.from({length: 10}).map((_, i) => ({MessageId: `msg-${i}`}))}
+                }
+                return {Messages: []}
+            }
+            return {}
+        })
+
+        const messages = await new AwsSqsAdapter(client).receiveMessages('orders-queue', 15)
+        
+        expect(callCount).toBe(2)
+        expect(messages.length).toBe(10)
     })
 
     test('deletes a message by receipt handle', async () => {
