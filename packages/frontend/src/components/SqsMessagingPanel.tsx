@@ -26,8 +26,9 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
   const [sendResult, setSendResult] = useState<{messageId: string} | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [maxMessages, setMaxMessages] = useState(10);
+  const [maxMessages, setMaxMessages] = useState<number | "">(10);
   const [messages, setMessages] = useState<QueueMessage[]>([]);
+  const [hasPolled, setHasPolled] = useState(false);
   const [receiveError, setReceiveError] = useState<string | null>(null);
   const [receiving, setReceiving] = useState(false);
   const [deletingHandle, setDeletingHandle] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
     setSending(false);
     setMaxMessages(10);
     setMessages([]);
+    setHasPolled(false);
     setReceiveError(null);
     setReceiving(false);
     setDeletingHandle(null);
@@ -94,8 +96,9 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
     setReceiveError(null);
     setReceiving(true);
     try {
-      const received = await receiveQueueMessages(cloud, "messaging", resource.id, maxMessages);
+      const received = await receiveQueueMessages(cloud, "messaging", resource.id, maxMessages || 10);
       setMessages(received);
+      setHasPolled(true);
     } catch (error) {
       setReceiveError(error instanceof Error ? error.message : "Failed to receive messages.");
     } finally {
@@ -230,18 +233,26 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
                 aria-label="Max messages to receive"
                 style={{width: 64, padding: "2px 6px", textAlign: "center"}}
                 onChange={(event) => {
-                  const parsed = parseInt(event.target.value, 10);
-                  if (!isNaN(parsed)) setMaxMessages(parsed);
+                  if (event.target.value === "") {
+                    setMaxMessages("");
+                  } else {
+                    const parsed = parseInt(event.target.value, 10);
+                    if (!isNaN(parsed)) setMaxMessages(parsed);
+                  }
                 }}
                 onBlur={(event) => {
-                  const clamped = Math.min(100, Math.max(1, parseInt(event.target.value, 10) || 1));
+                  const val = parseInt(event.target.value, 10);
+                  const clamped = isNaN(val) ? 1 : Math.min(100, Math.max(1, val));
                   setMaxMessages(clamped);
                 }}
               />
             </div>
             {receiveError && <p className="error-text compact-text">{receiveError}</p>}
-            {!receiving && messages.length === 0 && (
+            {!receiving && messages.length === 0 && !hasPolled && (
               <p className="muted compact-text">No messages received yet. Click &ldquo;Receive messages&rdquo; to poll the queue.</p>
+            )}
+            {!receiving && messages.length === 0 && hasPolled && (
+              <p className="muted compact-text"><strong>0</strong> messages received.</p>
             )}
             {!receiving && messages.length > 0 && (
               <p className="muted compact-text">

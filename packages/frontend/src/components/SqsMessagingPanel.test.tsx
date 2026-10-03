@@ -107,8 +107,15 @@ describe("SqsMessagingPanel", () => {
     await user.click(screen.getByRole("button", {name: "Receive messages"}));
 
     expect(await screen.findByText("payload")).toBeInTheDocument();
+    
     // attributes summary should be present
-    expect(screen.getByText("Attributes (2)")).toBeInTheDocument();
+    const summary = screen.getByText("Attributes (2)");
+    expect(summary).toBeInTheDocument();
+
+    // open the details block and verify contents
+    await user.click(summary);
+    expect(screen.getByText("SenderId")).toBeInTheDocument();
+    expect(screen.getByText("AIDAJDPLRKLG7EXAMPLE")).toBeInTheDocument();
   });
 
   test("disables actions when the runtime is unreachable", () => {

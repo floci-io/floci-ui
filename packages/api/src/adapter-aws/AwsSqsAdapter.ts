@@ -133,25 +133,41 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
 
     async receiveMessages(id: string, maxMessages = 10): Promise<QueueMessage[]> {
         const url = await this.requireQueueUrl(id)
-        const res = await this.sqs.send(
-            new ReceiveMessageCommand({
-                QueueUrl: url,
-                MaxNumberOfMessages: Math.min(Math.max(maxMessages, 1), 10),
-                // VisibilityTimeout 0 keeps this a non-consuming peek: messages
-                // stay available in the queue instead of being hidden for the
-                // queue's default visibility period.
-                VisibilityTimeout: 0,
-                MessageSystemAttributeNames: ['All'],
-                MessageAttributeNames: ['All'],
-            }),
-        )
-        return (res.Messages ?? []).map((message) => ({
-            messageId: message.MessageId ?? '',
-            body: message.Body ?? '',
-            receiptHandle: message.ReceiptHandle ?? '',
-            attributes: message.Attributes,
-            md5OfBody: message.MD5OfBody,
-        }))
+        const totalToFetch = Math.max(maxMessages, 1)
+        const allMessages: QueueMessage[] = []
+
+        while (allMessages.length < totalToFetch) {
+            const batchSize = Math.min(totalToFetch - allMessages.length, 10)
+            const res = await this.sqs.send(
+                new ReceiveMessageCommand({
+                    QueueUrl: url,
+                    MaxNumberOfMessages: batchSize,
+                    // VisibilityTimeout 0 keeps this a non-consuming peek: messages
+                    // stay available in the queue instead of being hidden for the
+                    // queue's default visibility period.
+                    VisibilityTimeout: 0,
+                    MessageSystemAttributeNames: ['All'],
+                    MessageAttributeNames: ['All'],
+                }),
+            )
+
+            const batch = (res.Messages ?? []).map((message) => ({
+                messageId: message.MessageId ?? '',
+                body: message.Body ?? '',
+                receiptHandle: message.ReceiptHandle ?? '',
+                attributes: message.Attributes,
+                md5OfBody: message.MD5OfBody,
+            }))
+
+            allMessages.push(...batch)
+
+            // If we received fewer messages than we asked for, the queue is empty
+            if (batch.length < batchSize) {
+                break
+            }
+        }
+
+        return allMessages
     }
 
     async deleteMessage(id: string, receiptHandle: string): Promise<void> {
