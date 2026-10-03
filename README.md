@@ -79,6 +79,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Security | KMS / Key Management / Vault | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
 | Security | Parameter Store | Yes (list, create, delete, inspect) | No | No | No |
 | Observability | CloudWatch Logs / Logs | Yes (list, create, delete, inspect) | No | No | No |
+| Observability | CloudWatch | Yes (list, create, inspect, delete) | No | No | No |
 
 Console Home is available for all four clouds.
 
@@ -273,6 +274,19 @@ AWS SNS topics are available through the generic Cloud Explorer at
 - List, create, inspect, and delete standard and FIFO topics using the AWS SNS API.
 - Topic ARNs are the resource IDs, so inspection and deletion target the exact topic.
 - Subscription management and publishing are not yet exposed in this view.
+
+</details>
+
+<details>
+<summary><strong>CloudWatch Alarms</strong></summary>
+
+AWS CloudWatch metric alarms are available through the generic Cloud Explorer at
+`/cloud-explorer/aws/cloudwatch`.
+
+- List, create, inspect, and delete metric alarms using the AWS CloudWatch API.
+- Alarm names are the resource IDs; the search box filters by name prefix, as CloudWatch does.
+- Creating an alarm requires a namespace, metric name, statistic, comparison, threshold, period, and evaluation periods.
+- Metrics, metric data, composite alarms, and alarm actions are not yet exposed in this view.
 
 </details>
 

@@ -260,6 +260,13 @@ export const SERVICE_CATALOG = {
         group: 'Observability',
         order: 10,
     },
+    cloudwatch: {
+        displayName: 'CloudWatch',
+        description: 'Watch metrics and manage alarms.',
+        iconKey: 'monitoring',
+        group: 'Observability',
+        order: 20,
+    },
 } as const satisfies Record<string, ServiceCatalogMetadata>
 
 export type CloudServiceType = keyof typeof SERVICE_CATALOG
