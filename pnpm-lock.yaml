@@ -94,6 +94,9 @@ importers:
       pg:
         specifier: ^8.22.0
         version: 8.23.0
+      saxes:
+        specifier: ^6.0.0
+        version: 6.0.0
     devDependencies:
       '@types/bun':
         specifier: ^1.4.2

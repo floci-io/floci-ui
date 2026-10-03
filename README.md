@@ -65,6 +65,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Integration | SQS / Messaging / Pub/Sub / Queue | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No | No |
 | Integration | SNS | Yes (list, create, inspect, delete) | No | No | No |
+| Integration | Queue Storage | No | Yes (list, create, inspect, delete) | No | No |
 | Integration | Kinesis / Streams / Streaming | Yes (list, create, inspect, delete) | No | No | Yes (list, create, inspect, delete) |
 | Integration | EventBridge / Events | Yes (list, create, delete, inspect) | No | No | No |
 | Integration | SES Mailbox / Email | Yes (list, inspect) | No | No | No |
@@ -81,6 +82,10 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Observability | CloudWatch | Yes (list, create, inspect, delete) | No | No | No |
 
 Console Home is available for all four clouds.
+
+Azure Queue Storage uses the emulator's Storage Queue REST API. The explorer lists,
+creates, inspects, and deletes queues; message send, peek, and delete controls are
+not wired yet. It is separate from the Azure Service Bus messaging explorer.
 
 Runtime gaps — an adapter exists but the local runtime does not implement it:
 

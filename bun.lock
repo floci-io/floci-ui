@@ -28,7 +28,7 @@
         "@aws-sdk/client-sagemaker": "^3.1140.0",
         "@aws-sdk/client-secrets-manager": "^3.1140.0",
         "@aws-sdk/client-sfn": "^3.1140.0",
-        "@aws-sdk/client-sns": "3.1140.0",
+        "@aws-sdk/client-sns": "3.1141.0",
         "@aws-sdk/client-sqs": "^3.1140.0",
         "@aws-sdk/client-ssm": "^3.1140.0",
         "@aws-sdk/util-dynamodb": "^3.996.7",
@@ -36,6 +36,7 @@
         "hono": "^4.13.9",
         "mssql": "^12.7.2",
         "pg": "^8.22.0",
+        "saxes": "^6.0.0",
       },
       "devDependencies": {
         "@types/bun": "^1.4.2",
@@ -135,7 +136,7 @@
 
     "@aws-sdk/client-sfn": ["@aws-sdk/client-sfn@3.1146.0", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-u4IjYTOm0Vo7mPxZdx11mOMUsMqcclXSoh5zpCcka/N38sEIYVLSU92ugHwQicg5njePkysvNc1SXXhP7DejkA=="],
 
-    "@aws-sdk/client-sns": ["@aws-sdk/client-sns@3.1140.0", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-og/jr7YaSPBCfNIwDaTjM1mKsNz9ay9QIRgGcZIzxqFIP5wyLRXeifKrJknIWANMCHIzLAzc8ysXbzMTBWXgWg=="],
+    "@aws-sdk/client-sns": ["@aws-sdk/client-sns@3.1141.0", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-7oqCVaRv0J+3uakDq5YXB3MCy5mNy+YD/IZbcVPOuxrU7GndRIyqcC0lWV11Gpcn3EEEShQBt+zDKI6Od1mItQ=="],
 
     "@aws-sdk/client-sqs": ["@aws-sdk/client-sqs@3.1146.0", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/middleware-sdk-sqs": "^3.972.43", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-JQT0qy87HLkrCJNYaBkzpQuopVFpvafwyrHTRaL55gXCrYRh8y3oJ080squ4X6gmyD2wO7uw4E65ps13KuisJw=="],
 

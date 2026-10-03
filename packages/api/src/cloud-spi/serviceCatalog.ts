@@ -157,6 +157,13 @@ export const SERVICE_CATALOG = {
         description: 'Manage standard and FIFO notification topics.',
         iconKey: 'messaging', group: 'Integration', order: 11,
     },
+    queue: {
+        displayName: 'Queue Storage',
+        description: 'Create and inspect Azure Storage queues.',
+        iconKey: 'queue',
+        group: 'Integration',
+        order: 11,
+    },
     streams: {
         displayName: 'Streams',
         displayNameByCloud: {aws: 'Kinesis', oci: 'Streaming'},

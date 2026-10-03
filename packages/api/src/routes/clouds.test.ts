@@ -336,7 +336,7 @@ describe('cloud schema routes', () => {
     })
 
     test('rejects a service slug that is not in the catalog', async () => {
-        const res = await appWithRoutes().request('/api/clouds/aws/services/queue/schema')
+        const res = await appWithRoutes().request('/api/clouds/aws/services/not-a-service/schema')
 
         expect(res.status).toBe(404)
         expect((await res.json()).error).toBe('Unknown cloud or service')
@@ -1341,7 +1341,7 @@ describe('per-service status', () => {
     })
 
     test('rejects an unknown service slug', async () => {
-        const res = await appWithRoutes().request('/api/clouds/aws/services/queue/status')
+        const res = await appWithRoutes().request('/api/clouds/aws/services/not-a-service/status')
         expect(res.status).toBe(404)
     })
 
