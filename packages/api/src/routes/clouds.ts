@@ -823,8 +823,8 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
 
         const maxMessagesParam = c.req.query('maxMessages')
         const maxMessages = maxMessagesParam ? Number(maxMessagesParam) : undefined
-        if (maxMessagesParam !== undefined && (!Number.isFinite(maxMessages) || maxMessages! < 1)) {
-            return c.json({error: 'maxMessages must be a positive number'}, 400)
+        if (maxMessagesParam !== undefined && (!Number.isFinite(maxMessages) || maxMessages! < 1 || maxMessages! > 100)) {
+            return c.json({error: 'maxMessages must be a number between 1 and 100'}, 400)
         }
 
         return withRuntime(c, async () => {

@@ -1,4 +1,4 @@
-import {describe, expect, test} from 'bun:test'
+import {describe, expect, test, spyOn} from 'bun:test'
 import {
     CreateQueueCommand,
     DeleteMessageCommand,
@@ -298,6 +298,35 @@ describe('AwsSqsAdapter', () => {
 
         await new AwsSqsAdapter(client).receiveMessages('orders-queue', 0)
         expect((sent[3] as ReceiveMessageCommand).input.MaxNumberOfMessages).toBe(1)
+    })
+
+    test('fetches multiple batches for maxMessages > 10 and deduplicates identical messages', async () => {
+        const {client} = stubSqs()
+        let callCount = 0
+        spyOn(client, 'send').mockImplementation(async (command) => {
+            if (command instanceof GetQueueUrlCommand) return {QueueUrl: 'url'}
+            if (command instanceof ReceiveMessageCommand) {
+                callCount++
+                if (callCount === 1) {
+                    return {Messages: Array.from({length: 10}).map((_, i) => ({MessageId: `msg-${i}`}))}
+                }
+                if (callCount === 2) {
+                    // return 5 messages total: 3 duplicates, 2 new
+                    return {Messages: [
+                        {MessageId: 'msg-0'}, {MessageId: 'msg-1'}, {MessageId: 'msg-2'},
+                        {MessageId: 'msg-10'}, {MessageId: 'msg-11'}
+                    ]}
+                }
+                return {Messages: []}
+            }
+            return {}
+        })
+
+        const messages = await new AwsSqsAdapter(client).receiveMessages('orders-queue', 15)
+        
+        expect(callCount).toBe(3) // 10, then 5 requested (returned 5 with 2 new, length=12), then 3 requested (returned 0, breaks)
+        expect(messages.length).toBe(12)
+        expect(messages.filter(m => m.messageId === 'msg-0').length).toBe(1)
     })
 
     test('deletes a message by receipt handle', async () => {
