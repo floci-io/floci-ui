@@ -26,6 +26,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
   const [sendResult, setSendResult] = useState<{messageId: string} | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [maxMessages, setMaxMessages] = useState(10);
   const [messages, setMessages] = useState<QueueMessage[]>([]);
   const [receiveError, setReceiveError] = useState<string | null>(null);
   const [receiving, setReceiving] = useState(false);
@@ -44,6 +45,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
     setSendResult(null);
     setSendError(null);
     setSending(false);
+    setMaxMessages(10);
     setMessages([]);
     setReceiveError(null);
     setReceiving(false);
@@ -92,7 +94,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
     setReceiveError(null);
     setReceiving(true);
     try {
-      const received = await receiveQueueMessages(cloud, "messaging", resource.id, 10);
+      const received = await receiveQueueMessages(cloud, "messaging", resource.id, maxMessages);
       setMessages(received);
     } catch (error) {
       setReceiveError(error instanceof Error ? error.message : "Failed to receive messages.");
@@ -204,18 +206,47 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
             <p className="muted compact-text">
               A receive is a non-consuming peek: messages stay in the queue until you delete them here.
             </p>
-            <button
-              className="button primary"
-              type="button"
-              disabled={!canUseQueue || receiving}
-              onClick={() => void loadMessages()}
-            >
-              {receiving ? <Loader2 size={13} className="spin" /> : <Inbox size={13} />}
-              {receiving ? "Receiving" : "Receive messages"}
-            </button>
+            <div style={{display: "flex", alignItems: "center", gap: 8}}>
+              <button
+                className="button primary"
+                type="button"
+                disabled={!canUseQueue || receiving}
+                onClick={() => void loadMessages()}
+              >
+                {receiving ? <Loader2 size={13} className="spin" /> : <Inbox size={13} />}
+                {receiving ? "Receiving" : "Receive messages"}
+              </button>
+              <label className="metric-label" htmlFor="sqs-max-messages" style={{margin: 0}}>
+                Max (up to 100)
+              </label>
+              <input
+                id="sqs-max-messages"
+                type="number"
+                className="button"
+                value={maxMessages}
+                min={1}
+                max={100}
+                disabled={!canUseQueue || receiving}
+                aria-label="Max messages to receive"
+                style={{width: 64, padding: "2px 6px", textAlign: "center"}}
+                onChange={(event) => {
+                  const parsed = parseInt(event.target.value, 10);
+                  if (!isNaN(parsed)) setMaxMessages(parsed);
+                }}
+                onBlur={(event) => {
+                  const clamped = Math.min(100, Math.max(1, parseInt(event.target.value, 10) || 1));
+                  setMaxMessages(clamped);
+                }}
+              />
+            </div>
             {receiveError && <p className="error-text compact-text">{receiveError}</p>}
             {!receiving && messages.length === 0 && (
-              <p className="muted compact-text">No messages received yet.</p>
+              <p className="muted compact-text">No messages received yet. Click &ldquo;Receive messages&rdquo; to poll the queue.</p>
+            )}
+            {!receiving && messages.length > 0 && (
+              <p className="muted compact-text">
+                <strong>{messages.length}</strong> message{messages.length !== 1 ? "s" : ""} received.
+              </p>
             )}
             {messages.map((message) => (
               <div className="inspector-section" key={message.receiptHandle}>
@@ -238,6 +269,23 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
                   </button>
                 </div>
                 <pre className="invoke-result success">{message.body}</pre>
+                {message.attributes && Object.keys(message.attributes).length > 0 && (
+                  <details style={{marginTop: 4}}>
+                    <summary className="metric-label" style={{cursor: "pointer", userSelect: "none"}}>
+                      Attributes ({Object.keys(message.attributes).length})
+                    </summary>
+                    <table style={{width: "100%", borderCollapse: "collapse", marginTop: 4, fontSize: "0.8em"}}>
+                      <tbody>
+                        {Object.entries(message.attributes).map(([key, value]) => (
+                          <tr key={key}>
+                            <td className="metric-label" style={{paddingRight: 12, verticalAlign: "top", whiteSpace: "nowrap"}}>{key}</td>
+                            <td><code style={{wordBreak: "break-all"}}>{value}</code></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </details>
+                )}
               </div>
             ))}
           </>
