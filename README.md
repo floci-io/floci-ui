@@ -462,6 +462,22 @@ Start AWS + Azure + GCP + OCI:
 docker compose --profile multicloud up
 ```
 
+#### Podman
+
+The stack runs under Podman with no Docker daemon, but `floci` mounts the host
+container socket so it can start throwaway Lambda/Postgres containers. With
+rootless Podman there is no `/var/run/docker.sock`, so `podman-compose up` fails
+with `Error: statfs /var/run/docker.sock: no such file or directory`. Point the
+socket at Podman's Docker-compatible API in a `.env` file:
+
+```bash
+echo "FLOCI_CONTAINER_SOCKET=$XDG_RUNTIME_DIR/podman/podman.sock" >> .env
+podman-compose up
+```
+
+Without it the emulator still starts, but invoking a Lambda function fails with
+"Failed to start Lambda container".
+
 Convenience targets:
 
 ```bash
