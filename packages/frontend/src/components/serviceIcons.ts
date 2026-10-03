@@ -1,4 +1,5 @@
 import {
+    Activity,
     Boxes,
     Brain,
     Circle,
@@ -50,6 +51,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     email: MessageSquare,
     queue: MessageSquare,
     logs: ScrollText,
+    monitoring: Activity,
     iam: ShieldCheck,
     kms: Lock,
     loadbalancing: Scale,

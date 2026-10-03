@@ -167,6 +167,11 @@ describe('registered adapters honour their schema', () => {
 })
 
 describe('adapter capability advertisements match the runtime reality', () => {
+    test('registers CloudWatch alongside CloudWatch Logs', () => {
+        expect(adapterFor('aws', 'logs').schema().displayName).toBe('CloudWatch Logs')
+        expect(adapterFor('aws', 'cloudwatch').schema().displayName).toBe('CloudWatch Alarms')
+    })
+
     test('registers SNS without replacing the SQS messaging adapter', () => {
         expect(adapterFor('aws', 'messaging').schema().displayName).toBe('AWS SQS')
         expect(adapterFor('aws', 'sns').schema().displayName).toBe('Amazon SNS')

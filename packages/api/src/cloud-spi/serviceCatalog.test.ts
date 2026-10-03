@@ -57,6 +57,14 @@ describe('SERVICE_CATALOG', () => {
         expect(isServiceType('cognito')).toBe(true)
     })
 
+    test('places CloudWatch after Logs in Observability', () => {
+        const cloudwatch = catalogEntry('cloudwatch')!
+        expect(cloudwatch.group).toBe('Observability')
+        expect(cloudwatch.order).toBeGreaterThan(catalogEntry('logs')!.order)
+        expect(displayNameFor(cloudwatch, 'aws')).toBe('CloudWatch')
+        expect(routeFor(cloudwatch, 'aws')).toBe('cloudwatch')
+    })
+
     test('keeps SNS separate from the SQS messaging adapter', () => {
         const sns = catalogEntry('sns')!
         expect(sns.group).toBe('Integration')
