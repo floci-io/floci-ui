@@ -2,6 +2,8 @@ import {RuntimeUnavailableError, httpStatusToCloudError} from './cloud-spi/error
 
 export interface AzureRuntimeFetchOptions {
     emptyOnNotFound?: boolean
+    /** Return a non-OK response instead of throwing, for callers whose body is the result (a function's own 4xx/5xx). */
+    allowErrorStatus?: boolean
     includeStorageApiVersion?: boolean
 }
 
@@ -35,10 +37,10 @@ export class AzureRestRuntimeClient implements AzureRuntimeClient {
         }
 
         if (options.emptyOnNotFound && res.status === 404) return null
-        if (!res.ok) {
+        if (!res.ok && !options.allowErrorStatus) {
             const detail = await safeResponseText(res)
-            // A 501 here is the runtime declaring the operation missing (e.g. floci-az
-            // has no /functions), which must surface as such rather than a bare 502.
+            // A 501 here is the runtime declaring the operation missing, which must
+            // surface as such rather than a bare 502.
             throw httpStatusToCloudError(
                 res.status,
                 `Azure runtime request failed: HTTP ${res.status} ${path}${detail ? ` - ${detail}` : ''}`,
