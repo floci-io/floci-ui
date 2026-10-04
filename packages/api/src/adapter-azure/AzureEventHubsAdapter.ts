@@ -35,7 +35,6 @@ export class AzureEventHubsAdapter implements CloudServiceAdapter {
         const body = await this.azureJson<EventHubsNamespaceListResponse>(
             namespacePath(this.client),
             {method: 'GET'},
-            {emptyOnNotFound: true},
         )
 
         const resources = (body?.namespaces ?? [])
@@ -61,16 +60,16 @@ export class AzureEventHubsAdapter implements CloudServiceAdapter {
             throw new ValidationError('Use a valid Event Hubs namespace: 6-50 letters, numbers, or hyphens; start with a letter and end with a letter or number.')
         }
 
-        // The runtime treats PUT as idempotent and answers 200 for a namespace that already
-        // exists, so a duplicate would otherwise be reported to the user as a fresh create.
-        if (await this.get(namespaceName)) {
+        // The runtime answers a repeated PUT with 200 and only a new namespace with 201, so the
+        // PUT status is the one conflict signal that holds when two creates race.
+        const res = await this.client.fetch(
+            namespaceResourcePath(this.client, namespaceName),
+            {method: 'PUT', body: '{}', headers: jsonHeaders},
+        )
+        if (res?.status === 200) {
             throw new ConflictError(`Event Hubs namespace ${namespaceName} already exists`)
         }
-
-        const body = await this.azureJson<EventHubsNamespaceRecord>(
-            namespaceResourcePath(this.client, namespaceName),
-            {method: 'PUT', body: '{}'},
-        )
+        const body = res && res.status !== 204 ? await res.json() as EventHubsNamespaceRecord : null
         if (!body) throw new RuntimeError('Azure Event Hubs create returned an empty response')
         const resource = toNamespaceResource(body)
         if (!resource) throw new RuntimeError('Azure Event Hubs create returned a namespace without a name')
@@ -90,11 +89,7 @@ export class AzureEventHubsAdapter implements CloudServiceAdapter {
             path,
             {
                 ...init,
-                headers: {
-                    accept: 'application/json',
-                    'content-type': 'application/json',
-                    ...(init.headers ?? {}),
-                },
+                headers: {...jsonHeaders, ...(init.headers ?? {})},
             },
             options,
         )
@@ -103,6 +98,8 @@ export class AzureEventHubsAdapter implements CloudServiceAdapter {
         return await res.json() as T
     }
 }
+
+const jsonHeaders = {accept: 'application/json', 'content-type': 'application/json'}
 
 function namespacePath(client: AzureRuntimeClient): string {
     return `/${encodeURIComponent(client.accountName)}-eventhub/namespaces`

@@ -34,13 +34,15 @@ describe('AzureEventHubsAdapter', () => {
         }])
     })
 
-    test('normalizes a missing namespace list endpoint to an empty list', async () => {
-        const client = testClient(async (_path, _init, options) => {
-            if (options?.emptyOnNotFound) return null
-            return new Response(null, {status: 404})
+    test('surfaces an unavailable namespace list endpoint instead of an empty list', async () => {
+        const calls: RecordedCall[] = []
+        const client = testClient(async (path, init, options) => {
+            calls.push({path, init, options})
+            throw new Error(`Azure runtime request failed: HTTP 404 ${path}`)
         })
 
-        await expect(new AzureEventHubsAdapter(client).list()).resolves.toEqual([])
+        await expect(new AzureEventHubsAdapter(client).list()).rejects.toThrow('HTTP 404 /devstoreaccount1-eventhub/namespaces')
+        expect(calls[0].options).toBeUndefined()
     })
 
     test('filters namespaces by search term and marks mocked ones', async () => {
@@ -79,26 +81,25 @@ describe('AzureEventHubsAdapter', () => {
         const calls: RecordedCall[] = []
         const client = testClient(async (path, init, options) => {
             calls.push({path, init, options})
-            if (init.method === 'GET') return null
             return new Response(JSON.stringify({name: 'orders-hubs', amqpPort: 0, amqpsPort: 0, mocked: true}), {status: 201})
         })
 
         const resource = await new AzureEventHubsAdapter(client).create({values: {namespaceName: 'orders-hubs'}})
 
-        const put = calls[calls.length - 1]
-        expect(put.path).toBe('/devstoreaccount1-eventhub/namespaces/orders-hubs')
-        expect(put.init.method).toBe('PUT')
-        expect(put.init.body).toBe('{}')
-        expect(put.init.headers).toEqual({accept: 'application/json', 'content-type': 'application/json'})
+        expect(calls).toHaveLength(1)
+        expect(calls[0].path).toBe('/devstoreaccount1-eventhub/namespaces/orders-hubs')
+        expect(calls[0].init.method).toBe('PUT')
+        expect(calls[0].init.body).toBe('{}')
+        expect(calls[0].init.headers).toEqual({accept: 'application/json', 'content-type': 'application/json'})
         expect(resource.id).toBe('orders-hubs')
         expect(resource.status).toBe('Mocked')
     })
 
-    test('rejects creating a namespace that already exists', async () => {
+    test('rejects creating a namespace the runtime reports as existing', async () => {
         const methods: (string | undefined)[] = []
         const client = testClient(async (_path, init) => {
             methods.push(init.method)
-            return new Response(JSON.stringify({name: 'orders-hubs', mocked: true}))
+            return new Response(JSON.stringify({name: 'orders-hubs', mocked: true}), {status: 200})
         })
 
         const failure = await new AzureEventHubsAdapter(client)
@@ -107,12 +108,30 @@ describe('AzureEventHubsAdapter', () => {
         expect(failure).toBeInstanceOf(ConflictError)
         expect((failure as ConflictError).message).toBe('Event Hubs namespace orders-hubs already exists')
         expect(toHttpError(failure).status).toBe(409)
-        expect(methods).toEqual(['GET'])
+        expect(methods).toEqual(['PUT'])
+    })
+
+    test('reports a conflict for the loser of two concurrent creates', async () => {
+        let puts = 0
+        const client = testClient(async () => {
+            puts += 1
+            const status = puts === 1 ? 201 : 200
+            return new Response(JSON.stringify({name: 'orders-hubs', mocked: true}), {status})
+        })
+        const adapter = new AzureEventHubsAdapter(client)
+
+        const results = await Promise.allSettled([
+            adapter.create({values: {namespaceName: 'orders-hubs'}}),
+            adapter.create({values: {namespaceName: 'orders-hubs'}}),
+        ])
+
+        expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected'])
+        const rejected = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+        expect(rejected?.reason).toBeInstanceOf(ConflictError)
     })
 
     test('surfaces Event Hubs create errors', async () => {
-        const client = testClient(async (path, init) => {
-            if (init.method === 'GET') return null
+        const client = testClient(async (path) => {
             throw new Error(`Azure runtime request failed: HTTP 500 ${path} - namespace store unavailable`)
         })
 
