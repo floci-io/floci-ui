@@ -9,7 +9,7 @@ interface RecordedCall {
 }
 
 const BASE = '/devstoreaccount1-functions'
-const ZIP_BASE64 = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]).toString('base64')
+const ZIP_BASE64 = Buffer.from([0x50, 0x4b, 0x03, 0x04, ...new Array(20).fill(0)]).toString('base64')
 
 const appRecord = (name: string, runtime = 'node') => ({
     name, runtime, status: 'Running', createdAt: '2026-10-04T14:57:57.459Z',
@@ -180,6 +180,9 @@ describe('AzureServerlessAdapter', () => {
         await bad({appName: 'shop', functionName: ''})
         await bad({appName: 'shop', functionName: 'a/b'})
         await bad({appName: 'shop', functionName: 'fn', timeoutSeconds: '0'})
+        await bad({appName: 'shop', functionName: 'fn', timeoutSeconds: '9'.repeat(400)})
+        await bad({appName: 'shop', functionName: 'fn', timeoutSeconds: '2147483648'})
+        await bad({appName: 'shop', functionName: 'fn', zipBase64: 'UEs='})
         await bad({appName: 'shop', functionName: 'fn', zipBase64: 'not base64!'})
         await bad({appName: 'shop', functionName: 'fn', zipBase64: Buffer.from('plain text').toString('base64')})
         expect(calls).toHaveLength(0)

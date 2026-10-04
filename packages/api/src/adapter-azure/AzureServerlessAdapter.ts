@@ -45,7 +45,12 @@ type FunctionsTarget =
 const RUNTIMES = new Set(['node', 'python', 'dotnet', 'java'])
 const APP_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,58}[A-Za-z0-9])?$/
 const FUNCTION_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,126}$/
-const ZIP_MAGIC = [0x50, 0x4b]
+/** Local file header, or the end-of-central-directory record of an empty archive. */
+const ZIP_SIGNATURES = [[0x50, 0x4b, 0x03, 0x04], [0x50, 0x4b, 0x05, 0x06]]
+/** The smallest valid zip is the 22 byte end-of-central-directory record. */
+const ZIP_MIN_BYTES = 22
+/** Floci-AZ reads the timeout as a Java int. */
+const MAX_TIMEOUT_SECONDS = 2_147_483_647
 const jsonHeaders = {accept: 'application/json', 'content-type': 'application/json'}
 
 /**
@@ -286,8 +291,8 @@ function requiredString(value: unknown, field: string): string {
 function positiveInteger(value: unknown, field: string): number | null {
     const text = typeof value === 'number' ? String(value) : stringValue(value)
     if (!text) return null
-    if (!/^\d+$/.test(text) || Number(text) < 1) {
-        throw new ValidationError(`${field} must be a positive whole number.`)
+    if (!/^\d+$/.test(text) || Number(text) < 1 || Number(text) > MAX_TIMEOUT_SECONDS) {
+        throw new ValidationError(`${field} must be a whole number between 1 and ${MAX_TIMEOUT_SECONDS}.`)
     }
     return Number(text)
 }
@@ -300,7 +305,7 @@ function zipPackage(value: unknown): string {
     const text = stringValue(value).replace(/\s+/g, '')
     if (!text) return ''
     const bytes = /^[A-Za-z0-9+/]+={0,2}$/.test(text) && text.length % 4 === 0 ? Buffer.from(text, 'base64') : null
-    if (!bytes || !ZIP_MAGIC.every((byte, i) => bytes[i] === byte)) {
+    if (!bytes || bytes.length < ZIP_MIN_BYTES || !ZIP_SIGNATURES.some((sig) => sig.every((byte, i) => bytes[i] === byte))) {
         throw new ValidationError('zipBase64 must be the base64 encoding of a zip archive.')
     }
     return text
