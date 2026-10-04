@@ -66,6 +66,15 @@ describe('SERVICE_CATALOG', () => {
         expect(queue.iconKey).toBe('queue')
     })
 
+    test('labels Azure Event Hubs on the neutral Streams category', () => {
+        const streams = catalogEntry('streams')!
+
+        expect(streams.group).toBe('Integration')
+        expect(displayNameFor(streams, 'azure')).toBe('Event Hubs')
+        expect(displayNameFor(streams, 'aws')).toBe('Kinesis')
+        expect(displayNameFor(streams, 'oci')).toBe('Streaming')
+    })
+
     test('places CloudWatch after Logs in Observability', () => {
         const cloudwatch = catalogEntry('cloudwatch')!
         expect(cloudwatch.group).toBe('Observability')
