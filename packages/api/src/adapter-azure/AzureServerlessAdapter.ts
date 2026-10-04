@@ -54,6 +54,19 @@ const MAX_TIMEOUT_SECONDS = 2_147_483_647
 const jsonHeaders = {accept: 'application/json', 'content-type': 'application/json'}
 
 /**
+ * Floci-AZ answers every PUT on an app or function with 201 and replaces what
+ * was there, so the existence check before it is the only conflict signal and
+ * two creates racing past it would silently overwrite each other's package.
+ * Creates for the same target are chained instead.
+ *
+ * Module-level, not a field: `cloudProxy.ts` builds one adapter per account and
+ * they all share the one runtime client, so a per-instance lock would not
+ * serialize the same create issued under two accounts. One API process serves
+ * one local Floci instance, so an in-memory map is enough.
+ */
+const createLocks = new Map<string, Promise<unknown>>()
+
+/**
  * Azure Functions on Floci-AZ (`/{account}-functions`).
  *
  * The runtime has two levels: Function Apps (`admin/apps`) and the functions
@@ -80,13 +93,18 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
         if (kind !== 'app') {
             // There is no account-wide function list, so functions are gathered per app. A 404
             // here means the app was deleted since the list above, so it has no functions left.
-            const perApp = await Promise.all(apps.filter((app) => app.name).map(async (app) =>
+            // allSettled, not all: an app that answers 5xx must not blank out the apps and
+            // functions the others returned. When every app fails the runtime is the problem,
+            // so that is surfaced rather than shown as a list of bare apps.
+            const perApp = await Promise.allSettled(apps.filter((app) => app.name).map(async (app) =>
                 (await this.azureJson<ValueList<AzureFunction>>(
                     `${this.appPath(app.name ?? '')}/functions`,
                     {method: 'GET'},
                     {emptyOnNotFound: true},
                 ))?.value ?? []))
-            resources.push(...perApp.flat().map(toFunctionResource))
+            const failed = perApp.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+            if (failed.length > 0 && failed.length === perApp.length) throw failed[0].reason
+            resources.push(...perApp.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])).map(toFunctionResource))
         }
         return filterBySearch(resources, query.search)
     }
@@ -150,15 +168,16 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
         }
         const linuxFxVersion = stringValue(values.linuxFxVersion)
 
-        // The runtime upserts, so an existing app would be silently replaced.
-        if (await this.azureJson<AzureFunctionApp>(this.appPath(appName), {method: 'GET'}, {emptyOnNotFound: true})) {
-            throw new ConflictError(`Function App ${appName} already exists`)
-        }
-        const app = await this.azureJson<AzureFunctionApp>(this.appPath(appName), {
-            method: 'PUT',
-            body: JSON.stringify({runtime, ...(linuxFxVersion ? {linuxFxVersion} : {})}),
+        return withCreateLock(appName, async () => {
+            if (await this.azureJson<AzureFunctionApp>(this.appPath(appName), {method: 'GET'}, {emptyOnNotFound: true})) {
+                throw new ConflictError(`Function App ${appName} already exists`)
+            }
+            const app = await this.azureJson<AzureFunctionApp>(this.appPath(appName), {
+                method: 'PUT',
+                body: JSON.stringify({runtime, ...(linuxFxVersion ? {linuxFxVersion} : {})}),
+            })
+            return toAppResource(app ?? {name: appName, runtime})
         })
-        return toAppResource(app ?? {name: appName, runtime})
     }
 
     private async createFunction(values: Record<string, unknown>): Promise<CloudResource> {
@@ -174,19 +193,20 @@ export class AzureServerlessAdapter implements CloudServiceAdapter {
         const timeoutSeconds = positiveInteger(values.timeoutSeconds, 'timeoutSeconds')
         const zipBase64 = zipPackage(values.zipBase64)
 
-        // The runtime upserts (a redeploy), so an existing function would be silently replaced.
-        if (await this.getFunction(appName, functionName)) {
-            throw new ConflictError(`Function ${functionName} already exists in Function App ${appName}`)
-        }
-        const fn = await this.azureJson<AzureFunction>(this.functionPath(appName, functionName), {
-            method: 'PUT',
-            body: JSON.stringify({
-                ...(handler ? {handler} : {}),
-                ...(timeoutSeconds !== null ? {timeoutSeconds} : {}),
-                ...(zipBase64 ? {zipBase64} : {}),
-            }),
+        return withCreateLock(`${appName}/${functionName}`, async () => {
+            if (await this.getFunction(appName, functionName)) {
+                throw new ConflictError(`Function ${functionName} already exists in Function App ${appName}`)
+            }
+            const fn = await this.azureJson<AzureFunction>(this.functionPath(appName, functionName), {
+                method: 'PUT',
+                body: JSON.stringify({
+                    ...(handler ? {handler} : {}),
+                    ...(timeoutSeconds !== null ? {timeoutSeconds} : {}),
+                    ...(zipBase64 ? {zipBase64} : {}),
+                }),
+            })
+            return toFunctionResource(fn ?? {name: functionName, appName})
         })
-        return toFunctionResource(fn ?? {name: functionName, appName})
     }
 
     private getFunction(app: string, fn: string): Promise<AzureFunction | null> {
@@ -260,6 +280,20 @@ function toFunctionResource(fn: AzureFunction): CloudResource {
             invokeUrl: fn.invokeUrl,
         },
     }
+}
+
+/**
+ * Runs each caller of the same key after the previous one settles, and drops
+ * the entry once nothing is queued behind it so the map does not grow.
+ */
+function withCreateLock<T>(key: string, action: () => Promise<T>): Promise<T> {
+    const run = (createLocks.get(key) ?? Promise.resolve()).catch(() => undefined).then(action)
+    const tracked = run.catch(() => undefined)
+    createLocks.set(key, tracked)
+    void tracked.then(() => {
+        if (createLocks.get(key) === tracked) createLocks.delete(key)
+    })
+    return run
 }
 
 /** `app` or `app/function`; names cannot contain a slash, so the split is unambiguous. */

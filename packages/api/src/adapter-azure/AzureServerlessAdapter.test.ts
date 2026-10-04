@@ -110,6 +110,61 @@ describe('AzureServerlessAdapter', () => {
         expect(resources.map((r) => r.id)).toEqual(['gone'])
     })
 
+    test('one app failing to list its functions does not hide the rest', async () => {
+        const {client} = testClient(async (path) => {
+            if (path.endsWith('/admin/apps')) return json({value: [appRecord('shop'), appRecord('broken')]})
+            if (path.includes('/broken/')) throw Object.assign(new Error('HTTP 500'), {status: 500})
+            return json({value: [functionRecord('shop', 'checkout')]})
+        })
+        const resources = await new AzureServerlessAdapter(client).list()
+        expect(resources.map((r) => r.id)).toEqual(['shop', 'broken', 'shop/checkout'])
+    })
+
+    test('every app failing to list its functions is surfaced as an error', async () => {
+        const {client} = testClient(async (path) => {
+            if (path.endsWith('/admin/apps')) return json({value: [appRecord('a'), appRecord('b')]})
+            throw Object.assign(new Error('HTTP 500'), {status: 500})
+        })
+        await expect(new AzureServerlessAdapter(client).list()).rejects.toThrow('HTTP 500')
+    })
+
+    test('concurrent creates of the same function: one wins, the other conflicts and nothing is overwritten', async () => {
+        const deployed = new Set<string>()
+        let puts = 0
+        const {client} = testClient(async (path, init, options) => {
+            const method = init.method ?? 'GET'
+            const key = path.split('/functions/')[1]
+            if (method === 'GET') return deployed.has(key) ? json(functionRecord('shop', key)) : options?.emptyOnNotFound ? null : json({}, 404)
+            puts += 1
+            await new Promise((resolve) => setTimeout(resolve, 20))
+            deployed.add(key)
+            return json(functionRecord('shop', key), 201)
+        })
+        const adapter = new AzureServerlessAdapter(client)
+        const values = {appName: 'shop', functionName: 'race', zipBase64: ZIP_BASE64}
+        const settled = await Promise.allSettled([adapter.create({values}), adapter.create({values}), adapter.create({values})])
+
+        expect(settled.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+        expect(settled.filter((r) => r.status === 'rejected' && (r.reason as {status?: number}).status === 409)).toHaveLength(2)
+        expect(puts).toBe(1)
+    })
+
+    test('concurrent creates of the same app: one wins, the other conflicts', async () => {
+        const apps = new Set<string>()
+        const {client} = testClient(async (path, init, options) => {
+            const name = path.split('/admin/apps/')[1]
+            if ((init.method ?? 'GET') === 'GET') return apps.has(name) ? json(appRecord(name)) : options?.emptyOnNotFound ? null : json({}, 404)
+            await new Promise((resolve) => setTimeout(resolve, 20))
+            apps.add(name)
+            return json(appRecord(name), 201)
+        })
+        const adapter = new AzureServerlessAdapter(client)
+        const values = {resourceType: 'app', appName: 'shop', runtime: 'node'}
+        const settled = await Promise.allSettled([adapter.create({values}), adapter.create({values})])
+
+        expect(settled.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected'])
+    })
+
     test('gets an app and a function, null when missing', async () => {
         const {client, calls} = runtime(['shop'], [['shop', 'checkout']])
         const adapter = new AzureServerlessAdapter(client)
