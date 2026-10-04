@@ -5,7 +5,7 @@
 
 <p align="center">
   <strong>Any Cloud. Locally.</strong><br />
-  A local-first, cloud-aware runtime console for Floci and compatible local cloud emulators.
+  The web console for Floci: browse and manage AWS, Azure, GCP and OCI resources on your machine.
 </p>
 
 <p align="center">
@@ -17,634 +17,183 @@
 </p>
 
 <p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#supported-services">Services</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#development">Development</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
+</p>
+
+<p align="center">
   <img src="docs/images/floci-ui-console.png" alt="Floci UI console" width="900" />
 </p>
 
-Floci UI is the web console for the Floci ecosystem. The current app is centered on a unified `Cloud Explorer` and a cloud-aware `Console Home`. It renders only real data returned by local runtimes and explicit placeholders for work that is not wired yet.
+---
 
-No fake resources, no demo rows, and no mock operational data are shown in normal mode.
+## What is Floci UI?
+
+A Web UI for the [Floci](https://github.com/floci-io/floci) local emulators. It emulates nothing itself: the API turns the UI's requests into real cloud-SDK calls against the runtimes you already run, and the UI shows only what they return. No demo rows, no mock metrics, real empty states.
+
+| Emulator | Cloud | Port |
+|---|---|:-:|
+| [floci](https://github.com/floci-io/floci) | AWS | 4566 |
+| [floci-az](https://github.com/floci-io/floci-az) | Azure | 4577 |
+| [floci-gcp](https://github.com/floci-io/floci-gcp) | GCP | 4588 |
+| [floci-oci](https://github.com/floci-io/floci-oci) | OCI | 4599 |
 
 ## Quick Start
 
-AWS-only stack:
-
 ```bash
-docker compose up
+docker compose up                              # AWS only
+docker compose --profile multicloud up         # AWS + Azure + GCP + OCI
 ```
 
-Full multi-cloud stack:
+Open **http://localhost:4500**.
+
+<details>
+<summary>Other ways to run it</summary>
+
+**From Floci itself.** Floci starts the console on demand at `http://localhost:4566/_floci/ui` (needs the Docker socket mounted; see the [Floci docs](https://floci.io/floci/ui/)).
+
+**Single image**, UI and API on one port:
 
 ```bash
-docker compose --profile multicloud up
+docker run -p 4500:4500 -e FLOCI_ENDPOINT=http://host.docker.internal:4566 floci/floci-ui
 ```
 
-Open [http://localhost:4500](http://localhost:4500).
+</details>
 
-## What The UI Actually Exposes Today
+## Features
 
-The sidebar and Console Home are rendered from `GET /api/clouds/:cloud/services`,
-so this table is derived from the service catalog and the adapter registry rather
-than maintained by hand. Regenerate it after any change to either:
+- **One console, four clouds.** Pick the cloud in Settings; the nav is built from what each runtime supports.
+- **Generic Cloud Explorer.** List, search, create, inspect (Plain Text, JSON and Table views) and delete, with multi-select and bulk delete. Every service renders from a schema.
+- **Honest availability.** A service without an adapter, or one the runtime cannot serve yet, is a disabled row with the reason in its tooltip.
+- **Rich workspaces where a flat form is not enough:**
 
-```bash
-cd packages/api && bun run scripts/service-matrix.ts
-```
+| Area | What you get |
+|---|---|
+| Storage | Object browser with prefixes, upload, download, copy, delete |
+| Databases | DynamoDB, Cosmos DB and Azure SQL / PostgreSQL data explorers with a query editor; RDS update and snapshots |
+| Compute | EC2 launch, power actions, AMIs, tags, console output; EKS nodegroups and Fargate profiles; Lambda invoke with tailed logs |
+| Networking | VPC wizard, subnets, security groups, gateways, route tables, Elastic IPs |
+| Messaging | SQS send, receive and purge |
+| Workflows and logs | Step Functions execution history; CloudWatch Logs streams, events and Logs Insights |
+| Security | Secrets (reveal on demand), KMS encrypt and decrypt, IAM users, roles and policies |
+| Email | SES mailbox with HTML, text and raw MIME preview |
+| Settings | Light, dark or system theme; account switcher |
+
+## Supported Services
+
+Generated from the service catalog and adapter registry, so it never drifts. After changing either, run `cd packages/api && bun run scripts/service-matrix.ts`.
 
 | Group | Service | AWS | Azure | GCP | OCI |
-|---|---|---|---|---|---|
-| Compute | Compute | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | No | No |
-| Compute | EKS / AKS / GKE / OKE | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, update, inspect, delete) |
-| Compute | Serverless / Functions | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
-| Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) | No |
-| Compute | SageMaker AI | Yes (list, create, delete, inspect) | No | No | No |
-| Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
-| Storage | Table Storage | No | Yes (list, create, delete, inspect) | No | No |
-| Databases | Database | Yes (list, create, update, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | No |
-| Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No | No |
-| Networking | Networking | Yes (list) | Yes (list, inspect, create, delete) | No | No |
-| Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No | No |
-| Integration | SQS / Messaging / Pub/Sub / Queue | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
-| Integration | API Gateway | Yes (list, create, delete, inspect) | No | No | No |
-| Integration | SNS | Yes (list, create, inspect, delete) | No | No | No |
-| Integration | Kinesis / Streams / Streaming | Yes (list, create, inspect, delete) | No | No | Yes (list, create, inspect, delete) |
-| Integration | EventBridge / Events | Yes (list, create, delete, inspect) | No | No | No |
-| Integration | SES Mailbox / Email | Yes (list, inspect) | No | No | No |
-| Integration | Cloud Scheduler | No | No | Yes (list, create, delete, inspect) | No |
-| Integration | Step Functions / Workflows | Yes (list, create, delete, inspect) | No | No | No |
-| Provisioning | CloudFormation / Infrastructure as Code | Yes (list, create, delete, inspect) | No | No | No |
-| Provisioning | AppConfig / Configuration | Yes (list, create, delete, inspect) | No | No | No |
-| Security | Identity | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
-| Security | Cognito | Yes (list, create, delete, inspect) | No | No | No |
-| Security | Secrets Manager / Key Vault / Secret Manager / Vault Secrets | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
-| Security | KMS / Key Management / Vault | Yes (list, create, delete, inspect) | No | No | Yes (list, create, delete, inspect) |
-| Security | Parameter Store | Yes (list, create, delete, inspect) | No | No | No |
-| Observability | CloudWatch Logs / Logs | Yes (list, create, delete, inspect) | No | No | No |
-| Observability | CloudWatch | Yes (list, create, inspect, delete) | No | No | No |
+|---|---|:-:|:-:|:-:|:-:|
+| Compute | Compute | ✅ | ✅ | – | – |
+| Compute | k8s Engine | 👁 | 👁 | ✅ | ✅ |
+| Compute | Serverless | ✅ | ⏳ | ✅ | ✅ |
+| Compute | Containers | – | – | ✅ | – |
+| Compute | SageMaker AI | ✅ | – | – | – |
+| Storage | Storage | ✅ | ✅ | ✅ | ✅ |
+| Storage | Table Storage | – | ✅ | – | – |
+| Databases | Database | ✅ | ✅ | ✅ | – |
+| Databases | NoSQL | ✅ | ✅ | – | – |
+| Networking | Networking | 👁 | ✅ | – | – |
+| Networking | Load Balancing | ✅ | – | – | – |
+| Integration | Messaging | ✅ | ✅ | ✅ | ✅ |
+| Integration | API Gateway | ✅ | – | – | – |
+| Integration | SNS | ✅ | – | – | – |
+| Integration | Streams | ✅ | – | – | ✅ |
+| Integration | Events | ✅ | – | – | – |
+| Integration | Email | 👁 | – | – | – |
+| Integration | Cloud Scheduler | – | – | ✅ | – |
+| Integration | Workflows | ✅ | – | – | – |
+| Provisioning | Infrastructure as Code | ✅ | – | – | – |
+| Provisioning | Configuration | ✅ | – | – | – |
+| Security | Identity | ✅ | – | – | ✅ |
+| Security | Cognito | ✅ | – | – | – |
+| Security | Secrets Manager | ✅ | ✅ | ✅ | ✅ |
+| Security | Key Management | ✅ | – | – | ✅ |
+| Security | Parameter Store | ✅ | – | – | – |
+| Observability | Logs | ✅ | – | – | – |
+| Observability | CloudWatch | ✅ | – | – | – |
 
-Console Home is available for all four clouds.
+✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available
 
-Runtime gaps — an adapter exists but the local runtime does not implement it:
+Known runtime gaps (the adapter is ready, the emulator is not):
 
-- Azure Serverless: the Floci-AZ runtime returns 501 NotImplemented for the Azure Functions endpoint.
+- Azure Functions: Floci-AZ answers 501.
+- RDS `CreateDBSnapshot`: Floci answers 501; listing works.
+- AKS clusters never leave `Failed` locally, so AKS stays read-only.
 
-Services marked `No` render as a disabled sidebar row whose tooltip carries the
-server-supplied reason. Adding one is a catalog row in
-`packages/api/src/cloud-spi/serviceCatalog.ts` plus an adapter — no frontend change.
+Adding a service is a catalog row, a schema and an adapter, with no frontend change. See [AGENTS.md](AGENTS.md).
 
 <p align="center">
-  <img src="docs/images/floci-ui-console-azure.png" alt="Azure console home, showing services grouped by category with per-cloud naming and coming-soon reasons" width="900" />
+  <img src="docs/images/floci-ui-console-azure.png" alt="Azure console home with services grouped by category" width="900" />
 </p>
-
-Azure on the same build: the nav is grouped by category, `k8s Engine` is labelled
-`AKS` for this provider, and every unavailable service carries a reason — Serverless
-reads `coming soon` because the Floci-AZ runtime answers 501 for Azure Functions,
-even though an adapter is registered.
-
-## Current Capability Snapshot
-
-<details>
-<summary><strong>Storage</strong></summary>
-
-Cloud Explorer storage is the most complete unified category today.
-
-- AWS S3 buckets are normalized as `storage` resources with type `bucket`.
-- Azure Blob containers are normalized as `storage` resources with type `container`.
-- GCP Cloud Storage buckets are normalized as `storage` resources with type `bucket`.
-- Azure Table Storage tables are listed, created, inspected, and deleted through the
-  Azure Table REST API at `/{account}-table/Tables`.
-- OCI Object Storage buckets in the tenancy root compartment are normalized as `storage` resources with type `bucket`.
-- Shared resource table, shared inspector, runtime status strip, and schema-driven create/delete flows.
-- Object/blob browser with prefix navigation.
-- Upload, download, delete, copy, and create-folder-prefix actions.
-- Azure folder markers are hidden and rendered as folders in the browser.
-- Size and last-modified metadata are shown when returned by the runtime.
-
-Current gaps:
-
-- No bulk multi-select actions yet.
-- No tag/policy/version management in the unified view.
-- Folder creation is prefix-based, not a real filesystem directory.
-- Table Storage entity browsing and editing are not yet wired into Cloud Explorer.
-
-</details>
-
-<details>
-<summary><strong>k8s Engine</strong></summary>
-
-All three clouds, through the unified shell.
-
-- AWS EKS and Azure AKS clusters can be listed and inspected.
-- A selected EKS cluster lists its managed nodegroups and Fargate profiles.
-- Create and delete managed nodegroups, including role, subnets, instance types, and scaling configuration.
-- Create and delete Fargate profiles, including pod execution role, selectors, labels, and optional subnets.
-- These nested EKS operations use the unified Cloud Proxy, not the legacy `/api/eks/*` routes.
-- GCP GKE clusters can additionally be created and deleted.
-- Cluster metadata, node groups, and related details are surfaced when returned by the runtime.
-
-Current gaps:
-
-- EKS and AKS are read-only. On AKS this is a runtime limit rather than a choice:
-  the shipped floci-az config runs AKS unmocked with no Docker socket to start k3s
-  with, so a created cluster never leaves `provisioningState: Failed`.
-
-</details>
-
-<details>
-<summary><strong>Database</strong></summary>
-
-Relational and document database workflows across providers:
-
-- AWS RDS: list, inspect, create, update, and delete DB instances (PostgreSQL, MySQL, MariaDB) with provider defaults (class `db.t3.micro`, storage 20 GB, username `root`). Updates use generic `PATCH /api/clouds/:cloud/services/:service/resources/:id` mapping to `ModifyDBInstance` for password rotation, IAM authentication, DB subnet group, VPC security groups, option group, and auto minor version upgrade. Instance class, storage, engine, and version are omitted from edit operations because the current local Floci RDS emulator does not support modifying them.
-- AWS RDS Snapshots: account-scoped Snapshots tab listing DB snapshots and supporting snapshot creation.
-- Azure Cosmos DB NoSQL: database, container, and document workflows.
-- AWS DynamoDB: table management, item browsing, and Add record.
-- Azure SQL and PostgreSQL Flexible Server: instance management and SQL query editor.
-- GCP Cloud SQL: list, inspect, create, and delete database instances.
-
-Cosmos DB includes:
-
-- List, create, and delete databases.
-- List, create, and delete containers.
-- Create, edit, and delete documents/items.
-- SQL query editor for documents.
-
-Choose **Explore data** beside a supported resource to open its dedicated workspace at
-`/cloud-explorer/:cloud/:service/:resourceId/data`. DynamoDB records, Cosmos containers
-and documents, and Azure SQL/PostgreSQL tables and query results use this workspace.
-Cosmos container and SQL database/schema/table selections remain in the URL for bookmarks
-and browser history. SQL credentials remain in memory and must be entered again after a reload.
-**Back to** returns to the service's resource-management list.
-
-Frontend regression tests use mocked `/api/*` responses and need no running emulator:
-`pnpm --filter @floci/frontend exec playwright install chromium`, then
-`pnpm --filter @floci/frontend test:e2e`.
-
-Current gaps:
-
-- AWS RDS snapshot creation: the Cloud Proxy operation is available, but the current Floci runtime does not implement `CreateDBSnapshot` (returns a typed 501 `operation_not_implemented`). Snapshot listing returns a valid empty list.
-- AWS RDS instance stop/start operations are not implemented in the current local Floci runtime.
-
-</details>
-
-<details>
-<summary><strong>Compute</strong></summary>
-
-AWS only, through the unified shell plus AWS-specific panels where the workflow is too rich for a flat generic form.
-
-- List EC2 instances and AMIs as normalized resources.
-- Launch instances.
-- Start, stop, reboot, and terminate instances.
-- Create AMIs.
-- Edit tags.
-- View console output.
-
-Current gaps:
-
-- No Azure VM or GCP compute adapter yet.
-- Compute creation still uses an AWS-specific panel because it needs dependent selectors.
-
-</details>
-
-<details>
-<summary><strong>Networking</strong></summary>
-
-AWS through the unified shell plus an AWS-specific networking panel; Azure
-Virtual Networks through the unified resource table alone.
-
-- AWS: VPC list and inspect through the unified resource table. VPC creation
-  and delete, the VPC wizard, subnets, security groups, internet gateways, NAT
-  gateways, route tables, and Elastic IP workflows — all in the Networking
-  panel.
-- Azure: VNet list, inspect, create and delete through the unified resource
-  table, listed per resource group and normalized as `vpc` alongside AWS VPCs.
-  A duplicate create is rejected rather than silently upserting the existing
-  VNet, and the first subnet's CIDR is validated as contained within the
-  VNet's address space.
-
-Current gaps:
-
-- No GCP VPC adapter yet.
-- AWS create and delete are advertised as `partial` in the unified schema and
-  are handled by the Networking panel, because they need dependent selectors
-  that a flat generic form cannot express. Azure VNets need only a name, a
-  location and an address prefix, so create and delete are `available` there.
-- Advanced multi-cloud networking normalization is still pending.
-
-</details>
-
-<details>
-<summary><strong>Identity</strong></summary>
-
-AWS only, through the generic identity service category.
-
-- List, inspect, create, and delete IAM users, roles, and customer-managed policies.
-- A `kind` facet (`users` | `roles` | `policies`) narrows the list to one kind at a time; the API accepts it today, and rendering it as a console control is tracked as follow-up frontend work.
-- Roles surface their decoded trust policy; policies surface their default version's decoded document on inspect.
-- IAM paths are supported during creation for all three kinds.
-
-Current gaps:
-
-- Groups, access keys, and other advanced IAM workflows are not exposed yet.
-- No Azure or GCP identity adapter yet.
-
-</details>
-
-<details>
-<summary><strong>API Gateway</strong></summary>
-
-AWS only, through the generic apigateway service category.
-
-- List and inspect REST APIs.
-- Create and delete REST APIs.
-
-Current gaps:
-
-- Resources, methods, deployments, and stages are not yet exposed.
-- No Azure or GCP API Gateway adapter yet.
-
-</details>
-
-<details>
-<summary><strong>SNS</strong></summary>
-
-AWS SNS topics are available through the generic Cloud Explorer at
-`/cloud-explorer/aws/sns`.
-
-- List, create, inspect, and delete standard and FIFO topics using the AWS SNS API.
-- Topic ARNs are the resource IDs, so inspection and deletion target the exact topic.
-- Subscription management and publishing are not yet exposed in this view.
-
-</details>
-
-<details>
-<summary><strong>CloudWatch Alarms</strong></summary>
-
-AWS CloudWatch metric alarms are available through the generic Cloud Explorer at
-`/cloud-explorer/aws/cloudwatch`.
-
-- List, create, inspect, and delete metric alarms using the AWS CloudWatch API.
-- Alarm names are the resource IDs; the search box filters by name prefix, as CloudWatch does.
-- Creating an alarm requires a namespace, metric name, statistic, comparison, threshold, period, and evaluation periods.
-- Metrics, metric data, composite alarms, and alarm actions are not yet exposed in this view.
-
-</details>
-
-<details>
-<summary><strong>Email / SES Mailbox</strong></summary>
-
-AWS SES email capture through the unified Cloud Explorer.
-
-- Lists emails actually captured by Floci SES.
-- Filters by subject, sender, and recipient.
-- Inspects sender, recipients, timestamp, and message type.
-- Displays HTML in a sandboxed preview, text bodies, and captured raw MIME data.
-- Clears the captured inbox after an explicit confirmation.
-
-Manual verification with the AWS CLI:
-
-```bash
-export AWS_ACCESS_KEY_ID=test
-export AWS_SECRET_ACCESS_KEY=test
-export AWS_DEFAULT_REGION=us-east-1
-
-aws ses send-email \
-  --endpoint-url http://localhost:4566 \
-  --from sender@example.test \
-  --destination 'ToAddresses=recipient@example.test' \
-  --message 'Subject={Data="Floci SES test",Charset=utf-8},Body={Text={Data="Plain-text test email.",Charset=utf-8},Html={Data="<h1>Hello from Floci</h1><p>This should render in the SES preview.</p>",Charset=utf-8}}'
-```
-
-The email is captured by the local Floci runtime; it is not delivered externally. Open
-`/cloud-explorer/aws/email` and refresh the mailbox to inspect its Preview, Text, and
-Raw views. You can also inspect the captured messages directly with:
-
-```bash
-curl http://localhost:4566/_aws/ses
-```
-
-Current gaps:
-
-- Sending a test email from the UI is not wired yet; applications continue to send through their AWS SES SDK.
-- SES identities, templates, bulk email, configuration sets, and suppression lists are not exposed yet.
-- No Azure or GCP email adapter yet.
-
-</details>
-
-<details>
-<summary><strong>Serverless</strong></summary>
-
-AWS and GCP, both through the unified shell.
-
-- AWS Lambda and GCP Cloud Functions list, create, inspect, and delete.
-- AWS Lambda invoke is wired, including the tailed execution log and handler errors.
-- Lambda creation packages inline code into a real deployment archive.
-- The navigation entry appears for any cloud with a registered adapter.
-
-Current gaps:
-
-- Azure Functions is registered but the Floci-AZ runtime answers 501 NotImplemented,
-  so it reports `coming_soon` with that reason rather than appearing available.
-- GCP Cloud Functions invoke is not wired yet; the capability is advertised as
-  `coming_soon` instead of being silently missing.
-- Old AWS Lambda page is gone; all future work should stay in the unified model.
-
-</details>
-
-<details>
-<summary><strong>Containers</strong></summary>
-
-GCP Cloud Run, through the unified shell.
-
-- List, inspect, deploy, and delete Cloud Run services.
-- Image, container port, URL, traffic split, and generation are surfaced.
-- Deploying really starts a container: the runtime launches the requested image.
-
-Readiness is reported honestly. A deploy settles at `PENDING` and then becomes
-`SUCCEEDED` or `FAILED`; the runtime's own explanation is kept in
-`metadata.terminalMessage`. The usual cause of `FAILED` is a container that does
-not listen on the port given by `$PORT` (8080 by default) — `nginx:alpine`
-listens on 80 and fails for exactly that reason, so the create form says so.
-
-Current gaps:
-
-- No AWS ECS or Azure Container Apps adapter yet.
-- No revision history, traffic splitting, or scaling controls.
-- Deleting a service while it is still `PENDING` can race the create; deleting a
-  settled service is durable.
-
-</details>
-
-<details>
-<summary><strong>Secrets Manager</strong></summary>
-
-This is the only dedicated AWS page still outside Cloud Explorer.
-
-- List secrets.
-- Inspect metadata.
-- Reveal current value on demand.
-- Create secrets.
-- Update values.
-- Delete secrets, including force delete.
-
-Current gaps:
-
-- Not migrated into the Cloud Explorer contract yet.
-- No Azure or GCP secret adapter yet.
-
-</details>
-
-## Product Direction
-
-Floci UI is evolving toward a metadata-driven, cloud-aware console where one web app can render multiple local runtimes through the same shell.
-
-The guiding rules are:
-
-- The UI does not know clouds.
-- The proxy does not know internal implementations.
-- The SPI defines the contracts.
-- The adapters perform the translation.
-- The runtimes execute the real behavior.
 
 ## Architecture
 
-![Floci Unified UI Multi-Cloud Architecture](docs/images/floci-unified-ui-architecture.png)
+![floci-unified-ui-architecture.png](docs/images/floci-unified-ui-architecture.png)
 
-Short implementation notes live in [docs/implementation-notes.md](docs/implementation-notes.md).
-
-## Project Structure
 
 ```text
-packages/
-  api/
-    src/
-      cloud-spi/
-      registry/
-      adapter-aws/
-      adapter-azure/
-      adapter-gcp/
-      adapter-oci/
-      routes/
-      service/
-  frontend/
-    src/
-      api/
-      components/
-      features/
-      pages/
+Browser → /api/clouds/* → Cloud Adapter Registry → provider adapter → local runtime
 ```
 
-High-level runtime flow:
+The UI knows no cloud, the proxy knows no implementation, adapters translate, runtimes execute. Code lives in `packages/api` (Bun, Hono, AWS SDK v3) and `packages/frontend` (React, Vite).
 
-```text
-Browser
-  -> frontend (React/Vite)
-  -> /api/clouds/*
-  -> Cloud Adapter Registry
-  -> provider adapter
-  -> local runtime
-```
+## Development
 
-## Setup
-
-### Docker Compose
-
-Default compose stack:
-
-- `floci-ui` on `http://localhost:4500`
-- `floci-api` on `http://localhost:4501`
-- `floci` on `http://localhost:4566`
-
-Start AWS-only:
-
-```bash
-docker compose up
-```
-
-Start AWS + Azure + GCP + OCI:
-
-```bash
-docker compose --profile multicloud up
-```
-
-Convenience targets:
-
-```bash
-make up
-make up-multicloud
-make down
-make logs
-```
-
-### Manual Local Development
-
-Prerequisites:
-
-- Node.js 22.22.2+ or 24.15+ (CI uses 24)
-- pnpm 9+
-- Bun
-- A running local runtime: Floci core, and optionally Floci-AZ / Floci-GCP / Floci-OCI
-
-Install dependencies:
+Requires Node 22.22+ or 24.15+, pnpm 9+, Bun, and a running Floci (`docker compose up floci` is enough).
 
 ```bash
 pnpm install
-```
-
-Configure the API environment:
-
-```bash
 cp .env.example packages/api/.env
+pnpm dev                 # UI :4500 + API :4501
 ```
 
-Important: the API runs from `packages/api` and loads environment variables from `packages/api/.env`.
-
-Start Floci AWS Core with Docker:
+Before opening a PR:
 
 ```bash
-docker run -d --name floci \
-  -p 4566:4566 \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -e FLOCI_DEFAULT_REGION=us-east-1 \
-  -u root \
-  floci/floci:latest
+pnpm lint && pnpm type-check && pnpm test && pnpm build
 ```
 
-Or from a local clone:
+Frontend e2e tests use mocked `/api/*` and need no emulator: `pnpm --filter @floci/frontend test:e2e`.
 
-```bash
-git clone https://github.com/floci-io/floci.git ../floci
-cd ../floci
-./mvnw clean quarkus:dev
-```
+### Configuration
 
-Optional local runtimes:
+Set in `packages/api/.env` (defaults shown).
 
-- Floci-AZ on `http://localhost:4577`
-- Floci-GCP on `http://localhost:4588`
-- Floci-OCI on `http://localhost:4599`
-
-Start the UI stack:
-
-```bash
-pnpm dev
-```
-
-That starts:
-
-- frontend on `http://localhost:4500`
-- API on `http://localhost:4501`
-
-Split commands:
-
-```bash
-pnpm dev:api
-pnpm dev:web
-```
-
-## Environment
-
-Default API environment values:
-
-```bash
-FLOCI_ENDPOINT=http://localhost:4566
-FLOCI_AZURE_ENDPOINT=http://localhost:4577
-FLOCI_AZURE_ACCOUNT_NAME=devstoreaccount1
-FLOCI_GCP_ENDPOINT=http://localhost:4588
-FLOCI_GCP_PROJECT=floci-local
-FLOCI_OCI_ENDPOINT=http://localhost:4599
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=test
-AWS_SECRET_ACCESS_KEY=test
-PORT=4501
-```
-
-`VITE_MOCK_MODE=false` is kept in `.env.example`, but the current app is intended to run against real local runtimes.
-
-## Verification
-
-```bash
-pnpm lint
-pnpm type-check
-pnpm test
-pnpm build
-```
+| Variable | Default |
+|---|---|
+| `FLOCI_ENDPOINT` | `http://localhost:4566` |
+| `FLOCI_AZURE_ENDPOINT` | `http://localhost:4577` |
+| `FLOCI_GCP_ENDPOINT` | `http://localhost:4588` |
+| `FLOCI_OCI_ENDPOINT` | `http://localhost:4599` |
+| `FLOCI_AZURE_ACCOUNT_NAME` / `_SUBSCRIPTION_ID` / `_RESOURCE_GROUP` | `devstoreaccount1` / `00000000-0000-0000-0000-000000000000` / `floci-local` |
+| `FLOCI_GCP_PROJECT` | `floci-local` |
+| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `us-east-1`, `test`, `test` |
+| `PORT` | `4501` |
 
 ## Troubleshooting
 
-### `http proxy error` or `ECONNREFUSED` on `/api/*`
-
-The frontend is up, but the API is not reachable on `http://localhost:4501`.
-
-Check:
-
-```bash
-pnpm dev:api
-curl http://localhost:4501/api/clouds
-```
-
-### `EADDRINUSE` on port `4501`
-
-Another API process is already running. Stop it first or kill the process holding port `4501`.
-
-### Runtime shows `Not connected` or `Runtime unavailable`
-
-Check the runtime directly:
-
-```bash
-curl http://localhost:4566/_floci/health
-curl http://localhost:4577/_floci/health
-curl http://localhost:4588/_floci-gcp/health
-curl http://localhost:4599/_floci-oci/health
-curl http://localhost:4501/api/clouds/aws/status
-curl http://localhost:4501/api/clouds/azure/status
-curl http://localhost:4501/api/clouds/gcp/status
-curl http://localhost:4501/api/clouds/oci/status
-```
-
-### A single service shows as unavailable while the cloud is connected
-
-Cloud status reflects the runtime; each service is probed separately. Ask which
-service is failing and why:
-
-```bash
-curl http://localhost:4501/api/clouds/azure/status?services=all
-curl http://localhost:4501/api/clouds/azure/services/serverless/status
-```
-
-`errorCode` distinguishes the cases: `operation_not_implemented` means the local
-runtime does not implement that service, `runtime_unavailable` means it cannot be
-reached, and `operation_not_supported` means no adapter is registered.
-
-### Credentials or endpoint mismatch
-
-For AWS local development, keep API credentials aligned with the runtime:
-
-```bash
-AWS_ACCESS_KEY_ID=test
-AWS_SECRET_ACCESS_KEY=test
-```
+| Symptom | Fix |
+|---|---|
+| `ECONNREFUSED` on `/api/*` | The API is down. Run `pnpm dev:api`, then `curl localhost:4501/api/clouds`. |
+| `EADDRINUSE` on 4501 | Another API is running. Stop it first. |
+| Cloud shows `Not connected` | Check the runtime: `curl localhost:4566/_floci/health` (Azure `:4577/_floci/health`, GCP `:4588/_floci-gcp/health`, OCI `:4599/_floci-oci/health`), then `curl localhost:4501/api/clouds/<cloud>/status`. |
+| One service is unavailable | `curl "localhost:4501/api/clouds/<cloud>/status?services=all"`. `errorCode` tells you why: `operation_not_implemented` (the runtime lacks it), `runtime_unavailable` (unreachable), `operation_not_supported` (no adapter). |
+| AWS auth errors | Keep `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as `test`, matching the runtime. |
 
 ## Contributing
 
-When adding new UI surface:
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Prefer the Cloud Explorer and generic SPI over new pages, keep placeholders explicit, and update this README when the visible surface changes.
 
-- Prefer the Cloud Explorer and Cloud Proxy model over new legacy pages.
-- Reuse the SPI contracts before creating provider-specific response shapes.
-- Keep placeholders explicit instead of inventing fake data.
-- Update this README when the visible UI surface changes.
+## Community
 
-## Community Projects
-
-Floci UI is the first-party console, but it is not the only one. The community builds
-consoles for Floci too:
-
-- [floci-dash](https://github.com/ofsazib/floci-dash) — an AWS-Console-style dashboard
-  for the Floci AWS runtime built on Cloudscape Design. It ships as a single Docker image
-  and includes an EC2 web terminal. It targets the AWS runtime only, while Floci UI also
-  covers Azure, GCP and OCI, so pick whichever fits your stack.
-
-Building something for Floci? Open a PR to add it here.
+[floci-dash](https://github.com/ofsazib/floci-dash) is a community AWS dashboard on Cloudscape with an EC2 web terminal (AWS only). Built something for Floci? Open a PR to list it.
 
 ## License
 
-[MIT](LICENSE) — part of the [Floci](https://floci.io) ecosystem.
+[MIT](LICENSE), part of the [Floci](https://floci.io) ecosystem.

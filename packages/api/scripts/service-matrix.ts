@@ -21,29 +21,25 @@ const registry = createCloudAdapterRegistry()
 
 function cell(cloud: CloudProvider, service: string): string {
     const entry = SERVICE_CATALOG_ENTRIES.find((candidate) => candidate.service === service)
-    const legacy = entry?.legacyAvailability?.[cloud]
-    if (legacy === 'available') return 'Yes (legacy page)'
+    if (entry?.legacyAvailability?.[cloud] === 'available') return '✅'
 
     const adapter = registry.get(cloud, service as never)
-    if (!adapter) return 'No'
+    if (!adapter) return '–'
 
-    const override = adapter.descriptorOverride?.()
-    if (override?.availability === 'coming_soon') return 'Runtime gap'
+    if (adapter.descriptorOverride?.()?.availability === 'coming_soon') return '⏳'
 
     const actions = adapter.schema().actions
-    return `Yes (${actions.join(', ')})`
+    return actions.includes('create') && actions.includes('delete') ? '✅' : '👁'
 }
 
-const rows = SERVICE_CATALOG_ENTRIES.map((entry) => {
-    const names = new Set(CLOUDS.map((cloud) => displayNameFor(entry, cloud)))
-    // Show per-cloud names inline when they differ, e.g. EKS / AKS / GKE.
-    const label = names.size === 1 ? entry.displayName : [...names].join(' / ')
-    return `| ${entry.group} | ${label} | ${CLOUDS.map((cloud) => cell(cloud, entry.service)).join(' | ')} |`
-})
+const rows = SERVICE_CATALOG_ENTRIES.map(
+    (entry) => `| ${entry.group} | ${entry.displayName} | ${CLOUDS.map((cloud) => cell(cloud, entry.service)).join(' | ')} |`,
+)
 
 console.log(`| Group | Service | ${CLOUDS.map((cloud) => CLOUD_LABELS[cloud]).join(' | ')} |`)
-console.log(`|---|---|${CLOUDS.map(() => '---').join('|')}|`)
+console.log(`|---|---|${CLOUDS.map(() => ':-:').join('|')}|`)
 console.log(rows.join('\n'))
+console.log('\n✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available')
 
 const runtimeGaps = CLOUDS.flatMap((cloud) =>
     SERVICE_CATALOG_ENTRIES.flatMap((entry) => {
