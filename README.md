@@ -60,7 +60,7 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
 | Storage | Table Storage | No | Yes (list, create, delete, inspect) | No | No |
 | Databases | Database | Yes (list, create, update, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | No |
-| Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No | No |
+| Databases | DynamoDB / Cosmos DB NoSQL / Firestore / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No |
 | Networking | Networking | Yes (list) | Yes (list, inspect, create, delete) | No | No |
 | Networking | ELB / Load Balancing | Yes (list, create, delete, inspect) | No | No | No |
 | Integration | SQS / Messaging / Pub/Sub / Queue | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
@@ -159,6 +159,7 @@ Relational and document database workflows across providers:
 - AWS DynamoDB: table management, item browsing, and Add record.
 - Azure SQL and PostgreSQL Flexible Server: instance management and SQL query editor.
 - GCP Cloud SQL: list, inspect, create, and delete database instances.
+- GCP Firestore: list, inspect, create, and delete collections of the `(default)` database. Floci-GCP serves Firestore over gRPC only, so the API reaches it through the official Firestore SDK. A collection exists while it holds a document, so creating one also writes its first document.
 
 Cosmos DB includes:
 

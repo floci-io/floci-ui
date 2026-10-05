@@ -34,6 +34,7 @@
     "@aws-sdk/client-sqs": "^3.1140.0",
     "@aws-sdk/client-ssm": "^3.1140.0",
     "@aws-sdk/util-dynamodb": "^3.996.7",
+    "@google-cloud/firestore": "^9.3.1",
     "dotenv": "^17.4.2",
     "hono": "^4.13.9",
     "mssql": "^12.7.2",

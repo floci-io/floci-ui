@@ -117,7 +117,7 @@ export const SERVICE_CATALOG = {
         // Both labels are declared even though each arrives with its own adapter,
         // so this row reads the same whichever of the two lands first. A label for
         // a cloud with no adapter is inert: availability comes from the registry.
-        displayNameByCloud: {aws: 'DynamoDB', azure: 'Cosmos DB NoSQL'},
+        displayNameByCloud: {aws: 'DynamoDB', azure: 'Cosmos DB NoSQL', gcp: 'Firestore'},
         description: 'Store and query non-relational data.',
         iconKey: 'nosql',
         group: 'Databases',
