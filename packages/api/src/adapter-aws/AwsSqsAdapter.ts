@@ -133,53 +133,27 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
 
     async receiveMessages(id: string, maxMessages = 10): Promise<QueueMessage[]> {
         const url = await this.requireQueueUrl(id)
-        const totalToFetch = Math.max(maxMessages, 1)
-        const allMessages: QueueMessage[] = []
-        const seenIds = new Set<string>()
+        
+        const res = await this.sqs.send(
+            new ReceiveMessageCommand({
+                QueueUrl: url,
+                MaxNumberOfMessages: Math.min(Math.max(maxMessages, 1), 10),
+                // VisibilityTimeout 0 keeps this a non-consuming peek: messages
+                // stay available in the queue instead of being hidden for the
+                // queue's default visibility period.
+                VisibilityTimeout: 0,
+                MessageSystemAttributeNames: ['All'],
+                MessageAttributeNames: ['All'],
+            }),
+        )
 
-        while (allMessages.length < totalToFetch) {
-            // Always request 10 messages to maximize the chance of sampling unseen ones.
-            const res = await this.sqs.send(
-                new ReceiveMessageCommand({
-                    QueueUrl: url,
-                    MaxNumberOfMessages: 10,
-                    // VisibilityTimeout 0 keeps this a non-consuming peek: messages
-                    // stay available in the queue instead of being hidden for the
-                    // queue's default visibility period.
-                    VisibilityTimeout: 0,
-                    MessageSystemAttributeNames: ['All'],
-                    MessageAttributeNames: ['All'],
-                }),
-            )
-
-            const batch = (res.Messages ?? []).map((message) => ({
-                messageId: message.MessageId ?? '',
-                body: message.Body ?? '',
-                receiptHandle: message.ReceiptHandle ?? '',
-                attributes: message.Attributes,
-                md5OfBody: message.MD5OfBody,
-            }))
-
-            let newMessagesCount = 0
-            for (const msg of batch) {
-                if (!seenIds.has(msg.messageId)) {
-                    seenIds.add(msg.messageId)
-                    if (allMessages.length < totalToFetch) {
-                        allMessages.push(msg)
-                    }
-                    newMessagesCount++
-                }
-            }
-
-            // If a batch has less than 10 messages, SQS has exhausted its sampling.
-            // If it returns 10 but all of them are duplicates, no new messages were found.
-            // In either case, we stop polling instead of wasting requests.
-            if (batch.length < 10 || newMessagesCount === 0) {
-                break
-            }
-        }
-
-        return allMessages
+        return (res.Messages ?? []).map((message) => ({
+            messageId: message.MessageId ?? '',
+            body: message.Body ?? '',
+            receiptHandle: message.ReceiptHandle ?? '',
+            attributes: message.Attributes,
+            md5OfBody: message.MD5OfBody,
+        }))
     }
 
     async deleteMessage(id: string, receiptHandle: string): Promise<void> {

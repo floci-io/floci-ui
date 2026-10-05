@@ -209,14 +209,14 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
             <p className="muted compact-text">
               A receive is a non-consuming peek: messages stay in the queue until you delete them here.
             </p>
-            <label className="metric-label" htmlFor="sqs-max-messages">Max messages (up to 100)</label>
+            <label className="metric-label" htmlFor="sqs-max-messages">Max messages (up to 10)</label>
             <input
               id="sqs-max-messages"
               type="number"
               className="button"
               value={maxMessages}
               min={1}
-              max={100}
+              max={10}
               disabled={!canUseQueue || receiving}
               aria-label="Max messages to receive"
               style={{width: 64, padding: "2px 6px", textAlign: "center", marginBottom: 12, display: "block"}}
@@ -230,7 +230,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
               }}
               onBlur={(event) => {
                 const val = parseInt(event.target.value, 10);
-                const clamped = isNaN(val) ? 1 : Math.min(100, Math.max(1, val));
+                const clamped = isNaN(val) ? 1 : Math.min(10, Math.max(1, val));
                 setMaxMessages(clamped);
               }}
             />

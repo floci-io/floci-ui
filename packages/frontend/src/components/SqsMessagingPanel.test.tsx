@@ -82,11 +82,11 @@ describe("SqsMessagingPanel", () => {
     await user.click(screen.getByRole("button", {name: "Receive messages"}));
     expect(receiveQueueMessages).toHaveBeenCalledWith("aws", "messaging", "orders-queue", 10);
 
-    // change to 25 — fireEvent.change is used because jsdom's number input
+    // change to 5 — fireEvent.change is used because jsdom's number input
     // does not support userEvent interactions reliably for value replacement.
-    fireEvent.change(screen.getByLabelText("Max messages to receive"), {target: {value: "25"}});
+    fireEvent.change(screen.getByLabelText("Max messages to receive"), {target: {value: "5"}});
     await user.click(screen.getByRole("button", {name: "Receive messages"}));
-    expect(receiveQueueMessages).toHaveBeenLastCalledWith("aws", "messaging", "orders-queue", 25);
+    expect(receiveQueueMessages).toHaveBeenLastCalledWith("aws", "messaging", "orders-queue", 5);
   });
 
   test("shows message attributes in a collapsible block when present", async () => {
