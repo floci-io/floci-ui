@@ -34,10 +34,14 @@ export function toFirestoreCloudError(error: unknown): unknown {
     const code = (error as {code?: unknown} | null)?.code
     if (typeof code !== 'number' || !(code in GRPC_TO_HTTP)) return error
     const message = error instanceof Error ? error.message : 'Firestore request failed'
-    return httpStatusToCloudError(GRPC_TO_HTTP[code], `Firestore: ${decodeURIComponent(safe(message))}`, {cause: error})
+    return httpStatusToCloudError(GRPC_TO_HTTP[code], `Firestore: ${decodeMessage(message)}`, {cause: error})
 }
 
-// The emulator percent-encodes its messages; a stray '%' must not throw here.
-function safe(message: string): string {
-    return message.replace(/%(?![0-9A-Fa-f]{2})/g, '%25')
+/** The emulator percent-encodes its messages; a malformed escape keeps the raw text. */
+function decodeMessage(message: string): string {
+    try {
+        return decodeURIComponent(message)
+    } catch {
+        return message
+    }
 }

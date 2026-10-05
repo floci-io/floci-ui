@@ -61,12 +61,12 @@ export function gcpNoSqlSchema(): ServiceSchema {
                 label: 'Collection ID',
                 type: 'text',
                 required: true,
-                description: 'A Firestore collection exists once it holds a document, so creating one also creates its first document.',
+                description: 'Up to 1500 bytes. A Firestore collection exists once it holds a document, so creating one also creates its first document.',
                 validation: {
                     minLength: 1,
                     maxLength: 1500,
                     pattern: '^(?!\\.{1,2}$)(?!__.*__$)[^/]+$',
-                    message: 'Use a non-empty ID without "/", not "." or "..", and not of the form __name__.',
+                    message: 'Use 1 to 1500 bytes without "/", not "." or "..", and not of the form __name__.',
                 },
             },
             {
@@ -74,11 +74,11 @@ export function gcpNoSqlSchema(): ServiceSchema {
                 label: 'Document ID',
                 type: 'text',
                 required: false,
-                description: 'Leave empty to let Firestore generate an ID.',
+                description: 'Up to 1500 bytes. Leave empty to let Firestore generate an ID.',
                 validation: {
                     maxLength: 1500,
                     pattern: '^((?!\\.{1,2}$)(?!__.*__$)[^/]+)?$',
-                    message: 'Use an ID without "/", not "." or "..", and not of the form __name__.',
+                    message: 'Use up to 1500 bytes without "/", not "." or "..", and not of the form __name__.',
                 },
             },
             {

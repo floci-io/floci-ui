@@ -15,7 +15,11 @@ import type {GcpRuntimeClient} from '../gcp'
 class FakeFirestore {
     readonly docs = new Map<string, Record<string, unknown>>()
     readonly calls: string[] = []
+    /** Collection paths whose parent documents are gone but still hold subcollections. */
+    readonly missingParents = new Set<string>()
     nextAutoId = 1
+    inFlight = 0
+    maxInFlight = 0
 
     collection(path: string) {
         const store = this
@@ -23,7 +27,13 @@ class FakeFirestore {
             id: path.split('/').pop() as string,
             path,
             count: () => ({
-                get: async () => ({data: () => ({count: store.childDocs(path).length})}),
+                get: async () => {
+                    store.inFlight += 1
+                    store.maxInFlight = Math.max(store.maxInFlight, store.inFlight)
+                    await new Promise((resolve) => setTimeout(resolve, 1))
+                    store.inFlight -= 1
+                    return {data: () => ({count: store.childDocs(path).length})}
+                },
             }),
             add: async (data: Record<string, unknown>) => {
                 const id = `auto${store.nextAutoId++}`
@@ -32,7 +42,11 @@ class FakeFirestore {
                 return {id}
             },
             doc: (id: string) => store.doc(`${path}/${id}`),
-            listDocuments: async () => store.childDocs(path).map((docPath) => store.doc(docPath)),
+            listDocuments: async () => {
+                const present = store.childDocs(path)
+                const missing = store.missingParents.has(path) ? [`${path}/gone`] : []
+                return [...present, ...missing].map((docPath) => store.doc(docPath))
+            },
         }
     }
 
@@ -78,12 +92,12 @@ class FakeFirestore {
     }
 }
 
-const upRuntime = {health: async () => {}} as unknown as GcpRuntimeClient
-
 function setup() {
     const firestore = new FakeFirestore()
-    const adapter = new GcpFirestoreAdapter(firestore as unknown as Firestore, upRuntime)
-    return {firestore, adapter}
+    let healthChecks = 0
+    const runtime = {health: async () => { healthChecks += 1 }} as unknown as GcpRuntimeClient
+    const adapter = new GcpFirestoreAdapter(firestore as unknown as Firestore, runtime)
+    return {firestore, adapter, healthChecks: () => healthChecks}
 }
 
 describe('GcpFirestoreAdapter', () => {
@@ -160,11 +174,34 @@ describe('GcpFirestoreAdapter', () => {
         expect(firestore.calls).toEqual([])
     })
 
-    test('create maps ALREADY_EXISTS to a conflict', async () => {
-        const {adapter} = setup()
+    test('create refuses an existing collection instead of adding to it', async () => {
+        const {adapter, firestore} = setup()
         await adapter.create({values: {collectionId: 'orders', documentId: 'o1'}})
 
         await expect(adapter.create({values: {collectionId: 'orders', documentId: 'o1'}})).rejects.toBeInstanceOf(ConflictError)
+        await expect(adapter.create({values: {collectionId: 'orders', documentId: 'o2'}})).rejects.toBeInstanceOf(ConflictError)
+        await expect(adapter.create({values: {collectionId: 'orders'}})).rejects.toBeInstanceOf(ConflictError)
+        expect(firestore.childDocs('orders')).toEqual(['orders/o1'])
+    })
+
+    test('keeps a collection whose parent documents are gone but whose subcollections remain', async () => {
+        const {adapter, firestore} = setup()
+        firestore.docs.set('tree/gone/lines/l1', {})
+        firestore.missingParents.add('tree')
+
+        expect((await adapter.list()).map((resource) => resource.id)).toEqual(['tree'])
+        expect((await adapter.get('tree'))?.metadata.documentCount).toBe(0)
+    })
+
+    test('probes liveness once per list and bounds the concurrent collection queries', async () => {
+        const {adapter, firestore, healthChecks} = setup()
+        for (let index = 0; index < 30; index += 1) firestore.docs.set(`c${index}/d`, {})
+
+        expect(await adapter.list()).toHaveLength(30)
+
+        expect(healthChecks()).toBe(1)
+        expect(firestore.maxInFlight).toBeGreaterThan(1)
+        expect(firestore.maxInFlight).toBeLessThanOrEqual(8)
     })
 
     test('delete removes the documents and their subcollections', async () => {
@@ -207,6 +244,12 @@ describe('toFirestoreCloudError', () => {
         expect(decoded.message).toContain('Document already exists: a/b')
         const stray = toFirestoreCloudError(Object.assign(new Error('100% bad'), {code: 3})) as Error
         expect(stray.message).toContain('100% bad')
+    })
+
+    test('keeps the mapped status when the message holds a malformed escape', () => {
+        const mapped = toFirestoreCloudError(Object.assign(new Error('bad %FF escape'), {code: 5})) as Error
+        expect(mapped).toBeInstanceOf(NotFoundError)
+        expect(mapped.message).toContain('bad %FF escape')
     })
 
     test('leaves unrelated errors untouched', () => {
