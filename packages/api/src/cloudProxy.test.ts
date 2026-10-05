@@ -233,10 +233,7 @@ describe('adapter capability advertisements match the runtime reality', () => {
         }
     })
 
-    test('Azure serverless reports its runtime gap through descriptorOverride', () => {
-        const override = adapterFor('azure', 'serverless').descriptorOverride?.()
-
-        expect(override?.availability).toBe('coming_soon')
-        expect(override?.reason).toContain('501')
+    test('Azure serverless is available now that Floci-AZ serves Functions', () => {
+        expect(adapterFor('azure', 'serverless').descriptorOverride?.()).toBeUndefined()
     })
 })

@@ -102,6 +102,11 @@ export const SERVICE_CATALOG = {
         description: 'Store and manage files and objects.',
         iconKey: 'storage', group: 'Storage', order: 10,
     },
+    table: {
+        displayName: 'Table Storage',
+        description: 'Manage Azure Storage tables.',
+        iconKey: 'database', group: 'Storage', order: 20,
+    },
     database: {
         displayName: 'Database',
         description: 'Create and manage relational databases.',
@@ -157,9 +162,16 @@ export const SERVICE_CATALOG = {
         description: 'Manage standard and FIFO notification topics.',
         iconKey: 'messaging', group: 'Integration', order: 11,
     },
+    queue: {
+        displayName: 'Queue Storage',
+        description: 'Create and inspect Azure Storage queues.',
+        iconKey: 'queue',
+        group: 'Integration',
+        order: 11,
+    },
     streams: {
         displayName: 'Streams',
-        displayNameByCloud: {aws: 'Kinesis', oci: 'Streaming'},
+        displayNameByCloud: {aws: 'Kinesis', azure: 'Event Hubs', oci: 'Streaming'},
         description: 'Collect and process streaming data in real time.',
         iconKey: 'streams',
         group: 'Integration',

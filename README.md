@@ -54,10 +54,11 @@ cd packages/api && bun run scripts/service-matrix.ts
 |---|---|---|---|---|---|
 | Compute | Compute | Yes (list, inspect, create, delete) | Yes (list, inspect, create, delete) | No | No |
 | Compute | EKS / AKS / GKE / OKE | Yes (list, inspect) | Yes (list, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, update, inspect, delete) |
-| Compute | Serverless / Functions | Yes (list, create, inspect, delete) | Runtime gap | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
+| Compute | Serverless / Functions | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Compute | Containers / Cloud Run | No | No | Yes (list, create, delete, inspect) | No |
 | Compute | SageMaker AI | Yes (list, create, delete, inspect) | No | No | No |
 | Storage | Storage | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) |
+| Storage | Table Storage | No | Yes (list, create, delete, inspect) | No | No |
 | Databases | Database | Yes (list, create, update, delete, inspect) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | No |
 | Databases | DynamoDB / Cosmos DB NoSQL / NoSQL | Yes (list, create, delete, inspect) | Yes (list, create, delete, inspect) | No | No |
 | Networking | Networking | Yes (list) | Yes (list, inspect, create, delete) | No | No |
@@ -65,7 +66,8 @@ cd packages/api && bun run scripts/service-matrix.ts
 | Integration | SQS / Messaging / Pub/Sub / Queue | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | Yes (list, create, inspect, delete) | Yes (list, create, inspect, delete) |
 | Integration | API Gateway | Yes (list, create, delete, inspect) | No | No | No |
 | Integration | SNS | Yes (list, create, inspect, delete) | No | No | No |
-| Integration | Kinesis / Streams / Streaming | Yes (list, create, inspect, delete) | No | No | Yes (list, create, inspect, delete) |
+| Integration | Queue Storage | No | Yes (list, create, inspect, delete) | No | No |
+| Integration | Kinesis / Event Hubs / Streams / Streaming | Yes (list, create, inspect, delete) | Yes (list, create, delete, inspect) | No | Yes (list, create, inspect, delete) |
 | Integration | EventBridge / Events | Yes (list, create, delete, inspect) | No | No | No |
 | Integration | SES Mailbox / Email | Yes (list, inspect) | No | No | No |
 | Integration | Cloud Scheduler | No | No | Yes (list, create, delete, inspect) | No |
@@ -82,9 +84,9 @@ cd packages/api && bun run scripts/service-matrix.ts
 
 Console Home is available for all four clouds.
 
-Runtime gaps — an adapter exists but the local runtime does not implement it:
-
-- Azure Serverless: the Floci-AZ runtime returns 501 NotImplemented for the Azure Functions endpoint.
+Azure Queue Storage uses the emulator's Storage Queue REST API. The explorer lists,
+creates, inspects, and deletes queues; message send, peek, and delete controls are
+not wired yet. It is separate from the Azure Service Bus messaging explorer.
 
 Services marked `No` render as a disabled sidebar row whose tooltip carries the
 server-supplied reason. Adding one is a catalog row in
@@ -95,9 +97,7 @@ server-supplied reason. Adding one is a catalog row in
 </p>
 
 Azure on the same build: the nav is grouped by category, `k8s Engine` is labelled
-`AKS` for this provider, and every unavailable service carries a reason — Serverless
-reads `coming soon` because the Floci-AZ runtime answers 501 for Azure Functions,
-even though an adapter is registered.
+`AKS` for this provider, and every unavailable service carries a reason.
 
 ## Current Capability Snapshot
 
@@ -109,6 +109,8 @@ Cloud Explorer storage is the most complete unified category today.
 - AWS S3 buckets are normalized as `storage` resources with type `bucket`.
 - Azure Blob containers are normalized as `storage` resources with type `container`.
 - GCP Cloud Storage buckets are normalized as `storage` resources with type `bucket`.
+- Azure Table Storage tables are listed, created, inspected, and deleted through the
+  Azure Table REST API at `/{account}-table/Tables`.
 - OCI Object Storage buckets in the tenancy root compartment are normalized as `storage` resources with type `bucket`.
 - Shared resource table, shared inspector, runtime status strip, and schema-driven create/delete flows.
 - Object/blob browser with prefix navigation.
@@ -121,6 +123,7 @@ Current gaps:
 - No bulk multi-select actions yet.
 - No tag/policy/version management in the unified view.
 - Folder creation is prefix-based, not a real filesystem directory.
+- Table Storage entity browsing and editing are not yet wired into Cloud Explorer.
 
 </details>
 
@@ -331,15 +334,14 @@ Current gaps:
 
 AWS and GCP, both through the unified shell.
 
-- AWS Lambda and GCP Cloud Functions list, create, inspect, and delete.
+- AWS Lambda, Azure Functions, and GCP Cloud Functions list, create, inspect, and delete.
+- Azure Functions lists Function Apps and the functions deployed into them; invoke goes through the runtime's `api/{app}/{function}` route, and a function with no code package answers 409.
 - AWS Lambda invoke is wired, including the tailed execution log and handler errors.
 - Lambda creation packages inline code into a real deployment archive.
 - The navigation entry appears for any cloud with a registered adapter.
 
 Current gaps:
 
-- Azure Functions is registered but the Floci-AZ runtime answers 501 NotImplemented,
-  so it reports `coming_soon` with that reason rather than appearing available.
 - GCP Cloud Functions invoke is not wired yet; the capability is advertised as
   `coming_soon` instead of being silently missing.
 - Old AWS Lambda page is gone; all future work should stay in the unified model.

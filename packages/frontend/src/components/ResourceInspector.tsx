@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronDown, ChevronUp, Copy, Zap } from 'lucide-react'
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
@@ -29,6 +29,8 @@ export function ResourceInspector({
 }: ResourceInspectorProps) {
   const [activeTab, setActiveTab] = useState<InspectorTab>('plain');
   const [copiedJson, setCopiedJson] = useState(false);
+  const copyRequestRef = useRef(0);
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTriggers, setShowTriggers] = useState(false);
   const isLambda = Boolean(
     resource && (resource.service === "serverless" || resource.type === "lambda")
@@ -36,18 +38,35 @@ export function ResourceInspector({
   const resourceCloud = cloud ?? resource?.cloud;
   const isAwsLambda = isLambda && resourceCloud === "aws";
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setCopiedJson(false);
-  }, [resource?.id, object?.key]);
+    return () => {
+      copyRequestRef.current += 1;
+      if (copyResetTimerRef.current !== null) {
+        clearTimeout(copyResetTimerRef.current);
+        copyResetTimerRef.current = null;
+      }
+    };
+  }, [cloud, resource?.cloud, resource?.service, resource?.id, object?.key]);
 
   const handleCopyJson = async (metadata: Record<string, unknown>) => {
+    const request = ++copyRequestRef.current;
+    if (copyResetTimerRef.current !== null) {
+      clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = null;
+    }
+    setCopiedJson(false);
     try {
       const text = JSON.stringify(metadata, null, 2);
       await navigator.clipboard.writeText(text);
+      if (request !== copyRequestRef.current) return;
       setCopiedJson(true);
-      setTimeout(() => setCopiedJson(false), 1500);
+      copyResetTimerRef.current = setTimeout(() => {
+        if (request === copyRequestRef.current) setCopiedJson(false);
+        copyResetTimerRef.current = null;
+      }, 1500);
     } catch {
-      setCopiedJson(false);
+      if (request === copyRequestRef.current) setCopiedJson(false);
     }
   };
 

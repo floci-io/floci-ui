@@ -8,8 +8,11 @@ import {AwsLogsAdapter} from './adapter-aws/AwsLogsAdapter'
 import {AzureNoSqlAdapter} from './adapter-azure/AzureNoSqlAdapter'
 import {AwsDynamoDbAdapter} from './adapter-aws/AwsDynamoDbAdapter'
 import {AzureDatabaseAdapter} from './adapter-azure/AzureDatabaseAdapter'
+import {AzureEventHubsAdapter} from './adapter-azure/AzureEventHubsAdapter'
 import {AzureServiceBusAdapter} from './adapter-azure/AzureServiceBusAdapter'
+import {AzureQueueAdapter} from './adapter-azure/AzureQueueAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
+import {AzureTableAdapter} from './adapter-azure/AzureTableAdapter'
 import {AzureAksAdapter} from './adapter-azure/AzureAksAdapter'
 import {AzureComputeAdapter} from './adapter-azure/AzureComputeAdapter'
 import {AzureNetworkingAdapter} from './adapter-azure/AzureNetworkingAdapter'
@@ -92,7 +95,10 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsKinesisAdapter(clients.kinesis),
         new AwsSageMakerAdapter(clients.sagemaker),
         new AzureStorageAdapter(),
+        new AzureTableAdapter(),
         new AzureServiceBusAdapter(),
+        new AzureEventHubsAdapter(),
+        new AzureQueueAdapter(),
         new AzureDatabaseAdapter(),
         new AzureAksAdapter(),
         new AzureNoSqlAdapter(),

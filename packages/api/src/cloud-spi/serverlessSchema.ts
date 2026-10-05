@@ -107,68 +107,144 @@ export function awsServerlessSchema(): ServiceSchema {
     }
 }
 
+/**
+ * Floci-AZ keeps Function Apps and the functions deployed into them as two
+ * levels (`/admin/apps` and `/admin/apps/{app}/functions`). They share one
+ * table, as OCI does, because a function cannot exist without its app.
+ */
+const azureServerlessColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'kind', label: 'Kind', path: 'metadata.kind', format: 'badge'},
+    {name: 'status', label: 'Status', format: 'badge', emptyText: '—'},
+    {name: 'app', label: 'Function App', path: 'metadata.appName', emptyText: '—'},
+    {name: 'runtime', label: 'Runtime', path: 'metadata.runtime', emptyText: '—'},
+    {name: 'handler', label: 'Handler', path: 'metadata.handler', format: 'code', emptyText: '—'},
+    {name: 'createdAt', label: 'Created', format: 'datetime'},
+]
+
+const azureServerlessFields: FieldSchema[] = [
+    {
+        name: 'resourceType',
+        label: 'Resource Type',
+        type: 'select',
+        required: true,
+        defaultValue: 'function',
+        description: 'A function is deployed into a Function App. Create the app first if none exists.',
+        options: [
+            {label: 'Function', value: 'function'},
+            {label: 'Function App', value: 'app'},
+        ],
+    },
+    {
+        name: 'appName',
+        label: 'Function App Name',
+        type: 'text',
+        required: true,
+        description: 'The app to create, or the existing app the function is deployed into.',
+        validation: {
+            pattern: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,58}[A-Za-z0-9])?$',
+            message: 'Use 1-60 letters, numbers, or hyphens; do not start or end with a hyphen.',
+        },
+    },
+    {
+        name: 'runtime',
+        label: 'Runtime',
+        type: 'select',
+        required: false,
+        requiredWhen: {field: 'resourceType', equals: 'app'},
+        visibleWhen: {field: 'resourceType', equals: 'app'},
+        group: 'Function App',
+        defaultValue: 'node',
+        options: [
+            {label: 'Node.js', value: 'node'},
+            {label: 'Python', value: 'python'},
+            {label: '.NET (isolated)', value: 'dotnet'},
+            {label: 'Java', value: 'java'},
+        ],
+    },
+    {
+        name: 'linuxFxVersion',
+        label: 'Linux Stack Version',
+        type: 'text',
+        required: false,
+        visibleWhen: {field: 'resourceType', equals: 'app'},
+        group: 'Function App',
+        description: 'Optional, for example Python|3.12. The stack must match the runtime.',
+    },
+    {
+        name: 'functionName',
+        label: 'Function Name',
+        type: 'text',
+        required: false,
+        requiredWhen: {field: 'resourceType', equals: 'function'},
+        visibleWhen: {field: 'resourceType', equals: 'function'},
+        group: 'Function',
+        description: 'Unique within the Function App.',
+        validation: {
+            pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,126}$',
+            message: 'Use up to 127 letters, numbers, hyphens, or underscores, starting with a letter or number.',
+        },
+    },
+    {
+        name: 'handler',
+        label: 'Handler',
+        type: 'text',
+        required: false,
+        visibleWhen: {field: 'resourceType', equals: 'function'},
+        group: 'Function',
+        description: 'Entry point inside the package. Floci-AZ defaults to index.handler.',
+    },
+    {
+        name: 'timeoutSeconds',
+        label: 'Timeout (seconds)',
+        type: 'text',
+        required: false,
+        visibleWhen: {field: 'resourceType', equals: 'function'},
+        group: 'Function',
+        description: 'Optional. Floci-AZ defaults to 230.',
+    },
+    {
+        name: 'zipBase64',
+        label: 'Code Package (base64 zip)',
+        type: 'textarea',
+        required: false,
+        visibleWhen: {field: 'resourceType', equals: 'function'},
+        group: 'Function',
+        span: true,
+        description: 'Optional. Without code the function stays AwaitingDeploy and cannot be invoked.',
+    },
+]
+
 export function azureServerlessSchema(): ServiceSchema {
     return {
         cloud: 'azure',
         service: 'serverless',
         displayName: 'Azure Functions',
-        fields: [
+        fields: azureServerlessFields,
+        actions: ['list', 'create', 'inspect', 'delete'],
+        filters: [
+            {name: 'search', label: 'Search', type: 'text', required: false},
             {
-                name: 'functionName',
-                label: 'Function Name',
-                type: 'text',
-                required: true,
-                description: 'Unique Azure Function name.',
-            },
-            {
-                name: 'runtime',
-                label: 'Runtime',
+                name: 'kind',
+                label: 'Kind',
                 type: 'select',
                 required: false,
+                description: 'Leave unset to list Function Apps and functions together.',
                 options: [
-                    {label: 'Node.js', value: 'node'},
-                    {label: 'Python', value: 'python'},
-                    {label: '.NET', value: 'dotnet'},
-                    {label: 'Java', value: 'java'},
+                    {label: 'Function App', value: 'app'},
+                    {label: 'Function', value: 'function'},
                 ],
             },
-            {
-                name: 'handler',
-                label: 'Handler',
-                type: 'text',
-                required: false,
-                description: 'Optional function entry point or handler.',
-            },
-            {
-                name: 'functionAppName',
-                label: 'Function App Name',
-                type: 'text',
-                required: false,
-                description: 'Optional parent Function App name.',
-            },
-            {
-                name: 'location',
-                label: 'Location',
-                type: 'text',
-                required: false,
-                description: 'Azure region, for example eastus.',
-            },
-            {
-                name: 'code',
-                label: 'Inline Code',
-                type: 'text',
-                required: false,
-                description: 'Optional starter code. Package deployment can follow in a later PR.',
-                span: true,
-            },
         ],
-        actions: ['list', 'create', 'inspect', 'delete'],
-        filters: serverlessFilters,
-        columns: serverlessColumns,
+        columns: azureServerlessColumns,
         capabilities: {
-            resourceActions: serverlessResourceActions({
-                name: 'invoke', label: 'Invoke function', enabled: true, status: 'available', runtimeRequired: true,
-            }),
+            resourceActions: [
+                {name: 'list', label: 'List Function Apps and functions', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create Function App or function', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete Function App or function', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect Function App or function', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'invoke', label: 'Invoke function', enabled: true, status: 'available', runtimeRequired: true},
+            ],
         },
     }
 }
