@@ -107,7 +107,7 @@ function parseQueuePage(xml: string): {names: string[]; nextMarker: string | nul
     let sawRoot = false
     const parser = new SaxesParser({xmlns: true})
 
-    parser.on('opentag', (tag) => {
+    parser.on('opentag', (tag: any) => {
         if (stack.length === 0) {
             if (tag.local !== 'EnumerationResults') throw new RuntimeError('Invalid Azure queue list response')
             sawRoot = true
@@ -115,7 +115,7 @@ function parseQueuePage(xml: string): {names: string[]; nextMarker: string | nul
         stack.push(tag.local)
         if (stack.join('/') === 'EnumerationResults/Queues/Queue') name = ''
     })
-    parser.on('text', (text) => {
+    parser.on('text', (text: string) => {
         if (stack.join('/') === 'EnumerationResults/Queues/Queue/Name') name += text
         if (stack.join('/') === 'EnumerationResults/NextMarker') nextMarker += text
     })
