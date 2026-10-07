@@ -1,9 +1,10 @@
 # Dependencies
 node_modules/
 
-# npm/yarn lockfiles are local noise for this pnpm workspace
+# npm/yarn/bun lockfiles are local noise for this pnpm workspace
 package-lock.json
 yarn.lock
+bun.lock
 
 # The Release Cut toolchain is pinned; its lockfile must be committed
 # (npm ci fails without it) despite the global package-lock.json ignore.
