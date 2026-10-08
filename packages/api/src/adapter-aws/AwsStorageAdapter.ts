@@ -146,7 +146,7 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
                             provider: 'aws',
                             storageService: 's3',
                             etag: item.ETag?.replace(/"/g, ''),
-                            storageClass: item.StorageClass,
+                            storageClass: item.StorageClass ?? 'STANDARD',
                         },
                     })),
             ],

@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: floci-ui
-        image: k3d-reg:5000/floci-ui:0.5.0
+        image: floci-ecr-registry:5000/floci-ui:0.5.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:

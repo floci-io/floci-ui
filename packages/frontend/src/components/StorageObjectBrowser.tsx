@@ -334,6 +334,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                             <th>Type</th>
                             <th>Size</th>
                             <th>Last Modified</th>
+                            <th>Storage Class</th>
                             <th aria-label="Actions"/>
                         </tr>
                     </thead>
@@ -351,6 +352,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                 <td>{object.type}</td>
                                 <td>—</td>
                                 <td>{object.lastModified ?? '—'}</td>
+                                <td>—</td>
                                 <td/>
                             </tr>
                         ))}
@@ -392,6 +394,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                     <td>{object.type}</td>
                                     <td>{object.size === null ? '—' : formatBytes(object.size)}</td>
                                     <td>{object.lastModified ?? '—'}</td>
+                                    <td>{storageClassLabel(object)}</td>
                                     <td className="table-actions">
                                         {previewKind && (
                                             <button
@@ -622,6 +625,11 @@ function ObjectBreadcrumb({prefix, onNavigate}: {prefix: string; onNavigate: (pr
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function storageClassLabel(object: StorageObject): string {
+    const value = object.metadata.storageClass
+    return typeof value === 'string' && value ? value : '—'
+}
 
 function normalizePrefix(value: string): string {
     const trimmed = value.trim().replace(/^\/+/, '')
