@@ -133,6 +133,7 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
 
     async receiveMessages(id: string, maxMessages = 10): Promise<QueueMessage[]> {
         const url = await this.requireQueueUrl(id)
+        
         const res = await this.sqs.send(
             new ReceiveMessageCommand({
                 QueueUrl: url,
@@ -145,6 +146,7 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
                 MessageAttributeNames: ['All'],
             }),
         )
+
         return (res.Messages ?? []).map((message) => ({
             messageId: message.MessageId ?? '',
             body: message.Body ?? '',

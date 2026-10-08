@@ -56,6 +56,15 @@ Open **http://localhost:4500**.
 
 **From Floci itself.** Floci starts the console on demand at `http://localhost:4566/_floci/ui` (needs the Docker socket mounted; see the [Floci docs](https://floci.io/floci/ui/)).
 
+**Podman.** `floci` mounts the host container socket to start Lambda and Postgres containers, and rootless Podman has no `/var/run/docker.sock`. Point the mount at Podman's Docker-compatible socket in a `.env` file:
+
+```bash
+echo "FLOCI_CONTAINER_SOCKET=$XDG_RUNTIME_DIR/podman/podman.sock" >> .env
+podman-compose up
+```
+
+Without it, `up` aborts with `statfs /var/run/docker.sock: no such file or directory` and no service starts.
+
 **Single image**, UI and API on one port:
 
 ```bash
@@ -91,19 +100,20 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 |---|---|:-:|:-:|:-:|:-:|
 | Compute | Compute | ✅ | ✅ | – | – |
 | Compute | k8s Engine | 👁 | 👁 | ✅ | ✅ |
-| Compute | Serverless | ✅ | ⏳ | ✅ | ✅ |
+| Compute | Serverless | ✅ | ✅ | ✅ | ✅ |
 | Compute | Containers | – | – | ✅ | – |
 | Compute | SageMaker AI | ✅ | – | – | – |
 | Storage | Storage | ✅ | ✅ | ✅ | ✅ |
 | Storage | Table Storage | – | ✅ | – | – |
 | Databases | Database | ✅ | ✅ | ✅ | – |
-| Databases | NoSQL | ✅ | ✅ | – | – |
+| Databases | NoSQL | ✅ | ✅ | ✅ | – |
 | Networking | Networking | 👁 | ✅ | – | – |
 | Networking | Load Balancing | ✅ | – | – | – |
 | Integration | Messaging | ✅ | ✅ | ✅ | ✅ |
 | Integration | API Gateway | ✅ | – | – | – |
 | Integration | SNS | ✅ | – | – | – |
-| Integration | Streams | ✅ | – | – | ✅ |
+| Integration | Queue Storage | – | ✅ | – | – |
+| Integration | Streams | ✅ | ✅ | – | ✅ |
 | Integration | Events | ✅ | – | – | – |
 | Integration | Email | 👁 | – | – | – |
 | Integration | Cloud Scheduler | – | – | ✅ | – |
@@ -122,7 +132,6 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 
 Known runtime gaps (the adapter is ready, the emulator is not):
 
-- Azure Functions: Floci-AZ answers 501.
 - RDS `CreateDBSnapshot`: Floci answers 501; listing works.
 - AKS clusters never leave `Failed` locally, so AKS stays read-only.
 

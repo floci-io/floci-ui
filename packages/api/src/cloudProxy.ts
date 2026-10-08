@@ -8,7 +8,9 @@ import {AwsLogsAdapter} from './adapter-aws/AwsLogsAdapter'
 import {AzureNoSqlAdapter} from './adapter-azure/AzureNoSqlAdapter'
 import {AwsDynamoDbAdapter} from './adapter-aws/AwsDynamoDbAdapter'
 import {AzureDatabaseAdapter} from './adapter-azure/AzureDatabaseAdapter'
+import {AzureEventHubsAdapter} from './adapter-azure/AzureEventHubsAdapter'
 import {AzureServiceBusAdapter} from './adapter-azure/AzureServiceBusAdapter'
+import {AzureQueueAdapter} from './adapter-azure/AzureQueueAdapter'
 import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
 import {AzureTableAdapter} from './adapter-azure/AzureTableAdapter'
 import {AzureAksAdapter} from './adapter-azure/AzureAksAdapter'
@@ -22,6 +24,7 @@ import {GcpCloudRunAdapter} from './adapter-gcp/GcpCloudRunAdapter'
 import {GcpPubSubAdapter} from './adapter-gcp/GcpPubSubAdapter'
 import {GcpSecretManagerAdapter} from './adapter-gcp/GcpSecretManagerAdapter'
 import {GcpSchedulerAdapter} from './adapter-gcp/GcpSchedulerAdapter'
+import {GcpFirestoreAdapter} from './adapter-gcp/GcpFirestoreAdapter'
 import {OciStorageAdapter} from './adapter-oci/OciStorageAdapter'
 import {OciIdentityAdapter} from './adapter-oci/OciIdentityAdapter'
 import {OciQueueAdapter} from './adapter-oci/OciQueueAdapter'
@@ -95,6 +98,8 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AzureStorageAdapter(),
         new AzureTableAdapter(),
         new AzureServiceBusAdapter(),
+        new AzureEventHubsAdapter(),
+        new AzureQueueAdapter(),
         new AzureDatabaseAdapter(),
         new AzureAksAdapter(),
         new AzureNoSqlAdapter(),
@@ -108,6 +113,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new GcpPubSubAdapter(),
         new GcpSecretManagerAdapter(),
         new GcpSchedulerAdapter(),
+        new GcpFirestoreAdapter(),
         new OciStorageAdapter(),
         new OciIdentityAdapter(),
         new OciQueueAdapter(),

@@ -1,5 +1,5 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {render, screen, waitFor} from '@testing-library/react'
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {ReactElement} from 'react'
 import {beforeEach, describe, expect, test, vi} from 'vitest'
@@ -313,6 +313,116 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
         expect(screen.getByRole('button', {name: /Copy/i})).toBeInTheDocument()
     })
 
+    test('does not confirm a pending copy after selecting another resource', async () => {
+        const user = userEvent.setup()
+        let resolveWrite!: () => void
+        const writeTextMock = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+            resolveWrite = resolve
+        }))
+        Object.defineProperty(navigator, 'clipboard', {
+            value: {writeText: writeTextMock},
+            configurable: true,
+        })
+
+        const {rerender} = renderWithClient(<ResourceInspector resource={longNamedLambda} />)
+        await user.click(screen.getByRole('tab', {name: 'JSON'}))
+        await user.click(screen.getByRole('button', {name: 'Copy'}))
+        expect(writeTextMock).toHaveBeenCalledWith(JSON.stringify(longNamedLambda.metadata, null, 2))
+
+        const nextResource = {...longNamedLambda, id: 'next-lambda', name: 'next-lambda'}
+        rerender(
+            <QueryClientProvider client={new QueryClient()}>
+                <ResourceInspector resource={nextResource} />
+            </QueryClientProvider>,
+        )
+        await act(async () => resolveWrite())
+
+        expect(screen.getByRole('button', {name: 'Copy'})).toBeInTheDocument()
+        expect(screen.queryByText('Copied')).not.toBeInTheDocument()
+    })
+
+    test('does not confirm a pending copy after selecting another storage object', async () => {
+        const user = userEvent.setup()
+        let resolveWrite!: () => void
+        const writeTextMock = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+            resolveWrite = resolve
+        }))
+        Object.defineProperty(navigator, 'clipboard', {
+            value: {writeText: writeTextMock},
+            configurable: true,
+        })
+
+        const bucket: CloudResource = {...longNamedLambda, id: 'bucket', name: 'bucket', service: 'storage'}
+        const firstObject: StorageObject = {
+            name: 'first.txt', key: 'first.txt', type: 'object', size: 1,
+            lastModified: null, metadata: {contentType: 'text/plain'},
+        }
+        const {rerender} = renderWithClient(<ResourceInspector resource={bucket} object={firstObject} />)
+        await user.click(screen.getByRole('tab', {name: 'JSON'}))
+        await user.click(screen.getByRole('button', {name: 'Copy'}))
+
+        rerender(
+            <QueryClientProvider client={new QueryClient()}>
+                <ResourceInspector resource={bucket} object={{...firstObject, key: 'second.txt', name: 'second.txt'}} />
+            </QueryClientProvider>,
+        )
+        await act(async () => resolveWrite())
+
+        expect(screen.getByRole('button', {name: 'Copy'})).toBeInTheDocument()
+        expect(screen.queryByText('Copied')).not.toBeInTheDocument()
+    })
+
+    test('ignores an earlier clipboard write when a later copy is pending', async () => {
+        const user = userEvent.setup()
+        const resolveWrites: Array<() => void> = []
+        const writeTextMock = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+            resolveWrites.push(resolve)
+        }))
+        Object.defineProperty(navigator, 'clipboard', {
+            value: {writeText: writeTextMock},
+            configurable: true,
+        })
+
+        renderWithClient(<ResourceInspector resource={longNamedLambda} />)
+        await user.click(screen.getByRole('tab', {name: 'JSON'}))
+        const copyButton = screen.getByRole('button', {name: 'Copy'})
+        await user.click(copyButton)
+        await user.click(copyButton)
+        expect(writeTextMock).toHaveBeenCalledTimes(2)
+
+        await act(async () => resolveWrites[0]())
+        expect(screen.getByRole('button', {name: 'Copy'})).toBeInTheDocument()
+
+        await act(async () => resolveWrites[1]())
+        expect(screen.getByRole('button', {name: 'Copied'})).toBeInTheDocument()
+    })
+
+    test('keeps copied feedback for a full interval after the latest copy', async () => {
+        const user = userEvent.setup()
+        Object.defineProperty(navigator, 'clipboard', {
+            value: {writeText: vi.fn().mockResolvedValue(undefined)},
+            configurable: true,
+        })
+
+        renderWithClient(<ResourceInspector resource={longNamedLambda} />)
+        await user.click(screen.getByRole('tab', {name: 'JSON'}))
+
+        vi.useFakeTimers()
+        try {
+            await act(async () => { fireEvent.click(screen.getByRole('button', {name: 'Copy'})) })
+            expect(screen.getByRole('button', {name: 'Copied'})).toBeInTheDocument()
+            act(() => vi.advanceTimersByTime(1000))
+
+            await act(async () => { fireEvent.click(screen.getByRole('button', {name: 'Copied'})) })
+            act(() => vi.advanceTimersByTime(500))
+            expect(screen.getByRole('button', {name: 'Copied'})).toBeInTheDocument()
+            act(() => vi.advanceTimersByTime(1000))
+            expect(screen.getByRole('button', {name: 'Copy'})).toBeInTheDocument()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
     test('keeps log inspection panels mounted across metadata tab switching for log groups', async () => {
         const user = userEvent.setup()
         const logGroupResource: CloudResource = {
@@ -402,5 +512,3 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
         expect(screen.getByRole('tabpanel', {name: 'Table'})).toBeInTheDocument()
     })
 })
-
-

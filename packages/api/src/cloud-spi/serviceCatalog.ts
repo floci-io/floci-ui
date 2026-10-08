@@ -117,7 +117,7 @@ export const SERVICE_CATALOG = {
         // Both labels are declared even though each arrives with its own adapter,
         // so this row reads the same whichever of the two lands first. A label for
         // a cloud with no adapter is inert: availability comes from the registry.
-        displayNameByCloud: {aws: 'DynamoDB', azure: 'Cosmos DB NoSQL'},
+        displayNameByCloud: {aws: 'DynamoDB', azure: 'Cosmos DB NoSQL', gcp: 'Firestore'},
         description: 'Store and query non-relational data.',
         iconKey: 'nosql',
         group: 'Databases',
@@ -162,9 +162,16 @@ export const SERVICE_CATALOG = {
         description: 'Manage standard and FIFO notification topics.',
         iconKey: 'messaging', group: 'Integration', order: 11,
     },
+    queue: {
+        displayName: 'Queue Storage',
+        description: 'Create and inspect Azure Storage queues.',
+        iconKey: 'queue',
+        group: 'Integration',
+        order: 11,
+    },
     streams: {
         displayName: 'Streams',
-        displayNameByCloud: {aws: 'Kinesis', oci: 'Streaming'},
+        displayNameByCloud: {aws: 'Kinesis', azure: 'Event Hubs', oci: 'Streaming'},
         description: 'Collect and process streaming data in real time.',
         iconKey: 'streams',
         group: 'Integration',
