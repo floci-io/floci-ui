@@ -52,10 +52,10 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
 
     app.get('/', (c) => c.json(svc(c).clouds()))
 
-    app.get('/:cloud/services', (c) => {
+    app.get('/:cloud/services', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) return c.json({error: 'Unknown cloud'}, 404)
-        return c.json(svc(c).services(cloud))
+        return c.json(await svc(c).services(cloud))
     })
 
     app.get('/:cloud/status', async (c) => {
