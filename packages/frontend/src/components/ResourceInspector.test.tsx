@@ -511,4 +511,14 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
         expect(tableTab).toHaveAttribute('aria-controls', 'object-tabpanel-table')
         expect(screen.getByRole('tabpanel', {name: 'Table'})).toBeInTheDocument()
     })
+    test('cloud resource inspector tabs follow arrow key navigation', async () => {
+        const user = userEvent.setup()
+        renderWithClient(<ResourceInspector resource={longNamedLambda} cloud="aws" runtimeReachable={true}/>)
+
+        screen.getByRole('tab', {name: 'Plain Text'}).focus()
+        await user.keyboard('{ArrowRight}')
+
+        expect(screen.getByRole('tab', {name: 'JSON'})).toHaveFocus()
+        expect(screen.getByRole('tabpanel', {name: 'JSON'})).toBeInTheDocument()
+    })
 })

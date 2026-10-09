@@ -9,6 +9,7 @@ import { listLambdaTriggers } from "@/api/cloudProxyClient";
 import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource, StorageObject } from "@/types/resource";
 import { formatBytes } from "@/lib/format";
+import { InspectorTabs, type InspectorTab } from "@/components/InspectorTabs";
 
 interface ResourceInspectorProps {
   resource?: CloudResource;
@@ -18,7 +19,7 @@ interface ResourceInspectorProps {
   serviceName?: string;
 }
 
-export type InspectorTab = 'plain' | 'json' | 'table';
+export type { InspectorTab };
 
 export function ResourceInspector({
   resource,
@@ -95,41 +96,7 @@ export function ResourceInspector({
           <h3>{object.name}</h3>
           <span className="badge neutral">{object.type}</span>
         </div>
-        <div className="drawer-tabs" role="tablist" aria-label="Metadata views">
-          <button
-            className={`drawer-tab ${activeTab === 'plain' ? 'active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'plain'}
-            aria-controls="object-tabpanel-plain"
-            id="object-tab-plain"
-            onClick={() => setActiveTab('plain')}
-          >
-            Plain Text
-          </button>
-          <button
-            className={`drawer-tab ${activeTab === 'json' ? 'active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'json'}
-            aria-controls="object-tabpanel-json"
-            id="object-tab-json"
-            onClick={() => setActiveTab('json')}
-          >
-            JSON
-          </button>
-          <button
-            className={`drawer-tab ${activeTab === 'table' ? 'active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'table'}
-            aria-controls="object-tabpanel-table"
-            id="object-tab-table"
-            onClick={() => setActiveTab('table')}
-          >
-            Table
-          </button>
-        </div>
+        <InspectorTabs idPrefix="object" activeTab={activeTab} onChange={setActiveTab} />
         {activeTab === 'plain' && (
           <div
             role="tabpanel"
@@ -272,41 +239,7 @@ export function ResourceInspector({
           onClose={() => setShowTriggers(false)}
         />
       )}
-      <div className="drawer-tabs" role="tablist" aria-label="Metadata views">
-        <button
-          className={`drawer-tab ${activeTab === 'plain' ? 'active' : ''}`}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'plain'}
-          aria-controls="inspector-tabpanel-plain"
-          id="inspector-tab-plain"
-          onClick={() => setActiveTab('plain')}
-        >
-          Plain Text
-        </button>
-        <button
-          className={`drawer-tab ${activeTab === 'json' ? 'active' : ''}`}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'json'}
-          aria-controls="inspector-tabpanel-json"
-          id="inspector-tab-json"
-          onClick={() => setActiveTab('json')}
-        >
-          JSON
-        </button>
-        <button
-          className={`drawer-tab ${activeTab === 'table' ? 'active' : ''}`}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'table'}
-          aria-controls="inspector-tabpanel-table"
-          id="inspector-tab-table"
-          onClick={() => setActiveTab('table')}
-        >
-          Table
-        </button>
-      </div>
+      <InspectorTabs idPrefix="inspector" activeTab={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'plain' && (
         <div
