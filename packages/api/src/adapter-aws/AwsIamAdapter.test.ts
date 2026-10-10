@@ -340,6 +340,28 @@ describe('AwsIamAdapter', () => {
         await expect(adapter.create({values: {kind: 'users'}})).rejects.toThrow(new ValidationError('name is required'))
     })
 
+    test('rejects a user or role name over 64 characters before calling IAM', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsIamAdapter(client)
+        const name = 'a'.repeat(65)
+
+        await expect(adapter.create({values: {kind: 'users', name}})).rejects.toThrow(
+            new ValidationError('IAM user names are at most 64 characters.'),
+        )
+        await expect(adapter.create({values: {kind: 'roles', name, assumeRolePolicyDocument: '{}'}})).rejects.toThrow(
+            new ValidationError('IAM role names are at most 64 characters.'),
+        )
+        expect(sent).toHaveLength(0)
+    })
+
+    test('accepts a policy name up to 128 characters', async () => {
+        const {client, sent} = runtimeStub()
+        const name = 'p'.repeat(128)
+
+        await new AwsIamAdapter(client).create({values: {kind: 'policies', name, policyDocument: '{}'}})
+        expect((sent[0] as CreatePolicyCommand).input.PolicyName).toBe(name)
+    })
+
     test('rejects an invalid name before calling IAM', async () => {
         const {client, sent} = runtimeStub()
 

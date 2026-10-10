@@ -22,6 +22,7 @@ import {
     awsIamSchema,
     IAM_KIND_SINGULAR,
     IAM_KINDS,
+    IAM_NAME_MAX_LENGTH,
     IAM_NAME_MESSAGE,
     IAM_NAME_PATTERN,
     IAM_PATH_MAX_LENGTH,
@@ -109,7 +110,7 @@ export class AwsIamAdapter implements CloudServiceAdapter {
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
         const kind = requiredKind(input.values.kind)
-        const name = requiredName(input.values.name)
+        const name = requiredName(input.values.name, kind)
         const path = optionalPath(input.values.path)
 
         if (kind === 'users') {
@@ -375,9 +376,13 @@ function optionalString(value: unknown, field: string): string | undefined {
     return value.trim() || undefined
 }
 
-function requiredName(value: unknown): string {
+function requiredName(value: unknown, kind: IamKind): string {
     const name = requiredString(value, 'name')
     if (!new RegExp(IAM_NAME_PATTERN).test(name)) throw new ValidationError(IAM_NAME_MESSAGE)
+    const maxLength = IAM_NAME_MAX_LENGTH[kind]
+    if (name.length > maxLength) {
+        throw new ValidationError(`IAM ${IAM_KIND_SINGULAR[kind]} names are at most ${maxLength} characters.`)
+    }
     return name
 }
 

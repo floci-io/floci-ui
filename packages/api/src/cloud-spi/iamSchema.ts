@@ -13,6 +13,8 @@ export const IAM_KIND_SINGULAR = {users: 'user', roles: 'role', policies: 'polic
 
 export const IAM_NAME_PATTERN = '^[\\w+=,.@-]+$'
 export const IAM_NAME_MESSAGE = 'Letters, digits and + = , . @ _ - only.'
+/** IAM's own limits: a user or role name is at most 64 characters, a policy name 128. */
+export const IAM_NAME_MAX_LENGTH: Record<IamKind, number> = {users: 64, roles: 64, policies: 128}
 export const IAM_PATH_PATTERN = '^/(?:[!-~]+/)?$'
 export const IAM_PATH_MAX_LENGTH = 512
 export const IAM_PATH_MESSAGE = 'Use a valid IAM path: begin and end with / and use only printable ASCII characters.'
@@ -74,10 +76,11 @@ export function awsIamSchema(): ServiceSchema {
                 type: 'text',
                 required: true,
                 group: 'Required',
+                description: 'Up to 64 characters for users and roles, 128 for policies.',
                 validation: {
                     pattern: IAM_NAME_PATTERN,
                     minLength: 1,
-                    maxLength: 128,
+                    maxLength: IAM_NAME_MAX_LENGTH.policies,
                     message: IAM_NAME_MESSAGE,
                 },
             },
