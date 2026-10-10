@@ -33,7 +33,12 @@ function stubSqs(handlers: {
     queues?: string[]
     attributes?: Record<string, string>
     missingQueue?: boolean
-    messages?: Array<{MessageId: string; Body: string; ReceiptHandle: string}>
+    messages?: Array<{
+        MessageId: string
+        Body: string
+        ReceiptHandle: string
+        MessageAttributes?: Record<string, {DataType: string; StringValue?: string; BinaryValue?: Uint8Array}>
+    }>
 } = {}) {
     const sent: object[] = []
     const client = {
@@ -263,7 +268,31 @@ describe('AwsSqsAdapter', () => {
         expect(send.input.QueueUrl).toBe(`${BASE}/orders-queue`)
         expect(send.input.MessageBody).toBe('hello')
         expect(send.input.MessageGroupId).toBeUndefined()
+        expect(send.input.MessageAttributes).toBeUndefined()
         expect(result).toEqual({messageId: 'msg-1', md5OfMessageBody: 'abc123'})
+    })
+
+    test('maps custom attributes to MessageAttributes when sending a message', async () => {
+        const {client, sent} = stubSqs()
+        await new AwsSqsAdapter(client).sendMessage('orders-queue', 'hello', { foo: 'bar', baz: 'qux' })
+
+        const send = sent[1] as SendMessageCommand
+        expect(send.input.MessageAttributes).toEqual({
+            foo: { DataType: 'String', StringValue: 'bar' },
+            baz: { DataType: 'String', StringValue: 'qux' },
+        })
+    })
+
+    test('safely maps __proto__ attribute without prototype pollution', async () => {
+        const {client, sent} = stubSqs()
+        const attributes = JSON.parse('{"__proto__": "polluted", "valid": "data"}')
+        await new AwsSqsAdapter(client).sendMessage('orders-queue', 'hello', attributes)
+
+        const send = sent[1] as SendMessageCommand
+        expect(send.input.MessageAttributes).toHaveProperty('__proto__')
+        expect(send.input.MessageAttributes?.['__proto__']).toEqual({ DataType: 'String', StringValue: 'polluted' })
+        expect(send.input.MessageAttributes).toHaveProperty('valid')
+        expect(send.input.MessageAttributes?.['valid']).toEqual({ DataType: 'String', StringValue: 'data' })
     })
 
     test('sets MessageGroupId when sending to a FIFO queue', async () => {
@@ -288,7 +317,46 @@ describe('AwsSqsAdapter', () => {
         const receive = sent[1] as ReceiveMessageCommand
         expect(receive).toBeInstanceOf(ReceiveMessageCommand)
         expect(receive.input.VisibilityTimeout).toBe(0)
-        expect(messages).toEqual([{messageId: 'msg-1', body: 'hello', receiptHandle: 'handle-1', attributes: undefined, md5OfBody: undefined}])
+        expect(messages).toEqual([{messageId: 'msg-1', body: 'hello', receiptHandle: 'handle-1', attributes: undefined, messageAttributes: undefined, md5OfBody: undefined}])
+    })
+
+    test('maps user-defined MessageAttributes to messageAttributes', async () => {
+        const {client} = stubSqs({
+            messages: [{
+                MessageId: 'msg-2',
+                Body: 'test',
+                ReceiptHandle: 'handle-2',
+                MessageAttributes: {
+                    CustomId: {DataType: 'String', StringValue: '1234'},
+                    BinaryAttr: {DataType: 'Binary', BinaryValue: new Uint8Array([1, 2])},
+                },
+            }],
+        })
+        const messages = await new AwsSqsAdapter(client).receiveMessages('orders-queue')
+        expect(messages[0].messageAttributes).toEqual({
+            CustomId: '1234',
+            BinaryAttr: '<Binary Data>',
+        })
+    })
+
+    test('skips entries with undefined values when mapping received MessageAttributes', async () => {
+        const {client} = stubSqs({
+            messages: [{
+                MessageId: 'msg-3',
+                Body: 'test undefined',
+                ReceiptHandle: 'handle-3',
+                // Simulate an SDK return where a prototype key or a malformed entry has an undefined value
+                MessageAttributes: {
+                    valid: {DataType: 'String', StringValue: 'present'},
+                    ['__proto__']: undefined as any,
+                    malformed: undefined as any,
+                },
+            }],
+        })
+        const messages = await new AwsSqsAdapter(client).receiveMessages('orders-queue')
+        expect(messages[0].messageAttributes).toEqual({
+            valid: 'present',
+        })
     })
 
     test('clamps maxMessages to the SQS-documented 1-10 range', async () => {

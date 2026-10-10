@@ -117,14 +117,25 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
         await this.sqs.send(new DeleteQueueCommand({QueueUrl: url}))
     }
 
-    async sendMessage(id: string, body: string): Promise<SendQueueMessageResult> {
+    async sendMessage(id: string, body: string, attributes?: Record<string, string>): Promise<SendQueueMessageResult> {
         const url = await this.requireQueueUrl(id)
+        
+        const MessageAttributes: Record<string, any> = attributes
+            ? Object.fromEntries(
+                Object.entries(attributes).map(([key, value]) => [
+                    key,
+                    { DataType: 'String', StringValue: value }
+                ])
+              )
+            : {}
+
         // Real SQS requires MessageGroupId on every send to a FIFO queue. Derive
         // a default from the queue name so a FIFO send works without a form field.
         const res = await this.sqs.send(
             new SendMessageCommand({
                 QueueUrl: url,
                 MessageBody: body,
+                ...(Object.keys(MessageAttributes).length > 0 ? { MessageAttributes } : {}),
                 ...(isFifoName(id) ? {MessageGroupId: id.replace(/\.fifo$/, '')} : {}),
             }),
         )
@@ -147,13 +158,27 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
             }),
         )
 
-        return (res.Messages ?? []).map((message) => ({
-            messageId: message.MessageId ?? '',
-            body: message.Body ?? '',
-            receiptHandle: message.ReceiptHandle ?? '',
-            attributes: message.Attributes,
-            md5OfBody: message.MD5OfBody,
-        }))
+        const parsed = (res.Messages ?? []).map((message) => {
+            const messageAttributes: Record<string, string> = message.MessageAttributes
+                ? Object.fromEntries(
+                    Object.entries(message.MessageAttributes)
+                        .filter(([_, value]) => value !== undefined)
+                        .map(([key, value]) => [
+                            key,
+                            value!.StringValue ?? '<Binary Data>'
+                        ])
+                  )
+                : {}
+            return {
+                messageId: message.MessageId ?? '',
+                body: message.Body ?? '',
+                receiptHandle: message.ReceiptHandle ?? '',
+                attributes: message.Attributes,
+                messageAttributes: Object.keys(messageAttributes).length > 0 ? messageAttributes : undefined,
+                md5OfBody: message.MD5OfBody,
+            }
+        })
+        return parsed;
     }
 
     async deleteMessage(id: string, receiptHandle: string): Promise<void> {

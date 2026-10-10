@@ -805,11 +805,22 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         }
 
         return withRuntime(c, async () => {
-            const body = await jsonBody<{body?: unknown}>(c)
+            const body = await jsonBody<{body?: unknown; attributes?: unknown}>(c)
             if (typeof body.body !== 'string' || body.body.length === 0) {
                 throw new ValidationError('body is required')
             }
-            const result = await svc(c).sendQueueMessage(cloud, serviceType, c.req.param('id'), body.body)
+            let attributes: Record<string, string> | undefined
+            if (body.attributes !== undefined) {
+                if (!body.attributes || typeof body.attributes !== 'object' || Array.isArray(body.attributes)) {
+                    throw new ValidationError('attributes must be an object of string values')
+                }
+                const entries = Object.entries(body.attributes)
+                if (entries.some(([, v]) => typeof v !== 'string')) {
+                    throw new ValidationError('attributes must be an object of string values')
+                }
+                attributes = body.attributes as Record<string, string>
+            }
+            const result = await svc(c).sendQueueMessage(cloud, serviceType, c.req.param('id'), body.body, attributes)
             return c.json(result)
         })
     })

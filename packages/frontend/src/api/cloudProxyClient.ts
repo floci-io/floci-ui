@@ -292,6 +292,7 @@ export interface QueueMessage {
   body: string;
   receiptHandle: string;
   attributes?: Record<string, string>;
+  messageAttributes?: Record<string, string>;
   md5OfBody?: string;
 }
 
@@ -305,11 +306,12 @@ export async function sendQueueMessage(
   service: CloudServiceType,
   id: string,
   body: string,
+  attributes?: Record<string, string>,
   signal?: AbortSignal,
 ): Promise<SendQueueMessageResult> {
-  const res = await apiClient.call<SendQueueMessageResult, { body: string }>(
+  const res = await apiClient.call<SendQueueMessageResult, { body: string; attributes?: Record<string, string> }>(
     apiEndpointKeys.clouds.resources.sendMessage,
-    requestOptions(cloud, service, { signal, body: { body } }),
+    requestOptions(cloud, service, { signal, body: { body, attributes } }),
     { cloud, service, id },
   );
   return res.data;

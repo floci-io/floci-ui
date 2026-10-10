@@ -45,8 +45,26 @@ describe("SqsMessagingPanel", () => {
     const sendButtons = screen.getAllByRole("button", {name: "Send"});
     await user.click(sendButtons[sendButtons.length - 1]);
 
-    expect(sendQueueMessage).toHaveBeenCalledWith("aws", "messaging", "orders-queue", "hello");
+    expect(sendQueueMessage).toHaveBeenCalledWith("aws", "messaging", "orders-queue", "hello", undefined);
     expect(await screen.findByText("msg-1")).toBeInTheDocument();
+  });
+
+  test("sends a message with custom attributes", async () => {
+    vi.mocked(sendQueueMessage).mockResolvedValue({messageId: "msg-attr"});
+    const user = userEvent.setup();
+
+    render(<SqsMessagingPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.type(screen.getByLabelText("Message body"), "hello with attr");
+    await user.type(screen.getByPlaceholderText("Key"), "TenantId");
+    await user.type(screen.getByPlaceholderText("Value"), "t-123");
+    await user.click(screen.getByRole("button", {name: "Add attribute"}));
+
+    const sendButtons = screen.getAllByRole("button", {name: "Send"});
+    await user.click(sendButtons[sendButtons.length - 1]);
+
+    expect(sendQueueMessage).toHaveBeenCalledWith("aws", "messaging", "orders-queue", "hello with attr", {TenantId: "t-123"});
+    expect(await screen.findByText("msg-attr")).toBeInTheDocument();
   });
 
   test("receives messages as a non-consuming peek and deletes one by receipt handle", async () => {
@@ -108,14 +126,38 @@ describe("SqsMessagingPanel", () => {
 
     expect(await screen.findByText("payload")).toBeInTheDocument();
     
-    // attributes summary should be present
-    const summary = screen.getByText("Attributes (2)");
+    // system attributes summary should be present
+    const summary = screen.getByText("System Attributes (2)");
     expect(summary).toBeInTheDocument();
 
     // open the details block and verify contents
     await user.click(summary);
     expect(screen.getByText("SenderId")).toBeInTheDocument();
     expect(screen.getByText("AIDAJDPLRKLG7EXAMPLE")).toBeInTheDocument();
+  });
+
+  test("shows custom message attributes in a separate collapsible block", async () => {
+    const received: QueueMessage[] = [
+      {
+        messageId: "msg-3",
+        body: "payload",
+        receiptHandle: "handle-3",
+        messageAttributes: {OrderId: "ord-42", Env: "prod"},
+      },
+    ];
+    vi.mocked(receiveQueueMessages).mockResolvedValue(received);
+    const user = userEvent.setup();
+
+    render(<SqsMessagingPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.click(screen.getByRole("button", {name: "Receive"}));
+    await user.click(screen.getByRole("button", {name: "Receive messages"}));
+
+    const customSummary = await screen.findByText("Custom Attributes (2)");
+    expect(customSummary).toBeInTheDocument();
+    await user.click(customSummary);
+    expect(screen.getByText("OrderId")).toBeInTheDocument();
+    expect(screen.getByText("ord-42")).toBeInTheDocument();
   });
 
   test("disables actions when the runtime is unreachable", () => {

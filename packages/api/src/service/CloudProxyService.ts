@@ -272,10 +272,10 @@ export class CloudProxyService {
         return adapter.invoke(id, payload)
     }
 
-    async sendQueueMessage(cloud: CloudProvider, service: CloudServiceType, id: string, body: string): Promise<SendQueueMessageResult> {
+    async sendQueueMessage(cloud: CloudProvider, service: CloudServiceType, id: string, body: string, attributes?: Record<string, string>): Promise<SendQueueMessageResult> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.sendMessage) throw new NotSupportedError(`${cloud}/${service} sendMessage is not supported`)
-        return adapter.sendMessage(id, body)
+        return adapter.sendMessage(id, body, attributes)
     }
 
     async receiveQueueMessages(cloud: CloudProvider, service: CloudServiceType, id: string, maxMessages?: number): Promise<QueueMessage[]> {
