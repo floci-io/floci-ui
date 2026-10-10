@@ -10,37 +10,15 @@ This document tracks the current architectural direction behind the new Floci UI
 - Moved the main UX toward `Console Home` and `Cloud Explorer`.
 - Kept `Secrets Manager` as a dedicated AWS page during the transition.
 
-## Adapters Currently Registered
+## Registered Adapters and UI Surface
 
-- AWS Storage
-- AWS k8s
-- AWS Database
-- AWS DynamoDB
-- AWS Compute
-- AWS Networking
-- AWS Serverless
-- AWS EventBridge and EventBridge Scheduler
-- Azure Storage
-- Azure Database
-- Azure Serverless
-- GCP Storage
+Registered adapters are not listed here, because a hand-written list drifts. The source of truth is `packages/api/src/cloudProxy.ts`, which registers every adapter, and `packages/api/src/cloud-spi/serviceCatalog.ts`, which defines the services.
 
-## Current UI Surface
+The README "Supported Services" table is generated from both, per cloud and per service. After changing either, regenerate it:
 
-The frontend currently exposes:
+    cd packages/api && bun run scripts/service-matrix.ts
 
-- `Console Home`
-- `Cloud Explorer / storage`
-- `Cloud Explorer / k8s`
-- `Cloud Explorer / database`
-- `Cloud Explorer / nosql`
-- `Cloud Explorer / compute`
-- `Cloud Explorer / networking`
-- `Cloud Explorer / serverless`
-- `Cloud Explorer / messaging`
-- `/secretsmanager`
-
-Not every registered adapter is already promoted into the visible sidebar for every provider. The README reflects the user-visible surface, not only what is registered in the backend.
+The visible console is `Console Home`, `Cloud Explorer` for each catalog service, and the dedicated `/secretsmanager` page. Not every registered adapter is promoted into the visible sidebar for every provider; the README reflects the user-visible surface, not only what is registered in the backend.
 
 ## Active Transitional State
 
