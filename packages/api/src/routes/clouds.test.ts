@@ -1684,12 +1684,12 @@ describe('queue message routes', () => {
         expect(delegated).toBe(3)
     })
 
-    for (const value of ['0', '11', 'abc']) {
+    for (const value of ['0', '11', 'abc', '1.5', '10.5', '0.5', '']) {
         test(`receive rejects maxMessages=${value} with 400`, async () => {
             const res = await queueApp().request(`${messagesUrl}?maxMessages=${value}`)
 
             expect(res.status).toBe(400)
-            expect(await res.json()).toEqual({error: 'maxMessages must be a number between 1 and 10'})
+            expect(await res.json()).toEqual({error: 'maxMessages must be an integer between 1 and 10'})
         })
     }
 
