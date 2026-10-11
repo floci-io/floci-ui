@@ -10,6 +10,7 @@ import type {
 } from '../cloud-spi/childCollections'
 import {awsDatabaseSchema, azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import {awsLogsSchema} from '../cloud-spi/logsSchema'
+import {awsMessagingSchema} from '../cloud-spi/messagingSchema'
 import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
@@ -34,6 +35,7 @@ import type {
     DatabaseSnapshot,
     LogsInsightsQueryResult,
     NoSqlItem,
+    QueueMessage,
 } from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
@@ -1646,4 +1648,63 @@ describe('child collection routes', () => {
         expect(res.status).toBe(200)
         expect(await res.json()).toMatchObject([{id: 'items', databaseId: 'appdb'}])
     })
+})
+
+describe('queue message routes', () => {
+    const messagesUrl = '/api/clouds/aws/services/messaging/resources/orders/messages'
+    const queueMessage: QueueMessage = {
+        messageId: 'm-1',
+        body: 'hello',
+        receiptHandle: 'h-1',
+        messageAttributes: {TenantId: {dataType: 'String', value: 'acme'}},
+    }
+
+    function queueApp(overrides: Partial<CloudServiceAdapter> = {}) {
+        return appWithRoutes([mockAdapter('aws', {
+            service: 'messaging',
+            schema: awsMessagingSchema,
+            receiveMessages: async () => [queueMessage],
+            ...overrides,
+        })])
+    }
+
+    test('receive passes maxMessages through and returns attributes with their data type', async () => {
+        let delegated: number | undefined
+        const app = queueApp({
+            receiveMessages: async (_id, maxMessages) => {
+                delegated = maxMessages
+                return [queueMessage]
+            },
+        })
+
+        const res = await app.request(`${messagesUrl}?maxMessages=3`)
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({messages: [queueMessage]})
+        expect(delegated).toBe(3)
+    })
+
+    for (const value of ['0', '11', 'abc']) {
+        test(`receive rejects maxMessages=${value} with 400`, async () => {
+            const res = await queueApp().request(`${messagesUrl}?maxMessages=${value}`)
+
+            expect(res.status).toBe(400)
+            expect(await res.json()).toEqual({error: 'maxMessages must be a number between 1 and 10'})
+        })
+    }
+
+    for (const attributes of [{n: 5}, [1], 'x']) {
+        test(`send rejects attributes ${JSON.stringify(attributes)} with 400`, async () => {
+            const res = await queueApp({
+                sendMessage: async () => ({messageId: 'm-2'}),
+            }).request(messagesUrl, {
+                method: 'POST',
+                headers: {'content-type': 'application/json'},
+                body: JSON.stringify({body: 'hi', attributes}),
+            })
+
+            expect(res.status).toBe(400)
+            expect(await res.json()).toMatchObject({error: 'attributes must be an object of string values'})
+        })
+    }
 })

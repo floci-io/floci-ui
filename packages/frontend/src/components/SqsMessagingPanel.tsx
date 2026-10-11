@@ -357,10 +357,11 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
                     </summary>
                     <table style={{width: "100%", borderCollapse: "collapse", marginTop: 4, fontSize: "0.8em"}}>
                       <tbody>
-                        {Object.entries(message.messageAttributes).map(([key, value]) => (
+                        {Object.entries(message.messageAttributes).map(([key, attribute]) => (
                           <tr key={key}>
                             <td className="metric-label" style={{paddingRight: 12, verticalAlign: "top", whiteSpace: "nowrap"}}>{key}</td>
-                            <td><code style={{wordBreak: "break-all"}}>{value}</code></td>
+                            <td className="metric-label" style={{paddingRight: 12, verticalAlign: "top", whiteSpace: "nowrap"}}>{attribute.dataType}</td>
+                            <td><code style={{wordBreak: "break-all"}}>{attribute.value}</code></td>
                           </tr>
                         ))}
                       </tbody>

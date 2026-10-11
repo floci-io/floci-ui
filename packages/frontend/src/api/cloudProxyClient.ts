@@ -287,12 +287,17 @@ export async function decryptKmsResource(
   return res.data;
 }
 
+export interface QueueMessageAttribute {
+  dataType: string;
+  value: string;
+}
+
 export interface QueueMessage {
   messageId: string;
   body: string;
   receiptHandle: string;
   attributes?: Record<string, string>;
-  messageAttributes?: Record<string, string>;
+  messageAttributes?: Record<string, QueueMessageAttribute>;
   md5OfBody?: string;
 }
 

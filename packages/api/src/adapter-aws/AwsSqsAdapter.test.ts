@@ -334,8 +334,8 @@ describe('AwsSqsAdapter', () => {
         })
         const messages = await new AwsSqsAdapter(client).receiveMessages('orders-queue')
         expect(messages[0].messageAttributes).toEqual({
-            CustomId: '1234',
-            BinaryAttr: '<Binary Data>',
+            CustomId: {dataType: 'String', value: '1234'},
+            BinaryAttr: {dataType: 'Binary', value: '<Binary Data>'},
         })
     })
 
@@ -355,7 +355,7 @@ describe('AwsSqsAdapter', () => {
         })
         const messages = await new AwsSqsAdapter(client).receiveMessages('orders-queue')
         expect(messages[0].messageAttributes).toEqual({
-            valid: 'present',
+            valid: {dataType: 'String', value: 'present'},
         })
     })
 

@@ -142,7 +142,10 @@ describe("SqsMessagingPanel", () => {
         messageId: "msg-3",
         body: "payload",
         receiptHandle: "handle-3",
-        messageAttributes: {OrderId: "ord-42", Env: "prod"},
+        messageAttributes: {
+          OrderId: {dataType: "Number", value: "ord-42"},
+          Env: {dataType: "String", value: "prod"},
+        },
       },
     ];
     vi.mocked(receiveQueueMessages).mockResolvedValue(received);
@@ -158,6 +161,7 @@ describe("SqsMessagingPanel", () => {
     await user.click(customSummary);
     expect(screen.getByText("OrderId")).toBeInTheDocument();
     expect(screen.getByText("ord-42")).toBeInTheDocument();
+    expect(screen.getByText("Number")).toBeInTheDocument();
   });
 
   test("disables actions when the runtime is unreachable", () => {

@@ -18,6 +18,7 @@ import type {
     CloudServiceAdapter,
     CreateResourceInput,
     QueueMessage,
+    QueueMessageAttribute,
     ResourceQuery,
     SendQueueMessageResult,
     ServiceSchema,
@@ -159,13 +160,13 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
         )
 
         const parsed = (res.Messages ?? []).map((message) => {
-            const messageAttributes: Record<string, string> = message.MessageAttributes
+            const messageAttributes: Record<string, QueueMessageAttribute> = message.MessageAttributes
                 ? Object.fromEntries(
                     Object.entries(message.MessageAttributes)
                         .filter(([_, value]) => value !== undefined)
                         .map(([key, value]) => [
                             key,
-                            value!.StringValue ?? '<Binary Data>'
+                            {dataType: value!.DataType ?? '', value: value!.StringValue ?? '<Binary Data>'}
                         ])
                   )
                 : {}
