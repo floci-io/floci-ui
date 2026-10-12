@@ -150,8 +150,6 @@ function useScannedRecords(cloud: CloudProvider, accountId: string, tableName: s
             queryKey: [...pagesKey, cursor],
             queryFn: ({signal}: {signal: AbortSignal}) => listFlatItems(cloud, 'nosql', tableName, cursor, signal),
             enabled,
-            // Each page is fetched from the cursor of the one before it. Refetching a
-            // page on its own would overlap or skip rows if the table changed.
             refetchOnWindowFocus: false,
             refetchOnReconnect: false,
         })),

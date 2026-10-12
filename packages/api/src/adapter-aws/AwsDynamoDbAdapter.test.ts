@@ -582,7 +582,6 @@ describe('AwsDynamoDbAdapter', () => {
             if (command instanceof DescribeTableCommand) {
                 return {Table: {KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}]}}
             }
-            // DynamoDB answers a write with an empty ExecuteStatementOutput.
             return {}
         })
 
