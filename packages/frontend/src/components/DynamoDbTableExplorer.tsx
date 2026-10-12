@@ -89,7 +89,12 @@ function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExpl
                         {records.isRefreshing ? 'Loading' : 'Refresh'}
                     </button>
                 </div>
-                {records.error && <div className="form-error">{records.error.message}</div>}
+                {records.error && (
+                    <div className="form-error">
+                        {records.error.message}
+                        {records.retry && <button className="button" type="button" onClick={records.retry}>Retry</button>}
+                    </div>
+                )}
                 <RecordsTable records={records} selectedItemId={selectedItemId} onSelect={setSelectedItemId}/>
             </div>
 
@@ -132,6 +137,7 @@ interface ScannedRecords {
     error: Error | null
     loadMore: () => void
     refresh: () => void
+    retry: (() => void) | null
     putItem: UseMutationResult<ChildItem, Error, Record<string, unknown>>
 }
 
@@ -144,13 +150,18 @@ function useScannedRecords(cloud: CloudProvider, accountId: string, tableName: s
             queryKey: [...pagesKey, cursor],
             queryFn: ({signal}: {signal: AbortSignal}) => listFlatItems(cloud, 'nosql', tableName, cursor, signal),
             enabled,
+            // Each page is fetched from the cursor of the one before it. Refetching a
+            // page on its own would overlap or skip rows if the table changed.
+            refetchOnWindowFocus: false,
+            refetchOnReconnect: false,
         })),
     })
     const firstPage = pages[0]
     const lastPage = pages[pages.length - 1]
     const items = pages.flatMap((page) => page.data?.items ?? [])
     const nextCursor = lastPage.data?.nextCursor ?? null
-    const error = pages.find((page) => page.error instanceof Error)?.error ?? null
+    const failedPage = pages.find((page) => page.error instanceof Error)
+    const error = failedPage?.error ?? null
 
     // Back to a single page: refetching in place would join a fresh first
     // page to trailing pages built from the old cursor chain.
@@ -176,6 +187,7 @@ function useScannedRecords(cloud: CloudProvider, accountId: string, tableName: s
             if (nextCursor) setCursors((previous) => [...previous, nextCursor])
         },
         refresh: () => void refresh(),
+        retry: failedPage ? () => void failedPage.refetch() : null,
         putItem,
     }
 }

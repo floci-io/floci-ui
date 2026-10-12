@@ -191,4 +191,40 @@ describe('DynamoDbTableExplorer', () => {
 
         expect(queryFlatItems).not.toHaveBeenCalled()
     })
+
+    test('does not refetch the loaded pages when the window regains focus', async () => {
+        listFlatItems
+            .mockResolvedValueOnce(page([item({id: 'order-1'})], 'token-2'))
+            .mockResolvedValueOnce(page([item({id: 'order-2'})]))
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={table('orders')} runtimeReachable/>)
+        await screen.findByRole('cell', {name: '{"id":"order-1"}'})
+        await user.click(screen.getByRole('button', {name: 'Load more'}))
+        await screen.findByRole('cell', {name: '{"id":"order-2"}'})
+        const scans = listFlatItems.mock.calls.length
+
+        window.dispatchEvent(new Event('visibilitychange'))
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(listFlatItems.mock.calls.length).toBe(scans)
+    })
+
+    test('retries a failed page without dropping the pages already loaded', async () => {
+        listFlatItems
+            .mockResolvedValueOnce(page([item({id: 'order-1'})], 'token-2'))
+            .mockRejectedValueOnce(new Error('scan failed'))
+            .mockResolvedValueOnce(page([item({id: 'order-2'})]))
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={table('orders')} runtimeReachable/>)
+        await screen.findByRole('cell', {name: '{"id":"order-1"}'})
+        await user.click(screen.getByRole('button', {name: 'Load more'}))
+
+        expect(await screen.findByText('scan failed')).toBeInTheDocument()
+        expect(screen.getByRole('cell', {name: '{"id":"order-1"}'})).toBeInTheDocument()
+        await user.click(screen.getByRole('button', {name: 'Retry'}))
+
+        expect(await screen.findByRole('cell', {name: '{"id":"order-2"}'})).toBeInTheDocument()
+        expect(screen.getByRole('cell', {name: '{"id":"order-1"}'})).toBeInTheDocument()
+        expect(screen.queryByText('scan failed')).not.toBeInTheDocument()
+    })
 })
