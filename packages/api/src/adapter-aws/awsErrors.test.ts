@@ -127,3 +127,30 @@ describe('logs errors carry HTTP 400 and must not fall through to it', () => {
         expect(mapped?.status).toBe(409)
     })
 })
+
+/**
+ * Floci ECS answers these with HTTP 400, verified against core 2.1.0:
+ *   ListServices on a missing cluster -> 400 ClusterNotFoundException
+ *   DeleteCluster with running tasks  -> 400 ClusterContainsTasksException
+ * Without a name entry both would land on the 400 floor as validation errors.
+ */
+describe('ecs errors carry HTTP 400 and must not fall through to it', () => {
+    test('a missing cluster or service is a 404', () => {
+        for (const name of ['ClusterNotFoundException', 'ServiceNotFoundException']) {
+            const mapped = mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 400}}))
+
+            expect(mapped?.status).toBe(404)
+            expect(mapped?.code).toBe('resource_not_found')
+        }
+    })
+
+    test('a cluster that still holds work is a 409', () => {
+        for (const name of [
+            'ClusterContainsTasksException',
+            'ClusterContainsServicesException',
+            'ClusterContainsContainerInstancesException',
+        ]) {
+            expect(mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 400}}))?.status).toBe(409)
+        }
+    })
+})

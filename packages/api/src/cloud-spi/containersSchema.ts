@@ -64,6 +64,64 @@ export function gcpContainersSchema(): ServiceSchema {
     }
 }
 
+/**
+ * ECS cluster names: up to 255 letters, digits, hyphens and underscores. The
+ * hyphen is escaped because browsers compile a `pattern` attribute with the `v`
+ * flag, which rejects an unescaped `-` in a character class.
+ */
+export const ECS_CLUSTER_NAME_PATTERN = '^[A-Za-z0-9_\\-]+$'
+export const ECS_CLUSTER_NAME_MAX_LENGTH = 255
+
+const ecsColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Cluster'},
+    {name: 'status', label: 'Status', format: 'badge'},
+    {name: 'activeServicesCount', label: 'Services', path: 'metadata.activeServicesCount'},
+    {name: 'runningTasksCount', label: 'Running Tasks', path: 'metadata.runningTasksCount'},
+    {name: 'pendingTasksCount', label: 'Pending Tasks', path: 'metadata.pendingTasksCount'},
+]
+
+export function awsContainersSchema(): ServiceSchema {
+    return {
+        cloud: 'aws',
+        service: 'containers',
+        displayName: 'ECS Clusters',
+        fields: [
+            {
+                name: 'clusterName',
+                label: 'Cluster Name',
+                type: 'text',
+                required: true,
+                description: 'Up to 255 letters, numbers, hyphens and underscores. Creating an existing name returns that cluster.',
+                validation: {
+                    pattern: ECS_CLUSTER_NAME_PATTERN,
+                    minLength: 1,
+                    maxLength: ECS_CLUSTER_NAME_MAX_LENGTH,
+                    message: 'Use letters, numbers, hyphens and underscores only.',
+                },
+            },
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List clusters', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create cluster', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete cluster', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect cluster', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+            // A cluster holds two fixed collections, services and tasks, both read-only here.
+            collectionActions: [
+                {name: 'list', label: 'List cluster collections', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+            itemActions: [
+                {name: 'list', label: 'List services and tasks', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+        filters: containerFilters,
+        columns: ecsColumns,
+    }
+}
+
 export function containersSchemaFor(cloud: CloudProvider): ServiceSchema | null {
+    if (cloud === 'aws') return awsContainersSchema()
     return cloud === 'gcp' ? gcpContainersSchema() : null
 }

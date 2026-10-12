@@ -58,6 +58,9 @@ const CONFLICT_NAMES = new Set([
     'ConcurrentModificationException',
     'IncorrectState',
     'DeleteConflictException',
+    'ClusterContainsServicesException',
+    'ClusterContainsTasksException',
+    'ClusterContainsContainerInstancesException',
 ])
 
 const ACCESS_DENIED_NAMES = new Set([
@@ -107,6 +110,8 @@ const NOT_FOUND_NAMES = new Set([
     'QueueDoesNotExist',
     'StateMachineDoesNotExist',
     'ExecutionDoesNotExist',
+    'ClusterNotFoundException',
+    'ServiceNotFoundException',
     'LoadBalancerNotFound',
     'LoadBalancerNotFoundException',
     'TargetGroupNotFound',
