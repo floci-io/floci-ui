@@ -1036,6 +1036,8 @@ export function createEc2Service(client: EC2Client = awsClients.ec2) {
 
         async createVpcWizard(input: VpcWizardInput): Promise<VpcWizardResult> {
             const {name, cidrBlock, subnetGroups, natGateway, availabilityZone} = input
+            const layoutError = validateSubnetLayout(cidrBlock, subnetGroups)
+            if (layoutError) throw new Error(layoutError)
             const groupCidrs = calculateSubnetCidrs(cidrBlock, subnetGroups)
 
             // 1. VPC
@@ -1199,6 +1201,71 @@ export function calculateSubnetCidrs(
         currentBase += g.count * size
         return cidrs
     })
+}
+
+type ParsedCidr = {
+    address: number
+    network: number
+    prefix: number
+}
+
+function parseCidr(cidr: string): ParsedCidr | null {
+    const m = cidr.trim().match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/)
+    if (!m) return null
+
+    const octets = m.slice(1, 5).map(Number)
+    const prefix = Number(m[5])
+    if (octets.some((octet) => octet > 255) || prefix < 0 || prefix > 32) return null
+
+    const address = octets[0] * 16777216 + octets[1] * 65536 + octets[2] * 256 + octets[3]
+    const size = Math.pow(2, 32 - prefix)
+    return {address, network: Math.floor(address / size) * size, prefix}
+}
+
+/** True when the complete inner CIDR is contained by the outer CIDR. */
+export function isCidrWithinBlock(innerCidr: string, outerCidr: string): boolean {
+    const inner = parseCidr(innerCidr)
+    const outer = parseCidr(outerCidr)
+    if (!inner || !outer || inner.prefix < outer.prefix) return false
+
+    const innerSize = Math.pow(2, 32 - inner.prefix)
+    const outerSize = Math.pow(2, 32 - outer.prefix)
+    return inner.network >= outer.network && inner.network + innerSize <= outer.network + outerSize
+}
+
+/** Validate a complete wizard plan before the first AWS command is sent. */
+export function validateSubnetLayout(vpcCidr: string, groups: SubnetGroup[]): string | null {
+    const vpc = parseCidr(vpcCidr)
+    if (!vpc) return `Invalid VPC CIDR ${vpcCidr}`
+    if (vpc.address !== vpc.network) return `VPC CIDR ${vpcCidr} is not a network address`
+    if (vpc.prefix < 16 || vpc.prefix > 28) return 'VPC CIDR prefix must be between /16 and /28'
+    if (groups.length === 0) return 'At least one subnet group is required'
+
+    let allocatedSize = 0
+    for (const group of groups) {
+        const prefix = group.prefix ?? Math.min(vpc.prefix + 4, 28)
+        if (!Number.isInteger(group.count) || group.count < 1) {
+            return `Subnet group ${group.name} must contain at least one subnet`
+        }
+        if (!Number.isInteger(prefix) || prefix < vpc.prefix || prefix > 28) {
+            return `Subnet group ${group.name} has an invalid prefix /${prefix}`
+        }
+        allocatedSize += group.count * Math.pow(2, 32 - prefix)
+        if (allocatedSize > Math.pow(2, 32 - vpc.prefix)) {
+            return `Requested subnet plan does not fit within VPC CIDR ${vpcCidr}`
+        }
+    }
+
+    const planned = calculateSubnetCidrs(vpcCidr, groups)
+    for (let groupIndex = 0; groupIndex < planned.length; groupIndex++) {
+        for (const cidr of planned[groupIndex]) {
+            const subnet = parseCidr(cidr)
+            if (!subnet || subnet.address !== subnet.network || !isCidrWithinBlock(cidr, vpcCidr)) {
+                return `Requested subnet ${cidr} does not fit within VPC CIDR ${vpcCidr}`
+            }
+        }
+    }
+    return null
 }
 
 export const ec2Service = createEc2Service()

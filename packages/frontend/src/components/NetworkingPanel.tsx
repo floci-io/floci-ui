@@ -57,7 +57,7 @@ import {
 } from '@/api/aws/ec2.api'
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource} from '@/types/resource'
-import {calculateSubnetCidrs, isValidCidr, isValidPort} from '@/lib/network'
+import {calculateSubnetCidrs, isSubnetLayoutWithinBlock, isValidCidr, isValidPort} from '@/lib/network'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -593,6 +593,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [cidrBlock, cidrValid, JSON.stringify(groups)],
     )
+    const previewValid = preview !== null && isSubnetLayoutWithinBlock(cidrBlock, groups)
 
     const privateColors = useMemo(() => {
         let pi = 0
@@ -619,7 +620,12 @@ function WizardModal({onClose}: {onClose: () => void}) {
     function addGroup() {setGroups((prev) => [...prev, {name: '', count: 1, isPublic: false}])}
     function removeGroup(idx: number) {setGroups((prev) => prev.filter((_, i) => i !== idx))}
 
-    const canSubmit = cidrValid && wizName.trim().length > 0 && groups.length > 0 && groups.every((g) => g.name.trim() && g.count >= 1)
+    const canSubmit = cidrValid && wizName.trim().length > 0 && groups.length > 0 && groups.every((g) => g.name.trim() && g.count >= 1) && previewValid
+    function handleCreate() {
+        if (!canSubmit) return
+        setStep('creating')
+        mut.mutate({name: wizName.trim(), cidrBlock, subnetGroups: groups, natGateway: false})
+    }
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -713,11 +719,16 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                         {cidrValid ? 'Add subnet groups to preview.' : 'Enter a valid CIDR to preview.'}
                                     </div>
                                 )}
+                                {preview && !previewValid && (
+                                    <p style={{color: 'var(--status-error)', fontSize: 11, marginTop: 8}}>
+                                        Requested subnet layout is invalid or does not fit the VPC CIDR.
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="modal-footer">
                             <button className="button" onClick={onClose}>Cancel</button>
-                            <button className="button primary" disabled={!canSubmit} onClick={() => {setStep('creating'); mut.mutate({name: wizName.trim(), cidrBlock, subnetGroups: groups, natGateway: false})}}>
+                            <button className="button primary" disabled={!canSubmit} onClick={handleCreate}>
                                 Create VPC
                             </button>
                         </div>

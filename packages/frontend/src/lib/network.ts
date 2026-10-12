@@ -140,3 +140,34 @@ export function calculateSubnetCidrs(
     return { name: g.name, isPublic: g.isPublic, cidrs }
   })
 }
+
+/**
+ * True when every generated subnet fits inside the requested VPC block.
+ * The wizard checks this before sending any provisioning request because the
+ * allocator lays groups out sequentially and can run past a small VPC.
+ */
+export function isSubnetLayoutWithinBlock(vpcCidr: string, groups: SubnetGroupDef[]): boolean {
+  const parsed = parseIpAndPrefix(vpcCidr)
+  if (!parsed || !isCanonicalCidr(vpcCidr) || groups.length === 0) return false
+
+  const vpcPrefix = parsed[1]
+  if (vpcPrefix < 16 || vpcPrefix > 28) return false
+  let allocatedSize = 0
+  if (groups.some((group) => {
+    const prefix = group.prefix ?? Math.min(vpcPrefix + 4, 28)
+    if (!Number.isInteger(group.count) || group.count < 1 || !Number.isInteger(prefix) || prefix < vpcPrefix || prefix > 28) return true
+    allocatedSize += group.count * Math.pow(2, 32 - prefix)
+    return allocatedSize > Math.pow(2, 32 - vpcPrefix)
+  })) return false
+
+  const previews = calculateSubnetCidrs(vpcCidr, groups)
+  return previews.every((group) => group.cidrs.every((cidr) => isCanonicalCidr(cidr) && isCidrWithinBlock(cidr, vpcCidr)))
+}
+
+function isCanonicalCidr(cidr: string): boolean {
+  const parsed = parseIpAndPrefix(cidr)
+  if (!parsed) return false
+  const [octets, prefix] = parsed
+  const masked = maskIp(octets, prefix)
+  return octets.every((octet, index) => octet === masked[index])
+}

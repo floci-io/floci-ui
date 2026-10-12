@@ -52,7 +52,8 @@ import {
     StopInstancesCommand,
     TerminateInstancesCommand,
 } from '@aws-sdk/client-ec2'
-import {createEc2Service} from './ec2'
+import {createEc2Service, isCidrWithinBlock} from './ec2'
+import type {SubnetGroup} from './ec2'
 
 function fakeClient(responses: Record<string, unknown> = {}): EC2Client {
     return {
@@ -566,6 +567,87 @@ describe('ec2Service metadata', () => {
         expect(result[0].instanceType).toBe('t3.micro')
         expect(result[0].vcpu).toBe(2)
         expect(result[0].memoryMiB).toBe(1024)
+    })
+})
+
+describe('ec2Service VPC wizard subnet boundaries', () => {
+    test('recognizes CIDRs that fit wholly inside the VPC', () => {
+        expect(isCidrWithinBlock('10.0.0.0/28', '10.0.0.0/28')).toBe(true)
+        expect(isCidrWithinBlock('10.0.0.16/28', '10.0.0.0/28')).toBe(false)
+    })
+
+    test('rejects an overflowing subnet plan before creating any resource', async () => {
+        const sent: unknown[] = []
+        const client: EC2Client = {
+            send: async (command: unknown) => {
+                sent.push(command)
+                return {}
+            },
+        } as unknown as EC2Client
+
+        await expect(createEc2Service(client).createVpcWizard({
+            name: 'small-vpc',
+            cidrBlock: '10.0.0.0/28',
+            subnetGroups: [
+                {name: 'public', count: 2, isPublic: true},
+                {name: 'private', count: 2, isPublic: false},
+            ],
+            natGateway: false,
+        })).rejects.toThrow('does not fit within VPC CIDR')
+        expect(sent).toHaveLength(0)
+    })
+
+    test.each([
+        ['noncanonical VPC', '10.0.0.16/24', [{name: 'public', count: 1, isPublic: true, prefix: 28}]],
+        ['invalid octet', '10.256.0.0/24', [{name: 'public', count: 1, isPublic: true}]],
+        ['invalid VPC prefix', '10.0.0.0/29', [{name: 'public', count: 1, isPublic: true}]],
+        ['empty plan', '10.0.0.0/24', []],
+        ['fractional count', '10.0.0.0/24', [{name: 'public', count: 1.5, isPublic: true}]],
+        ['oversized count', '10.0.0.0/24', [{name: 'public', count: Number.MAX_SAFE_INTEGER, isPublic: true}]],
+        ['subnet larger than VPC', '10.0.0.0/24', [{name: 'public', count: 1, isPublic: true, prefix: 23}]],
+        ['unaligned mixed-prefix plan', '10.0.0.0/24', [
+            {name: 'public', count: 1, isPublic: true, prefix: 28},
+            {name: 'private', count: 1, isPublic: false, prefix: 27},
+        ]],
+    ] satisfies Array<[string, string, SubnetGroup[]]>)('rejects %s without AWS calls', async (_, cidrBlock, subnetGroups) => {
+        const sent: unknown[] = []
+        const client: EC2Client = {
+            send: async (command: unknown) => { sent.push(command); return {} },
+        } as unknown as EC2Client
+
+        await expect(createEc2Service(client).createVpcWizard({
+            name: 'invalid-plan', cidrBlock, subnetGroups, natGateway: false,
+        })).rejects.toThrow()
+        expect(sent).toHaveLength(0)
+    })
+
+    test('creates a valid single /28 subnet with its public route', async () => {
+        const sent: unknown[] = []
+        const client: EC2Client = {
+            send: async (command: unknown) => {
+                sent.push(command)
+                if (command instanceof CreateVpcCommand) return {Vpc: {VpcId: 'vpc-small'}}
+                if (command instanceof CreateInternetGatewayCommand) return {InternetGateway: {InternetGatewayId: 'igw-small'}}
+                if (command instanceof CreateSubnetCommand) return {Subnet: {SubnetId: 'subnet-small'}}
+                if (command instanceof CreateRouteTableCommand) return {RouteTable: {RouteTableId: 'rtb-small'}}
+                return {}
+            },
+        } as unknown as EC2Client
+
+        const result = await createEc2Service(client).createVpcWizard({
+            name: 'small-vpc', cidrBlock: '10.0.0.0/28',
+            subnetGroups: [{name: 'public', count: 1, isPublic: true}],
+            natGateway: false,
+        })
+
+        expect(result.vpcId).toBe('vpc-small')
+        expect(result.publicSubnetIds).toEqual(['subnet-small'])
+        expect(result.privateSubnetIds).toEqual([])
+        const subnets = sent.filter((command): command is CreateSubnetCommand => command instanceof CreateSubnetCommand)
+        expect(subnets).toHaveLength(1)
+        expect(subnets[0].input).toMatchObject({VpcId: 'vpc-small', CidrBlock: '10.0.0.0/28'})
+        const route = sent.find((command) => command instanceof CreateRouteCommand) as CreateRouteCommand
+        expect(route.input).toMatchObject({RouteTableId: 'rtb-small', DestinationCidrBlock: '0.0.0.0/0', GatewayId: 'igw-small'})
     })
 })
 

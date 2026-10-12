@@ -3,7 +3,7 @@ import { Network, CheckCircle2, Loader2, AlertCircle, X, Plus, Trash2 } from 'lu
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createVpcWizard } from '@/api/aws/ec2.api'
 import type { SubnetGroup, VpcWizardInput, VpcWizardResult } from '@/api/aws/ec2.api'
-import { calculateSubnetCidrs } from '@/lib/network'
+import { calculateSubnetCidrs, isSubnetLayoutWithinBlock } from '@/lib/network'
 import { isValidCidr } from './validators'
 import { ec2QueryKeys } from '@/api/aws/ec2.queries'
 
@@ -68,6 +68,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [cidrBlock, cidrValid, JSON.stringify(groups)],
   )
+  const previewValid = preview !== null && isSubnetLayoutWithinBlock(cidrBlock, groups)
 
   const mutation = useMutation({
     mutationFn: (input: VpcWizardInput) => createVpcWizard(input),
@@ -89,7 +90,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
   })
 
   function handleCreate() {
-    if (!cidrValid || !name.trim() || groups.length === 0) return
+    if (!cidrValid || !name.trim() || groups.length === 0 || !previewValid) return
     setStep('creating')
     mutation.mutate({
       name: name.trim(),
@@ -114,7 +115,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
   }
 
   const canSubmit = cidrValid && name.trim().length > 0 && groups.length > 0 &&
-    groups.every((g) => g.name.trim().length > 0 && g.count >= 1)
+    groups.every((g) => g.name.trim().length > 0 && g.count >= 1) && previewValid
 
   // ── Private-group color assignment ─────────────────────────────────────────
   // Track a stable color per private group by their declaration order
@@ -356,6 +357,11 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                   <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
                     {cidrValid ? 'Add subnet groups to preview.' : 'Enter a valid CIDR to preview.'}
                   </div>
+                )}
+                {preview && !previewValid && (
+                  <p style={{ color: 'var(--status-error)', fontSize: 11, marginTop: 8 }}>
+                    Requested subnet layout is invalid or does not fit the VPC CIDR.
+                  </p>
                 )}
               </div>
             </div>
