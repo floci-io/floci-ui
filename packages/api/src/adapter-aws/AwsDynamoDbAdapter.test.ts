@@ -573,6 +573,64 @@ describe('AwsDynamoDbAdapter', () => {
         expect(calls).toBe(0)
     })
 
+    test.each([
+        ['INSERT', 'INSERT INTO "orders" VALUE {\'id\': \'order-2\'}'],
+        ['UPDATE', 'UPDATE "orders" SET total = 1 WHERE id = \'order-1\''],
+        ['DELETE', 'DELETE FROM "orders" WHERE id = \'order-1\''],
+    ])('returns no rows and no cursor for a %s statement', async (_verb, statement) => {
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}]}}
+            }
+            // DynamoDB answers a write with an empty ExecuteStatementOutput.
+            return {}
+        })
+
+        const result = await new AwsDynamoDbAdapter(client).items.queryItems!('orders', statement)
+
+        expect(result).toEqual({items: [], nextCursor: null})
+    })
+
+    test('maps nested map and list attributes of a PartiQL row', async () => {
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {
+                    Table: {
+                        KeySchema: [
+                            {AttributeName: 'customerId', KeyType: 'HASH'},
+                            {AttributeName: 'orderId', KeyType: 'RANGE'},
+                        ],
+                    },
+                }
+            }
+            return {
+                Items: [{
+                    customerId: {S: 'c1'},
+                    orderId: {S: '2026-001'},
+                    shipping: {M: {city: {S: 'Madrid'}, express: {BOOL: true}}},
+                    items: {L: [{M: {sku: {S: 'A1'}, qty: {N: '2'}}}, {M: {sku: {S: 'B7'}, qty: {N: '1'}}}]},
+                    tags: {L: [{S: 'gift'}, {S: 'priority'}]},
+                }],
+            }
+        })
+
+        const result = await new AwsDynamoDbAdapter(client).items.queryItems!(
+            'orders',
+            'SELECT * FROM "orders" WHERE shipping.express = true',
+        )
+
+        expect(result.items).toHaveLength(1)
+        expect(result.items[0].id).toBe(JSON.stringify({customerId: 'c1', orderId: '2026-001'}))
+        expect(result.items[0].metadata).toEqual({key: {customerId: 'c1', orderId: '2026-001'}})
+        expect(result.items[0].body).toEqual({
+            customerId: 'c1',
+            orderId: '2026-001',
+            shipping: {city: 'Madrid', express: true},
+            items: [{sku: 'A1', qty: 2}, {sku: 'B7', qty: 1}],
+            tags: ['gift', 'priority'],
+        })
+    })
+
     test('lets a PartiQL error from DynamoDB reach the caller', async () => {
         const rejection = Object.assign(new Error("Statement wasn't well formed, can't be processed: unexpected token"), {
             name: 'ValidationException',

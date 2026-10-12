@@ -1,5 +1,5 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {render, screen} from '@testing-library/react'
+import {render, screen, waitFor} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {ReactElement} from 'react'
 import {DynamoDbTableExplorer} from '@/components/DynamoDbTableExplorer'
@@ -111,5 +111,84 @@ describe('DynamoDbTableExplorer', () => {
 
         expect(queryFlatItems).not.toHaveBeenCalled()
         expect(listFlatItems).not.toHaveBeenCalled()
+    })
+
+    test.each([
+        ['INSERT', 'INSERT INTO "orders" VALUE {\'id\': \'order-2\'}'],
+        ['UPDATE', 'UPDATE "orders" SET total = 1 WHERE id = \'order-1\''],
+        ['DELETE', 'DELETE FROM "orders" WHERE id = \'order-1\''],
+    ])('rescans the records after a %s statement', async (_verb, statement) => {
+        queryFlatItems.mockResolvedValue(page([]))
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={table('orders')} runtimeReachable/>)
+        await screen.findByRole('cell', {name: '{"id":"order-1"}'})
+        const scansBefore = listFlatItems.mock.calls.length
+
+        const editor = screen.getByRole('textbox', {name: 'PartiQL statement'})
+        await user.clear(editor)
+        await user.type(editor, statement.replace(/[{]/g, '{{'))
+        await user.click(screen.getByRole('button', {name: 'Run statement'}))
+
+        await waitFor(() => expect(listFlatItems.mock.calls.length).toBeGreaterThan(scansBefore))
+    })
+
+    test('does not rescan the records after a SELECT, even in lower case', async () => {
+        queryFlatItems.mockResolvedValue(page([item({id: 'order-1'})]))
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={table('orders')} runtimeReachable/>)
+        await screen.findByRole('cell', {name: '{"id":"order-1"}'})
+        const scansBefore = listFlatItems.mock.calls.length
+
+        const editor = screen.getByRole('textbox', {name: 'PartiQL statement'})
+        await user.clear(editor)
+        await user.type(editor, 'select * from "orders"')
+        await user.click(screen.getByRole('button', {name: 'Run statement'}))
+        await screen.findByText('1 row')
+
+        expect(listFlatItems.mock.calls.length).toBe(scansBefore)
+    })
+
+    test('shows the statement error and no stale rows', async () => {
+        queryFlatItems.mockRejectedValue(new Error("Statement wasn't well formed (invalid_request)"))
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={table('orders')} runtimeReachable/>)
+
+        await user.click(screen.getByRole('button', {name: 'Run statement'}))
+
+        expect(await screen.findByText("Statement wasn't well formed (invalid_request)")).toBeInTheDocument()
+        expect(screen.queryByText(/rows?$/)).not.toBeInTheDocument()
+    })
+
+    test('appends the next page of rows to the ones already shown', async () => {
+        queryFlatItems
+            .mockResolvedValueOnce(page([item({id: 'order-1', total: 3})], 'token-2'))
+            .mockResolvedValueOnce(page([item({id: 'order-2', total: 5})]))
+        const user = userEvent.setup()
+        const {container} = renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={table('orders')} runtimeReachable/>)
+
+        await user.click(screen.getByRole('button', {name: 'Run statement'}))
+        await screen.findByText('1+ row')
+        await user.click(screen.getByRole('button', {name: 'Load more rows'}))
+        await screen.findByText('2 rows')
+
+        const rows = JSON.parse(container.querySelector('.cosmos-query-result')!.textContent!)
+        expect(rows).toEqual([{id: 'order-1', total: 3}, {id: 'order-2', total: 5}])
+        expect(screen.queryByRole('button', {name: 'Load more rows'})).not.toBeInTheDocument()
+    })
+
+    test('disables Run statement while the statement is blank', async () => {
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={table('orders')} runtimeReachable/>)
+        const editor = screen.getByRole('textbox', {name: 'PartiQL statement'})
+        const run = screen.getByRole('button', {name: 'Run statement'})
+
+        expect(run).toBeEnabled()
+        await user.clear(editor)
+        expect(run).toBeDisabled()
+        await user.type(editor, '   ')
+        expect(run).toBeDisabled()
+        await user.keyboard('{Control>}{Enter}{/Control}')
+
+        expect(queryFlatItems).not.toHaveBeenCalled()
     })
 })
