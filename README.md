@@ -181,9 +181,16 @@ Set in `packages/api/.env` (defaults shown).
 | `FLOCI_GCP_ENDPOINT` | `http://localhost:4588` |
 | `FLOCI_OCI_ENDPOINT` | `http://localhost:4599` |
 | `FLOCI_AZURE_ACCOUNT_NAME` / `_SUBSCRIPTION_ID` / `_RESOURCE_GROUP` | `devstoreaccount1` / `00000000-0000-0000-0000-000000000000` / `floci-local` |
-| `FLOCI_GCP_PROJECT` | `floci-local` |
+| `FLOCI_GCP_PROJECT` / `_LOCATION` | `floci-local` / `us-central1` |
+| `FLOCI_OCI_REGION` | `us-ashburn-1` |
+| `FLOCI_OCI_TENANCY_ID` | Floci-OCI's built-in tenancy |
+| `FLOCI_OCI_NAMESPACE` | unset, discovered from the runtime |
+| `FLOCI_DEFAULT_ACCOUNT_ID` | `000000000000` |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `us-east-1`, `test`, `test` |
 | `PORT` | `4501` |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:4500` |
+
+`CORS_ALLOWED_ORIGINS` is a comma separated allow-list. It only gates the Secrets Manager routes and KMS encrypt and decrypt; the console reaches the API same-origin and does not need it.
 
 ## Troubleshooting
 

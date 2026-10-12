@@ -4,7 +4,7 @@ import server from './index'
 const KMS_ENCRYPT_URL = 'http://localhost/api/clouds/aws/services/kms/resources/key-1/encrypt'
 const AZURE_KMS_DECRYPT_URL = 'http://localhost/api/clouds/azure/services/kms/resources/key-1/decrypt'
 const KMS_SCHEMA_URL = 'http://localhost/api/clouds/aws/services/kms/schema'
-const TRUSTED_ORIGIN = 'http://localhost:3000'
+const TRUSTED_ORIGIN = 'http://localhost:4500'
 const UNTRUSTED_ORIGIN = 'https://example.invalid'
 
 describe('credentialed route CORS', () => {

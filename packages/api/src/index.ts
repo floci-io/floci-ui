@@ -20,7 +20,7 @@ const app = new Hono();
 // would either short-circuit the OPTIONS preflight in the wrong handler or let
 // the later one overwrite `Access-Control-Allow-Origin` on real requests.
 const trustedOrigins = (
-  process.env.CORS_ALLOWED_ORIGINS ?? "http://localhost:3000"
+  process.env.CORS_ALLOWED_ORIGINS ?? "http://localhost:4500"
 )
   .split(",")
   .map((origin) => origin.trim())
