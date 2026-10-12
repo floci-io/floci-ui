@@ -194,6 +194,29 @@ Set in `packages/api/.env` (defaults shown).
 
 `CORS_ALLOWED_ORIGINS` is a comma separated allow-list. It only gates the Secrets Manager routes and KMS encrypt and decrypt; the console reaches the API same-origin and does not need it.
 
+### Remote hosts and reverse proxies
+
+For a standalone console behind a reverse proxy, give the console its own origin
+and send all paths to the UI/API service (`4500` for the single image). This includes
+`/assets/*`, `/api/*`, and frontend routes such as `/console/aws` and `/settings`.
+Sending frontend routes to Floci core (`4566`) can return S3 `NoSuchBucket` XML on
+a page refresh instead of the console's HTML.
+
+The standalone console uses root-relative assets, API URLs and frontend routes.
+Proxying only `/_floci/ui*` while another service owns `/` does not add base-path
+support; use a separate console hostname instead of a partial path mapping.
+
+Set `FLOCI_ENDPOINT` on the service running the API, using an address reachable
+from that service. For example, on a shared Compose network it is
+`http://floci:4566`. In a container, `http://localhost:4566` refers to that container,
+not the host or the Floci service. `FLOCI_CORE_URL` and `FLOCI_AWS_ENDPOINT` are not
+configuration variables used by this API.
+
+The browser requests `/api/clouds/aws/status`; the API probes the runtime's
+`/_floci/health`. A `localhost:4566` address in a runtime error describes the API's
+configured endpoint. Check `/api/clouds/aws/status` through the console origin
+and refresh a frontend route when troubleshooting the proxy.
+
 ## Troubleshooting
 
 | Symptom | Fix |
