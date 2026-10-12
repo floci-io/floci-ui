@@ -1011,7 +1011,7 @@ function bodyPageQuery(body: QueryBody): PageQuery {
     if (body.limit !== undefined && body.limit !== null && typeof body.limit !== 'number') {
         throw new ValidationError('limit must be a number.')
     }
-    return {cursor: body.cursor || undefined, limit: clampLimit(body.limit == null ? undefined : String(body.limit))}
+    return {cursor: body.cursor || undefined, limit: clampLimit(typeof body.limit === 'number' ? String(body.limit) : undefined)}
 }
 
 async function withRuntime(c: Context, handler: () => Promise<Response>): Promise<Response> {
