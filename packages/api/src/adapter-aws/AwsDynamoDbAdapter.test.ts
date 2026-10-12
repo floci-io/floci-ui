@@ -3,6 +3,7 @@ import {
     CreateTableCommand,
     DeleteTableCommand,
     DescribeTableCommand,
+    ExecuteStatementCommand,
     ListTablesCommand,
     PutItemCommand,
     ScanCommand,
@@ -11,10 +12,21 @@ import {
 import {AwsDynamoDbAdapter} from './AwsDynamoDbAdapter'
 import {ValidationError} from '../cloud-spi/errors'
 
-type Command = CreateTableCommand | DeleteTableCommand | DescribeTableCommand | ListTablesCommand | PutItemCommand | ScanCommand
+type Command =
+    | CreateTableCommand
+    | DeleteTableCommand
+    | DescribeTableCommand
+    | ExecuteStatementCommand
+    | ListTablesCommand
+    | PutItemCommand
+    | ScanCommand
 
 function fakeClient(send: (command: Command) => Promise<unknown>): DynamoDBClient {
     return {send} as unknown as DynamoDBClient
+}
+
+function childItem(key: Record<string, unknown>, body: Record<string, unknown>) {
+    return {id: JSON.stringify(key), collectionId: null, timestamp: null, body, metadata: {key}}
 }
 
 describe('AwsDynamoDbAdapter', () => {
@@ -192,7 +204,8 @@ describe('AwsDynamoDbAdapter', () => {
         expect(captured?.input.TableName).toBe('orders')
     })
 
-    test('lists and unmarshalls table records across scan pages', async () => {
+    test('scans one page of table records and returns a cursor for the next', async () => {
+        const scans: ScanCommand[] = []
         const client = fakeClient(async (command) => {
             if (command instanceof DescribeTableCommand) {
                 return {Table: {KeySchema: [
@@ -201,7 +214,7 @@ describe('AwsDynamoDbAdapter', () => {
                 ]}}
             }
             if (command instanceof ScanCommand) {
-                expect(command.input.Limit).toBe(command.input.ExclusiveStartKey ? 99 : 100)
+                scans.push(command)
                 return command.input.ExclusiveStartKey
                     ? {Items: [{accountId: {S: 'acct-2'}, createdAt: {N: '9007199254740993'}, active: {BOOL: false}, roles: {SS: ['admin', 'editor']}}]}
                     : {
@@ -211,45 +224,67 @@ describe('AwsDynamoDbAdapter', () => {
             }
             throw new Error('Unexpected command')
         })
+        const items = new AwsDynamoDbAdapter(client).items
 
-        const result = await new AwsDynamoDbAdapter(client).listNoSqlItems('orders')
-
-        expect(result).toEqual([
-            {
-                id: '{"accountId":"acct-1","createdAt":1}',
-                key: {accountId: 'acct-1', createdAt: 1},
-                document: {accountId: 'acct-1', createdAt: 1, active: true},
-            },
-            {
-                id: '{"accountId":"acct-2","createdAt":"9007199254740993"}',
-                key: {accountId: 'acct-2', createdAt: '9007199254740993'},
-                document: {accountId: 'acct-2', createdAt: '9007199254740993', active: false, roles: ['admin', 'editor']},
-            },
+        const first = await items.listItems('orders')
+        expect(scans[0].input).toEqual({TableName: 'orders', Limit: 100, ExclusiveStartKey: undefined})
+        expect(first.items).toEqual([
+            childItem({accountId: 'acct-1', createdAt: 1}, {accountId: 'acct-1', createdAt: 1, active: true}),
         ])
+        expect(first.nextCursor).toEqual(expect.any(String))
+
+        const second = await items.listItems('orders', {cursor: first.nextCursor ?? undefined, limit: 25})
+        expect(scans[1].input).toEqual({
+            TableName: 'orders',
+            Limit: 25,
+            ExclusiveStartKey: {accountId: {S: 'acct-1'}, createdAt: {N: '1'}},
+        })
+        expect(second).toEqual({
+            items: [childItem(
+                {accountId: 'acct-2', createdAt: '9007199254740993'},
+                {accountId: 'acct-2', createdAt: '9007199254740993', active: false, roles: ['admin', 'editor']},
+            )],
+            nextCursor: null,
+        })
     })
 
-    test('stops scanning after 100 records', async () => {
-        let scanCount = 0
+    test('round-trips a binary key through the scan cursor', async () => {
+        const startKeys: unknown[] = []
         const client = fakeClient(async (command) => {
             if (command instanceof DescribeTableCommand) {
                 return {Table: {KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}]}}
             }
             if (command instanceof ScanCommand) {
-                scanCount += 1
-                expect(command.input.Limit).toBe(100)
-                return {
-                    Items: Array.from({length: 100}, (_, index) => ({id: {N: String(index)}})),
-                    LastEvaluatedKey: {id: {N: '99'}},
-                }
+                startKeys.push(command.input.ExclusiveStartKey)
+                return {Items: [], LastEvaluatedKey: {id: {B: new Uint8Array([0, 255, 104, 105])}}}
             }
             throw new Error('Unexpected command')
         })
+        const items = new AwsDynamoDbAdapter(client).items
 
-        const result = await new AwsDynamoDbAdapter(client).listNoSqlItems('orders')
+        const first = await items.listItems('blobs')
+        await items.listItems('blobs', {cursor: first.nextCursor ?? undefined})
 
-        expect(result).toHaveLength(100)
-        expect(scanCount).toBe(1)
+        expect(startKeys[1]).toEqual({id: {B: Buffer.from([0, 255, 104, 105])}})
     })
+
+    test.each(['not base64 json', Buffer.from('[]').toString('base64url'), Buffer.from('{"id":{"L":[]}}').toString('base64url')])(
+        'rejects the malformed scan cursor %s before scanning',
+        async (cursor) => {
+            let scans = 0
+            const client = fakeClient(async (command) => {
+                if (command instanceof DescribeTableCommand) {
+                    return {Table: {KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}]}}
+                }
+                scans += 1
+                return {}
+            })
+
+            await expect(new AwsDynamoDbAdapter(client).items.listItems('orders', {cursor}))
+                .rejects.toThrow(new ValidationError('cursor is not a valid DynamoDB scan cursor.'))
+            expect(scans).toBe(0)
+        },
+    )
 
     test('puts a record using the table key types', async () => {
         let captured: PutItemCommand | undefined
@@ -273,7 +308,7 @@ describe('AwsDynamoDbAdapter', () => {
             throw new Error('Unexpected command')
         })
 
-        const result = await new AwsDynamoDbAdapter(client).putNoSqlItem('orders', {
+        const result = await new AwsDynamoDbAdapter(client).items.putItem!('orders', {
             accountId: 'acct-1',
             sequence: '9007199254740993',
             active: true,
@@ -287,11 +322,10 @@ describe('AwsDynamoDbAdapter', () => {
                 active: {BOOL: true},
             },
         })
-        expect(result).toEqual({
-            id: '{"accountId":"acct-1","sequence":"9007199254740993"}',
-            key: {accountId: 'acct-1', sequence: '9007199254740993'},
-            document: {accountId: 'acct-1', sequence: '9007199254740993', active: true},
-        })
+        expect(result).toEqual(childItem(
+            {accountId: 'acct-1', sequence: '9007199254740993'},
+            {accountId: 'acct-1', sequence: '9007199254740993', active: true},
+        ))
     })
 
     test('accepts base64 for binary keys', async () => {
@@ -307,10 +341,10 @@ describe('AwsDynamoDbAdapter', () => {
             return {}
         })
 
-        const result = await new AwsDynamoDbAdapter(client).putNoSqlItem('blobs', {id: 'aGVsbG8=', name: 'hello'})
+        const result = await new AwsDynamoDbAdapter(client).items.putItem!('blobs', {id: 'aGVsbG8=', name: 'hello'})
 
         expect(captured?.input.Item?.id.B).toEqual(Buffer.from('hello'))
-        expect(result.key).toEqual({id: 'aGVsbG8='})
+        expect(result.metadata.key).toEqual({id: 'aGVsbG8='})
     })
 
     test('validates required and typed keys before putting a record', async () => {
@@ -325,12 +359,12 @@ describe('AwsDynamoDbAdapter', () => {
             putCalls += 1
             return {}
         })
-        const adapter = new AwsDynamoDbAdapter(client)
+        const items = new AwsDynamoDbAdapter(client).items
 
-        await expect(adapter.putNoSqlItem('orders', {})).rejects.toThrow('Key attribute id is required')
-        await expect(adapter.putNoSqlItem('orders', {id: 'not-a-number'})).rejects.toThrow('Key attribute id must be a number')
+        await expect(items.putItem!('orders', {})).rejects.toThrow('Key attribute id is required')
+        await expect(items.putItem!('orders', {id: 'not-a-number'})).rejects.toThrow('Key attribute id must be a number')
         for (const json of ['1', '1.5', '9007199254740993', '123456789.123456789', '1.0000000000000000001']) {
-            await expect(adapter.putNoSqlItem('orders', {id: JSON.parse(json)}))
+            await expect(items.putItem!('orders', {id: JSON.parse(json)}))
                 .rejects.toThrow('must be a quoted number to preserve precision')
         }
         expect(putCalls).toBe(0)
@@ -349,14 +383,14 @@ describe('AwsDynamoDbAdapter', () => {
             captured = command as PutItemCommand
             return {}
         })
-        const adapter = new AwsDynamoDbAdapter(client)
+        const items = new AwsDynamoDbAdapter(client).items
 
-        const created = await adapter.putNoSqlItem('orders', {id})
-        const listed = await adapter.listNoSqlItems('orders')
+        const created = await items.putItem!('orders', {id})
+        const listed = await items.listItems('orders')
 
         expect(captured?.input.Item?.id).toEqual({N: id})
-        expect(created).toEqual({id: JSON.stringify({id}), key: {id}, document: {id}})
-        expect(listed).toEqual([created])
+        expect(created).toEqual(childItem({id}, {id}))
+        expect(listed.items).toEqual([created])
     })
 
     test.each([
@@ -377,7 +411,7 @@ describe('AwsDynamoDbAdapter', () => {
             return {}
         })
 
-        await expect(new AwsDynamoDbAdapter(client).putNoSqlItem('orders', JSON.parse(json)))
+        await expect(new AwsDynamoDbAdapter(client).items.putItem!('orders', JSON.parse(json)))
             .rejects.toThrow(new ValidationError(`Item value at ${path} must quote integers outside JavaScript's safe range.`))
         expect(putCalls).toBe(0)
     })
@@ -419,14 +453,14 @@ describe('AwsDynamoDbAdapter', () => {
             }
             throw new Error('Unexpected command')
         })
-        const adapter = new AwsDynamoDbAdapter(client)
+        const items = new AwsDynamoDbAdapter(client).items
 
-        const created = await adapter.putNoSqlItem('orders', {accountId: 'acct-1', sequence: input})
-        const listed = await adapter.listNoSqlItems('orders')
+        const created = await items.putItem!('orders', {accountId: 'acct-1', sequence: input})
+        const listed = await items.listItems('orders')
         const key = {accountId: 'acct-1', sequence: normalized}
 
-        expect(created).toEqual({id: JSON.stringify(key), key, document: key})
-        expect(listed).toEqual([created])
+        expect(created).toEqual(childItem(key, key))
+        expect(listed.items).toEqual([created])
     })
 
     test('preserves safe integers, fractions, and quoted large values in nested records', async () => {
@@ -447,13 +481,111 @@ describe('AwsDynamoDbAdapter', () => {
             details: {count: '9007199254740993', active: true, optional: null},
         }
 
-        const result = await new AwsDynamoDbAdapter(client).putNoSqlItem('orders', document)
+        const result = await new AwsDynamoDbAdapter(client).items.putItem!('orders', document)
 
         expect(captured?.input.Item?.values).toEqual({L: [
             {N: '-9007199254740991'}, {N: '9007199254740991'}, {N: '0'}, {N: '1.5'},
         ]})
         expect(captured?.input.Item?.details.M?.count).toEqual({S: '9007199254740993'})
-        expect(result.document).toEqual(document)
+        expect(result.body).toEqual(document)
+    })
+
+    test('runs a PartiQL statement and maps rows with the table key', async () => {
+        const statements: ExecuteStatementCommand[] = []
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}]}}
+            }
+            if (command instanceof ExecuteStatementCommand) {
+                statements.push(command)
+                return {
+                    Items: [{id: {S: 'order-1'}, total: {N: '9007199254740993'}, tags: {SS: ['new']}}],
+                    NextToken: 'token-2',
+                }
+            }
+            throw new Error('Unexpected command')
+        })
+
+        const result = await new AwsDynamoDbAdapter(client).items.queryItems!(
+            'orders',
+            '  SELECT * FROM "orders" WHERE total > 10  ',
+        )
+
+        expect(statements[0].input).toEqual({
+            Statement: 'SELECT * FROM "orders" WHERE total > 10',
+            Limit: 100,
+            NextToken: undefined,
+        })
+        expect(result).toEqual({
+            items: [childItem({id: 'order-1'}, {id: 'order-1', total: '9007199254740993', tags: ['new']})],
+            nextCursor: 'token-2',
+        })
+    })
+
+    test('continues a PartiQL statement with its NextToken and page size', async () => {
+        let captured: ExecuteStatementCommand | undefined
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}]}}
+            }
+            captured = command as ExecuteStatementCommand
+            return {Items: []}
+        })
+
+        const result = await new AwsDynamoDbAdapter(client).items.queryItems!(
+            'orders',
+            'SELECT * FROM "orders"',
+            {cursor: 'token-2', limit: 10},
+        )
+
+        expect(captured?.input).toEqual({Statement: 'SELECT * FROM "orders"', Limit: 10, NextToken: 'token-2'})
+        expect(result).toEqual({items: [], nextCursor: null})
+    })
+
+    test('identifies projected rows without key attributes by position', async () => {
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}]}}
+            }
+            return {Items: [{total: {N: '3'}}, {total: {N: '5'}}]}
+        })
+
+        const result = await new AwsDynamoDbAdapter(client).items.queryItems!('orders', 'SELECT total FROM "orders"')
+
+        expect(result.items.map(({id, body, metadata}) => ({id, body, metadata}))).toEqual([
+            {id: 'row-0', body: {total: 3}, metadata: {key: null}},
+            {id: 'row-1', body: {total: 5}, metadata: {key: null}},
+        ])
+    })
+
+    test.each([
+        ['an empty statement', '   ', 'A PartiQL statement is required.'],
+        ['a statement over 8192 characters', `SELECT * FROM "orders" WHERE id = '${'x'.repeat(8192)}'`, 'A PartiQL statement must be at most 8192 characters.'],
+    ])('rejects %s before calling DynamoDB', async (_name, statement, message) => {
+        let calls = 0
+        const client = fakeClient(async () => {
+            calls += 1
+            return {}
+        })
+
+        await expect(new AwsDynamoDbAdapter(client).items.queryItems!('orders', statement))
+            .rejects.toThrow(new ValidationError(message))
+        expect(calls).toBe(0)
+    })
+
+    test('lets a PartiQL error from DynamoDB reach the caller', async () => {
+        const rejection = Object.assign(new Error("Statement wasn't well formed, can't be processed: unexpected token"), {
+            name: 'ValidationException',
+        })
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}]}}
+            }
+            throw rejection
+        })
+
+        await expect(new AwsDynamoDbAdapter(client).items.queryItems!('orders', 'SELEKT * FROM "orders"'))
+            .rejects.toBe(rejection)
     })
 
     test('returns the AWS DynamoDB schema', () => {

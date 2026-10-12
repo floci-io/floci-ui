@@ -2433,6 +2433,12 @@ pre,
     grid-column: 1 / -1;
 }
 
+.dynamodb-load-more {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0;
+}
+
 .dynamodb-document {
     max-height: 420px;
     overflow: auto;
@@ -4321,6 +4327,13 @@ button.console-service-card {
     flex: 1;
     min-height: 100px;
     max-height: none;
+}
+
+/* The PartiQL editor shares this column, so the record keeps its own height
+   instead of pushing the editor to the bottom. */
+.data-workspace .dynamodb-explorer .dynamodb-document {
+    flex: 0 1 auto;
+    max-height: 420px;
 }
 
 .data-workspace .cosmos-inline-form {

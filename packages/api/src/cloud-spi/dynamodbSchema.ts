@@ -83,6 +83,13 @@ export function awsDynamoDbSchema(): ServiceSchema {
                 {name: 'delete', label: 'Delete table', enabled: true, status: 'available', runtimeRequired: true},
                 {name: 'inspect', label: 'Inspect table', enabled: true, status: 'available', runtimeRequired: true},
             ],
+            // A table is a flat item store: no collections between the table
+            // and its items. Query is PartiQL through ExecuteStatement.
+            itemActions: [
+                {name: 'list', label: 'Scan items', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'put', label: 'Put item', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'query', label: 'Run PartiQL', enabled: true, status: 'available', runtimeRequired: true},
+            ],
         },
         filters: dynamodbFilters,
         columns: dynamodbColumns,

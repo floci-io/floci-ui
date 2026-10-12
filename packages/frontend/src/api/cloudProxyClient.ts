@@ -31,7 +31,6 @@ import type {
   LambdaTrigger,
   LogsInsightsQueryInput,
   LogsInsightsQueryResult,
-  NoSqlItem,
   SqlCredentials,
   SqlDatabase,
   SqlEngine,
@@ -578,6 +577,56 @@ export async function listCollectionItems(
   return res.data;
 }
 
+export async function listFlatItems(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  resourceId: string,
+  cursor?: string,
+  signal?: AbortSignal,
+): Promise<CollectionPage<ChildItem>> {
+  const res = await apiClient.call<CollectionPage<ChildItem>>(
+    apiEndpointKeys.clouds.childCollections.flatItems.list,
+    requestOptions(cloud, service, { signal, params: cursor ? { cursor } : undefined }),
+    { cloud, service, id: resourceId },
+  );
+  return res.data;
+}
+
+export async function putFlatItem(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  resourceId: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<ChildItem> {
+  const res = await apiClient.call<ChildItem, Record<string, unknown>>(
+    apiEndpointKeys.clouds.childCollections.flatItems.put,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id: resourceId },
+  );
+  return res.data;
+}
+
+/**
+ * The continuation cursor travels in the body with the statement it belongs
+ * to, never in the URL.
+ */
+export async function queryFlatItems(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  resourceId: string,
+  query: string,
+  cursor?: string,
+  signal?: AbortSignal,
+): Promise<CollectionPage<ChildItem>> {
+  const res = await apiClient.call<CollectionPage<ChildItem>, { query: string; cursor?: string }>(
+    apiEndpointKeys.clouds.childCollections.flatItems.query,
+    requestOptions(cloud, service, { signal, body: cursor ? { query, cursor } : { query } }),
+    { cloud, service, id: resourceId },
+  );
+  return res.data;
+}
+
 export async function listSqlDatabases(
   cloud: CloudProvider,
   serverId: string,
@@ -713,33 +762,6 @@ export async function listDatabaseOrderableClasses(
       params: engine ? { engine } : undefined,
     }),
     { cloud },
-  );
-  return res.data;
-}
-
-export async function listNoSqlItems(
-  cloud: CloudProvider,
-  resourceId: string,
-  signal?: AbortSignal,
-): Promise<NoSqlItem[]> {
-  const res = await apiClient.call<NoSqlItem[]>(
-    apiEndpointKeys.clouds.nosql.items.list,
-    requestOptions(cloud, "nosql", { signal }),
-    { cloud, id: resourceId },
-  );
-  return res.data;
-}
-
-export async function putNoSqlItem(
-  cloud: CloudProvider,
-  resourceId: string,
-  document: Record<string, unknown>,
-  signal?: AbortSignal,
-): Promise<NoSqlItem> {
-  const res = await apiClient.call<NoSqlItem, Record<string, unknown>>(
-    apiEndpointKeys.clouds.nosql.items.put,
-    requestOptions(cloud, "nosql", { signal, body: document }),
-    { cloud, id: resourceId },
   );
   return res.data;
 }

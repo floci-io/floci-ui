@@ -34,7 +34,6 @@ import type {
     CreateResourceInput,
     DatabaseSnapshot,
     LogsInsightsQueryResult,
-    NoSqlItem,
     QueueMessage,
 } from '../cloud-spi/types'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
@@ -414,33 +413,44 @@ describe('cloud schema routes', () => {
         expect(body[0].name).toBe('items')
     })
 
-    test('lists DynamoDB records through the nosql adapter', async () => {
+    // DynamoDB used to have its own nosql item routes; they are gone, so the
+    // generic flat-item routes must answer for it.
+    test('lists DynamoDB records through the flat item store', async () => {
+        let seen: unknown
         const app = appWithRoutes([mockAdapter('aws', {
             service: 'nosql',
             schema: awsDynamoDbSchema,
-            listNoSqlItems: async (resourceId: string): Promise<NoSqlItem[]> => [{
-                id: '{"pk":"item-1"}',
-                key: {pk: 'item-1'},
-                document: {pk: 'item-1', name: 'First item', table: resourceId},
-            }],
+            items: {
+                listItems: async (resourceId, page) => {
+                    seen = {resourceId, page}
+                    return {
+                        items: [{id: '{"pk":"item-1"}', collectionId: null, timestamp: null, body: {pk: 'item-1'}, metadata: {key: {pk: 'item-1'}}}],
+                        nextCursor: 'cursor-2',
+                    }
+                },
+            },
         })])
 
-        const res = await app.request('/api/clouds/aws/services/nosql/resources/orders/items')
+        const res = await app.request('/api/clouds/aws/services/nosql/resources/orders/items?limit=50')
         const body = await res.json()
 
         expect(res.status).toBe(200)
-        expect(body[0].key).toEqual({pk: 'item-1'})
-        expect(body[0].document.table).toBe('orders')
+        expect(seen).toEqual({resourceId: 'orders', page: {cursor: undefined, limit: 50}})
+        expect(body.items[0].metadata.key).toEqual({pk: 'item-1'})
+        expect(body.nextCursor).toBe('cursor-2')
     })
 
-    test('puts a DynamoDB record through the nosql adapter', async () => {
-        const calls: Array<{resourceId: string; document: Record<string, unknown>}> = []
+    test('puts a DynamoDB record through the flat item store', async () => {
+        const calls: Array<{resourceId: string; body: Record<string, unknown>}> = []
         const app = appWithRoutes([mockAdapter('aws', {
             service: 'nosql',
             schema: awsDynamoDbSchema,
-            putNoSqlItem: async (resourceId, document): Promise<NoSqlItem> => {
-                calls.push({resourceId, document})
-                return {id: JSON.stringify({pk: document.pk}), key: {pk: document.pk}, document}
+            items: {
+                listItems: async () => ({items: [], nextCursor: null}),
+                putItem: async (resourceId, body) => {
+                    calls.push({resourceId, body})
+                    return {id: JSON.stringify({pk: body.pk}), collectionId: null, timestamp: null, body, metadata: {key: {pk: body.pk}}}
+                },
             },
         })])
 
@@ -452,8 +462,8 @@ describe('cloud schema routes', () => {
         const body = await res.json()
 
         expect(res.status).toBe(201)
-        expect(body.key).toEqual({pk: 'item-1'})
-        expect(calls).toEqual([{resourceId: 'orders', document: {pk: 'item-1', name: 'First item'}}])
+        expect(body.metadata.key).toEqual({pk: 'item-1'})
+        expect(calls).toEqual([{resourceId: 'orders', body: {pk: 'item-1', name: 'First item'}}])
     })
 
     test('clears the SES mailbox through the email adapter', async () => {
@@ -1605,6 +1615,91 @@ describe('child collection routes', () => {
         const res = await app.request('/api/clouds/aws/services/storage/resources/group-1/collections?limit=5000')
 
         expect(res.status).toBe(400)
+    })
+
+    test('runs a flat query with its continuation from the body', async () => {
+        let seen: unknown
+        const app = appWithRoutes([
+            mockAdapter('aws', {
+                items: {
+                    ...itemsStub,
+                    queryItems: async (resourceId, query, page) => {
+                        seen = {resourceId, query, page}
+                        return {items: stubItems.items, nextCursor: 'next-token'}
+                    },
+                },
+            }),
+        ])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/table-1/query', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({query: 'SELECT * FROM "table-1"', cursor: 'token-1', limit: 10}),
+        })
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({items: stubItems.items, nextCursor: 'next-token'})
+        expect(seen).toEqual({resourceId: 'table-1', query: 'SELECT * FROM "table-1"', page: {cursor: 'token-1', limit: 10}})
+    })
+
+    test('defaults a flat query to the first page', async () => {
+        let seen: unknown
+        const app = appWithRoutes([
+            mockAdapter('aws', {
+                items: {
+                    ...itemsStub,
+                    queryItems: async (_resourceId, _query, page) => {
+                        seen = page
+                        return stubItems
+                    },
+                },
+            }),
+        ])
+        await app.request('/api/clouds/aws/services/storage/resources/table-1/query', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({query: 'SELECT * FROM "table-1"', cursor: null}),
+        })
+
+        expect(seen).toEqual({cursor: undefined, limit: 100})
+    })
+
+    test.each([
+        ['a non-string cursor', {cursor: 42}],
+        ['a non-number limit', {limit: '10'}],
+        ['an out-of-range limit', {limit: 5000}],
+        ['a fractional limit', {limit: 2.5}],
+    ])('rejects a flat query with %s', async (_name, page) => {
+        let called = false
+        const app = appWithRoutes([
+            mockAdapter('aws', {
+                items: {
+                    ...itemsStub,
+                    queryItems: async () => {
+                        called = true
+                        return stubItems
+                    },
+                },
+            }),
+        ])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/table-1/query', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({query: 'SELECT 1', ...page}),
+        })
+
+        expect(res.status).toBe(400)
+        expect(called).toBe(false)
+    })
+
+    test('501s a flat query the store does not implement', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {items: itemsStub})])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/table-1/query', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({query: 'SELECT 1'}),
+        })
+
+        expect(res.status).toBe(501)
     })
 
     test('passes cursor and limit through to the adapter', async () => {

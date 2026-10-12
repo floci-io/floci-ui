@@ -32,7 +32,6 @@ import type {
     KmsDecryptResult,
     KmsEncryptInput,
     KmsEncryptResult,
-    NoSqlItem,
     QueueMessage,
     ResourceQuery,
     SendQueueMessageResult,
@@ -362,10 +361,10 @@ export class CloudProxyService {
         await documents.deleteItem(resourceId, collectionId, itemId, partitionKey)
     }
 
-    async queryCollectionItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, query: string): Promise<CollectionPage<ChildItem>> {
+    async queryCollectionItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, collectionId: string, query: string, page: PageQuery = {}): Promise<CollectionPage<ChildItem>> {
         const documents = this.requireDocuments(cloud, service)
         if (!documents.queryItems) throw new NotSupportedError(`Querying items is not supported for ${cloud}/${service}`)
-        return documents.queryItems(resourceId, collectionId, query)
+        return documents.queryItems(resourceId, collectionId, query, page)
     }
 
     async listFlatItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, page: PageQuery): Promise<CollectionPage<ChildItem>> {
@@ -384,10 +383,10 @@ export class CloudProxyService {
         await items.deleteItem(resourceId, itemId, partitionKey)
     }
 
-    async queryFlatItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, query: string): Promise<CollectionPage<ChildItem>> {
+    async queryFlatItems(cloud: CloudProvider, service: CloudServiceType, resourceId: string, query: string, page: PageQuery = {}): Promise<CollectionPage<ChildItem>> {
         const items = this.requireItems(cloud, service)
         if (!items.queryItems) throw new NotSupportedError(`Querying items is not supported for ${cloud}/${service}`)
-        return items.queryItems(resourceId, query)
+        return items.queryItems(resourceId, query, page)
     }
 
     private requireDocuments(cloud: CloudProvider, service: CloudServiceType): DocumentStoreAdapter {
@@ -484,18 +483,6 @@ export class CloudProxyService {
         const adapter = this.requireAdapter(cloud, 'logs')
         if (!adapter.queryLogs) throw new NotSupportedError(`Logs Insights query is not supported for ${cloud}/logs`)
         return adapter.queryLogs(logGroupNames, input)
-    }
-
-    async listNoSqlItems(cloud: CloudProvider, resourceId: string): Promise<NoSqlItem[]> {
-        const adapter = this.requireAdapter(cloud, 'nosql')
-        if (!adapter.listNoSqlItems) throw new NotSupportedError(`Item listing is not supported for ${cloud}/nosql`)
-        return adapter.listNoSqlItems(resourceId)
-    }
-
-    async putNoSqlItem(cloud: CloudProvider, resourceId: string, document: Record<string, unknown>): Promise<NoSqlItem> {
-        const adapter = this.requireAdapter(cloud, 'nosql')
-        if (!adapter.putNoSqlItem) throw new NotSupportedError(`Item creation is not supported for ${cloud}/nosql`)
-        return adapter.putNoSqlItem(resourceId, document)
     }
 
     async listKubernetesNodegroups(cloud: CloudProvider, clusterId: string): Promise<KubernetesNodegroup[]> {

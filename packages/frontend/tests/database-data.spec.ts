@@ -11,6 +11,11 @@ const sql: CloudResource = {...cosmos, service: 'database', type: 'sql-server', 
 const containers = ['products', 'archive'].map((id) => ({id, name: id, partitionKeyPath: '/id'}))
 const sqlResult = {resultSets: [{columns: [{name: 'id', type: 'text'}], rows: [{id: 'row-1'}]}], rowsAffected: [1], durationMs: 1}
 
+function dynamoItem(body: Record<string, unknown>) {
+    const key = {id: body.id}
+    return {id: JSON.stringify(key), collectionId: null, timestamp: null, body, metadata: {key}}
+}
+
 function workspacePath(resource: CloudResource) {
     return `/cloud-explorer/${resource.cloud}/${resource.service}/${encodeURIComponent(resource.id)}/data`
 }
@@ -29,7 +34,7 @@ async function mockApi(page: Page, resource: CloudResource, handle?: (route: Rou
         else if (path.endsWith('/resources')) json = [resource]
         else if (path.endsWith(`/resources/${resource.id}`)) json = resource
         else if (path.endsWith('/containers')) json = containers
-        else if (path.endsWith('/items')) json = []
+        else if (path.endsWith('/items')) json = resource.type === 'dynamodb-table' ? {items: [], nextCursor: null} : []
         else if (path.endsWith('/sql/databases')) json = [{name: 'app', state: 'ONLINE'}, {name: 'analytics', state: 'ONLINE'}]
         else if (path.endsWith('/sql/tables')) json = [{schema: 'sales', name: 'orders', type: 'TABLE', rowCount: 1}]
         else if (path.endsWith('/sql/query')) json = sqlResult
@@ -44,8 +49,8 @@ test('DynamoDB management links to records and Add record in a dedicated workspa
     await mockApi(page, dynamo, async (route, path) => {
         if (!path.endsWith('/items')) return false
         if (route.request().method() === 'POST') document = route.request().postDataJSON()
-        const item = {id: 'new', key: {id: 'new'}, document}
-        await route.fulfill({json: route.request().method() === 'POST' ? item : document ? [item] : []})
+        const item = document && dynamoItem(document)
+        await route.fulfill({json: route.request().method() === 'POST' ? item : {items: item ? [item] : [], nextCursor: null}})
         return true
     })
     await page.goto('/cloud-explorer/aws/nosql')
@@ -64,6 +69,81 @@ test('DynamoDB management links to records and Add record in a dedicated workspa
     await expect(page.getByRole('cell', {name: '{"id":"new"}', exact: true})).toBeVisible()
     await page.getByRole('link', {name: /Back to/}).click()
     await expect(page).toHaveURL(/\/cloud-explorer\/aws\/nosql$/)
+})
+
+test('DynamoDB loads more scanned records with the returned cursor', async ({page}) => {
+    const cursors: Array<string | null> = []
+    await mockApi(page, dynamo, async (route, path) => {
+        if (!path.endsWith('/items')) return false
+        const cursor = new URL(route.request().url()).searchParams.get('cursor')
+        cursors.push(cursor)
+        await route.fulfill({json: cursor
+            ? {items: [dynamoItem({id: 'order-2'})], nextCursor: null}
+            : {items: [dynamoItem({id: 'order-1'})], nextCursor: 'scan-2'}})
+        return true
+    })
+    await page.goto(workspacePath(dynamo))
+    await expect(page.getByRole('cell', {name: '{"id":"order-1"}', exact: true})).toBeVisible()
+    await expect(page.getByText('1+ records')).toBeVisible()
+    await page.getByRole('button', {name: 'Load more', exact: true}).click()
+    await expect(page.getByRole('cell', {name: '{"id":"order-2"}', exact: true})).toBeVisible()
+    await expect(page.getByText('2 records')).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Load more', exact: true})).toHaveCount(0)
+    expect(cursors).toEqual([null, 'scan-2'])
+})
+
+test('DynamoDB runs PartiQL, pages its results and shows statement errors', async ({page}) => {
+    const bodies: unknown[] = []
+    let scans = 0
+    await mockApi(page, dynamo, async (route, path) => {
+        if (path.endsWith('/items')) {
+            scans += 1
+            await route.fulfill({json: {items: [], nextCursor: null}})
+            return true
+        }
+        if (!path.endsWith('/resources/orders/query')) return false
+        const body = route.request().postDataJSON() as {query: string; cursor?: string}
+        bodies.push(body)
+        if (body.query.startsWith('SELEKT')) {
+            await route.fulfill({status: 400, json: {error: 'Invalid request', code: 'invalid_request', message: 'Invalid request', detail: "Statement wasn't well formed"}})
+        } else if (body.query.startsWith('DELETE')) {
+            await route.fulfill({json: {items: [], nextCursor: null}})
+        } else {
+            await route.fulfill({json: body.cursor
+                ? {items: [dynamoItem({id: 'order-2', total: 7})], nextCursor: null}
+                : {items: [dynamoItem({id: 'order-1', total: 3})], nextCursor: 'token-2'}})
+        }
+        return true
+    })
+    await page.goto(workspacePath(dynamo))
+    const editor = page.getByRole('textbox', {name: 'PartiQL statement'})
+    await expect(editor).toHaveValue('SELECT * FROM "orders"')
+
+    await editor.press('ControlOrMeta+Enter')
+    await expect(page.getByText('1+ row', {exact: true})).toBeVisible()
+    await expect(page.locator('.cosmos-query-result')).toContainText('"total": 3')
+    await page.getByRole('button', {name: 'Load more rows'}).click()
+    await expect(page.getByText('2 rows', {exact: true})).toBeVisible()
+    await expect(page.locator('.cosmos-query-result')).toContainText('"total": 7')
+    await expect(page.getByRole('button', {name: 'Load more rows'})).toHaveCount(0)
+    expect(bodies).toEqual([
+        {query: 'SELECT * FROM "orders"'},
+        {query: 'SELECT * FROM "orders"', cursor: 'token-2'},
+    ])
+
+    await editor.fill('SELEKT * FROM "orders"')
+    await page.getByRole('button', {name: 'Run statement'}).click()
+    await expect(page.locator('.cosmos-query .form-error')).toContainText("Statement wasn't well formed")
+    await expect(page.locator('.cosmos-query-result')).toHaveCount(0)
+
+    const scansBeforeDelete = scans
+    await editor.fill(`DELETE FROM "orders" WHERE id = 'order-1'`)
+    await page.getByRole('button', {name: 'Run statement'}).click()
+    await expect(page.getByText('0 rows', {exact: true})).toBeVisible()
+    await expect.poll(() => scans).toBeGreaterThan(scansBeforeDelete)
+
+    await editor.fill('   ')
+    await expect(page.getByRole('button', {name: 'Run statement'})).toBeDisabled()
 })
 
 test('Cosmos preserves container links through create, edit, query, reload and history', async ({page}) => {
@@ -183,7 +263,7 @@ test('resource and record loading remain distinct from an empty table', async ({
             await route.fulfill({json: dynamo})
         } else if (path.endsWith('/items')) {
             await itemsReady
-            await route.fulfill({json: []})
+            await route.fulfill({json: {items: [], nextCursor: null}})
         } else return false
         return true
     })
@@ -257,7 +337,7 @@ test('account changes never display records cached for the previous account', as
         if (!path.endsWith('/items')) return false
         const account = route.request().headers()['x-floci-account-id']
         if (account === '111111111111') await itemsReady
-        await route.fulfill({json: [{id: account, key: {id: account}, document: {id: account}}]})
+        await route.fulfill({json: {items: [dynamoItem({id: account})], nextCursor: null}})
         return true
     })
     await page.goto(workspacePath(dynamo))

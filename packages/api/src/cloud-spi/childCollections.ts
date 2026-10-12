@@ -61,7 +61,7 @@ export interface DocumentStoreAdapter {
     getItem?(resourceId: string, collectionId: string, itemId: string): Promise<ChildItem | null>
     putItem?(resourceId: string, collectionId: string, body: Record<string, unknown>): Promise<ChildItem>
     deleteItem?(resourceId: string, collectionId: string, itemId: string, partitionKey?: string | null): Promise<void>
-    queryItems?(resourceId: string, collectionId: string, query: string): Promise<CollectionPage<ChildItem>>
+    queryItems?(resourceId: string, collectionId: string, query: string, page?: PageQuery): Promise<CollectionPage<ChildItem>>
 }
 
 /** Flat store: the resource is the collection. */
@@ -70,7 +70,11 @@ export interface ItemStoreAdapter {
     getItem?(resourceId: string, itemId: string): Promise<ChildItem | null>
     putItem?(resourceId: string, body: Record<string, unknown>): Promise<ChildItem>
     deleteItem?(resourceId: string, itemId: string, partitionKey?: string | null): Promise<void>
-    queryItems?(resourceId: string, query: string): Promise<CollectionPage<ChildItem>>
+    /**
+     * `page` continues a query whose previous page returned a `nextCursor`; the
+     * cursor is only valid for the same `query` against the same resource.
+     */
+    queryItems?(resourceId: string, query: string, page?: PageQuery): Promise<CollectionPage<ChildItem>>
 }
 
 /**

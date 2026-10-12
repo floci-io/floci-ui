@@ -2,6 +2,7 @@ import {
     CreateTableCommand,
     DeleteTableCommand,
     DescribeTableCommand,
+    ExecuteStatementCommand,
     ListTablesCommand,
     PutItemCommand,
     ScanCommand,
@@ -15,24 +16,35 @@ import {
 import {marshall, unmarshall} from '@aws-sdk/util-dynamodb'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {dynamodb as defaultDynamoDb} from '../aws'
+import {
+    DEFAULT_PAGE_LIMIT,
+    type ChildItem,
+    type CollectionPage,
+    type ItemStoreAdapter,
+    type PageQuery,
+} from '../cloud-spi/childCollections'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
-    NoSqlItem,
     ResourceQuery,
     ServiceSchema,
 } from '../cloud-spi/types'
 
 const DESCRIBE_BATCH_SIZE = 10
-const ITEM_SCAN_LIMIT = 100
+// ExecuteStatement rejects a Statement longer than this with a ValidationException.
+const MAX_STATEMENT_LENGTH = 8192
 
 export class AwsDynamoDbAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'nosql' as const
 
-    constructor(private readonly dynamodb: DynamoDBClient = defaultDynamoDb) {}
+    readonly items: ItemStoreAdapter
+
+    constructor(private readonly dynamodb: DynamoDBClient = defaultDynamoDb) {
+        this.items = new DynamoDbItemStore(dynamodb)
+    }
 
     schema(): ServiceSchema {
         return awsDynamoDbSchema()
@@ -104,49 +116,6 @@ export class AwsDynamoDbAdapter implements CloudServiceAdapter {
         await this.dynamodb.send(new DeleteTableCommand({TableName: id}))
     }
 
-    async listNoSqlItems(resourceId: string): Promise<NoSqlItem[]> {
-        const table = await this.describeTable(resourceId)
-        const keyNames = keyAttributes(table).map(({name}) => name)
-        const items: NoSqlItem[] = []
-        let exclusiveStartKey: Record<string, AttributeValue> | undefined
-
-        do {
-            const response = await this.dynamodb.send(new ScanCommand({
-                TableName: resourceId,
-                ExclusiveStartKey: exclusiveStartKey,
-                Limit: ITEM_SCAN_LIMIT - items.length,
-            }))
-            for (const rawItem of response.Items ?? []) {
-                const document = normalizeDocument(unmarshall(rawItem, {wrapNumbers: normalizeNumber}))
-                const key = Object.fromEntries(keyNames.map((name) => [name, document[name]]))
-                items.push({id: JSON.stringify(key), key, document})
-                if (items.length === ITEM_SCAN_LIMIT) break
-            }
-            exclusiveStartKey = response.LastEvaluatedKey
-        } while (items.length < ITEM_SCAN_LIMIT && exclusiveStartKey && Object.keys(exclusiveStartKey).length > 0)
-
-        return items
-    }
-
-    async putNoSqlItem(resourceId: string, document: Record<string, unknown>): Promise<NoSqlItem> {
-        if (!document || typeof document !== 'object' || Array.isArray(document)) {
-            throw new ValidationError('Item must be a JSON object.')
-        }
-
-        const table = await this.describeTable(resourceId)
-        const keys = keyAttributes(table)
-        if (keys.length === 0) throw new RuntimeError(`DynamoDB table ${resourceId} has no key schema`)
-        const untypedKey = keys.find(({type}) => !type)
-        if (untypedKey) throw new RuntimeError(`DynamoDB table ${resourceId} has no type definition for key ${untypedKey.name}`)
-
-        const item = marshalDocument(document, keys)
-        await this.dynamodb.send(new PutItemCommand({TableName: resourceId, Item: item}))
-
-        const normalizedDocument = normalizeDocument(unmarshall(item, {wrapNumbers: normalizeNumber}))
-        const key = Object.fromEntries(keys.map(({name}) => [name, normalizedDocument[name]]))
-        return {id: JSON.stringify(key), key, document: normalizedDocument}
-    }
-
     private async listTableNames(): Promise<string[]> {
         const tableNames: string[] = []
         let exclusiveStartTableName: string | undefined
@@ -163,14 +132,129 @@ export class AwsDynamoDbAdapter implements CloudServiceAdapter {
     }
 
     private async describe(tableName: string): Promise<CloudResource> {
-        return toResource(await this.describeTable(tableName))
+        return toResource(await describeTable(this.dynamodb, tableName))
     }
 
-    private async describeTable(tableName: string): Promise<TableDescription> {
-        const response = await this.dynamodb.send(new DescribeTableCommand({TableName: tableName}))
-        if (!response.Table) throw new RuntimeError(`DynamoDB did not return a description for table ${tableName}`)
-        return response.Table
+}
+
+/**
+ * The table is the collection, so DynamoDB implements the flat half of the
+ * child-collections SPI. Item ids are the item's primary key as JSON, which is
+ * stable across calls and is what DeleteItem/GetItem would need.
+ */
+class DynamoDbItemStore implements ItemStoreAdapter {
+    constructor(private readonly dynamodb: DynamoDBClient) {}
+
+    async listItems(resourceId: string, page: PageQuery = {}): Promise<CollectionPage<ChildItem>> {
+        const keys = keyAttributes(await describeTable(this.dynamodb, resourceId))
+        const response = await this.dynamodb.send(new ScanCommand({
+            TableName: resourceId,
+            Limit: page.limit ?? DEFAULT_PAGE_LIMIT,
+            ExclusiveStartKey: page.cursor ? decodeScanCursor(page.cursor) : undefined,
+        }))
+        return {
+            items: (response.Items ?? []).map((rawItem, index) => toChildItem(rawItem, keys, index)),
+            nextCursor: encodeScanCursor(response.LastEvaluatedKey),
+        }
     }
+
+    async putItem(resourceId: string, body: Record<string, unknown>): Promise<ChildItem> {
+        if (!body || typeof body !== 'object' || Array.isArray(body)) {
+            throw new ValidationError('Item must be a JSON object.')
+        }
+
+        const table = await describeTable(this.dynamodb, resourceId)
+        const keys = keyAttributes(table)
+        if (keys.length === 0) throw new RuntimeError(`DynamoDB table ${resourceId} has no key schema`)
+        const untypedKey = keys.find(({type}) => !type)
+        if (untypedKey) throw new RuntimeError(`DynamoDB table ${resourceId} has no type definition for key ${untypedKey.name}`)
+
+        const item = marshalDocument(body, keys)
+        await this.dynamodb.send(new PutItemCommand({TableName: resourceId, Item: item}))
+        return toChildItem(item, keys, 0)
+    }
+
+    /**
+     * Runs a PartiQL statement with ExecuteStatement. The statement names its
+     * own table, as the real API requires; it is not rewritten or restricted to
+     * `resourceId`, which only resolves the key schema used to identify rows.
+     * INSERT, UPDATE and DELETE are valid statements and return no items.
+     */
+    async queryItems(resourceId: string, query: string, page: PageQuery = {}): Promise<CollectionPage<ChildItem>> {
+        const statement = typeof query === 'string' ? query.trim() : ''
+        if (!statement) throw new ValidationError('A PartiQL statement is required.')
+        if (statement.length > MAX_STATEMENT_LENGTH) {
+            throw new ValidationError(`A PartiQL statement must be at most ${MAX_STATEMENT_LENGTH} characters.`)
+        }
+
+        const keys = keyAttributes(await describeTable(this.dynamodb, resourceId))
+        const response = await this.dynamodb.send(new ExecuteStatementCommand({
+            Statement: statement,
+            Limit: page.limit ?? DEFAULT_PAGE_LIMIT,
+            // ExecuteStatement's NextToken is already opaque and bound to the
+            // statement, so it is the cursor as-is.
+            NextToken: page.cursor,
+        }))
+        return {
+            items: (response.Items ?? []).map((rawItem, index) => toChildItem(rawItem, keys, index)),
+            nextCursor: response.NextToken ?? null,
+        }
+    }
+}
+
+async function describeTable(dynamodb: DynamoDBClient, tableName: string): Promise<TableDescription> {
+    const response = await dynamodb.send(new DescribeTableCommand({TableName: tableName}))
+    if (!response.Table) throw new RuntimeError(`DynamoDB did not return a description for table ${tableName}`)
+    return response.Table
+}
+
+function toChildItem(rawItem: Record<string, AttributeValue>, keys: KeyAttribute[], index: number): ChildItem {
+    const body = normalizeDocument(unmarshall(rawItem, {wrapNumbers: normalizeNumber}))
+    const keyNames = keys.map(({name}) => name)
+    const hasKey = keyNames.length > 0 && keyNames.every((name) => Object.prototype.hasOwnProperty.call(body, name))
+    const key = hasKey ? Object.fromEntries(keyNames.map((name) => [name, body[name]])) : null
+    return {
+        // A projection such as `SELECT total FROM ...` can drop the key
+        // attributes. Position within the page is all that is left then, so
+        // that id is only unique within one response.
+        id: key ? JSON.stringify(key) : `row-${index}`,
+        collectionId: null,
+        timestamp: null,
+        body,
+        metadata: {key},
+    }
+}
+
+/**
+ * LastEvaluatedKey holds only key attributes, which are scalar S, N or B.
+ * Binary values are carried as base64 so the cursor survives JSON.
+ */
+function encodeScanCursor(lastEvaluatedKey?: Record<string, AttributeValue>): string | null {
+    if (!lastEvaluatedKey || Object.keys(lastEvaluatedKey).length === 0) return null
+    const portable = Object.fromEntries(Object.entries(lastEvaluatedKey).map(([name, value]) => {
+        if (value.B !== undefined) return [name, {B: Buffer.from(value.B).toString('base64')}]
+        return [name, value.S !== undefined ? {S: value.S} : {N: value.N}]
+    }))
+    return Buffer.from(JSON.stringify(portable)).toString('base64url')
+}
+
+function decodeScanCursor(cursor: string): Record<string, AttributeValue> {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
+    } catch (error) {
+        throw new ValidationError('cursor is not a valid DynamoDB scan cursor.', {cause: error})
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.keys(parsed).length === 0) {
+        throw new ValidationError('cursor is not a valid DynamoDB scan cursor.')
+    }
+    return Object.fromEntries(Object.entries(parsed).map(([name, value]) => {
+        const attribute = value as {S?: unknown; N?: unknown; B?: unknown}
+        if (typeof attribute?.S === 'string') return [name, {S: attribute.S}]
+        if (typeof attribute?.N === 'string') return [name, {N: attribute.N}]
+        if (typeof attribute?.B === 'string') return [name, {B: Buffer.from(attribute.B, 'base64')}]
+        throw new ValidationError('cursor is not a valid DynamoDB scan cursor.')
+    }))
 }
 
 interface KeyAttribute {

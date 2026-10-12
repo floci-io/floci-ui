@@ -326,12 +326,6 @@ export interface LogsInsightsQueryResult {
     rows: Array<Record<string, string>>
 }
 
-export interface NoSqlItem {
-    id: string
-    key: Record<string, unknown>
-    document: Record<string, unknown>
-}
-
 /** Provider-neutral representation of a managed Kubernetes node pool. */
 export interface KubernetesNodegroup {
     id: string
@@ -622,8 +616,6 @@ export interface CloudServiceAdapter {
     listSqlTables?(serverId: string, connection: SqlConnectionInput): Promise<SqlTable[]>
     querySql?(serverId: string, connection: SqlConnectionInput, query: string): Promise<SqlQueryResult>
     queryLogs?(logGroupNames: string | string[], input: LogsInsightsQueryInput): Promise<LogsInsightsQueryResult>
-    listNoSqlItems?(resourceId: string): Promise<NoSqlItem[]>
-    putNoSqlItem?(resourceId: string, document: Record<string, unknown>): Promise<NoSqlItem>
     listKubernetesNodegroups?(clusterId: string): Promise<KubernetesNodegroup[]>
     createKubernetesNodegroup?(clusterId: string, input: CreateKubernetesNodegroupInput): Promise<KubernetesNodegroup>
     deleteKubernetesNodegroup?(clusterId: string, nodegroupId: string): Promise<void>

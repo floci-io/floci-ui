@@ -52,10 +52,6 @@ export const apiEndpointKeys = {
           query: "clouds.services.nosql.cosmos.items.query",
         },
       },
-      items: {
-        list: "clouds.services.nosql.items.list",
-        put: "clouds.services.nosql.items.put",
-      },
     },
     database: {
       sql: {
@@ -96,6 +92,11 @@ export const apiEndpointKeys = {
       list: "clouds.services.childCollections.list",
       items: {
         list: "clouds.services.childCollections.items.list",
+      },
+      flatItems: {
+        list: "clouds.services.childCollections.flatItems.list",
+        put: "clouds.services.childCollections.flatItems.put",
+        query: "clouds.services.childCollections.flatItems.query",
       },
     },
     configuration: {
@@ -554,22 +555,6 @@ export const endpointRegistry: EndpointRegistry = new Map([
     },
   ],
   [
-    apiEndpointKeys.clouds.nosql.items.list,
-    {
-      path: "/clouds/:cloud/services/nosql/resources/:id/items",
-      method: "GET",
-      telemetry: { service: "cloud-proxy" },
-    },
-  ],
-  [
-    apiEndpointKeys.clouds.nosql.items.put,
-    {
-      path: "/clouds/:cloud/services/nosql/resources/:id/items",
-      method: "POST",
-      telemetry: { service: "cloud-proxy" },
-    },
-  ],
-  [
     apiEndpointKeys.clouds.k8s.nodegroups.list,
     {
       path: "/clouds/:cloud/services/k8s/resources/:id/nodegroups",
@@ -784,6 +769,30 @@ export const endpointRegistry: EndpointRegistry = new Map([
     {
       path: "/clouds/:cloud/services/:service/resources/:id/collections/:cid/items",
       method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.childCollections.flatItems.list,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/items",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.childCollections.flatItems.put,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/items",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.childCollections.flatItems.query,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/query",
+      method: "POST",
       telemetry: { service: "cloud-proxy" },
     },
   ],

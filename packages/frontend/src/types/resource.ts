@@ -155,12 +155,6 @@ export interface LogsInsightsQueryResult {
     rows: Array<Record<string, string>>
 }
 
-export interface NoSqlItem {
-    id: string
-    key: Record<string, unknown>
-    document: Record<string, unknown>
-}
-
 export interface KubernetesNodegroup {
     id: string
     name: string
