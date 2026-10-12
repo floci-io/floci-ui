@@ -201,7 +201,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Prefer the C
 
 ## Community
 
-[floci-dash](https://github.com/ofsazib/floci-dash) is a community AWS dashboard on Cloudscape with an EC2 web terminal (AWS only). [Floci Studio](https://github.com/pmaojo/floci-studio) is an unofficial community console for Floci with an MCP server for AI agents and a marketplace of local Docker recipes (AWS only). Built something for Floci? Open a PR to list it.
+[floci-dash](https://github.com/ofsazib/floci-dash) is a community AWS dashboard on Cloudscape with an EC2 web terminal (AWS only). [Floci Studio](https://github.com/pmaojo/floci-studio) is an unofficial community console for Floci with a marketplace of local Docker recipes (AWS only). [floci-mcp-unofficial](https://github.com/pmaojo/floci-mcp-unofficial) is an unofficial MCP server that lets AI agents inspect and provision a local Floci runtime (AWS only for now). Built something for Floci? Open a PR to list it.
 
 ## License
 
