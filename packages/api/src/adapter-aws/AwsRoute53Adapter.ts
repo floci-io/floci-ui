@@ -43,6 +43,8 @@ const ZONE_ID_PREFIX = '/hostedzone/'
 const LIST_ZONES_MAX_ITEMS = 100
 /** ListResourceRecordSets answers at most 300 per request. */
 const LIST_RECORDS_MAX_ITEMS = 300
+/** Records fetched to locate one by id: enough for a routed group when a runtime ignores StartRecordIdentifier. */
+const LOCATE_RECORD_MAX_ITEMS = 100
 const MAX_TTL = 2_147_483_647
 const RECORD_NAME_MAX_LENGTH = 1024
 const DEFAULT_TTL = 300
@@ -209,7 +211,7 @@ class Route53RecordStore implements DocumentStoreAdapter {
             StartRecordName: key.name,
             StartRecordType: key.type,
             StartRecordIdentifier: key.identifier,
-            MaxItems: 1,
+            MaxItems: LOCATE_RECORD_MAX_ITEMS,
         }))
         const record = found.ResourceRecordSets?.find((candidate) => sameRecord(candidate, key))
         if (!record) throw new NotFoundError(`Record set not found: ${itemId}`)

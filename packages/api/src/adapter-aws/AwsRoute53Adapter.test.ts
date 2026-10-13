@@ -347,7 +347,7 @@ describe('AwsRoute53Adapter record sets', () => {
         await adapter.documents.deleteItem!('Z1', 'records', 'A|www.example.com')
 
         const lookup = sent[0] as ListResourceRecordSetsCommand
-        expect(lookup.input).toMatchObject({StartRecordName: 'www.example.com', StartRecordType: 'A', MaxItems: 1})
+        expect(lookup.input).toMatchObject({StartRecordName: 'www.example.com', StartRecordType: 'A', MaxItems: 100})
         expect((sent[1] as ChangeResourceRecordSetsCommand).input.ChangeBatch?.Changes).toEqual([
             {Action: 'DELETE', ResourceRecordSet: stored},
         ])
