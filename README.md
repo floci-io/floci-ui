@@ -109,6 +109,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Databases | NoSQL | ✅ | ✅ | ✅ | – |
 | Networking | Networking | 👁 | ✅ | – | – |
 | Networking | Load Balancing | ✅ | – | – | – |
+| Networking | CDN | ✅ | – | – | – |
 | Integration | Messaging | ✅ | ✅ | ✅ | ✅ |
 | Integration | API Gateway | ✅ | – | – | – |
 | Integration | SNS | ✅ | – | – | – |

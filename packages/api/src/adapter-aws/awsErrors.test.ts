@@ -154,3 +154,19 @@ describe('ecs errors carry HTTP 400 and must not fall through to it', () => {
         }
     })
 })
+
+describe('cloudfront errors', () => {
+    test('a missing distribution or invalidation is a 404', () => {
+        for (const name of ['NoSuchDistribution', 'NoSuchInvalidation']) {
+            const mapped = mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 404}}))
+
+            expect(mapped?.status).toBe(404)
+            expect(mapped?.code).toBe('resource_not_found')
+        }
+    })
+
+    test('deleting an enabled distribution, or with a stale ETag, is a 409', () => {
+        expect(mapAwsSdkError(sdkError('DistributionNotDisabled', {$metadata: {httpStatusCode: 409}}))?.status).toBe(409)
+        expect(mapAwsSdkError(sdkError('PreconditionFailed', {$metadata: {httpStatusCode: 412}}))?.status).toBe(409)
+    })
+})

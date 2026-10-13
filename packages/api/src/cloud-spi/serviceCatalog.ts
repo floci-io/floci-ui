@@ -144,6 +144,14 @@ export const SERVICE_CATALOG = {
         group: 'Networking',
         order: 20,
     },
+    cdn: {
+        displayName: 'CDN',
+        displayNameByCloud: {aws: 'CloudFront'},
+        description: 'Deliver content from edge locations with distributions.',
+        iconKey: 'networking',
+        group: 'Networking',
+        order: 30,
+    },
     messaging: {
         displayName: 'Messaging',
         displayNameByCloud: {aws: 'SQS', gcp: 'Pub/Sub', oci: 'Queue'},

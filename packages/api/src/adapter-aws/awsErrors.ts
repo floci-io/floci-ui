@@ -61,6 +61,8 @@ const CONFLICT_NAMES = new Set([
     'ClusterContainsServicesException',
     'ClusterContainsTasksException',
     'ClusterContainsContainerInstancesException',
+    'DistributionNotDisabled',
+    'PreconditionFailed',
 ])
 
 const ACCESS_DENIED_NAMES = new Set([
@@ -112,6 +114,8 @@ const NOT_FOUND_NAMES = new Set([
     'ExecutionDoesNotExist',
     'ClusterNotFoundException',
     'ServiceNotFoundException',
+    'NoSuchDistribution',
+    'NoSuchInvalidation',
     'LoadBalancerNotFound',
     'LoadBalancerNotFoundException',
     'TargetGroupNotFound',
