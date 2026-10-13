@@ -295,7 +295,7 @@ describe('AwsRoute53Adapter record sets', () => {
                 },
             },
         ])
-        expect(item.id).toBe('A|www.example.com')
+        expect(item.id).toBe('A|www.example.com.')
         expect(item.body).toMatchObject({values: ['1.2.3.4', '5.6.7.8'], changeId: '/change/C1', changeStatus: 'INSYNC'})
     })
 
@@ -350,6 +350,25 @@ describe('AwsRoute53Adapter record sets', () => {
         expect(lookup.input).toMatchObject({StartRecordName: 'www.example.com', StartRecordType: 'A', MaxItems: 1})
         expect((sent[1] as ChangeResourceRecordSetsCommand).input.ChangeBatch?.Changes).toEqual([
             {Action: 'DELETE', ResourceRecordSet: stored},
+        ])
+    })
+
+    test('a set identifier that contains a pipe deletes its own record, not a shorter one', async () => {
+        const sent: unknown[] = []
+        const blue = {Name: 'app.example.com.', Type: 'A' as const, SetIdentifier: 'blue', Weight: 1, TTL: 60}
+        const blueGreen = {...blue, SetIdentifier: 'blue|green'}
+        const adapter = createAdapter(async (command) => {
+            sent.push(command)
+            if (command instanceof ListResourceRecordSetsCommand) return {ResourceRecordSets: [blue, blueGreen]}
+            return {}
+        })
+
+        await adapter.documents.deleteItem!('Z1', 'records', 'A|app.example.com.|blue|green')
+
+        const lookup = sent[0] as ListResourceRecordSetsCommand
+        expect(lookup.input).toMatchObject({StartRecordIdentifier: 'blue|green'})
+        expect((sent[1] as ChangeResourceRecordSetsCommand).input.ChangeBatch?.Changes).toEqual([
+            {Action: 'DELETE', ResourceRecordSet: blueGreen},
         ])
     })
 

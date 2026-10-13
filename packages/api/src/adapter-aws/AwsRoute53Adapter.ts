@@ -291,13 +291,15 @@ interface RecordKey {
 }
 
 function recordId(record: {Name?: string; Type?: string; SetIdentifier?: string}): string {
-    return [record.Type, record.Name, record.SetIdentifier].filter((part) => part !== undefined).join('|')
+    const name = record.Name?.endsWith('.') ? record.Name : `${record.Name}.`
+    return [record.Type, name, record.SetIdentifier].filter((part) => part !== undefined).join('|')
 }
 
 function parseItemId(itemId: string): RecordKey {
-    const [type, name, identifier] = itemId.split('|')
+    // A set identifier may itself contain '|', so everything after the name belongs to it.
+    const [type, name, ...identifier] = itemId.split('|')
     if (!type || !name) throw new ValidationError('A record set id looks like TYPE|name, with an optional |setIdentifier.')
-    return {name, type: type as RRType, identifier: identifier || undefined}
+    return {name, type: type as RRType, identifier: identifier.join('|') || undefined}
 }
 
 function sameRecord(record: ResourceRecordSet, key: RecordKey): boolean {
