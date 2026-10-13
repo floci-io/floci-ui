@@ -133,6 +133,7 @@ interface ScannedRecords {
     isLoading: boolean
     isEmpty: boolean
     isLoadingMore: boolean
+    isFetching: boolean
     isRefreshing: boolean
     error: Error | null
     loadMore: () => void
@@ -158,6 +159,9 @@ function useScannedRecords(cloud: CloudProvider, accountId: string, tableName: s
     const lastPage = pages[pages.length - 1]
     const items = pages.flatMap((page) => page.data?.items ?? [])
     const nextCursor = lastPage.data?.nextCursor ?? null
+    // While any page is in flight, the last cursor may belong to a chain a
+    // refresh is replacing, so continuing from it could repeat or skip rows.
+    const isFetching = pages.some((page) => page.isFetching)
     const failedPage = pages.find((page) => page.error instanceof Error)
     const error = failedPage?.error ?? null
 
@@ -180,9 +184,10 @@ function useScannedRecords(cloud: CloudProvider, accountId: string, tableName: s
         isEmpty: firstPage.isSuccess && items.length === 0,
         isLoadingMore: pages.length > 1 && lastPage.isLoading,
         isRefreshing: firstPage.isFetching,
+        isFetching,
         error,
         loadMore: () => {
-            if (nextCursor) setCursors((previous) => [...previous, nextCursor])
+            if (nextCursor && !isFetching) setCursors((previous) => [...previous, nextCursor])
         },
         refresh: () => void refresh(),
         retry: failedPage ? () => void failedPage.refetch() : null,
@@ -217,7 +222,7 @@ function RecordsTable({records, selectedItemId, onSelect}: {records: ScannedReco
             {records.isEmpty && <div className="empty compact"><h3>No records</h3><p>This table does not contain any items.</p></div>}
             {records.nextCursor && (
                 <div className="dynamodb-load-more">
-                    <button className="button" type="button" disabled={records.isLoadingMore} onClick={records.loadMore}>
+                    <button className="button" type="button" disabled={records.isFetching} onClick={records.loadMore}>
                         {records.isLoadingMore ? 'Loading…' : 'Load more'}
                     </button>
                 </div>

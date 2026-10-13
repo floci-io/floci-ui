@@ -303,27 +303,6 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
-    app.get('/:cloud/services/nosql/resources/:id/items', async (c) => {
-        const cloud = c.req.param('cloud') as CloudProvider
-        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
-
-        return withRuntime(c, async () => {
-            const items = await svc(c).listNoSqlItems(cloud, c.req.param('id'))
-            return c.json(items)
-        })
-    })
-
-    app.post('/:cloud/services/nosql/resources/:id/items', async (c) => {
-        const cloud = c.req.param('cloud') as CloudProvider
-        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
-
-        return withRuntime(c, async () => {
-            const document = await c.req.json<Record<string, unknown>>()
-            const item = await svc(c).putNoSqlItem(cloud, c.req.param('id'), document)
-            return c.json(item, 201)
-        })
-    })
-
     app.delete('/:cloud/services/email/inbox', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')

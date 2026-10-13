@@ -227,4 +227,29 @@ describe('DynamoDbTableExplorer', () => {
         expect(screen.getByRole('cell', {name: '{"id":"order-1"}'})).toBeInTheDocument()
         expect(screen.queryByText('scan failed')).not.toBeInTheDocument()
     })
+    test('does not continue the old cursor chain while a refresh is in flight', async () => {
+        let finishRefresh: ((value: CollectionPage<ChildItem>) => void) | undefined
+        listFlatItems
+            .mockResolvedValueOnce(page([item({id: 'order-1'})], 'old-token'))
+            .mockReturnValueOnce(new Promise((resolve) => {
+                finishRefresh = resolve
+            }))
+            .mockResolvedValueOnce(page([item({id: 'order-2'})]))
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={table('orders')} runtimeReachable/>)
+        await screen.findByRole('cell', {name: '{"id":"order-1"}'})
+
+        await user.click(screen.getByRole('button', {name: 'Refresh'}))
+        const loadMore = screen.getByRole('button', {name: 'Load more'})
+        expect(loadMore).toBeDisabled()
+        await user.click(loadMore)
+        expect(listFlatItems).toHaveBeenCalledTimes(2)
+
+        finishRefresh?.(page([item({id: 'order-1'})], 'new-token'))
+        await waitFor(() => expect(screen.getByRole('button', {name: 'Load more'})).toBeEnabled())
+        await user.click(screen.getByRole('button', {name: 'Load more'}))
+
+        expect(await screen.findByRole('cell', {name: '{"id":"order-2"}'})).toBeInTheDocument()
+        expect(listFlatItems).toHaveBeenLastCalledWith('aws', 'nosql', 'orders', 'new-token', expect.any(AbortSignal))
+    })
 })
