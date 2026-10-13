@@ -52,6 +52,17 @@ const DEFAULT_TTL = 300
 const RECORDS_COLLECTION = 'records'
 
 /** Types a plain (non alias, non routed) record set can carry. */
+/** Body keys that would make a record routed or an alias: listed by this adapter, never written. */
+const ROUTING_FIELDS = [
+    'setIdentifier',
+    'weight',
+    'region',
+    'failover',
+    'geoLocation',
+    'healthCheckId',
+    'multiValueAnswer',
+    'aliasTarget',
+] as const
 const SIMPLE_RECORD_TYPES = ['A', 'AAAA', 'CAA', 'CNAME', 'MX', 'NS', 'PTR', 'SRV', 'TXT'] as const
 
 /**
@@ -105,7 +116,9 @@ export class AwsRoute53Adapter implements CloudServiceAdapter {
         const res = await this.route53.send(new CreateHostedZoneCommand({
             Name: name,
             CallerReference: randomUUID(),
-            ...(comment ? {HostedZoneConfig: {Comment: comment}} : {}),
+            ...(comment || vpc
+                ? {HostedZoneConfig: {...(comment ? {Comment: comment} : {}), ...(vpc ? {PrivateZone: true} : {})}}
+                : {}),
             ...(vpc ? {VPC: vpc} : {}),
         }))
         if (!res.HostedZone) throw new RuntimeError('Route 53 did not return the hosted zone it created')
@@ -254,6 +267,11 @@ function simpleRecord(body: Record<string, unknown>): ResourceRecordSet {
     if (!name) throw new ValidationError('name is required')
     if (name.length > RECORD_NAME_MAX_LENGTH) {
         throw new ValidationError(`name must be at most ${RECORD_NAME_MAX_LENGTH} characters.`)
+    }
+
+    const routed = ROUTING_FIELDS.filter((field) => body[field] !== undefined && body[field] !== null && body[field] !== '')
+    if (routed.length > 0) {
+        throw new ValidationError(`Routed and alias records are not editable here: remove ${routed.join(', ')}.`)
     }
 
     const type = typeof body.type === 'string' ? body.type.trim().toUpperCase() : ''

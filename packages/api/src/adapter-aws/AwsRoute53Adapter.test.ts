@@ -153,6 +153,7 @@ describe('AwsRoute53Adapter', () => {
         })
 
         expect(sent[0].input.VPC).toEqual({VPCId: 'vpc-0123', VPCRegion: 'us-east-1'})
+        expect(sent[0].input.HostedZoneConfig).toEqual({PrivateZone: true})
         expect(created.metadata).toMatchObject({zoneType: 'Private', vpcs: [{vpcId: 'vpc-0123', vpcRegion: 'us-east-1'}]})
     })
 
@@ -328,6 +329,9 @@ describe('AwsRoute53Adapter record sets', () => {
             {name: 'a.example.com', type: 'A', values: ['1.1.1.1'], ttl: -1},
             {name: 'a.example.com', type: 'A', values: ['1.1.1.1'], ttl: 'soon'},
             {name: '', type: 'A', values: ['1.1.1.1']},
+            // routed and alias records are listed, not written: dropping the field would save a different record
+            {name: 'a.example.com', type: 'A', values: ['1.1.1.1'], setIdentifier: 'blue', weight: 10},
+            {name: 'a.example.com', type: 'A', values: ['1.1.1.1'], aliasTarget: {dnsName: 'lb.example.com'}},
         ]
         for (const body of bad) {
             await expect(adapter.documents.putItem!('Z1', 'records', body)).rejects.toBeInstanceOf(ValidationError)
