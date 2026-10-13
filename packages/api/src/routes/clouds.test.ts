@@ -1744,6 +1744,17 @@ describe('route guard error shape', () => {
         }
     })
 
+    test('a resource the adapter does not return answers with the typed error body', async () => {
+        const res = await appWithRoutes().request('/api/clouds/aws/services/storage/resources/missing')
+
+        expect(res.status).toBe(404)
+        expect(await res.json()).toEqual({
+            error: 'Resource not found',
+            code: 'resource_not_found',
+            message: 'Resource not found',
+        })
+    })
+
     test('missing required input answers with the typed error body', async () => {
         const app = appWithRoutes()
         const base = '/api/clouds/aws/services/storage/resources/bucket-1'
