@@ -53,6 +53,12 @@ describe('AwsEcsAdapter', () => {
         expect(describeSizes).toEqual([100, 50])
     })
 
+    test('rejects a repeated ListClusters continuation token', async () => {
+        const adapter = createAdapter(async () => ({clusterArns: [arn('web')], nextToken: 'again'}))
+
+        await expect(adapter.list()).rejects.toThrow('ECS ListClusters repeated a continuation token')
+    })
+
     test('maps a cluster to the shared resource shape', async () => {
         const adapter = createAdapter(async (command) => {
             if (command instanceof DescribeClustersCommand) {

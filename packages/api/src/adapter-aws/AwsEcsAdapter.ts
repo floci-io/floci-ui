@@ -103,12 +103,17 @@ export class AwsEcsAdapter implements CloudServiceAdapter {
 
     private async listClusterArns(): Promise<string[]> {
         const arns: string[] = []
+        const seenTokens = new Set<string>()
         let nextToken: string | undefined
 
         do {
             const res = await this.ecs.send(new ListClustersCommand({nextToken, maxResults: LIST_MAX_RESULTS}))
             arns.push(...(res.clusterArns ?? []))
             nextToken = res.nextToken
+            if (nextToken) {
+                if (seenTokens.has(nextToken)) throw new RuntimeError('ECS ListClusters repeated a continuation token')
+                seenTokens.add(nextToken)
+            }
         } while (nextToken)
 
         return arns
