@@ -152,6 +152,14 @@ export const SERVICE_CATALOG = {
         group: 'Networking',
         order: 30,
     },
+    dns: {
+        displayName: 'DNS',
+        displayNameByCloud: {aws: 'Route 53'},
+        description: 'Manage DNS zones and the records they hold.',
+        iconKey: 'networking',
+        group: 'Networking',
+        order: 40,
+    },
     messaging: {
         displayName: 'Messaging',
         displayNameByCloud: {aws: 'SQS', gcp: 'Pub/Sub', oci: 'Queue'},

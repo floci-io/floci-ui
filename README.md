@@ -110,6 +110,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Networking | Networking | 👁 | ✅ | – | – |
 | Networking | Load Balancing | ✅ | – | – | – |
 | Networking | CDN | ✅ | – | – | – |
+| Networking | DNS | ✅ | – | – | – |
 | Integration | Messaging | ✅ | ✅ | ✅ | ✅ |
 | Integration | API Gateway | ✅ | – | – | – |
 | Integration | SNS | ✅ | – | – | – |

@@ -64,6 +64,9 @@ importers:
       '@aws-sdk/client-rds':
         specifier: ^3.1140.0
         version: 3.1146.0
+      '@aws-sdk/client-route-53':
+        specifier: 3.1146.0
+        version: 3.1146.0
       '@aws-sdk/client-s3':
         specifier: ^3.1141.0
         version: 3.1146.0
@@ -312,6 +315,10 @@ packages:
     resolution: {integrity: sha512-jCgC4Feko4DUcDS8D+/xBDcI0GX4ha4Pwkn57DE1x6o1h5RfQ2vNDoAF56/fdnNL+TrosO73QJ2VSrq6tOvabg==}
     engines: {node: '>=20.0.0'}
 
+  '@aws-sdk/client-route-53@3.1146.0':
+    resolution: {integrity: sha512-epB/IHOqA6hvd9Y7girw4OYJTrzS+BOtv3g6UT82xg4PNz4tzZK/GpSBO3B7V9wJk1vhxafDK6JxCWVQy+jVtw==}
+    engines: {node: '>=20.0.0'}
+
   '@aws-sdk/client-s3@3.1146.0':
     resolution: {integrity: sha512-WY0YCBzxc4muFfY6UbGpA+oib0nGT/Px2aEPGYX7pp1la2OmDLChnK81mu8H7LdYvwGU1pLAsLIa/qgad0Wd7g==}
     engines: {node: '>=20.0.0'}
@@ -434,6 +441,10 @@ packages:
 
   '@aws-sdk/middleware-sdk-rds@3.972.60':
     resolution: {integrity: sha512-h5NmE3vJ3lghAIQkGzonHP4P8Tv6a88o9kyeejEeuR0/t8GEDsc5h6rESmMA+LPCwCceJj/0DpmacK8LT2xrVg==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/middleware-sdk-route53@3.972.27':
+    resolution: {integrity: sha512-/Iu1h3uwK71pmfHkjU+k9A7J0FeCdPUdBXpLXNNaTwwwuytKvKF2F0JBH1sJrEFRHJEccM5Vxmu4tdGoSImH9A==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/middleware-sdk-s3@3.972.77':
@@ -2978,6 +2989,18 @@ snapshots:
       '@smithy/types': 4.19.0
       tslib: 2.8.1
 
+  '@aws-sdk/client-route-53@3.1146.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.2
+      '@aws-sdk/credential-provider-node': 3.972.85
+      '@aws-sdk/middleware-sdk-route53': 3.972.27
+      '@aws-sdk/types': 3.974.6
+      '@smithy/core': 3.35.2
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.12.1
+      '@smithy/types': 4.19.0
+      tslib: 2.8.1
+
   '@aws-sdk/client-s3@3.1146.0':
     dependencies:
       '@aws-sdk/checksums': 3.1001.1
@@ -3291,6 +3314,12 @@ snapshots:
       '@aws-sdk/types': 3.974.6
       '@smithy/core': 3.35.0
       '@smithy/signature-v4': 5.7.3
+      '@smithy/types': 4.19.0
+      tslib: 2.8.1
+
+  '@aws-sdk/middleware-sdk-route53@3.972.27':
+    dependencies:
+      '@aws-sdk/types': 3.974.6
       '@smithy/types': 4.19.0
       tslib: 2.8.1
 

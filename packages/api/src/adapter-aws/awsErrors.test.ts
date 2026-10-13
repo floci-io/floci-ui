@@ -170,3 +170,24 @@ describe('cloudfront errors', () => {
         expect(mapAwsSdkError(sdkError('PreconditionFailed', {$metadata: {httpStatusCode: 412}}))?.status).toBe(409)
     })
 })
+
+/**
+ * Route 53 answers a missing zone with 404 but a non-empty one with 400
+ * HostedZoneNotEmpty; the name table keeps the second from reading as validation.
+ */
+describe('route 53 errors', () => {
+    test('a missing hosted zone or health check is a 404', () => {
+        for (const name of ['NoSuchHostedZone', 'NoSuchHealthCheck']) {
+            const mapped = mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 404}}))
+
+            expect(mapped?.status).toBe(404)
+            expect(mapped?.code).toBe('resource_not_found')
+        }
+    })
+
+    test('a zone that still holds records, or already exists, is a 409', () => {
+        for (const name of ['HostedZoneNotEmpty', 'HostedZoneAlreadyExists', 'PriorRequestNotComplete']) {
+            expect(mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 400}}))?.status).toBe(409)
+        }
+    })
+})

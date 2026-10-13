@@ -63,6 +63,9 @@ const CONFLICT_NAMES = new Set([
     'ClusterContainsContainerInstancesException',
     'DistributionNotDisabled',
     'PreconditionFailed',
+    'HostedZoneNotEmpty',
+    'HostedZoneAlreadyExists',
+    'PriorRequestNotComplete',
 ])
 
 const ACCESS_DENIED_NAMES = new Set([
@@ -122,6 +125,8 @@ const NOT_FOUND_NAMES = new Set([
     'TargetGroupNotFoundException',
     'SecretNotFoundException',
     'NoSuchLogGroup',
+    'NoSuchHostedZone',
+    'NoSuchHealthCheck',
     'NoSuchResourceException',
     'InvalidInstanceID.NotFound',
     'InvalidVpcID.NotFound',

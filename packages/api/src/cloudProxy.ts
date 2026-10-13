@@ -56,6 +56,7 @@ import {AwsKinesisAdapter} from './adapter-aws/AwsKinesisAdapter'
 import {AwsSageMakerAdapter} from './adapter-aws/AwsSageMakerAdapter'
 import {AwsEcsAdapter} from './adapter-aws/AwsEcsAdapter'
 import {AwsCloudFrontAdapter} from './adapter-aws/AwsCloudFrontAdapter'
+import {AwsRoute53Adapter} from './adapter-aws/AwsRoute53Adapter'
 import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
@@ -99,6 +100,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsSageMakerAdapter(clients.sagemaker),
         new AwsEcsAdapter(clients.ecs),
         new AwsCloudFrontAdapter(clients.cloudfront),
+        new AwsRoute53Adapter(clients.route53),
         new AzureStorageAdapter(),
         new AzureTableAdapter(),
         new AzureServiceBusAdapter(),
