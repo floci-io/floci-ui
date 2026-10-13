@@ -13,6 +13,7 @@ import {
     type DistributionSummary,
     type Invalidation,
     type InvalidationSummary,
+    type Origin,
 } from '@aws-sdk/client-cloudfront'
 import type {
     ChildCollection,
@@ -37,6 +38,7 @@ import type {
 } from '../cloud-spi/types'
 
 const ORIGIN_DOMAIN = new RegExp(CLOUDFRONT_ORIGIN_DOMAIN_PATTERN)
+const S3_WEBSITE_HOST = /\.s3-website([.-][a-z0-9-]+)?\.amazonaws\.com$/i
 const S3_ORIGIN_HOST = /\.s3([.-][a-z0-9-]+)?\.amazonaws\.com$/i
 const LIST_MAX_ITEMS = 100
 /** The AWS managed `CachingOptimized` policy, the one Floci's own CloudFront examples create with. */
@@ -196,15 +198,7 @@ function distributionConfig(values: Record<string, unknown>): DistributionConfig
                 {
                     Id: originId,
                     DomainName: domainName,
-                    ...(S3_ORIGIN_HOST.test(domainName)
-                        ? {S3OriginConfig: {OriginAccessIdentity: ''}}
-                        : {
-                            CustomOriginConfig: {
-                                HTTPPort: 80,
-                                HTTPSPort: 443,
-                                OriginProtocolPolicy: 'match-viewer',
-                            },
-                        }),
+                    ...originConfig(domainName),
                 },
             ],
         },
@@ -214,6 +208,23 @@ function distributionConfig(values: Record<string, unknown>): DistributionConfig
             CachePolicyId: MANAGED_CACHE_POLICY_ID,
             AllowedMethods: {Quantity: 2, Items: ['GET', 'HEAD']},
             Compress: true,
+        },
+    }
+}
+
+/**
+ * An S3 static website endpoint is a custom origin that speaks HTTP only, even
+ * though it lives in a bucket; only the plain bucket hosts use `S3OriginConfig`.
+ */
+function originConfig(domainName: string): Pick<Origin, 'S3OriginConfig' | 'CustomOriginConfig'> {
+    if (!S3_WEBSITE_HOST.test(domainName) && S3_ORIGIN_HOST.test(domainName)) {
+        return {S3OriginConfig: {OriginAccessIdentity: ''}}
+    }
+    return {
+        CustomOriginConfig: {
+            HTTPPort: 80,
+            HTTPSPort: 443,
+            OriginProtocolPolicy: S3_WEBSITE_HOST.test(domainName) ? 'http-only' : 'match-viewer',
         },
     }
 }
@@ -230,7 +241,8 @@ function originDomainName(value: unknown): string {
 /** Accepts the comma separated form the generic form sends, or an array. */
 function invalidationPaths(value: unknown): string[] {
     const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
-    const paths = raw.map((path) => (typeof path === 'string' ? path.trim() : '')).filter(Boolean)
+    if (raw.some((path) => typeof path !== 'string')) throw new ValidationError('Each path must be a string.')
+    const paths = (raw as string[]).map((path) => path.trim()).filter(Boolean)
     if (paths.length === 0) throw new ValidationError('paths is required: one or more paths to invalidate.')
     const invalid = paths.find((path) => !path.startsWith('/'))
     if (invalid) throw new ValidationError(`Each path must start with "/": ${invalid}`)

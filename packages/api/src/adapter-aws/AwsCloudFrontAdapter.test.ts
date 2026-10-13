@@ -162,6 +162,22 @@ describe('AwsCloudFrontAdapter', () => {
         expect(config?.Origins?.Items?.[0].S3OriginConfig).toBeUndefined()
     })
 
+    test('creates an HTTP-only custom origin for both S3 website host forms', async () => {
+        for (const host of ['site.s3-website-us-east-1.amazonaws.com', 'site.s3-website.us-east-1.amazonaws.com']) {
+            const sent: unknown[] = []
+            const adapter = createAdapter(async (command) => {
+                sent.push(command)
+                return {Distribution: distribution('E1')}
+            })
+
+            await adapter.create({values: {originDomainName: host}})
+
+            const origin = (sent[0] as CreateDistributionCommand).input.DistributionConfig?.Origins?.Items?.[0]
+            expect(origin?.S3OriginConfig).toBeUndefined()
+            expect(origin?.CustomOriginConfig).toMatchObject({OriginProtocolPolicy: 'http-only'})
+        }
+    })
+
     test('rejects a missing or malformed origin before any request', async () => {
         const sent: unknown[] = []
         const adapter = createAdapter(async (command) => {
@@ -295,7 +311,7 @@ describe('AwsCloudFrontAdapter invalidations', () => {
             return {}
         })
 
-        for (const paths of [undefined, '', ' , ', [], 'index.html', ['/ok', 'bad']]) {
+        for (const paths of [undefined, '', ' , ', [], 'index.html', ['/ok', 'bad'], ['/index.html', 123]]) {
             await expect(adapter.documents.putItem?.('E1', 'invalidations', {paths})).rejects.toBeInstanceOf(
                 ValidationError,
             )

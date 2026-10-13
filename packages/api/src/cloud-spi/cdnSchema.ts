@@ -30,7 +30,7 @@ export function awsCdnSchema(): ServiceSchema {
                 span: true,
                 group: 'Required',
                 description:
-                    'A host name only, e.g. my-bucket.s3.amazonaws.com or app.example.com. S3 bucket hosts become an S3 origin, anything else a custom origin.',
+                    'A host name only, e.g. my-bucket.s3.amazonaws.com or app.example.com. S3 bucket hosts become an S3 origin, S3 website hosts an HTTP-only custom origin, anything else a custom origin.',
                 validation: {
                     pattern: CLOUDFRONT_ORIGIN_DOMAIN_PATTERN,
                     minLength: 1,
