@@ -169,6 +169,7 @@ Rules:
 - Frontend: function components + hooks; data fetching via the existing React Query wrappers
 - Keep controllers/routes thin; put logic in adapters/services
 - Follow existing project patterns; introduce new patterns only when they clearly improve clarity
+- No em-dashes in new files. Use colons, commas, or periods (`pr-hygiene.yml` checks files a PR adds)
 
 ---
 
@@ -190,9 +191,11 @@ Rules:
   (it becomes the squash-merge commit). Scopes identify the package or service area
   (`frontend`, `api`, `s3`, `serverless`, `docker`, `ci`, …)
 - Keep README service-status notes accurate; add verification notes for newly wired operations
+- Sign every commit (GPG or SSH) so GitHub shows it as verified
+- Keep the `## Summary`, `## Type of change` and `## Checklist` sections of the PR template
 
-Do not add `Co-Authored-By` trailers for AI tools in commit messages. Keep attribution
-limited to human contributors.
+Do not add `Co-Authored-By` trailers for AI tools in commit messages or the PR description.
+Keep attribution limited to human contributors.
 
 ---
 

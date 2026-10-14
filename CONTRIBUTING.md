@@ -92,7 +92,8 @@ merge, only when a version tag is pushed, which the Release Cut workflow does.
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/).
 
-> **The PR title should follow this format**, since it becomes the squash-merge commit message.
+> **The PR title must follow this format**, since it becomes the squash-merge commit message.
+> CI checks the title and every commit on the branch.
 
 ### Format
 
@@ -148,7 +149,19 @@ wip: still working on this           # "wip" is not a recognised type
 ```
 
 Do not include `Co-Authored-By` trailers for AI tools in commit messages. Attribution
-should be limited to human contributors.
+should be limited to human contributors. The same applies to the PR title and description,
+which become the squash-merge commit message.
+
+### Signed commits
+
+Every commit in a PR must be GPG or SSH signed and show as **Verified** on GitHub. See
+[managing commit signature verification](https://docs.github.com/en/authentication/managing-commit-signature-verification)
+to set it up, then re-sign the commits your PR adds and force-push:
+
+```
+git rebase --exec 'git commit --amend --no-edit -S' origin/main
+git push --force-with-lease
+```
 
 ## Architecture & Agent Instructions
 
@@ -215,7 +228,8 @@ a great starting point for the Discussion.
 2. Open a PR targeting `main`.
 3. Make sure `pnpm lint`, `pnpm type-check`, `pnpm test`, and `pnpm build` all pass before requesting review.
 4. Keep PRs focused: one feature or fix per PR.
-5. Reference any related issues in the PR description.
+5. Reference any related issues in the PR description, and keep the template's
+   `## Summary`, `## Type of change` and `## Checklist` sections.
 6. For layout or look-and-feel changes, close an issue that came from an accepted Discussion
    (see [UI and Design Changes](#ui-and-design-changes)).
 
