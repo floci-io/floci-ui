@@ -54,7 +54,7 @@ export function ResourceTable({
     const emptyDescription = `The connected runtime did not return any ${schema.displayName} resources.`;
     return (
       <div className="empty compact">
-        <h3>{emptyTitle}</h3>
+        <h2>{emptyTitle}</h2>
         <p>{emptyDescription}</p>
       </div>
     );

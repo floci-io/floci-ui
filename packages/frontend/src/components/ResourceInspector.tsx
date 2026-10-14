@@ -85,7 +85,7 @@ export function ResourceInspector({
     return (
       <div className="resource-inspector empty compact">
         <p className="eyebrow">Resource Inspector</p>
-        <h3>Select a resource</h3>
+        <h2>Select a resource</h2>
         <p>Inspect normalized metadata returned by the cloud proxy.</p>
       </div>
     );
@@ -95,7 +95,7 @@ export function ResourceInspector({
     return (
       <aside className="resource-inspector">
         <div className="widget-header">
-          <h3>{object.name}</h3>
+          <h2>{object.name}</h2>
           <span className="badge neutral">{object.type}</span>
         </div>
         <InspectorTabs idPrefix="object" activeTab={activeTab} onChange={setActiveTab} />
@@ -195,7 +195,7 @@ export function ResourceInspector({
   return (
     <aside className="resource-inspector">
       <div className="widget-header" style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-        <h3
+        <h2
           title={resource.name}
           style={{
             margin: 0,
@@ -207,7 +207,7 @@ export function ResourceInspector({
           }}
         >
           {resource.name}
-        </h3>
+        </h2>
         <span className="badge neutral" style={{ flexShrink: 0 }}>
           {resource.type}
         </span>
@@ -508,7 +508,7 @@ function EmailInspector({ resource }: { resource: CloudResource }) {
   return (
     <aside className="resource-inspector">
       <div className="widget-header">
-        <h3 title={resource.name}>{resource.name}</h3>
+        <h2 title={resource.name}>{resource.name}</h2>
         <span className="badge neutral">{getStringMetadata(resource.metadata.messageType) ?? 'email'}</span>
       </div>
       <div className="inspector-grid">

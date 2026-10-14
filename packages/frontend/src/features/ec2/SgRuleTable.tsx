@@ -134,7 +134,7 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
                     {readonly ? (
                       <span style={{ fontSize: 12 }}>{presetFor(rule.type)?.label ?? rule.type}</span>
                     ) : (
-                      <select
+                      <select aria-label="Rule type"
                         className="input"
                         style={{ width: 150, fontSize: 12 }}
                         value={rule.type}
@@ -209,7 +209,7 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
                     {readonly ? (
                       <span style={{ fontSize: 12, color: "var(--text-2)" }}>{rule.description}</span>
                     ) : (
-                      <input
+                      <input aria-label="Rule description"
                         className="input"
                         style={{ width: 150, fontSize: 12, minWidth: "unset" }}
                         placeholder="optional"

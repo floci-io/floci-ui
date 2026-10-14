@@ -134,7 +134,7 @@ function ServiceInfoDialog({
                 <div className="service-info-header">
                     <div>
                         <p className="eyebrow">Service Information</p>
-                        <h3>{schema?.displayName ?? descriptor?.displayName ?? service}</h3>
+                        <h2>{schema?.displayName ?? descriptor?.displayName ?? service}</h2>
                         {descriptor?.description && <p className="muted">{descriptor.description}</p>}
                     </div>
                     <button className="icon-btn" type="button" onClick={onClose} aria-label="Close" title="Close">

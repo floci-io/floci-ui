@@ -234,7 +234,7 @@ export function EKSPage() {
         <aside className="list-pane">
           <div className="widget-header">
             <Boxes size={13} color="var(--text-2)" />
-            <h3>Clusters ({clusters.length})</h3>
+            <h2>Clusters ({clusters.length})</h2>
           </div>
 
           {clustersQuery.isLoading ? (

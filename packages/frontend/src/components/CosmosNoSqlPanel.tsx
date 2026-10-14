@@ -117,7 +117,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
         return (
             <section className="cosmos-panel">
                 <div className="empty compact">
-                    <h3>Select a Cosmos database</h3>
+                    <h2>Select a Cosmos database</h2>
                     <p>Containers, documents, and SQL queries are loaded after a database is selected.</p>
                 </div>
             </section>
@@ -161,8 +161,8 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
             <div className="cosmos-column">
                 <PanelHeader icon={Database} eyebrow="Containers" title={databaseId} detail={`${containers.length} containers`}/>
                 <form className="cosmos-inline-form" onSubmit={submitContainer}>
-                    <input className="input" value={containerName} onChange={(event) => setContainerName(event.target.value)} placeholder="Container name" disabled={!runtimeReachable}/>
-                    <input className="input" value={partitionKeyPath} onChange={(event) => setPartitionKeyPath(event.target.value)} placeholder="/id" disabled={!runtimeReachable}/>
+                    <input aria-label="Container name" className="input" value={containerName} onChange={(event) => setContainerName(event.target.value)} placeholder="Container name" disabled={!runtimeReachable}/>
+                    <input aria-label="Partition key path" className="input" value={partitionKeyPath} onChange={(event) => setPartitionKeyPath(event.target.value)} placeholder="/id" disabled={!runtimeReachable}/>
                     <button className="button" type="submit" disabled={!runtimeReachable || createContainerMut.isPending || !containerName.trim()}>
                         <Plus size={14}/>
                         {createContainerMut.isPending ? 'Creating' : 'Create'}
@@ -271,9 +271,9 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
                             ))}
                         </tbody>
                     </table>
-                    {!selectedContainerId && <div className="empty compact"><h3>Select a container</h3><p>Documents are scoped to a Cosmos container.</p></div>}
+                    {!selectedContainerId && <div className="empty compact"><h2>Select a container</h2><p>Documents are scoped to a Cosmos container.</p></div>}
                     {itemsQuery.isLoading && <div className="muted padded">Loading documents</div>}
-                    {selectedContainerId && itemsQuery.isSuccess && itemsQuery.data.length === 0 && <div className="empty compact"><h3>No documents</h3><p>Create a JSON document or run a query after data exists.</p></div>}
+                    {selectedContainerId && itemsQuery.isSuccess && itemsQuery.data.length === 0 && <div className="empty compact"><h2>No documents</h2><p>Create a JSON document or run a query after data exists.</p></div>}
                 </div>
             </div>
 
@@ -281,19 +281,19 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
                 <PanelHeader icon={Code2} eyebrow="Document editor" title={selectedItem ? `Update ${selectedItem.id}` : 'Select document'} detail={selectedItem ? 'Edits replace the selected document' : 'Choose a document to inspect or update'}/>
                 {selectedItem ? (
                     <form className="cosmos-editor" onSubmit={submitDocument}>
-                        <textarea className="textarea code-textarea" value={documentText} onChange={(event) => setDocumentText(event.target.value)} spellCheck={false}/>
+                        <textarea aria-label="Document JSON" className="textarea code-textarea" value={documentText} onChange={(event) => setDocumentText(event.target.value)} spellCheck={false}/>
                         <button className="button primary" type="submit" disabled={!selectedContainer || !runtimeReachable || upsertItemMut.isPending}>
                             {upsertItemMut.isPending ? 'Saving' : 'Update document'}
                         </button>
                         {saveError && <div className="form-error">{saveError}</div>}
                     </form>
                 ) : (
-                    <div className="empty compact"><h3>Select a document</h3><p>Its JSON contents appear here.</p></div>
+                    <div className="empty compact"><h2>Select a document</h2><p>Its JSON contents appear here.</p></div>
                 )}
 
                 <PanelHeader icon={Play} eyebrow="SQL query" title="Cosmos SQL" detail="Runs against selected container"/>
                 <div className="cosmos-query">
-                    <textarea className="textarea code-textarea small" value={sql} onChange={(event) => setSql(event.target.value)} spellCheck={false}/>
+                    <textarea aria-label="SQL query" className="textarea code-textarea small" value={sql} onChange={(event) => setSql(event.target.value)} spellCheck={false}/>
                     <button
                         className="button"
                         type="button"

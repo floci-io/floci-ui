@@ -146,7 +146,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
     return (
       <section className="table-panel">
         <div className="empty compact">
-          <h3>Select a queue</h3>
+          <h2>Select a queue</h2>
           <p>Select an SQS queue to send, receive, or purge its messages.</p>
         </div>
       </section>
@@ -158,7 +158,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">Queue Actions</p>
-          <h3><Send size={15} /> Messages</h3>
+          <h2><Send size={15} /> Messages</h2>
           <p className="muted compact-text">
             Send, peek, and delete messages on this queue without leaving the console.
           </p>
@@ -200,7 +200,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
             <div style={{ marginBottom: "16px" }}>
               <label className="metric-label" style={{ display: "block", marginBottom: "6px" }}>Custom attributes</label>
               <div style={{display: "flex", gap: "8px", marginBottom: "8px"}}>
-                <input
+                <input aria-label="Custom attributes"
                   type="text"
                   className="button"
                   placeholder="Key"
@@ -210,7 +210,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
                   maxLength={256}
                   style={{flex: 1, cursor: "text", padding: "4px 8px", minHeight: 32}}
                 />
-              <input
+              <input aria-label="Value"
                 type="text"
                 className="button"
                 placeholder="Value"

@@ -212,7 +212,7 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
             )}
             <div className="logs-query-editor-wrap">
                 {isMultiGroup && <div className="logs-query-source-line">{sourceLine}</div>}
-                <textarea
+                <textarea aria-label="Logs Insights query"
                     className={isMultiGroup ? 'logs-query-textarea with-source-line' : 'logs-query-textarea'}
                     value={queryText}
                     onChange={(event) => setQueryText(event.target.value)}
@@ -255,7 +255,7 @@ function LogsQueryResults({result, expanded}: {result?: LogsInsightsQueryResult;
     if (!result) {
         return (
             <div className="empty compact sql-results-empty">
-                <h3>No query results</h3>
+                <h2>No query results</h2>
                 <p>Run an Insights query to see matching log events.</p>
             </div>
         )

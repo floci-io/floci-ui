@@ -102,11 +102,11 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
     return (
         <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{ maxWidth: 420 }}>
-                <h3>Create AMI</h3>
+                <h2>Create AMI</h2>
 
                 <div className="modal-section">
                     <p className="modal-section-title">Image name</p>
-                    <input
+                    <input aria-label="Image name"
                         className="input"
                         style={{ width: '100%', minWidth: 'unset' }}
                         autoFocus
@@ -117,7 +117,7 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
 
                 <div className="modal-section">
                     <p className="modal-section-title">Description — optional</p>
-                    <input
+                    <input aria-label="Description"
                         className="input"
                         style={{ width: '100%', minWidth: 'unset' }}
                         placeholder="e.g. production snapshot"
@@ -165,10 +165,10 @@ function ConsoleOutputModal({ instanceId, onClose }: { instanceId: string; onClo
     return (
         <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{ maxWidth: 720, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Terminal size={14} />
                     Console output — {instanceId}
-                </h3>
+                </h2>
 
                 {query.isLoading && (
                     <p style={{ fontSize: 12, color: 'var(--text-2)' }}>Loading…</p>
@@ -342,7 +342,7 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
 
             <div className="widget">
                 <div className="widget-header">
-                    <h3>{inst.name || instanceId}</h3>
+                    <h2>{inst.name || instanceId}</h2>
                     <span className={`status ${stateClass(state)}`}>{state}</span>
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                         <button
@@ -555,7 +555,7 @@ function AmiPanel({ imageId }: { imageId: string }) {
 
             <div className="widget">
                 <div className="widget-header">
-                    <h3>{imageId}</h3>
+                    <h2>{imageId}</h2>
                     <div style={{ marginLeft: 'auto' }}>
                         <button
                             className="button danger compact"
@@ -891,18 +891,18 @@ export function LaunchInstanceForm({
                                         const noPort = rule.protocol === '-1' || rule.protocol === 'icmp'
                                         return (
                                             <div key={rule.id} className="sg-rule-row">
-                                                <select className="input" value={rule.protocol}
+                                                <select aria-label="Protocol" className="input" value={rule.protocol}
                                                     onChange={(e) => updateRule(rule.id, { protocol: e.target.value, portInput: '' })}>
                                                     <option value="tcp">TCP</option>
                                                     <option value="udp">UDP</option>
                                                     <option value="icmp">ICMP</option>
                                                     <option value="-1">All</option>
                                                 </select>
-                                                <input className="input" value={rule.portInput}
+                                                <input aria-label="Port range" className="input" value={rule.portInput}
                                                     placeholder={noPort ? 'All' : '80 or 80-443'}
                                                     disabled={noPort}
                                                     onChange={(e) => updateRule(rule.id, { portInput: e.target.value })}/>
-                                                <input className="input" value={rule.cidr}
+                                                <input aria-label="Source CIDR" className="input" value={rule.cidr}
                                                     placeholder="0.0.0.0/0"
                                                     onChange={(e) => updateRule(rule.id, { cidr: e.target.value })}/>
                                                 <button type="button" className="icon-btn danger" onClick={() => removeRule(rule.id)}>

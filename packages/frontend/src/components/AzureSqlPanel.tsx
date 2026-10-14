@@ -106,7 +106,7 @@ export function AzureSqlPanel({
     return (
       <section className="sql-panel">
         <div className="empty compact">
-          <h3>Select an Azure database server</h3>
+          <h2>Select an Azure database server</h2>
           <p>Databases, tables, rows, and SQL queries load after connection.</p>
         </div>
       </section>
@@ -235,7 +235,7 @@ export function AzureSqlPanel({
 
       {!connected ? (
         <div className="empty compact sql-connect-empty">
-          <h3>Connect to browse SQL data</h3>
+          <h2>Connect to browse SQL data</h2>
           <p>Use the administrator login configured for this local engine.</p>
         </div>
       ) : (
@@ -332,7 +332,7 @@ export function AzureSqlPanel({
                 : "T-SQL against selected database"}
             />
             <div className="sql-query-editor">
-              <textarea
+              <textarea aria-label="SQL query"
                 className="textarea code-textarea small"
                 value={queryText}
                 onChange={(event) => setQueryText(event.target.value)}
@@ -363,7 +363,7 @@ function SqlQueryResults({ result }: { result?: SqlQueryResult }) {
   if (!result) {
     return (
       <div className="empty compact sql-results-empty">
-        <h3>No query results</h3>
+        <h2>No query results</h2>
         <p>Select a table for a 100-row preview or run SQL.</p>
       </div>
     );

@@ -159,7 +159,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     if (!resource) {
         return (
             <section className="object-browser empty compact">
-                <h3>Select a storage resource</h3>
+                <h2>Select a storage resource</h2>
                 <p>Choose a bucket or container to browse objects and blobs.</p>
             </section>
         )
@@ -212,7 +212,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
             <div className="object-browser-header">
                 <div>
                     <p className="eyebrow">Objects</p>
-                    <h3>{resource.name}</h3>
+                    <h2>{resource.name}</h2>
                     <div className="object-browser-subtitle">
                         <ObjectBreadcrumb prefix={prefix} onNavigate={navigate}/>
                         <span>{totalFolders} folders, {totalFiles} {objectLabel}</span>
@@ -233,8 +233,8 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                     )}
                     {uploadCapability && (
                         <>
-                            <input className="input object-prefix-input" value={uploadPrefix} onChange={(event) => setUploadPrefix(normalizePrefix(event.target.value))} placeholder={prefix ? `Upload to ${prefix}` : 'Upload prefix'}/>
-                            <input ref={fileRef} type="file" hidden onChange={(event) => {
+                            <input aria-label="Upload prefix" className="input object-prefix-input" value={uploadPrefix} onChange={(event) => setUploadPrefix(normalizePrefix(event.target.value))} placeholder={prefix ? `Upload to ${prefix}` : 'Upload prefix'}/>
+                            <input aria-label="Choose file to upload" ref={fileRef} type="file" hidden onChange={(event) => {
                                 const file = event.target.files?.[0]
                                 if (file) uploadMut.mutate(file)
                                 event.currentTarget.value = ''
@@ -280,7 +280,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
             {!query.isLoading && objects.length > 0 && (
                 <div className="object-search-bar">
                     <Search size={13}/>
-                    <input
+                    <input aria-label={`Search ${objectLabel} and folders`}
                         className="input"
                         value={search}
                         onChange={(e) => { setSearch(e.target.value); setSelectedKeys(new Set()) }}
@@ -302,17 +302,17 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
             {/* ── Table ── */}
             {query.isLoading ? (
                 <div className="empty compact">
-                    <h3>Loading objects</h3>
+                    <h2>Loading objects</h2>
                     <p>Reading objects from the selected storage resource.</p>
                 </div>
             ) : objects.length === 0 ? (
                 <div className="empty compact">
-                    <h3>No {objectLabel}</h3>
+                    <h2>No {objectLabel}</h2>
                     <p>{prefix ? `The ${prefix} prefix is empty.` : `This ${resource.type} has no ${objectLabel} yet.`}</p>
                 </div>
             ) : filteredObjects.length === 0 ? (
                 <div className="empty compact">
-                    <h3>No results</h3>
+                    <h2>No results</h2>
                     <p>Nothing matches &ldquo;{search}&rdquo;.</p>
                 </div>
             ) : (
@@ -368,7 +368,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                     ].filter(Boolean).join(' ')}
                                 >
                                     <td style={{textAlign: 'center'}}>
-                                        <input
+                                        <input aria-label={`Select ${object.name}`}
                                             type="checkbox"
                                             checked={isSelected}
                                             onClick={(e) => e.stopPropagation()}
@@ -543,7 +543,7 @@ function MoveOrCopyModal({
                             <Loader2 size={13}/> Loading {resourceLabel}s…
                         </div>
                     ) : (
-                        <select className="input" value={destResourceId} onChange={(e) => setDestResourceId(e.target.value)}>
+                        <select aria-label={`Destination ${resourceLabel}`} className="input" value={destResourceId} onChange={(e) => setDestResourceId(e.target.value)}>
                             {resources.map((r) => (
                                 <option key={r.id} value={r.id}>
                                     {r.name}{r.id === resource.id ? ' (current)' : ''}
@@ -556,7 +556,7 @@ function MoveOrCopyModal({
 
                 {isCreatingNew && (
                     <div style={{display: 'flex', gap: 6, alignItems: 'center', marginTop: -6, marginBottom: 4}}>
-                        <input
+                        <input aria-label={`New ${resourceLabel} name`}
                             className="input"
                             autoFocus
                             value={newResourceName}
@@ -581,7 +581,7 @@ function MoveOrCopyModal({
 
                 <div className="form-row">
                     <label>Destination key</label>
-                    <input className="input" value={destKey} onChange={(e) => setDestKey(e.target.value)}/>
+                    <input aria-label="Destination key" className="input" value={destKey} onChange={(e) => setDestKey(e.target.value)}/>
                 </div>
 
                 {error && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 4px'}}>{error}</p>}

@@ -33,7 +33,7 @@ export function DynamoDbTableExplorer({cloud, resource, runtimeReachable}: Dynam
         return (
             <section className="dynamodb-explorer">
                 <div className="empty compact">
-                    <h3>Select a DynamoDB table</h3>
+                    <h2>Select a DynamoDB table</h2>
                     <p>Records and their contents load after a table is selected.</p>
                 </div>
             </section>
@@ -103,7 +103,7 @@ function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExpl
                 {selectedItem ? (
                     <pre className="dynamodb-document">{JSON.stringify(selectedItem.body, null, 2)}</pre>
                 ) : (
-                    <div className="empty compact"><h3>Select a record</h3><p>Full record contents appear here.</p></div>
+                    <div className="empty compact"><h2>Select a record</h2><p>Full record contents appear here.</p></div>
                 )}
                 <PartiqlPanel cloud={cloud} tableName={tableName} runtimeReachable={runtimeReachable} onTableChanged={records.refresh}/>
             </div>
@@ -219,7 +219,7 @@ function RecordsTable({records, selectedItemId, onSelect}: {records: ScannedReco
                 </tbody>
             </table>
             {records.isLoading && <div className="muted padded">Loading records</div>}
-            {records.isEmpty && <div className="empty compact"><h3>No records</h3><p>This table does not contain any items.</p></div>}
+            {records.isEmpty && <div className="empty compact"><h2>No records</h2><p>This table does not contain any items.</p></div>}
             {records.nextCursor && (
                 <div className="dynamodb-load-more">
                     <button className="button" type="button" disabled={records.isFetching} onClick={records.loadMore}>

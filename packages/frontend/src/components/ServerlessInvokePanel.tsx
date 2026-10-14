@@ -91,7 +91,7 @@ const clearPayload = () => {
     return (
       <section className="table-panel">
         <div className="empty compact">
-          <h3>Select a serverless function</h3>
+          <h2>Select a serverless function</h2>
           <p>
             Select a Lambda function, Azure Function, Google Cloud Function, or OCI function to
             invoke it from Cloud Explorer.
@@ -106,10 +106,10 @@ const clearPayload = () => {
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">Serverless Actions</p>
-          <h3>
+          <h2>
             <Zap size={15} />
             Invoke {providerLabel}
-          </h3>
+          </h2>
           <p className="muted compact-text">
             Send a JSON event payload to the selected serverless function.
           </p>

@@ -48,14 +48,14 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
   return (
     <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Waypoints size={14} /> Create NAT Gateway
-        </h3>
+        </h2>
 
         <div className="modal-section">
           <div className="field-row">
             <label>Name <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional)</span></label>
-            <input
+            <input aria-label="Name"
               className="input"
               placeholder="my-nat-gateway"
               value={name}
@@ -65,7 +65,7 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
 
           <div className="field-row">
             <label>Subnet <span style={{ color: 'var(--status-error)' }}>*</span></label>
-            <select
+            <select aria-label="Subnet"
               className="input"
               value={subnetId}
               onChange={(e) => { setSubnetId(e.target.value); setErr('') }}
@@ -115,7 +115,7 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
               ) : freeEips.length === 0 ? (
                 <p style={{ fontSize: 12, color: 'var(--status-error)' }}>No unattached EIPs. Allocate one first.</p>
               ) : (
-                <select
+                <select aria-label="Elastic IP"
                   className="input"
                   value={allocationId}
                   onChange={(e) => { setAllocationId(e.target.value); setErr('') }}

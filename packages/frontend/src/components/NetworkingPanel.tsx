@@ -250,7 +250,7 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
                                 return (
                                     <tr key={r.rid} style={{borderBottom: idx < rules.length - 1 ? '1px solid var(--border-faint)' : 'none'}}>
                                         <td style={tdS}>
-                                            <select
+                                            <select aria-label="Rule type"
                                                 className="input"
                                                 style={{width: 130, fontSize: 12}}
                                                 value={pKey}
@@ -267,7 +267,7 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
                                                 <span style={{color: 'var(--text-2)'}}>—</span>
                                             ) : isCustom(r) ? (
                                                 <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                                                    <input
+                                                    <input aria-label="From port"
                                                         className="input"
                                                         style={{width: 48, fontSize: 12, minWidth: 'unset', borderColor: fromErr ? 'var(--status-error)' : undefined}}
                                                         placeholder="From"
@@ -275,7 +275,7 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
                                                         onChange={(e) => update(r.rid, {fromPort: e.target.value})}
                                                     />
                                                     <span style={{color: 'var(--text-2)'}}>–</span>
-                                                    <input
+                                                    <input aria-label="To port"
                                                         className="input"
                                                         style={{width: 48, fontSize: 12, minWidth: 'unset', borderColor: toErr ? 'var(--status-error)' : undefined}}
                                                         placeholder="To"
@@ -290,7 +290,7 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
                                             )}
                                         </td>
                                         <td style={tdS}>
-                                            <input
+                                            <input aria-label="Source CIDR"
                                                 className="input"
                                                 style={{width: 140, fontSize: 12, minWidth: 'unset', borderColor: cidrErr ? 'var(--status-error)' : undefined}}
                                                 placeholder="0.0.0.0/0"
@@ -341,19 +341,19 @@ function CreateSgModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) {
     return (
         <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 400}}>
-                <h3>Create Security Group</h3>
+                <h2>Create Security Group</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">Name</p>
-                    <input className="input" style={{width: '100%', minWidth: 'unset'}} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mut.mutate()}/>
+                    <input aria-label="Name" className="input" style={{width: '100%', minWidth: 'unset'}} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mut.mutate()}/>
                 </div>
                 <div className="modal-section">
                     <p className="modal-section-title">Description</p>
-                    <input className="input" style={{width: '100%', minWidth: 'unset'}} value={description} onChange={(e) => setDescription(e.target.value)}/>
+                    <input aria-label="Description" className="input" style={{width: '100%', minWidth: 'unset'}} value={description} onChange={(e) => setDescription(e.target.value)}/>
                 </div>
                 {vpcs.length > 0 && (
                     <div className="modal-section">
                         <p className="modal-section-title">VPC — optional</p>
-                        <select className="input" style={{width: '100%', minWidth: 'unset'}} value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
+                        <select aria-label="VPC" className="input" style={{width: '100%', minWidth: 'unset'}} value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
                             <option value="">Default VPC</option>
                             {vpcs.map((v) => <option key={v.vpcId} value={v.vpcId}>{nameTag(v.tags) || v.vpcId} ({v.cidrBlock})</option>)}
                         </select>
@@ -488,10 +488,10 @@ function CreateKpModal({onClose, onCreated}: {onClose: () => void; onCreated: (m
     return (
         <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 380}}>
-                <h3>Create Key Pair</h3>
+                <h2>Create Key Pair</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">Name</p>
-                    <input
+                    <input aria-label="Name"
                         className="input" style={{width: '100%', minWidth: 'unset'}} autoFocus
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -538,10 +538,10 @@ function CreateVpcModal({onClose}: {onClose: () => void}) {
     return (
         <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 360}}>
-                <h3>Create VPC</h3>
+                <h2>Create VPC</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">IPv4 CIDR block</p>
-                    <input
+                    <input aria-label="IPv4 CIDR block"
                         className="input" style={{width: '100%', minWidth: 'unset', borderColor: cidr && !cidrValid ? 'var(--status-error)' : undefined}}
                         autoFocus value={cidr}
                         onChange={(e) => setCidr(e.target.value)}
@@ -645,11 +645,11 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                     <div className="section-title">Identity</div>
                                     <div className="field-row">
                                         <label>Name</label>
-                                        <input className="input" placeholder="my-vpc" value={wizName} onChange={(e) => setWizName(e.target.value)}/>
+                                        <input aria-label="Name" className="input" placeholder="my-vpc" value={wizName} onChange={(e) => setWizName(e.target.value)}/>
                                     </div>
                                     <div className="field-row">
                                         <label>IPv4 CIDR</label>
-                                        <input className="input" placeholder="10.0.0.0/16" value={cidrBlock} onChange={(e) => setCidrBlock(e.target.value)} style={{borderColor: cidrBlock && !cidrValid ? 'var(--status-error)' : undefined}}/>
+                                        <input aria-label="IPv4 CIDR" className="input" placeholder="10.0.0.0/16" value={cidrBlock} onChange={(e) => setCidrBlock(e.target.value)} style={{borderColor: cidrBlock && !cidrValid ? 'var(--status-error)' : undefined}}/>
                                         {cidrBlock && !cidrValid && <span style={{color: 'var(--status-error)', fontSize: 11, marginTop: 2}}>Invalid CIDR</span>}
                                     </div>
                                 </div>
@@ -670,19 +670,19 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                     )}
                                     {groups.map((g, idx) => (
                                         <div key={idx} style={{display: 'grid', gridTemplateColumns: 'minmax(60px,1fr) 38px 70px 46px 44px auto', gap: 4, alignItems: 'center', marginBottom: 4, background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 5, padding: '5px 6px'}}>
-                                            <input style={{minWidth: 0, fontSize: 12, padding: '3px 7px', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)'}} placeholder="name" value={g.name} onChange={(e) => updateGroup(idx, {name: e.target.value})}/>
-                                            <select className="input" style={{minWidth: 0, width: '100%', fontSize: 12, padding: '2px 4px', height: 26}} value={g.count} onChange={(e) => updateGroup(idx, {count: Number(e.target.value)})}>
+                                            <input aria-label="Subnet group name" style={{minWidth: 0, fontSize: 12, padding: '3px 7px', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)'}} placeholder="name" value={g.name} onChange={(e) => updateGroup(idx, {name: e.target.value})}/>
+                                            <select aria-label="Subnet count" className="input" style={{minWidth: 0, width: '100%', fontSize: 12, padding: '2px 4px', height: 26}} value={g.count} onChange={(e) => updateGroup(idx, {count: Number(e.target.value)})}>
                                                 {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
                                             </select>
                                             <select aria-label="Subnet visibility" className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 4px', height: 26, color: g.isPublic ? 'var(--status-ok)' : 'var(--text-muted)'}} value={g.isPublic ? 'public' : 'private'} onChange={(e) => updateGroup(idx, {isPublic: e.target.value === 'public'})}>
                                                 <option value="public">Public</option>
                                                 <option value="private">Private</option>
                                             </select>
-                                            <select className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 2px', height: 26}} value={g.prefix ?? 'auto'} onChange={(e) => updateGroup(idx, {prefix: e.target.value === 'auto' ? undefined : Number(e.target.value)})}>
+                                            <select aria-label="Subnet prefix length" className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 2px', height: 26}} value={g.prefix ?? 'auto'} onChange={(e) => updateGroup(idx, {prefix: e.target.value === 'auto' ? undefined : Number(e.target.value)})}>
                                                 <option value="auto">auto</option>
                                                 {[20,21,22,23,24,25,26,27,28].map((p) => <option key={p} value={p}>/{p}</option>)}
                                             </select>
-                                            <select className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 2px', height: 26}} value={g.az ?? '(auto)'} onChange={(e) => updateGroup(idx, {az: e.target.value === '(auto)' ? undefined : e.target.value})}>
+                                            <select aria-label="Availability Zone" className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 2px', height: 26}} value={g.az ?? '(auto)'} onChange={(e) => updateGroup(idx, {az: e.target.value === '(auto)' ? undefined : e.target.value})}>
                                                 {AZ_OPTIONS.map((a) => <option key={a} value={a}>{AZ_LABELS[a]}</option>)}
                                             </select>
                                             <button className="icon-btn danger" onClick={() => removeGroup(idx)}><Trash2 size={12}/></button>
@@ -824,21 +824,21 @@ function CreateSubnetModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void
     return (
         <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 400}}>
-                <h3>Create Subnet</h3>
+                <h2>Create Subnet</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">VPC</p>
-                    <select className="input" style={{width: '100%', minWidth: 'unset'}} value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
+                    <select aria-label="VPC" className="input" style={{width: '100%', minWidth: 'unset'}} value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
                         {vpcs.map((v) => <option key={v.vpcId} value={v.vpcId}>{nameTag(v.tags) || v.vpcId} ({v.cidrBlock})</option>)}
                     </select>
                 </div>
                 <div className="modal-section">
                     <p className="modal-section-title">IPv4 CIDR</p>
-                    <input className="input" style={{width: '100%', minWidth: 'unset', borderColor: cidr && !cidrValid ? 'var(--status-error)' : undefined}} placeholder="10.0.1.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)}/>
+                    <input aria-label="IPv4 CIDR" className="input" style={{width: '100%', minWidth: 'unset', borderColor: cidr && !cidrValid ? 'var(--status-error)' : undefined}} placeholder="10.0.1.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)}/>
                     {cidr && !cidrValid && <p style={{fontSize: 11, color: 'var(--status-error)', margin: '4px 0 0'}}>Invalid CIDR</p>}
                 </div>
                 <div className="modal-section">
                     <p className="modal-section-title">Availability Zone — optional</p>
-                    <select className="input" style={{width: '100%', minWidth: 'unset'}} value={az} onChange={(e) => setAz(e.target.value)}>
+                    <select aria-label="Availability Zone" className="input" style={{width: '100%', minWidth: 'unset'}} value={az} onChange={(e) => setAz(e.target.value)}>
                         <option value="">No preference</option>
                         {AZ_OPTIONS.filter((a) => a !== '(auto)').map((a) => <option key={a} value={a}>{a}</option>)}
                     </select>
@@ -875,10 +875,10 @@ function CreateIgwModal({onClose}: {onClose: () => void}) {
     return (
         <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 360}}>
-                <h3>Create Internet Gateway</h3>
+                <h2>Create Internet Gateway</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">Name — optional</p>
-                    <input className="input" style={{width: '100%', minWidth: 'unset'}} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mut.mutate()} placeholder="my-igw"/>
+                    <input aria-label="Name" className="input" style={{width: '100%', minWidth: 'unset'}} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mut.mutate()} placeholder="my-igw"/>
                 </div>
                 {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
@@ -913,16 +913,16 @@ function CreateRtbModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) 
     return (
         <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 380}}>
-                <h3>Create Route Table</h3>
+                <h2>Create Route Table</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">VPC</p>
-                    <select className="input" style={{width: '100%', minWidth: 'unset'}} value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
+                    <select aria-label="VPC" className="input" style={{width: '100%', minWidth: 'unset'}} value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
                         {vpcs.map((v) => <option key={v.vpcId} value={v.vpcId}>{nameTag(v.tags) || v.vpcId} ({v.cidrBlock})</option>)}
                     </select>
                 </div>
                 <div className="modal-section">
                     <p className="modal-section-title">Name — optional</p>
-                    <input className="input" style={{width: '100%', minWidth: 'unset'}} value={name} onChange={(e) => setName(e.target.value)} placeholder="my-rtb"/>
+                    <input aria-label="Name" className="input" style={{width: '100%', minWidth: 'unset'}} value={name} onChange={(e) => setName(e.target.value)} placeholder="my-rtb"/>
                 </div>
                 {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
                 <div className="modal-footer">
@@ -955,7 +955,7 @@ function AllocateEipModal({onClose}: {onClose: () => void}) {
     return (
         <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 340}}>
-                <h3>Allocate Elastic IP</h3>
+                <h2>Allocate Elastic IP</h2>
                 <div className="modal-section">
                     <p style={{fontSize: 12, color: 'var(--text-muted)', margin: 0}}>
                         Allocates a new Elastic IP address from Amazon's pool for use in your account.
@@ -987,7 +987,7 @@ function SgDetail({sg, vpcs, onEdit, onDelete}: {
         <div className="widget">
             <div className="widget-header">
                 <Shield size={14} style={{color: 'var(--accent)'}}/>
-                <h3 style={{marginLeft: 6}}>{sg.groupName}</h3>
+                <h2 style={{marginLeft: 6}}>{sg.groupName}</h2>
                 <div style={{marginLeft: 'auto', display: 'flex', gap: 6}}>
                     <button className="button compact" onClick={onEdit}>Edit rules</button>
                     <button className="button compact danger" onClick={onDelete}><Trash2 size={12}/> Delete</button>
@@ -1050,7 +1050,7 @@ function KpDetail({kp, onDelete}: {kp: Ec2KeyPair; onDelete: () => void}) {
         <div className="widget">
             <div className="widget-header">
                 <Key size={14} style={{color: 'var(--accent)'}}/>
-                <h3 style={{marginLeft: 6}}>{kp.keyName}</h3>
+                <h2 style={{marginLeft: 6}}>{kp.keyName}</h2>
                 <div style={{marginLeft: 'auto'}}>
                     <button className="button compact danger" onClick={onDelete}><Trash2 size={12}/> Delete</button>
                 </div>
@@ -1086,7 +1086,7 @@ function VpcDetail({vpc, onDelete}: {vpc: Ec2Vpc; onDelete: () => void}) {
         <div className="widget">
             <div className="widget-header">
                 <Network size={14} style={{color: 'var(--accent)'}}/>
-                <h3 style={{marginLeft: 6}}>{nameTag(vpc.tags) || vpc.vpcId}</h3>
+                <h2 style={{marginLeft: 6}}>{nameTag(vpc.tags) || vpc.vpcId}</h2>
                 {vpc.isDefault && <span className="status pending" style={{marginLeft: 8, fontSize: 11}}>default</span>}
                 <div style={{marginLeft: 'auto'}}>
                     <button className="button compact danger" onClick={onDelete} disabled={vpc.isDefault} title={vpc.isDefault ? 'Cannot delete the default VPC' : undefined}>
@@ -1139,7 +1139,7 @@ function SubnetDetail({subnet, vpcs, onDelete}: {subnet: Ec2Subnet; vpcs: Ec2Vpc
         <div className="widget">
             <div className="widget-header">
                 <Server size={14} style={{color: 'var(--accent)'}}/>
-                <h3 style={{marginLeft: 6}}>{nameTag(subnet.tags) || subnet.subnetId}</h3>
+                <h2 style={{marginLeft: 6}}>{nameTag(subnet.tags) || subnet.subnetId}</h2>
                 <div style={{marginLeft: 'auto'}}>
                     <button className="button compact danger" onClick={onDelete}><Trash2 size={12}/> Delete</button>
                 </div>
@@ -1189,7 +1189,7 @@ function IgwDetail({igw, vpcs, onDelete}: {igw: Ec2InternetGateway; vpcs: Ec2Vpc
         <div className="widget">
             <div className="widget-header">
                 <Globe size={14} style={{color: 'var(--accent)'}}/>
-                <h3 style={{marginLeft: 6}}>{nameTag(igw.tags) || igw.internetGatewayId}</h3>
+                <h2 style={{marginLeft: 6}}>{nameTag(igw.tags) || igw.internetGatewayId}</h2>
                 <div style={{marginLeft: 'auto'}}>
                     <button className="button compact danger" onClick={onDelete} disabled={attached.length > 0} title={attached.length > 0 ? 'Detach from VPC first' : undefined}>
                         <Trash2 size={12}/> Delete
@@ -1214,7 +1214,7 @@ function IgwDetail({igw, vpcs, onDelete}: {igw: Ec2InternetGateway; vpcs: Ec2Vpc
                 )}
                 {unattachedVpcs.length > 0 && (
                     <div className="field-row" style={{gap: 6}}>
-                        <select className="input" style={{flex: 1, fontSize: 12, minWidth: 0}} value={attachVpcId} onChange={(e) => setAttachVpcId(e.target.value)}>
+                        <select aria-label="VPC to attach" className="input" style={{flex: 1, fontSize: 12, minWidth: 0}} value={attachVpcId} onChange={(e) => setAttachVpcId(e.target.value)}>
                             <option value="">Select VPC to attach…</option>
                             {unattachedVpcs.map((v) => <option key={v.vpcId} value={v.vpcId}>{nameTag(v.tags) || v.vpcId}</option>)}
                         </select>
@@ -1265,7 +1265,7 @@ function RtbDetail({rtb, vpcs, igws, onDelete}: {rtb: Ec2RouteTable; vpcs: Ec2Vp
         <div className="widget">
             <div className="widget-header">
                 <Router size={14} style={{color: 'var(--accent)'}}/>
-                <h3 style={{marginLeft: 6}}>{nameTag(rtb.tags) || rtb.routeTableId}</h3>
+                <h2 style={{marginLeft: 6}}>{nameTag(rtb.tags) || rtb.routeTableId}</h2>
                 {isMain && <span className="status pending" style={{marginLeft: 8, fontSize: 11}}>main</span>}
                 <div style={{marginLeft: 'auto'}}>
                     <button className="button compact danger" onClick={onDelete} disabled={isMain} title={isMain ? 'Cannot delete the main route table' : undefined}>
@@ -1313,11 +1313,11 @@ function RtbDetail({rtb, vpcs, igws, onDelete}: {rtb: Ec2RouteTable; vpcs: Ec2Vp
                 )}
                 <p className="modal-section-title" style={{marginBottom: 6}}>Add route</p>
                 <div className="field-row" style={{gap: 6, flexWrap: 'wrap'}}>
-                    <input
+                    <input aria-label="Destination CIDR"
                         className="input" placeholder="Destination CIDR" style={{width: 150, fontSize: 12, minWidth: 'unset'}}
                         value={newCidr} onChange={(e) => setNewCidr(e.target.value)}
                     />
-                    <select className="input" style={{flex: 1, fontSize: 12, minWidth: 120}} value={newTarget} onChange={(e) => setNewTarget(e.target.value)}>
+                    <select aria-label="Route target" className="input" style={{flex: 1, fontSize: 12, minWidth: 120}} value={newTarget} onChange={(e) => setNewTarget(e.target.value)}>
                         <option value="">Select target…</option>
                         {igws.map((g) => <option key={g.internetGatewayId} value={g.internetGatewayId}>{g.internetGatewayId} (IGW)</option>)}
                     </select>
@@ -1381,7 +1381,7 @@ function EipDetail({eip, instances, onRelease}: {
                         </button>
                     ) : (
                         <div className="field-row" style={{gap: 6}}>
-                            <select className="input" style={{flex: 1, fontSize: 12, minWidth: 0}} value={selectedInstance} onChange={(e) => setSelectedInstance(e.target.value)}>
+                            <select aria-label="Instance to associate" className="input" style={{flex: 1, fontSize: 12, minWidth: 0}} value={selectedInstance} onChange={(e) => setSelectedInstance(e.target.value)}>
                                 <option value="">Associate with instance…</option>
                                 {instances.map((inst) => <option key={inst.instanceId} value={inst.instanceId}>{inst.name || inst.instanceId}</option>)}
                             </select>
@@ -1573,7 +1573,7 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
     if (cloud !== 'aws') {
         return (
             <div className="widget" style={{marginTop: 16}}>
-                <div className="widget-header"><Network size={14}/><h3 style={{marginLeft: 6}}>Networking</h3></div>
+                <div className="widget-header"><Network size={14}/><h2 style={{marginLeft: 6}}>Networking</h2></div>
                 <div className="widget-body">
                     {/*
                       * Azure has a working VNet adapter, so the table above this panel is
@@ -1642,7 +1642,7 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
             <div className="widget" style={{marginTop: 16}}>
                 <div className="widget-header">
                     <Network size={14} style={{color: 'var(--accent)'}}/>
-                    <h3 style={{marginLeft: 6}}>Networking</h3>
+                    <h2 style={{marginLeft: 6}}>Networking</h2>
                 </div>
                 <div className="widget-body" style={{padding: 0}}>
                     <div className="net-split">

@@ -128,7 +128,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
     return (
       <section className="table-panel">
         <div className="empty compact">
-          <h3>Select an encryption key</h3>
+          <h2>Select an encryption key</h2>
           <p>Select an enabled ENCRYPT_DECRYPT KMS key to encrypt or decrypt data.</p>
         </div>
       </section>
@@ -140,7 +140,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">KMS Actions</p>
-          <h3><KeyRound size={15} /> Encrypt and decrypt</h3>
+          <h2><KeyRound size={15} /> Encrypt and decrypt</h2>
           <p className="muted compact-text">
             Values stay in this panel and are cleared when you switch keys or operations.
           </p>

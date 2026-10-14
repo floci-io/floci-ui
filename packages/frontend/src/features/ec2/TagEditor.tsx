@@ -75,7 +75,7 @@ export function TagEditor({ instanceId, initialTags }: Props) {
         ))}
         {rows.map((tag, idx) => (
           <div key={idx} className="field-row" style={{ gap: 4 }}>
-            <input
+            <input aria-label="Key"
               className="input"
               placeholder="Key"
               value={tag.key}
@@ -83,7 +83,7 @@ export function TagEditor({ instanceId, initialTags }: Props) {
               onChange={(e) => setKey(idx, e.target.value)}
               style={{ flex: 1 }}
             />
-            <input
+            <input aria-label="Value"
               className="input"
               placeholder="Value"
               value={tag.value}

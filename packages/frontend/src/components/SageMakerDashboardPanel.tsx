@@ -22,7 +22,7 @@ export function SageMakerDashboardPanel({resources, isRefreshing, updatedAt, onR
         <section className="sagemaker-dashboard" aria-label="SageMaker AI dashboard">
             <div className="sagemaker-dashboard-header">
                 <div>
-                    <h3>All active resources</h3>
+                    <h2>All active resources</h2>
                     <p>A current view of your SageMaker AI resources.</p>
                 </div>
                 <div className="sagemaker-refresh">
@@ -65,10 +65,10 @@ export function SageMakerDashboardPanel({resources, isRefreshing, updatedAt, onR
 function DashboardCard({title, soon = false, rows}: {title: string; soon?: boolean; rows: Array<{label: string; value?: number; status?: string; soon?: boolean}>}) {
     return (
         <article className="sagemaker-card">
-            <h4>
+            <h3>
                 {title}
                 {soon && <span className="coming-soon-pill">Soon</span>}
-            </h4>
+            </h3>
             <div className="sagemaker-card-rows">
                 {rows.map((row) => (
                     <div className="sagemaker-card-row" key={`${title}:${row.label}`}>

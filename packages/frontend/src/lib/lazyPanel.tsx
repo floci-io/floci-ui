@@ -35,7 +35,7 @@ class ChunkErrorBoundary extends Component<{children: ReactNode}, {failed: boole
                 <div className="empty-icon">
                     <AlertTriangle size={18}/>
                 </div>
-                <h3>This part of the console could not load</h3>
+                <h2>This part of the console could not load</h2>
                 <p>The console may have been updated since this page was opened.</p>
                 <button className="button" type="button" onClick={() => window.location.reload()}>Reload</button>
             </div>

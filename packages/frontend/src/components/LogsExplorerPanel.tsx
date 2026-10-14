@@ -166,7 +166,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                 {firstEventPage?.error instanceof Error && <div className="form-error">{firstEventPage.error.message}</div>}
                 <div className="cosmos-items-table">
                     {!selectedStreamId && (
-                        <div className="empty compact"><h3>Select a stream</h3><p>Events are scoped to a log stream.</p></div>
+                        <div className="empty compact"><h2>Select a stream</h2><p>Events are scoped to a log stream.</p></div>
                     )}
                     {selectedStreamId && !firstEventPage?.isLoading && events.length === 0 && (
                         <EmptyState

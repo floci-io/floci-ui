@@ -35,13 +35,13 @@ export function CreateRtbModal({ onClose, onCreated }: Props) {
   return (
     <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Router size={14} /> Create Route Table
-        </h3>
+        </h2>
         <div className="modal-section">
           <div className="field-row">
             <label>VPC <span style={{ color: 'var(--status-error)' }}>*</span></label>
-            <select
+            <select aria-label="VPC"
               className="input"
               value={vpcId}
               onChange={(e) => { setVpcId(e.target.value); setErr('') }}
@@ -54,7 +54,7 @@ export function CreateRtbModal({ onClose, onCreated }: Props) {
           </div>
           <div className="field-row">
             <label>Name <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional)</span></label>
-            <input
+            <input aria-label="Name"
               className="input"
               placeholder="my-route-table"
               value={name}

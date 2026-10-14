@@ -94,7 +94,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
         return (
             <section className="cosmos-panel">
                 <div className="empty compact">
-                    <h3>Select a state machine</h3>
+                    <h2>Select a state machine</h2>
                     <p>Executions and their history are loaded after a state machine is selected.</p>
                 </div>
             </section>
@@ -191,7 +191,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                 <div className="cosmos-items-table">
                     {!selectedExecutionId && (
                         <div className="empty compact">
-                            <h3>Select an execution</h3>
+                            <h2>Select an execution</h2>
                             <p>History events are scoped to one execution.</p>
                         </div>
                     )}

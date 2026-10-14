@@ -387,7 +387,7 @@ export function DynamicResourceView({
       <div className="dynamic-resource-view">
         <TopbarServiceInfo onOpenInfo={onOpenInfo} />
         <div className="empty compact">
-          <h3>Loading schema</h3>
+          <h2>Loading schema</h2>
         </div>
       </div>
     );
@@ -400,9 +400,9 @@ export function DynamicResourceView({
         <div className="cloud-coming-soon">
           <div>
             <p className="eyebrow">Coming Soon</p>
-            <h3>
+            <h2>
               {cloud.toUpperCase()} {service}
-            </h3>
+            </h2>
             <p className="muted">
               The proxy already exposes this provider as a placeholder. No
               adapter is registered yet.
@@ -561,7 +561,7 @@ export function DynamicResourceView({
                 </div>
                 <div className="resource-table-tools">
                   <div className="search-box">
-                    <input
+                    <input aria-label="Filter resources"
                       className="input"
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
@@ -884,9 +884,9 @@ export function DynamicResourceView({
                 justifyContent: "space-between",
               }}
             >
-              <h3 style={{ margin: 0 }}>
+              <h2 style={{ margin: 0 }}>
                 Edit {schema.displayName}: {editingResource.name || editingResource.id}
-              </h3>
+              </h2>
               <button
                 className="icon-btn"
                 type="button"
@@ -1120,7 +1120,7 @@ function RuntimeNotice({
           style={{ marginBottom: 8, color: "var(--accent)" }}
         />
       )}
-      <h3>{title}</h3>
+      <h2>{title}</h2>
       <p>{detail}</p>
       {error && <code>{error}</code>}
       {onRetry && (

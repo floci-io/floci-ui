@@ -152,7 +152,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                   <div className="section-title">Identity</div>
                   <div className="field-row">
                     <label>Name</label>
-                    <input
+                    <input aria-label="Name"
                       className="input"
                       placeholder="my-vpc"
                       value={name}
@@ -161,7 +161,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                   </div>
                   <div className="field-row">
                     <label>IPv4 CIDR block</label>
-                    <input
+                    <input aria-label="IPv4 CIDR block"
                       className="input"
                       placeholder="10.0.0.0/16"
                       value={cidrBlock}
@@ -224,7 +224,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                       }}
                     >
                       {/* Name */}
-                      <input
+                      <input aria-label="Subnet group name"
                         style={{
                           minWidth: 0, fontSize: 12, padding: '3px 7px',
                           background: 'transparent', border: 'none', outline: 'none',
@@ -235,7 +235,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                         onChange={(e) => updateGroup(idx, { name: e.target.value })}
                       />
                       {/* Count */}
-                      <select
+                      <select aria-label="Subnet count"
                         className="input"
                         style={{ minWidth: 0, width: '100%', fontSize: 12, padding: '2px 4px', height: 26 }}
                         value={g.count}
@@ -244,7 +244,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                         {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
                       </select>
                       {/* Public / Private toggle */}
-                      <select
+                      <select aria-label="Subnet visibility"
                         className="input"
                         style={{
                           minWidth: 0, width: '100%', fontSize: 11, padding: '2px 4px', height: 26,

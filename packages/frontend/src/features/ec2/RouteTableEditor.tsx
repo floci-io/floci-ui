@@ -125,7 +125,7 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
       {/* ── Routes ──────────────────────────────────────────────────── */}
       <div className="table-panel">
         <div className="widget-header">
-          <h3>Routes</h3>
+          <h2>Routes</h2>
         </div>
         <table className="table">
           <thead>
@@ -165,7 +165,7 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
             {/* New route row */}
             <tr>
               <td>
-                <input
+                <input aria-label="Destination CIDR"
                   className="input"
                   style={{
                     fontSize: 12, padding: '2px 6px',
@@ -177,7 +177,7 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
                 />
               </td>
               <td colSpan={3} style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 8px' }}>
-                <select
+                <select aria-label="Target type"
                   className="input"
                   style={{ fontSize: 12, padding: '2px 6px', flex: '0 0 auto' }}
                   value={targetKind}
@@ -187,7 +187,7 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
                   <option value="nat">NAT Gateway</option>
                   {/* VPC peering shown only if we add peering support later */}
                 </select>
-                <select
+                <select aria-label="Target"
                   className="input"
                   style={{ fontSize: 12, padding: '2px 6px', flex: 1 }}
                   value={targetId}
@@ -219,7 +219,7 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
       {/* ── Subnet Associations ──────────────────────────────────────── */}
       <div className="table-panel">
         <div className="widget-header">
-          <h3>Subnet associations</h3>
+          <h2>Subnet associations</h2>
         </div>
         <table className="table">
           <thead>
@@ -254,7 +254,7 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
             {availableSubnets.length > 0 && (
               <tr>
                 <td colSpan={3}>
-                  <select
+                  <select aria-label="Subnet to associate"
                     className="input"
                     style={{ fontSize: 12, padding: '2px 6px', width: '100%' }}
                     value={newSubnetId}

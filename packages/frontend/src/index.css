@@ -167,6 +167,19 @@ select {
     opacity: 1;
 }
 
+/* Section headings are h2 so the outline has no gaps under the page h1. Heading level
+   carries no size here: components set their own, and these keep the former h3/h4
+   browser defaults as the fallback. */
+h2 {
+    font-size: 1.17em;
+    margin-block: 1em;
+}
+
+h3 {
+    font-size: 1em;
+    margin-block: 1.33em;
+}
+
 button {
     cursor: pointer;
 }
@@ -933,7 +946,7 @@ pre,
     border-radius: 6px;
 }
 
-.service-card h3 {
+.service-card h2 {
     margin: 0;
     color: var(--text);
     font-size: 18px;
@@ -1060,7 +1073,7 @@ pre,
     color: var(--text-3);
 }
 
-.empty h3 {
+.empty h2 {
     margin: 0;
     color: var(--text);
     font-size: 16px;
@@ -1199,7 +1212,7 @@ pre,
     border-bottom: 1px solid var(--border);
 }
 
-.service-info-header h3 {
+.service-info-header h2 {
     margin: 4px 0 0;
     color: var(--text-bright);
     font-size: 24px;
@@ -1355,7 +1368,7 @@ pre,
     padding-top: 20px;
 }
 
-.sagemaker-dashboard-header h3 {
+.sagemaker-dashboard-header h2 {
     margin: 0 0 6px;
     color: var(--text-bright);
     font-size: 22px;
@@ -1386,7 +1399,7 @@ pre,
     padding: 18px 20px;
 }
 
-.sagemaker-card h4 {
+.sagemaker-card h3 {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1470,8 +1483,8 @@ pre,
     border-bottom: 1px solid var(--border);
 }
 
-.dynamic-stage-header h3,
-.resource-action-panel h3 {
+.dynamic-stage-header h2,
+.resource-action-panel h2 {
     margin: 2px 0 0;
     color: var(--text-bright);
     font-size: 13px;
@@ -1714,7 +1727,7 @@ pre,
     text-align: center;
 }
 
-.runtime-notice h3 {
+.runtime-notice h2 {
     margin: 0;
     color: var(--text-bright);
     font-size: 15px;
@@ -2935,7 +2948,7 @@ pre,
     padding: 10px 14px;
 }
 
-.object-browser-header h3 {
+.object-browser-header h2 {
     margin: 2px 0 4px;
     color: var(--text-bright);
     font-size: 13px;
@@ -3224,7 +3237,7 @@ button.console-service-card {
     font-size: 12px;
 }
 
-.cloud-coming-soon h3 {
+.cloud-coming-soon h2 {
     margin: 4px 0 6px;
     color: var(--text-bright);
     font-size: 22px;
@@ -3365,7 +3378,7 @@ button.console-service-card {
         height: 36px;
     }
 
-    .console-service-card h3 {
+    .console-service-card h2 {
         font-size: 16px;
         overflow-wrap: anywhere;
     }
@@ -3572,7 +3585,7 @@ button.console-service-card {
     gap: 8px;
 }
 
-.fn-card-name h3 {
+.fn-card-name h2 {
     margin: 0;
     font-size: 13px;
     font-weight: 500;
@@ -3695,7 +3708,7 @@ button.console-service-card {
     border-bottom: 1px solid var(--border);
 }
 
-.tag-drawer-header h3 {
+.tag-drawer-header h2 {
     margin: 0;
     font-size: 13px;
     font-weight: 500;
@@ -3916,7 +3929,7 @@ button.console-service-card {
     gap: 16px;
 }
 
-.copy-modal h3 {
+.copy-modal h2 {
     margin: 0;
     font-size: 14px;
     font-weight: 500;
@@ -4078,7 +4091,7 @@ button.console-service-card {
     overflow-y: auto;
 }
 
-.create-table-modal h3 {
+.create-table-modal h2 {
     margin: 0;
     font-size: 15px;
     font-weight: 500;
@@ -4171,12 +4184,12 @@ button.console-service-card {
     gap: 16px;
 }
 
-.record-modal-header h3,
+.record-modal-header h2,
 .record-modal-header p {
     margin: 0;
 }
 
-.record-modal-header h3 {
+.record-modal-header h2 {
     color: var(--text-bright);
     font-size: 15px;
     font-weight: 600;
@@ -4468,7 +4481,7 @@ button.console-service-card {
     background: var(--surface);
 }
 
-.settings-section h3 {
+.settings-section h2 {
     margin: 0;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-faint);
@@ -4584,7 +4597,7 @@ button.console-service-card {
     background: var(--surface);
 }
 
-.settings-section h3 {
+.settings-section h2 {
     margin: 0;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-faint);

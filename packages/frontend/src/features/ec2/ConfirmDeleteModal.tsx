@@ -75,7 +75,7 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
           <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
             Type <strong style={{ color: 'var(--text)', fontFamily: 'var(--mono)' }}>delete</strong> to confirm
           </label>
-          <input
+          <input aria-label="Type delete to confirm"
             className="input"
             placeholder="delete"
             value={typed}

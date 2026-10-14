@@ -57,7 +57,7 @@ export function ServiceGrid({services, runtimeReachable, onNavigate, searchQuery
                         <div className="service-card-header">
                             <div className="service-icon"><Icon size={18}/></div>
                             <div>
-                                <h3>{service.label}</h3>
+                                <h2>{service.label}</h2>
                                 <span className={isAvailable ? 'status healthy' : 'status unknown'}>
                                     {isAvailable ? 'available' : 'coming soon'}
                                 </span>

@@ -13,7 +13,7 @@ export function EmptyState({icon: Icon, title, description, compact}: EmptyState
             <div className="empty-icon">
                 <Icon size={compact ? 18 : 24}/>
             </div>
-            <h3>{title}</h3>
+            <h2>{title}</h2>
             <p>{description}</p>
         </div>
     )

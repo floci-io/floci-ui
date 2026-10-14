@@ -150,20 +150,20 @@ function CreateSecretForm({ onClose }: { onClose: () => void }) {
           <X size={14} />
         </button>
       </div>
-      <input
+      <input aria-label="Secret name"
         className="input"
         placeholder="Secret name (e.g. prod/db/password)"
         value={name}
         onChange={(e) => { setName(e.target.value); setErr('') }}
         autoFocus
       />
-      <input
+      <input aria-label="Description"
         className="input"
         placeholder="Description (optional)"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
-      <textarea
+      <textarea aria-label="Secret value"
         className="json-editor"
         style={{ minHeight: 100 }}
         placeholder={'Secret value — plaintext or JSON, e.g.\n{\n  "username": "admin",\n  "password": "…"\n}'}
@@ -383,7 +383,7 @@ function SecretDrawer({
     <div className={`tag-drawer ${secretId ? 'open' : ''}`} style={{ width: 440 }}>
       <div className="tag-drawer-header">
         <KeyRound size={14} style={{ color: 'var(--accent)' }} />
-        <h3 title={detail?.name ?? secretId ?? ''}>{detail?.name ?? secretId}</h3>
+        <h2 title={detail?.name ?? secretId ?? ''}>{detail?.name ?? secretId}</h2>
         <button className="icon-btn" onClick={onClose} aria-label="Close" title="Close"><X size={14} aria-hidden="true" /></button>
       </div>
 
@@ -547,7 +547,7 @@ function SecretDrawer({
                     </div>
                   </div>
                 ) : (
-                  <textarea
+                  <textarea aria-label="Secret value"
                     className="json-editor"
                     style={{ minHeight: 180 }}
                     value={draftValue}
@@ -710,7 +710,7 @@ export function SecretsManagerPage() {
 
       <div className="input-row">
         <Search size={14} color="var(--text-3)" />
-        <input
+        <input aria-label="Search by name or description"
           className="input"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -723,7 +723,7 @@ export function SecretsManagerPage() {
 
         <div className="table-panel">
           <div className="widget-header">
-            <h3>Secrets</h3>
+            <h2>Secrets</h2>
           </div>
           {query.isError ? (
             <EmptyState icon={KeyRound} title="Cannot load secrets" description="Secrets Manager did not respond from the Floci endpoint." />

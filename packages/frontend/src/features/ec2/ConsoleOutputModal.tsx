@@ -13,10 +13,10 @@ export function ConsoleOutputModal({ instanceId, onClose }: Props) {
   return (
     <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" style={{ maxWidth: 720, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
-        <h3 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <h2 style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Terminal size={14} />
           Console output — {instanceId}
-        </h3>
+        </h2>
 
         {query.isLoading && (
           <p style={{ fontSize: 12, color: "var(--text-2)" }}>Loading…</p>

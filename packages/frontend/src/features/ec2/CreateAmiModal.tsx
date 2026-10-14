@@ -33,11 +33,11 @@ export function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }:
   return (
     <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" style={{ maxWidth: 420 }}>
-        <h3>Create AMI</h3>
+        <h2>Create AMI</h2>
 
         <div className="modal-section">
           <p className="modal-section-title">Image name</p>
-          <input
+          <input aria-label="Image name"
             className="input"
             style={{ width: "100%", minWidth: "unset" }}
             autoFocus
@@ -48,7 +48,7 @@ export function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }:
 
         <div className="modal-section">
           <p className="modal-section-title">Description — optional</p>
-          <input
+          <input aria-label="Description"
             className="input"
             style={{ width: "100%", minWidth: "unset" }}
             placeholder="e.g. production snapshot"

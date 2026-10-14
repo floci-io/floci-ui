@@ -25,14 +25,14 @@ export function SettingsPage() {
                 <div className="page-title">
                     <Settings size={20}/>
                     <div>
-                        <h2>Settings</h2>
+                        <h1>Settings</h1>
                         <p className="muted">Application preferences</p>
                     </div>
                 </div>
             </div>
             <div className="content">
                 <section className="settings-section">
-                    <h3>Environment</h3>
+                    <h2>Environment</h2>
                     <div className="settings-row">
                         <div className="settings-row-text">
                             <span className="settings-label">Cloud</span>
@@ -53,7 +53,7 @@ export function SettingsPage() {
                     </div>
                 </section>
                 <div className="settings-section">
-                    <h3>Appearance</h3>
+                    <h2>Appearance</h2>
                     <div className="settings-row">
                         <div className="settings-row-text">
                             <span className="settings-label">Theme</span>

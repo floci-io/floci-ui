@@ -277,7 +277,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
         return (
             <section className="cosmos-panel appconfig-panel">
                 <div className="empty compact">
-                    <h3>Select an application</h3>
+                    <h2>Select an application</h2>
                     <p>Environments, configuration profiles, hosted versions, and deployments are loaded after an application is selected.</p>
                 </div>
             </section>
@@ -347,7 +347,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
             <div className="cosmos-column">
                 <ColumnHeader eyebrow="Environments" title={resource?.name ?? ''} detail={`${environments.length} environments`}/>
                 <form className="cosmos-inline-form" onSubmit={submitEnvironment}>
-                    <input className="input" value={environmentName} onChange={(event) => setEnvironmentName(event.target.value)} placeholder="Environment name" disabled={!runtimeReachable}/>
+                    <input aria-label="Environment name" className="input" value={environmentName} onChange={(event) => setEnvironmentName(event.target.value)} placeholder="Environment name" disabled={!runtimeReachable}/>
                     <button className="button" type="submit" disabled={!runtimeReachable || createEnvironmentMut.isPending || !environmentName.trim()}>
                         <Plus size={14}/>
                         {createEnvironmentMut.isPending ? 'Creating' : 'Create'}
@@ -398,8 +398,8 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
             <div className="cosmos-column">
                 <ColumnHeader eyebrow="Configuration profiles" title="Profiles" detail={`${profiles.length} profiles`}/>
                 <form className="cosmos-inline-form" onSubmit={submitProfile}>
-                    <input className="input" value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder="Profile name" disabled={!runtimeReachable}/>
-                    <select className="input" value={profileType} onChange={(event) => setProfileType(event.target.value)} disabled={!runtimeReachable}>
+                    <input aria-label="Profile name" className="input" value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder="Profile name" disabled={!runtimeReachable}/>
+                    <select aria-label="Profile type" className="input" value={profileType} onChange={(event) => setProfileType(event.target.value)} disabled={!runtimeReachable}>
                         {PROFILE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
                     </select>
                     <button className="button" type="submit" disabled={!runtimeReachable || createProfileMut.isPending || !profileName.trim()}>
@@ -529,7 +529,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                         </tbody>
                     </table>
                     {selectedProfileId && !versionsQuery.isLoading && versions.length === 0 && (
-                        <div className="empty compact"><h3>No hosted versions</h3><p>Write the configuration above and create the first version.</p></div>
+                        <div className="empty compact"><h2>No hosted versions</h2><p>Write the configuration above and create the first version.</p></div>
                     )}
                 </div>
                 {selectedVersionNumber !== undefined && (
@@ -550,24 +550,24 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                     event.preventDefault()
                     if (canDeploy) startDeploymentMut.mutate()
                 }}>
-                    <select className="input" value={deployEnvironmentId} onChange={(event) => setDeployEnvironmentId(event.target.value)} disabled={!runtimeReachable}>
+                    <select aria-label="Environment" className="input" value={deployEnvironmentId} onChange={(event) => setDeployEnvironmentId(event.target.value)} disabled={!runtimeReachable}>
                         <option value="">Select environment</option>
                         {environments.map((environment) => <option key={environment.id} value={environment.id}>{environment.name}</option>)}
                     </select>
-                    <select className="input" value={deployProfileId} onChange={(event) => {
+                    <select aria-label="Configuration profile" className="input" value={deployProfileId} onChange={(event) => {
                         setDeployProfileId(event.target.value)
                         setDeployVersion('')
                     }} disabled={!runtimeReachable}>
                         <option value="">Select profile</option>
                         {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
                     </select>
-                    <select className="input" value={deployVersion} onChange={(event) => setDeployVersion(event.target.value)} disabled={!runtimeReachable || !deployProfileId}>
+                    <select aria-label="Configuration version" className="input" value={deployVersion} onChange={(event) => setDeployVersion(event.target.value)} disabled={!runtimeReachable || !deployProfileId}>
                         <option value="">Select version</option>
                         {(deployVersionsQuery.data ?? []).map((version) => (
                             <option key={version.id} value={String(version.versionNumber)}>v{version.versionNumber}</option>
                         ))}
                     </select>
-                    <select className="input" value={deployStrategyId} onChange={(event) => setDeployStrategyId(event.target.value)} disabled={!runtimeReachable}>
+                    <select aria-label="Deployment strategy" className="input" value={deployStrategyId} onChange={(event) => setDeployStrategyId(event.target.value)} disabled={!runtimeReachable}>
                         <option value="">Select strategy</option>
                         {strategies.map((strategy) => <option key={strategy.id} value={strategy.id}>{strategy.name}</option>)}
                     </select>
@@ -598,8 +598,8 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
 
                 <ColumnHeader eyebrow="Strategies" title="Deployment strategies" detail={`${strategies.length} strategies`}/>
                 <form className="cosmos-inline-form" onSubmit={submitStrategy}>
-                    <input className="input" value={strategyName} onChange={(event) => setStrategyName(event.target.value)} placeholder="Immediate strategy name" disabled={!runtimeReachable}/>
-                    <input className="input" type="number" min={0} value={strategyBake} onChange={(event) => setStrategyBake(event.target.value)} placeholder="Bake min" disabled={!runtimeReachable}/>
+                    <input aria-label="Immediate strategy name" className="input" value={strategyName} onChange={(event) => setStrategyName(event.target.value)} placeholder="Immediate strategy name" disabled={!runtimeReachable}/>
+                    <input aria-label="Bake min" className="input" type="number" min={0} value={strategyBake} onChange={(event) => setStrategyBake(event.target.value)} placeholder="Bake min" disabled={!runtimeReachable}/>
                     <button className="button" type="submit" disabled={!runtimeReachable || createStrategyMut.isPending || !strategyName.trim()}>
                         <Plus size={14}/>
                         {createStrategyMut.isPending ? 'Creating' : 'Create'}

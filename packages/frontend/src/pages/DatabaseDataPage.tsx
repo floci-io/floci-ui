@@ -84,7 +84,7 @@ function DatabaseDataWorkspace({cloud, service, resourceId}: {cloud: CloudProvid
 }
 
 function DataNotice({title, detail, onRetry}: {title: string; detail?: string; onRetry?: () => void}) {
-    return <div className="runtime-notice" role="status"><h3>{title}</h3>{detail && <p>{detail}</p>}
+    return <div className="runtime-notice" role="status"><h2>{title}</h2>{detail && <p>{detail}</p>}
         {onRetry && <button className="button" type="button" onClick={onRetry}>Retry</button>}
     </div>
 }

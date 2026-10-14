@@ -29,16 +29,16 @@ export function AllocateEipModal({ onClose, onAllocated }: Props) {
   return (
     <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Network size={14} /> Allocate Elastic IP
-        </h3>
+        </h2>
         <div className="modal-section">
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
             Allocates a new VPC-scoped Elastic IP address. Standard hourly charges apply when not associated.
           </p>
           <div className="field-row">
             <label>Name tag <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional)</span></label>
-            <input
+            <input aria-label="Name tag"
               className="input"
               placeholder="my-eip"
               value={name}

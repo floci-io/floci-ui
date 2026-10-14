@@ -40,13 +40,13 @@ export function CreateIgwModal({ onClose, onCreated }: Props) {
   return (
     <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Cloud size={14} /> Create Internet Gateway
-        </h3>
+        </h2>
         <div className="modal-section">
           <div className="field-row">
             <label>Name <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional)</span></label>
-            <input
+            <input aria-label="Name"
               className="input"
               placeholder="my-igw"
               value={name}
@@ -55,7 +55,7 @@ export function CreateIgwModal({ onClose, onCreated }: Props) {
           </div>
           <div className="field-row">
             <label>Attach to VPC <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional)</span></label>
-            <select className="input" value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
+            <select aria-label="Attach to VPC" className="input" value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
               <option value="">— skip attach —</option>
               {vpcs.map((v) => (
                 <option key={v.vpcId} value={v.vpcId}>{v.vpcId} ({v.cidrBlock})</option>

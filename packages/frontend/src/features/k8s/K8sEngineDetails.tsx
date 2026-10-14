@@ -96,13 +96,13 @@ function EksNodegroupsSection({cloud, clusterName}: {cloud: CloudProvider; clust
                     })
                 }}
             >
-                <input className="input" value={form.name} onChange={(event) => setForm({...form, name: event.target.value})} placeholder="Nodegroup name"/>
-                <input className="input" value={form.nodeRole} onChange={(event) => setForm({...form, nodeRole: event.target.value})} placeholder="Node role ARN"/>
-                <input className="input" value={form.subnets} onChange={(event) => setForm({...form, subnets: event.target.value})} placeholder="subnet-a, subnet-b"/>
-                <input className="input" value={form.instanceTypes} onChange={(event) => setForm({...form, instanceTypes: event.target.value})} placeholder="t3.medium"/>
-                <input className="input" type="number" min="0" value={form.minSize} onChange={(event) => setForm({...form, minSize: event.target.value})} placeholder="Min"/>
-                <input className="input" type="number" min="0" value={form.desiredSize} onChange={(event) => setForm({...form, desiredSize: event.target.value})} placeholder="Desired"/>
-                <input className="input" type="number" min="1" value={form.maxSize} onChange={(event) => setForm({...form, maxSize: event.target.value})} placeholder="Max"/>
+                <input aria-label="Nodegroup name" className="input" value={form.name} onChange={(event) => setForm({...form, name: event.target.value})} placeholder="Nodegroup name"/>
+                <input aria-label="Node role ARN" className="input" value={form.nodeRole} onChange={(event) => setForm({...form, nodeRole: event.target.value})} placeholder="Node role ARN"/>
+                <input aria-label="Subnets" className="input" value={form.subnets} onChange={(event) => setForm({...form, subnets: event.target.value})} placeholder="subnet-a, subnet-b"/>
+                <input aria-label="Instance type" className="input" value={form.instanceTypes} onChange={(event) => setForm({...form, instanceTypes: event.target.value})} placeholder="t3.medium"/>
+                <input aria-label="Minimum nodes" className="input" type="number" min="0" value={form.minSize} onChange={(event) => setForm({...form, minSize: event.target.value})} placeholder="Min"/>
+                <input aria-label="Desired nodes" className="input" type="number" min="0" value={form.desiredSize} onChange={(event) => setForm({...form, desiredSize: event.target.value})} placeholder="Desired"/>
+                <input aria-label="Maximum nodes" className="input" type="number" min="1" value={form.maxSize} onChange={(event) => setForm({...form, maxSize: event.target.value})} placeholder="Max"/>
                 <button className="button compact" type="submit" disabled={!canCreate || createNodegroup.isPending}>
                     <Plus size={13}/>
                     {createNodegroup.isPending ? 'Creating' : 'Create'}
@@ -178,11 +178,11 @@ function EksFargateProfilesSection({cloud, clusterName}: {cloud: CloudProvider; 
                     })
                 }}
             >
-                <input className="input" value={form.name} onChange={(event) => setForm({...form, name: event.target.value})} placeholder="Profile name"/>
-                <input className="input" value={form.roleArn} onChange={(event) => setForm({...form, roleArn: event.target.value})} placeholder="Pod execution role ARN"/>
-                <input className="input" value={form.namespace} onChange={(event) => setForm({...form, namespace: event.target.value})} placeholder="Namespace"/>
-                <input className="input" value={form.labels} onChange={(event) => setForm({...form, labels: event.target.value})} placeholder="app=api, tier=backend"/>
-                <input className="input" value={form.subnets} onChange={(event) => setForm({...form, subnets: event.target.value})} placeholder="Optional subnets"/>
+                <input aria-label="Profile name" className="input" value={form.name} onChange={(event) => setForm({...form, name: event.target.value})} placeholder="Profile name"/>
+                <input aria-label="Pod execution role ARN" className="input" value={form.roleArn} onChange={(event) => setForm({...form, roleArn: event.target.value})} placeholder="Pod execution role ARN"/>
+                <input aria-label="Namespace" className="input" value={form.namespace} onChange={(event) => setForm({...form, namespace: event.target.value})} placeholder="Namespace"/>
+                <input aria-label="Pod selector labels" className="input" value={form.labels} onChange={(event) => setForm({...form, labels: event.target.value})} placeholder="app=api, tier=backend"/>
+                <input aria-label="Subnets" className="input" value={form.subnets} onChange={(event) => setForm({...form, subnets: event.target.value})} placeholder="Optional subnets"/>
                 <button className="button compact" type="submit" disabled={!canCreate || createProfile.isPending}>
                     <Plus size={13}/>
                     {createProfile.isPending ? 'Creating' : 'Create'}
