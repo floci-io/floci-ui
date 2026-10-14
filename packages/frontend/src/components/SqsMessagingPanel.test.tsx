@@ -56,8 +56,8 @@ describe("SqsMessagingPanel", () => {
     render(<SqsMessagingPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
 
     await user.type(screen.getByLabelText("Message body"), "hello with attr");
-    await user.type(screen.getByPlaceholderText("Key"), "TenantId");
-    await user.type(screen.getByPlaceholderText("Value"), "t-123");
+    await user.type(screen.getByRole("textbox", {name: "Attribute key"}), "TenantId");
+    await user.type(screen.getByRole("textbox", {name: "Attribute value"}), "t-123");
     await user.click(screen.getByRole("button", {name: "Add attribute"}));
 
     const sendButtons = screen.getAllByRole("button", {name: "Send"});

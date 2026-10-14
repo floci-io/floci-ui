@@ -200,7 +200,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
             <div style={{ marginBottom: "16px" }}>
               <label className="metric-label" style={{ display: "block", marginBottom: "6px" }}>Custom attributes</label>
               <div style={{display: "flex", gap: "8px", marginBottom: "8px"}}>
-                <input aria-label="Custom attributes"
+                <input aria-label="Attribute key"
                   type="text"
                   className="button"
                   placeholder="Key"
@@ -210,7 +210,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
                   maxLength={256}
                   style={{flex: 1, cursor: "text", padding: "4px 8px", minHeight: 32}}
                 />
-              <input aria-label="Value"
+              <input aria-label="Attribute value"
                 type="text"
                 className="button"
                 placeholder="Value"
