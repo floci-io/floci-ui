@@ -240,7 +240,7 @@ function DeregisterAmiConfirm({ imageId, onConfirm, onCancel, isPending }: {
                         padding: '8px 12px',
                         marginBottom: 12,
                     }}>
-                        <div style={{ fontFamily: 'monospace', fontSize: 13 }}>{imageId}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 13 }}>{imageId}</div>
                     </div>
                     <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                         This will deregister the AMI. Associated snapshots are not deleted automatically.
@@ -445,7 +445,7 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                         <div className="meta-grid">
                             <div className="meta-row">
                                 <span className="meta-label">Instance ID</span>
-                                <span className="meta-value" style={{ fontFamily: 'monospace' }}>{inst.instanceId}</span>
+                                <span className="meta-value" style={{ fontFamily: 'var(--mono)' }}>{inst.instanceId}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Type</span>
@@ -453,7 +453,7 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">AMI</span>
-                                <span className="meta-value" style={{ fontFamily: 'monospace', fontSize: 11 }}>{inst.imageId ?? '—'}</span>
+                                <span className="meta-value" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{inst.imageId ?? '—'}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Key pair</span>
@@ -469,7 +469,7 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Launch time</span>
-                                <span className="meta-value" style={{ color: '#8d9cad' }}>{inst.launchTime ?? '—'}</span>
+                                <span className="meta-value" style={{ color: 'var(--text-3)' }}>{inst.launchTime ?? '—'}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Availability zone</span>
@@ -477,19 +477,19 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Public IP</span>
-                                <span className="meta-value" style={{ fontFamily: 'monospace' }}>{inst.publicIpAddress ?? '—'}</span>
+                                <span className="meta-value" style={{ fontFamily: 'var(--mono)' }}>{inst.publicIpAddress ?? '—'}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Private IP</span>
-                                <span className="meta-value" style={{ fontFamily: 'monospace' }}>{inst.privateIpAddress ?? '—'}</span>
+                                <span className="meta-value" style={{ fontFamily: 'var(--mono)' }}>{inst.privateIpAddress ?? '—'}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">VPC</span>
-                                <span className="meta-value" style={{ fontFamily: 'monospace', fontSize: 11 }}>{inst.vpcId ?? '—'}</span>
+                                <span className="meta-value" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{inst.vpcId ?? '—'}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Subnet</span>
-                                <span className="meta-value" style={{ fontFamily: 'monospace', fontSize: 11 }}>{inst.subnetId ?? '—'}</span>
+                                <span className="meta-value" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{inst.subnetId ?? '—'}</span>
                             </div>
                             {inst.securityGroups.length > 0 && (
                                 <div className="meta-row">
@@ -570,7 +570,7 @@ function AmiPanel({ imageId }: { imageId: string }) {
                     <div className="meta-grid">
                         <div className="meta-row">
                             <span className="meta-label">Image ID</span>
-                            <span className="meta-value" style={{ fontFamily: 'monospace' }}>{imageId}</span>
+                            <span className="meta-value" style={{ fontFamily: 'var(--mono)' }}>{imageId}</span>
                         </div>
                     </div>
                 </div>

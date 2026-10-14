@@ -40,7 +40,7 @@ function ResourceRow({ label, id }: { label: string; id: string }) {
       <td style={{ color: 'var(--text-muted)', paddingRight: 16, whiteSpace: 'nowrap', fontSize: 12 }}>
         {label}
       </td>
-      <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{id}</td>
+      <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{id}</td>
     </tr>
   )
 }
@@ -247,7 +247,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                         className="input"
                         style={{
                           minWidth: 0, width: '100%', fontSize: 11, padding: '2px 4px', height: 26,
-                          color: g.isPublic ? '#34d399' : 'var(--text-muted)',
+                          color: g.isPublic ? 'var(--status-ok)' : 'var(--text-muted)',
                         }}
                         value={g.isPublic ? 'public' : 'private'}
                         onChange={(e) => updateGroup(idx, { isPublic: e.target.value === 'public' })}
@@ -315,7 +315,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                   marginBottom: 10,
                 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>VPC</div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 12 }}>{cidrValid ? cidrBlock : '—'}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{cidrValid ? cidrBlock : '—'}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                     + Internet Gateway
                   </div>
@@ -343,7 +343,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                               padding: '5px 9px',
                               marginBottom: 5,
                               background: bgColor,
-                              fontFamily: 'monospace',
+                              fontFamily: 'var(--mono)',
                               fontSize: 11,
                             }}>
                               {cidr}
@@ -391,7 +391,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
           <>
             <div style={{ padding: '24px 28px', maxHeight: '70vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                <CheckCircle2 size={18} style={{ color: '#34d399' }} />
+                <CheckCircle2 size={18} style={{ color: 'var(--status-ok)' }} />
                 <span style={{ fontWeight: 600 }}>VPC created successfully</span>
               </div>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
@@ -434,7 +434,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                 <AlertCircle size={18} style={{ color: 'var(--status-error)' }} />
                 <span style={{ fontWeight: 600 }}>Creation failed</span>
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--status-error)', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--status-error)', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4 }}>
                 {errorMsg}
               </div>
             </div>

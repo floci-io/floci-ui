@@ -189,7 +189,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                                 <tbody>
                                     {events.map((event) => (
                                         <tr key={event.id}>
-                                            <td className="mono" style={{color: '#8d9cad', whiteSpace: 'nowrap'}}>
+                                            <td className="mono" style={{color: 'var(--text-3)', whiteSpace: 'nowrap'}}>
                                                 {formatDateTime(event.timestamp) ?? '-'}
                                             </td>
                                             <td className="mono">{String(event.body.message ?? '')}</td>

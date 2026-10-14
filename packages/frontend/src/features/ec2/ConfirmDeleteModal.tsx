@@ -47,7 +47,7 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
             padding: '8px 12px',
             marginBottom: warnings && warnings.length > 0 ? 10 : 14,
           }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 13 }}>{resourceId}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 13 }}>{resourceId}</div>
             {subtitle && (
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{subtitle}</div>
             )}
@@ -56,8 +56,8 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
           {/* Cascade / extra warnings */}
           {warnings && warnings.length > 0 && (
             <div style={{
-              background: 'rgba(251,191,36,0.08)',
-              border: '1px solid rgba(251,191,36,0.3)',
+              background: 'color-mix(in srgb, var(--status-warn) 8%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--status-warn) 30%, transparent)',
               borderRadius: 4,
               padding: '8px 12px',
               marginBottom: 14,
@@ -72,7 +72,7 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
 
           {/* Confirmation input */}
           <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
-            Type <strong style={{ color: 'var(--text)', fontFamily: 'monospace' }}>delete</strong> to confirm
+            Type <strong style={{ color: 'var(--text)', fontFamily: 'var(--mono)' }}>delete</strong> to confirm
           </label>
           <input
             className="input"

@@ -531,14 +531,14 @@ function MoveOrCopyModal({
                     <button className={`drawer-tab ${mode === 'copy' ? 'active' : ''}`} onClick={() => setMode('copy')}>Copy</button>
                 </div>
 
-                <div style={{fontSize: 12, color: '#8d9cad', marginBottom: 12}}>
+                <div style={{fontSize: 12, color: 'var(--text-3)', marginBottom: 12}}>
                     Source: <span className="mono" style={{color: 'var(--text-2)'}}>{resource.name}/{srcObject.key}</span>
                 </div>
 
                 <div className="form-row">
                     <label>Destination {resourceLabel}</label>
                     {resourcesQuery.isLoading ? (
-                        <div style={{display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#8d9cad'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-3)'}}>
                             <Loader2 size={13}/> Loading {resourceLabel}s…
                         </div>
                     ) : (

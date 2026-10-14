@@ -408,11 +408,11 @@ function SecretDrawer({
           ) : detail ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: 'var(--status-ok)' }}>
+                <span className="badge" style={{ background: 'var(--status-ok-tint)', color: 'var(--status-ok)' }}>
                   {detail.rotationEnabled ? 'Rotation enabled' : 'Active'}
                 </span>
                 {detail.versionIds.length > 0 && (
-                  <span className="badge" style={{ background: 'rgba(107,114,128,0.14)', color: 'var(--text-3)' }}>
+                  <span className="badge" style={{ background: 'var(--status-neutral-tint)', color: 'var(--text-3)' }}>
                     {detail.versionIds.length} version{detail.versionIds.length !== 1 ? 's' : ''}
                   </span>
                 )}
@@ -471,8 +471,8 @@ function SecretDrawer({
                         key={tag.key}
                         style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: i < detail.tags.length - 1 ? '1px solid var(--border)' : undefined }}
                       >
-                        <div style={{ padding: '6px 8px', borderRight: '1px solid var(--border)', fontSize: 12, fontFamily: 'monospace', color: 'var(--status-warn)' }}>{tag.key}</div>
-                        <div style={{ padding: '6px 8px', fontSize: 12, fontFamily: 'monospace', color: 'var(--text-2)' }} title={tag.value}>{tag.value}</div>
+                        <div style={{ padding: '6px 8px', borderRight: '1px solid var(--border)', fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--status-warn)' }}>{tag.key}</div>
+                        <div style={{ padding: '6px 8px', fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text-2)' }} title={tag.value}>{tag.value}</div>
                       </div>
                     ))}
                   </div>
@@ -635,7 +635,7 @@ function SecretDrawer({
       {/* Footer */}
       <div className="tag-drawer-footer">
         {deleteConfirm ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', padding: '8px', background: 'rgba(239,68,68,0.08)', borderRadius: 4, border: '1px solid rgba(239,68,68,0.3)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', padding: '8px', background: 'color-mix(in srgb, var(--status-error) 8%, transparent)', borderRadius: 4, border: '1px solid color-mix(in srgb, var(--status-error) 30%, transparent)' }}>
             <span style={{ fontSize: 12, color: 'var(--status-error)' }}>Delete this secret?</span>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-2)' }}>
               <input type="checkbox" checked={forceDelete} onChange={(e) => setForceDelete(e.target.checked)} />

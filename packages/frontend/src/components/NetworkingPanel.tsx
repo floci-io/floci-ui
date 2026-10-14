@@ -441,7 +441,7 @@ function PemDisplay({material, onClose}: {material: Ec2KeyPairMaterial; onClose:
         <div className="modal-overlay" onClick={onClose}>
             <div className="create-table-modal" style={{maxWidth: 600}} onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                    <Key size={14} style={{color: '#34d399'}}/>
+                    <Key size={14} style={{color: 'var(--status-ok)'}}/>
                     <span>Save your private key — {material.keyName}</span>
                     <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose} aria-label="Close" title="Close"><X size={13} aria-hidden="true"/></button>
                 </div>
@@ -673,7 +673,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                             <select className="input" style={{minWidth: 0, width: '100%', fontSize: 12, padding: '2px 4px', height: 26}} value={g.count} onChange={(e) => updateGroup(idx, {count: Number(e.target.value)})}>
                                                 {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
                                             </select>
-                                            <select className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 4px', height: 26, color: g.isPublic ? '#34d399' : 'var(--text-muted)'}} value={g.isPublic ? 'public' : 'private'} onChange={(e) => updateGroup(idx, {isPublic: e.target.value === 'public'})}>
+                                            <select aria-label="Subnet visibility" className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 4px', height: 26, color: g.isPublic ? 'var(--status-ok)' : 'var(--text-muted)'}} value={g.isPublic ? 'public' : 'private'} onChange={(e) => updateGroup(idx, {isPublic: e.target.value === 'public'})}>
                                                 <option value="public">Public</option>
                                                 <option value="private">Private</option>
                                             </select>
@@ -694,7 +694,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                 <div className="section-title" style={{marginBottom: 12}}>Preview</div>
                                 <div style={{border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-primary)', padding: '10px 14px', marginBottom: 10}}>
                                     <div style={{fontSize: 11, fontWeight: 600, color: 'var(--accent)', marginBottom: 4}}>VPC</div>
-                                    <div style={{fontFamily: 'monospace', fontSize: 12}}>{cidrValid ? cidrBlock : '—'}</div>
+                                    <div style={{fontFamily: 'var(--mono)', fontSize: 12}}>{cidrValid ? cidrBlock : '—'}</div>
                                     <div style={{fontSize: 11, color: 'var(--text-muted)', marginTop: 2}}>+ Internet Gateway</div>
                                 </div>
                                 {preview && preview.length > 0 ? (
@@ -708,7 +708,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                                         <span style={{fontWeight: 400, marginLeft: 4, opacity: 0.7}}>{grp.isPublic ? '· public' : '· private'}</span>
                                                     </div>
                                                     {grp.cidrs.map((cidr, i) => (
-                                                        <div key={i} style={{border: `1px solid ${color}60`, borderRadius: 4, padding: '5px 9px', marginBottom: 5, background: `${color}10`, fontFamily: 'monospace', fontSize: 11}}>{cidr}</div>
+                                                        <div key={i} style={{border: `1px solid ${color}60`, borderRadius: 4, padding: '5px 9px', marginBottom: 5, background: `${color}10`, fontFamily: 'var(--mono)', fontSize: 11}}>{cidr}</div>
                                                     ))}
                                                 </div>
                                             )
@@ -749,7 +749,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
                     <>
                         <div style={{padding: '24px 28px', maxHeight: '70vh', overflowY: 'auto'}}>
                             <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20}}>
-                                <CheckCircle2 size={18} style={{color: '#34d399'}}/>
+                                <CheckCircle2 size={18} style={{color: 'var(--status-ok)'}}/>
                                 <span style={{fontWeight: 600}}>VPC created successfully</span>
                             </div>
                             <table style={{borderCollapse: 'collapse', width: '100%'}}>
@@ -764,13 +764,13 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                     ].map(([label, id]) => (
                                         <tr key={label}>
                                             <td style={{color: 'var(--text-muted)', paddingRight: 16, whiteSpace: 'nowrap', fontSize: 12}}>{label}</td>
-                                            <td style={{fontFamily: 'monospace', fontSize: 12}}>{id}</td>
+                                            <td style={{fontFamily: 'var(--mono)', fontSize: 12}}>{id}</td>
                                         </tr>
                                     ))}
                                     {result.subnetGroups.map((grp) => grp.subnetIds.map((id, i) => (
                                         <tr key={id}>
                                             <td style={{color: 'var(--text-muted)', paddingRight: 16, whiteSpace: 'nowrap', fontSize: 12}}>{grp.name} {i + 1}</td>
-                                            <td style={{fontFamily: 'monospace', fontSize: 12}}>{id}</td>
+                                            <td style={{fontFamily: 'var(--mono)', fontSize: 12}}>{id}</td>
                                         </tr>
                                     )))}
                                 </tbody>
@@ -787,7 +787,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                 <AlertCircle size={18} style={{color: 'var(--status-error)'}}/>
                                 <span style={{fontWeight: 600}}>Creation failed</span>
                             </div>
-                            <div style={{fontFamily: 'monospace', fontSize: 12, color: 'var(--status-error)', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4}}>{errMsg}</div>
+                            <div style={{fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--status-error)', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4}}>{errMsg}</div>
                         </div>
                         <div className="modal-footer">
                             <button className="button" onClick={() => setStep('form')}>Back</button>
@@ -1026,7 +1026,7 @@ function IpPermTable({perms}: {perms: Ec2IpPermission[]}) {
                             <tr key={`${i}-${j}`} style={{borderBottom: 'none'}}>
                                 <td style={tdS}>{protocolLabel(p.protocol)}</td>
                                 <td style={tdS}>{portDisplay(p.fromPort, p.toPort, p.protocol)}</td>
-                                <td style={{...tdS, fontFamily: 'monospace'}}>{cidr}</td>
+                                <td style={{...tdS, fontFamily: 'var(--mono)'}}>{cidr}</td>
                             </tr>
                         )) : (
                             <tr key={i}>
@@ -1204,7 +1204,7 @@ function IgwDetail({igw, vpcs, onDelete}: {igw: Ec2InternetGateway; vpcs: Ec2Vpc
                     <div style={{display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8}}>
                         {igw.attachments.map((a) => (
                             <div key={a.vpcId} className="field-row" style={{gap: 6}}>
-                                <span style={{fontFamily: 'monospace', fontSize: 12, flex: 1}}>{a.vpcId}</span>
+                                <span style={{fontFamily: 'var(--mono)', fontSize: 12, flex: 1}}>{a.vpcId}</span>
                                 <span style={{fontSize: 11, color: 'var(--text-2)'}}>{a.state}</span>
                                 <button className="button compact danger" disabled={detachMut.isPending} onClick={() => detachMut.mutate(a.vpcId)}>Detach</button>
                             </div>
@@ -1294,8 +1294,8 @@ function RtbDetail({rtb, vpcs, igws, onDelete}: {rtb: Ec2RouteTable; vpcs: Ec2Vp
                             <tbody>
                                 {rtb.routes.map((r, i) => (
                                     <tr key={i} style={{borderBottom: i < rtb.routes.length - 1 ? '1px solid var(--border-faint)' : 'none'}}>
-                                        <td style={{...tdS, fontFamily: 'monospace'}}>{r.destinationCidrBlock ?? '—'}</td>
-                                        <td style={{...tdS, fontFamily: 'monospace', fontSize: 11}}>{r.gatewayId ?? r.natGatewayId ?? r.vpcPeeringConnectionId ?? '—'}</td>
+                                        <td style={{...tdS, fontFamily: 'var(--mono)'}}>{r.destinationCidrBlock ?? '—'}</td>
+                                        <td style={{...tdS, fontFamily: 'var(--mono)', fontSize: 11}}>{r.gatewayId ?? r.natGatewayId ?? r.vpcPeeringConnectionId ?? '—'}</td>
                                         <td style={{...tdS, color: 'var(--text-2)'}}>{r.state ?? '—'}</td>
                                         <td style={{...tdS, textAlign: 'center'}}>
                                             {r.origin !== 'CreateRouteTable' && r.destinationCidrBlock && (
@@ -1357,7 +1357,7 @@ function EipDetail({eip, instances, onRelease}: {
         <div className="widget">
             <div className="widget-header">
                 <Globe size={14} style={{color: 'var(--accent)'}}/>
-                <h3 style={{marginLeft: 6, fontFamily: 'monospace'}}>{eip.publicIp}</h3>
+                <h2 style={{marginLeft: 6, fontFamily: 'var(--mono)'}}>{eip.publicIp}</h2>
                 <div style={{marginLeft: 'auto'}}>
                     <button className="button compact danger" onClick={onRelease} disabled={!!eip.associationId} title={eip.associationId ? 'Disassociate before releasing' : undefined}>
                         <Trash2 size={12}/> Release
@@ -1404,7 +1404,7 @@ function MetaGrid({rows}: {rows: [string, string][]}) {
             {rows.map(([label, value]) => (
                 <div key={label} className="meta-row">
                     <span className="meta-label">{label}</span>
-                    <span className="meta-value" style={{fontFamily: label.endsWith('ID') || label === 'CIDR' || label === 'Fingerprint' ? 'monospace' : undefined, fontSize: label.endsWith('ID') ? 11 : undefined}}>
+                    <span className="meta-value" style={{fontFamily: label.endsWith('ID') || label === 'CIDR' || label === 'Fingerprint' ? 'var(--mono)' : undefined, fontSize: label.endsWith('ID') ? 11 : undefined}}>
                         {value}
                     </span>
                 </div>
@@ -1489,7 +1489,7 @@ function NetSection({
                                 }}
                             >
                                 <div style={{fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{item.label}</div>
-                                {item.sub && <div style={{fontSize: 11, color: 'var(--text-2)', fontFamily: 'monospace'}}>{item.sub}</div>}
+                                {item.sub && <div style={{fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--mono)'}}>{item.sub}</div>}
                             </div>
                         ))
                     )}

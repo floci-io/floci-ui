@@ -247,8 +247,8 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                                                             {expanded ? <ChevronDown size={13}/> : <ChevronRight size={13}/>}
                                                         </button>
                                                     </td>
-                                                    <td className="mono" style={{color: '#8d9cad'}}>{event.id}</td>
-                                                    <td className="mono" style={{color: '#8d9cad', whiteSpace: 'nowrap'}}>
+                                                    <td className="mono" style={{color: 'var(--text-3)'}}>{event.id}</td>
+                                                    <td className="mono" style={{color: 'var(--text-3)', whiteSpace: 'nowrap'}}>
                                                         {formatDateTime(event.timestamp) ?? '-'}
                                                     </td>
                                                     <td className="mono">{eventType(event)}</td>
@@ -313,15 +313,15 @@ function PageError({pages}: {pages: PageState[]}) {
 }
 
 const STATUS_STYLES: Record<string, {background: string; color: string}> = {
-    SUCCEEDED: {background: 'rgba(34,197,94,0.14)', color: '#4ade80'},
-    RUNNING: {background: 'rgba(96,165,250,0.14)', color: '#60a5fa'},
-    PENDING_REDRIVE: {background: 'rgba(250,204,21,0.14)', color: '#facc15'},
-    FAILED: {background: 'rgba(248,113,113,0.14)', color: '#f87171'},
-    TIMED_OUT: {background: 'rgba(248,113,113,0.14)', color: '#f87171'},
-    ABORTED: {background: 'rgba(248,113,113,0.14)', color: '#f87171'},
+    SUCCEEDED: {background: 'var(--status-ok-tint)', color: 'var(--status-ok)'},
+    RUNNING: {background: 'var(--status-info-tint)', color: 'var(--status-info)'},
+    PENDING_REDRIVE: {background: 'var(--status-warn-tint)', color: 'var(--status-warn)'},
+    FAILED: {background: 'var(--status-error-tint)', color: 'var(--status-error)'},
+    TIMED_OUT: {background: 'var(--status-error-tint)', color: 'var(--status-error)'},
+    ABORTED: {background: 'var(--status-error-tint)', color: 'var(--status-error)'},
 }
 
-const NEUTRAL_STATUS_STYLE = {background: 'rgba(107,114,128,0.14)', color: '#9ca3af'}
+const NEUTRAL_STATUS_STYLE = {background: 'var(--status-neutral-tint)', color: 'var(--text-3)'}
 
 function ExecutionStatusBadge({status}: {status?: string}) {
     const label = status ?? 'UNKNOWN'
