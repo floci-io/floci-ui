@@ -333,7 +333,12 @@ describe('cloud schema routes', () => {
         ]) {
             const res = await app.request(path)
             expect(res.status).toBe(404)
-            expect((await res.json()).error).toBe('Schema not available')
+            expect(await res.json()).toEqual({
+                error: 'Resource not found',
+                code: 'resource_not_found',
+                message: 'Resource not found',
+                detail: 'Schema not available',
+            })
         }
     })
 
@@ -341,7 +346,7 @@ describe('cloud schema routes', () => {
         const res = await appWithRoutes().request('/api/clouds/aws/services/not-a-service/schema')
 
         expect(res.status).toBe(404)
-        expect((await res.json()).error).toBe('Unknown cloud or service')
+        expect((await res.json()).detail).toBe('Unknown cloud or service')
     })
 
     test('returns AWS cloud status', async () => {
@@ -1689,7 +1694,11 @@ describe('queue message routes', () => {
             const res = await queueApp().request(`${messagesUrl}?maxMessages=${value}`)
 
             expect(res.status).toBe(400)
-            expect(await res.json()).toEqual({error: 'maxMessages must be an integer between 1 and 10'})
+            expect(await res.json()).toEqual({
+                error: 'maxMessages must be an integer between 1 and 10',
+                code: 'invalid_request',
+                message: 'maxMessages must be an integer between 1 and 10',
+            })
         })
     }
 
@@ -1707,4 +1716,76 @@ describe('queue message routes', () => {
             expect(await res.json()).toMatchObject({error: 'attributes must be an object of string values'})
         })
     }
+})
+
+describe('route guard error shape', () => {
+    const notFound = (detail: string) => ({
+        error: 'Resource not found',
+        code: 'resource_not_found',
+        message: 'Resource not found',
+        detail,
+    })
+    const invalid = (message: string) => ({error: message, code: 'invalid_request', message})
+
+    test('unknown cloud and service guards answer with the typed error body', async () => {
+        const app = appWithRoutes()
+        const cases: Array<[string, string]> = [
+            ['/api/clouds/nope/services', 'Unknown cloud'],
+            ['/api/clouds/nope/status', 'Unknown cloud'],
+            ['/api/clouds/aws/services/not-a-service/status', 'Unknown cloud or service'],
+            ['/api/clouds/aws/services/not-a-service/resources', 'Unknown cloud or service'],
+            ['/api/clouds/nope/services/database/snapshots', 'Unknown cloud'],
+        ]
+
+        for (const [path, detail] of cases) {
+            const res = await app.request(path)
+            expect(res.status).toBe(404)
+            expect(await res.json()).toEqual(notFound(detail))
+        }
+    })
+
+    test('a resource the adapter does not return answers with the typed error body', async () => {
+        const res = await appWithRoutes().request('/api/clouds/aws/services/storage/resources/missing')
+
+        expect(res.status).toBe(404)
+        expect(await res.json()).toEqual({
+            error: 'Resource not found',
+            code: 'resource_not_found',
+            message: 'Resource not found',
+        })
+    })
+
+    test('missing required input answers with the typed error body', async () => {
+        const app = appWithRoutes()
+        const base = '/api/clouds/aws/services/storage/resources/bucket-1'
+        const cases: Array<[string, string, string]> = [
+            ['GET', `${base}/object`, 'Object key is required'],
+            ['DELETE', `${base}/object`, 'Object key is required'],
+            ['POST', `${base}/object/copy`, 'srcKey and destKey are required'],
+        ]
+
+        for (const [method, path, message] of cases) {
+            const res = await app.request(path, {
+                method,
+                headers: {'content-type': 'application/json'},
+                body: method === 'POST' ? JSON.stringify({}) : undefined,
+            })
+            expect(res.status).toBe(400)
+            expect(await res.json()).toEqual(invalid(message))
+        }
+    })
+
+    test('an unexpected non-typed failure outside withRuntime stays a plain 500', async () => {
+        const app = new Hono()
+        const registry = new CloudAdapterRegistry([mockAdapter('aws')])
+        const service = new CloudProxyService(registry, stubProbes())
+        service.clouds = () => {
+            throw new Error('boom')
+        }
+        app.route('/api/clouds', createCloudRoutes(service))
+
+        const res = await app.request('/api/clouds')
+        expect(res.status).toBe(500)
+        expect(await res.text()).toBe('Internal Server Error')
+    })
 })

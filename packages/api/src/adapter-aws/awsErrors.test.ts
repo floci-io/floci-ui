@@ -127,3 +127,67 @@ describe('logs errors carry HTTP 400 and must not fall through to it', () => {
         expect(mapped?.status).toBe(409)
     })
 })
+
+/**
+ * Floci ECS answers these with HTTP 400, verified against core 2.1.0:
+ *   ListServices on a missing cluster -> 400 ClusterNotFoundException
+ *   DeleteCluster with running tasks  -> 400 ClusterContainsTasksException
+ * Without a name entry both would land on the 400 floor as validation errors.
+ */
+describe('ecs errors carry HTTP 400 and must not fall through to it', () => {
+    test('a missing cluster or service is a 404', () => {
+        for (const name of ['ClusterNotFoundException', 'ServiceNotFoundException']) {
+            const mapped = mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 400}}))
+
+            expect(mapped?.status).toBe(404)
+            expect(mapped?.code).toBe('resource_not_found')
+        }
+    })
+
+    test('a cluster that still holds work is a 409', () => {
+        for (const name of [
+            'ClusterContainsTasksException',
+            'ClusterContainsServicesException',
+            'ClusterContainsContainerInstancesException',
+        ]) {
+            expect(mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 400}}))?.status).toBe(409)
+        }
+    })
+})
+
+describe('cloudfront errors', () => {
+    test('a missing distribution or invalidation is a 404', () => {
+        for (const name of ['NoSuchDistribution', 'NoSuchInvalidation']) {
+            const mapped = mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 404}}))
+
+            expect(mapped?.status).toBe(404)
+            expect(mapped?.code).toBe('resource_not_found')
+        }
+    })
+
+    test('deleting an enabled distribution, or with a stale ETag, is a 409', () => {
+        expect(mapAwsSdkError(sdkError('DistributionNotDisabled', {$metadata: {httpStatusCode: 409}}))?.status).toBe(409)
+        expect(mapAwsSdkError(sdkError('PreconditionFailed', {$metadata: {httpStatusCode: 412}}))?.status).toBe(409)
+    })
+})
+
+/**
+ * Route 53 answers a missing zone with 404 but a non-empty one with 400
+ * HostedZoneNotEmpty; the name table keeps the second from reading as validation.
+ */
+describe('route 53 errors', () => {
+    test('a missing hosted zone or health check is a 404', () => {
+        for (const name of ['NoSuchHostedZone', 'NoSuchHealthCheck']) {
+            const mapped = mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 404}}))
+
+            expect(mapped?.status).toBe(404)
+            expect(mapped?.code).toBe('resource_not_found')
+        }
+    })
+
+    test('a zone that still holds records, or already exists, is a 409', () => {
+        for (const name of ['HostedZoneNotEmpty', 'HostedZoneAlreadyExists', 'PriorRequestNotComplete']) {
+            expect(mapAwsSdkError(sdkError(name, {$metadata: {httpStatusCode: 400}}))?.status).toBe(409)
+        }
+    })
+})

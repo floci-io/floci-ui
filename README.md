@@ -101,7 +101,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Compute | Compute | ✅ | ✅ | – | – |
 | Compute | k8s Engine | 👁 | 👁 | ✅ | ✅ |
 | Compute | Serverless | ✅ | ✅ | ✅ | ✅ |
-| Compute | Containers | – | – | ✅ | – |
+| Compute | Containers | ✅ | – | ✅ | – |
 | Compute | SageMaker AI | ✅ | – | – | – |
 | Storage | Storage | ✅ | ✅ | ✅ | ✅ |
 | Storage | Table Storage | – | ✅ | – | – |
@@ -109,6 +109,8 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Databases | NoSQL | ✅ | ✅ | ✅ | – |
 | Networking | Networking | 👁 | ✅ | – | – |
 | Networking | Load Balancing | ✅ | – | – | – |
+| Networking | CDN | ✅ | – | – | – |
+| Networking | DNS | ✅ | – | – | – |
 | Integration | Messaging | ✅ | ✅ | ✅ | ✅ |
 | Integration | API Gateway | ✅ | – | – | – |
 | Integration | SNS | ✅ | – | – | – |

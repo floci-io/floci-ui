@@ -86,7 +86,7 @@ export const SERVICE_CATALOG = {
     },
     containers: {
         displayName: 'Containers',
-        displayNameByCloud: {gcp: 'Cloud Run'},
+        displayNameByCloud: {aws: 'ECS', gcp: 'Cloud Run'},
         description: 'Deploy and run containerized applications.',
         iconKey: 'containers',
         group: 'Compute',
@@ -143,6 +143,22 @@ export const SERVICE_CATALOG = {
         iconKey: 'loadbalancing',
         group: 'Networking',
         order: 20,
+    },
+    cdn: {
+        displayName: 'CDN',
+        displayNameByCloud: {aws: 'CloudFront'},
+        description: 'Deliver content from edge locations with distributions.',
+        iconKey: 'networking',
+        group: 'Networking',
+        order: 30,
+    },
+    dns: {
+        displayName: 'DNS',
+        displayNameByCloud: {aws: 'Route 53'},
+        description: 'Manage DNS zones and the records they hold.',
+        iconKey: 'networking',
+        group: 'Networking',
+        order: 40,
     },
     messaging: {
         displayName: 'Messaging',

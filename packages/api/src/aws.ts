@@ -21,6 +21,9 @@ import { AppConfigClient } from "@aws-sdk/client-appconfig";
 import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { KinesisClient } from "@aws-sdk/client-kinesis";
 import { SageMakerClient } from "@aws-sdk/client-sagemaker";
+import { ECSClient } from "@aws-sdk/client-ecs";
+import { CloudFrontClient } from "@aws-sdk/client-cloudfront";
+import { Route53Client } from "@aws-sdk/client-route-53";
 
 const endpoint = process.env.FLOCI_ENDPOINT;
 const region = process.env.AWS_REGION || "us-east-1";
@@ -73,6 +76,9 @@ export type AwsClients = {
   cognito: CognitoIdentityProviderClient;
   kinesis: KinesisClient;
   sagemaker: SageMakerClient;
+  ecs: ECSClient;
+  cloudfront: CloudFrontClient;
+  route53: Route53Client;
 };
 
 export type AwsClientName = keyof AwsClients;
@@ -109,6 +115,9 @@ function buildClients(accountId: string): AwsClients {
     cognito: new CognitoIdentityProviderClient(base),
     kinesis: new KinesisClient(base),
     sagemaker: new SageMakerClient(base),
+    ecs: new ECSClient(base),
+    cloudfront: new CloudFrontClient(base),
+    route53: new Route53Client(base),
   };
 }
 
