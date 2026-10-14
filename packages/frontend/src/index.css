@@ -862,6 +862,7 @@ pre,
     border-bottom: 1px solid var(--border);
 }
 
+.widget-header h2,
 .widget-header h3 {
     margin: 0;
     color: var(--text);
