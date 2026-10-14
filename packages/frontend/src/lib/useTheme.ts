@@ -1,7 +1,10 @@
 import {useEffect, useSyncExternalStore} from 'react'
 import {create} from 'zustand'
 
-type Theme = 'dark' | 'light' | 'system'
+export type Theme = 'dark' | 'light' | 'system'
+
+/** The order Settings lists the options in, and the order the header button steps through. */
+export const THEME_ORDER: Theme[] = ['dark', 'light', 'system']
 
 const SYSTEM_DARK_QUERY = '(prefers-color-scheme: dark)'
 
@@ -40,7 +43,7 @@ export function useTheme() {
         localStorage.setItem('floci-theme', theme)
     }, [resolvedTheme, theme])
 
-    const toggle = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+    const cycle = () => setTheme(THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length])
 
-    return {theme, resolvedTheme, setTheme, toggle}
+    return {theme, resolvedTheme, setTheme, cycle}
 }

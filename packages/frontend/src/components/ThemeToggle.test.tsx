@@ -13,43 +13,47 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 function toggle() {
-  return screen.getByRole("button", {name: "Dark theme"});
+  return screen.getByRole("button", {name: /^Theme: /});
 }
 
 describe("ThemeToggle", () => {
-  test("keeps a stable name and reports dark mode through aria-pressed", async () => {
+  test("names the current setting and the one a click moves to", () => {
     render(<ThemeToggle/>);
-    expect(toggle()).toHaveAttribute("aria-pressed", "true");
-    expect(toggle()).toHaveAttribute("title", "Switch to light theme");
 
-    await userEvent.click(toggle());
-
-    expect(toggle()).toHaveAttribute("aria-pressed", "false");
-    expect(toggle()).toHaveAttribute("title", "Switch to dark theme");
-    expect(document.documentElement).toHaveAttribute("data-theme", "light");
-    expect(localStorage.getItem("floci-theme")).toBe("light");
+    expect(toggle()).toHaveAccessibleName("Theme: Dark");
+    expect(toggle()).toHaveAttribute("title", "Theme: Dark. Switch to Light.");
   });
 
-  test("switches back to dark on a second click", async () => {
+  test("steps through Dark, Light and System in the order Settings lists them", async () => {
     render(<ThemeToggle/>);
-    await userEvent.click(toggle());
-    await userEvent.click(toggle());
 
-    expect(toggle()).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(toggle());
+    expect(toggle()).toHaveAccessibleName("Theme: Light");
+    expect(toggle()).toHaveAttribute("title", "Theme: Light. Switch to System.");
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+    expect(localStorage.getItem("floci-theme")).toBe("light");
+
+    await userEvent.click(toggle());
+    expect(toggle()).toHaveAccessibleName("Theme: System");
+    expect(toggle()).toHaveAttribute("title", "Theme: System. Switch to Dark.");
+    expect(localStorage.getItem("floci-theme")).toBe("system");
+
+    await userEvent.click(toggle());
+    expect(toggle()).toHaveAccessibleName("Theme: Dark");
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
     expect(localStorage.getItem("floci-theme")).toBe("dark");
   });
 
-  test("stays in sync with a theme chosen elsewhere, such as Settings", () => {
+  test.each(["light", "dark", "system"] as const)("shows %s when it is chosen elsewhere, such as Settings", (theme) => {
     render(<ThemeToggle/>);
     const {result} = renderHook(() => useTheme());
 
-    act(() => result.current.setTheme("light"));
+    act(() => result.current.setTheme(theme));
 
-    expect(toggle()).toHaveAttribute("aria-pressed", "false");
+    expect(toggle()).toHaveAccessibleName(`Theme: ${theme[0].toUpperCase()}${theme.slice(1)}`);
   });
 
-  test.each(["light", "dark"] as const)("follows a %s system theme until the header selects a fixed theme", async (colorScheme) => {
+  test.each(["light", "dark"] as const)("stays on System while a %s system theme changes underneath it", async (colorScheme) => {
     let dark = colorScheme === "dark";
     const listeners = new Set<() => void>();
     vi.stubGlobal("matchMedia", vi.fn(() => ({
@@ -63,8 +67,8 @@ describe("ThemeToggle", () => {
 
     act(() => result.current.setTheme("system"));
 
-    expect(toggle()).toHaveAttribute("aria-pressed", String(dark));
-    expect(toggle()).toHaveAttribute("title", dark ? "Switch to light theme" : "Switch to dark theme");
+    expect(toggle()).toHaveAccessibleName("Theme: System");
+    expect(document.documentElement).toHaveAttribute("data-theme", colorScheme);
     expect(localStorage.getItem("floci-theme")).toBe("system");
 
     act(() => {
@@ -72,28 +76,23 @@ describe("ThemeToggle", () => {
       listeners.forEach((listener) => listener());
     });
 
-    expect(toggle()).toHaveAttribute("aria-pressed", String(dark));
+    expect(toggle()).toHaveAccessibleName("Theme: System");
     expect(document.documentElement).toHaveAttribute("data-theme", dark ? "dark" : "light");
     expect(localStorage.getItem("floci-theme")).toBe("system");
 
+    // Leaving System pins a fixed theme that no longer follows the OS.
     await userEvent.click(toggle());
 
-    expect(result.current.theme).toBe(colorScheme);
-    expect(toggle()).toHaveAttribute("aria-pressed", String(colorScheme === "dark"));
-    expect(document.documentElement).toHaveAttribute("data-theme", colorScheme);
-    expect(localStorage.getItem("floci-theme")).toBe(colorScheme);
+    expect(result.current.theme).toBe("dark");
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
 
     act(() => {
       dark = !dark;
       listeners.forEach((listener) => listener());
     });
-    act(() => {
-      dark = !dark;
-      listeners.forEach((listener) => listener());
-    });
 
-    expect(result.current.theme).toBe(colorScheme);
-    expect(document.documentElement).toHaveAttribute("data-theme", colorScheme);
+    expect(result.current.theme).toBe("dark");
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
   });
 
   test("restores the saved theme after a reload", async () => {
@@ -103,7 +102,7 @@ describe("ThemeToggle", () => {
 
     render(<FreshToggle/>);
 
-    expect(toggle()).toHaveAttribute("aria-pressed", "false");
+    expect(toggle()).toHaveAccessibleName("Theme: Light");
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
   });
 });

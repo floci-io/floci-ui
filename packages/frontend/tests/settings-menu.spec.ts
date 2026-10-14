@@ -90,10 +90,12 @@ test('OCI Settings keeps one cloud and account control and shares the main theme
     await expect(page.getByRole('button', {name: /Switch AWS account/})).toHaveCount(1)
     await expect(page.locator('.topbar .cloud-switcher, .topbar .account-switcher')).toHaveCount(0)
 
-    const toggle = page.getByRole('button', {name: 'Dark theme', exact: true})
+    const toggle = page.getByRole('button', {name: /^Theme: /})
     await expect(toggle).toHaveCount(1)
     await page.getByRole('radio', {name: 'Light', exact: true}).click()
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await expect(toggle).toHaveAccessibleName('Theme: Light')
+    await toggle.click()
+    await expect(page.getByRole('radio', {name: 'System', exact: true})).toHaveAttribute('aria-checked', 'true')
     await toggle.click()
     await expect(page.getByRole('radio', {name: 'Dark', exact: true})).toHaveAttribute('aria-checked', 'true')
 

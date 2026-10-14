@@ -527,6 +527,67 @@ pre,
     font-size: 11px;
 }
 
+/* An icon at rest; on hover or keyboard focus it opens into the same chip as .connection. */
+.theme-toggle {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 12px;
+    white-space: nowrap;
+    transition: border-color 0.2s ease-out, background 0.2s ease-out, color 0.2s ease-out;
+}
+
+/* 0fr to 1fr animates to the label's own width without measuring it. */
+.theme-toggle-label {
+    display: grid;
+    grid-template-columns: 0fr;
+    opacity: 0;
+    transition: grid-template-columns 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease-out;
+}
+
+.theme-toggle-label > span {
+    display: inline-flex;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* The gap to the icon lives inside the clipped box, so the collapsed button stays square. */
+.theme-toggle-key {
+    margin-left: 7px;
+}
+
+.theme-toggle-value {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+    border-color: var(--border);
+    background: var(--connection-bg);
+    color: var(--text);
+}
+
+.theme-toggle:hover .theme-toggle-label,
+.theme-toggle:focus-visible .theme-toggle-label {
+    grid-template-columns: 1fr;
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .theme-toggle,
+    .theme-toggle-label {
+        transition: none;
+    }
+}
+
 .connection {
     display: inline-flex;
     align-items: center;
@@ -627,7 +688,8 @@ pre,
     }
 
     .connection-state,
-    .connection-target {
+    .connection-target,
+    .theme-toggle-label {
         display: none;
     }
 }

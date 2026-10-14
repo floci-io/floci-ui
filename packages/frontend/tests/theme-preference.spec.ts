@@ -169,8 +169,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(page.getByRole('radio', {name: 'System'})).toHaveAttribute('aria-checked', 'true')
         await expect(page.locator('html')).toHaveAttribute('data-theme', colorScheme)
 
-        const headerToggle = page.getByRole('button', {name: 'Dark theme'})
-        await expect(headerToggle).toHaveAttribute('aria-pressed', String(colorScheme === 'dark'))
+        const headerToggle = page.getByRole('button', {name: /^Theme: /})
+        await expect(headerToggle).toHaveAccessibleName('Theme: System')
         const logo = page.locator('.brand-logo')
         const initialLogo = await logo.getAttribute('src') ?? ''
         expect(initialLogo).not.toBe('')
@@ -178,11 +178,14 @@ for (const colorScheme of ['light', 'dark'] as const) {
         const opposite = colorScheme === 'dark' ? 'light' : 'dark'
         await page.emulateMedia({colorScheme: opposite})
         await expect(page.locator('html')).toHaveAttribute('data-theme', opposite)
-        await expect(headerToggle).toHaveAttribute('aria-pressed', String(opposite === 'dark'))
+        await expect(headerToggle).toHaveAccessibleName('Theme: System')
         await expect(logo).not.toHaveAttribute('src', initialLogo)
         await expect(page.getByRole('radio', {name: 'System'})).toHaveAttribute('aria-checked', 'true')
 
+        // The header steps System -> Dark -> Light, so one click pins dark and two pin light.
         await headerToggle.click()
+        await expect(headerToggle).toHaveAccessibleName('Theme: Dark')
+        if (colorScheme === 'light') await headerToggle.click()
         await expect(page.locator('html')).toHaveAttribute('data-theme', colorScheme)
         await expect(logo).toHaveAttribute('src', initialLogo)
         await expect(page.getByRole('radio', {name: colorScheme === 'dark' ? 'Dark' : 'Light', exact: true})).toHaveAttribute('aria-checked', 'true')
@@ -190,7 +193,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
         await page.reload({waitUntil: 'domcontentloaded'})
         await expect(page.locator('html')).toHaveAttribute('data-theme', colorScheme)
-        await expect(headerToggle).toHaveAttribute('aria-pressed', String(colorScheme === 'dark'))
+        await expect(headerToggle).toHaveAccessibleName(colorScheme === 'dark' ? 'Theme: Dark' : 'Theme: Light')
         await expect(page.getByRole('radio', {name: colorScheme === 'dark' ? 'Dark' : 'Light', exact: true})).toHaveAttribute('aria-checked', 'true')
     })
 }
