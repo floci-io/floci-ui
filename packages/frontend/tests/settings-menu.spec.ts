@@ -59,6 +59,8 @@ test('cloud switching from Explorer Settings keeps the storage landing', async (
     await page.goto('/cloud-explorer/aws/storage')
     await page.getByRole('link', {name: 'Settings'}).click()
     await expect(page).toHaveURL(/\/settings$/)
+    // Navigations render as transitions, so the URL changes before the page commits.
+    await expect(page.getByRole('heading', {name: 'Settings', exact: true})).toBeVisible()
 
     await page.getByRole('textbox', {name: 'Search services, features, docs, and more'}).fill('storage')
     await expect(page).toHaveURL(/\/settings\?search=storage$/)
