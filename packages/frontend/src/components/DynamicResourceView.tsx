@@ -15,8 +15,6 @@ import { DynamicFormRenderer } from "@/components/DynamicFormRenderer";
 import { ResourceInspector } from "@/components/ResourceInspector";
 import { ResourceTable } from "@/components/ResourceTable";
 import { StorageObjectBrowser } from "@/components/StorageObjectBrowser";
-import { ComputePanel, LaunchInstanceForm } from "@/components/ComputePanel";
-import { NetworkingPanel } from "@/components/NetworkingPanel";
 import { getPath } from "@/lib/resourcePath";
 import {
   capabilityEnabled,
@@ -33,17 +31,22 @@ import type {
 } from "@/types/cloud";
 import type { CloudResource, StorageObject } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
-import { ServerlessInvokePanel } from "@/components/ServerlessInvokePanel";
 import { dataExplorerPath } from "@/lib/dataExplorer";
 import { useAccountId } from "@/lib/accountStore";
-import { WorkflowExecutionsPanel } from "@/components/WorkflowExecutionsPanel";
-import { DatabaseSnapshotsPanel } from "@/components/DatabaseSnapshotsPanel";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
-import { AppConfigPanel } from "@/components/AppConfigPanel";
-import { KmsCryptoPanel } from "@/components/KmsCryptoPanel";
-import { SqsMessagingPanel } from "@/components/SqsMessagingPanel";
-import { LogsQueryPanel } from "@/components/LogsQueryPanel";
-import { SageMakerDashboardPanel } from "@/components/SageMakerDashboardPanel";
+import { lazyPanel } from "@/lib/lazyPanel";
+
+const ComputePanel = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.ComputePanel));
+const LaunchInstanceForm = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.LaunchInstanceForm));
+const NetworkingPanel = lazyPanel(() => import("@/components/NetworkingPanel").then((m) => m.NetworkingPanel));
+const ServerlessInvokePanel = lazyPanel(() => import("@/components/ServerlessInvokePanel").then((m) => m.ServerlessInvokePanel));
+const WorkflowExecutionsPanel = lazyPanel(() => import("@/components/WorkflowExecutionsPanel").then((m) => m.WorkflowExecutionsPanel));
+const DatabaseSnapshotsPanel = lazyPanel(() => import("@/components/DatabaseSnapshotsPanel").then((m) => m.DatabaseSnapshotsPanel));
+const AppConfigPanel = lazyPanel(() => import("@/components/AppConfigPanel").then((m) => m.AppConfigPanel));
+const KmsCryptoPanel = lazyPanel(() => import("@/components/KmsCryptoPanel").then((m) => m.KmsCryptoPanel));
+const SqsMessagingPanel = lazyPanel(() => import("@/components/SqsMessagingPanel").then((m) => m.SqsMessagingPanel));
+const LogsQueryPanel = lazyPanel(() => import("@/components/LogsQueryPanel").then((m) => m.LogsQueryPanel));
+const SageMakerDashboardPanel = lazyPanel(() => import("@/components/SageMakerDashboardPanel").then((m) => m.SageMakerDashboardPanel));
 
 interface DynamicResourceViewProps {
   cloud: CloudProvider;

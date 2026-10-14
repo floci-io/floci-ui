@@ -444,9 +444,9 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
             />,
         )
 
-        // Logs Query Panel and Streams Panel should be present
-        expect(screen.getByText('Insights query')).toBeInTheDocument()
-        expect(screen.getByText('Streams & events')).toBeInTheDocument()
+        // Logs Query Panel and Streams Panel should be present (each loads as its own chunk)
+        expect(await screen.findByText('Insights query')).toBeInTheDocument()
+        expect(await screen.findByText('Streams & events')).toBeInTheDocument()
 
         // Switch to JSON tab
         await user.click(screen.getByRole('tab', {name: 'JSON'}))

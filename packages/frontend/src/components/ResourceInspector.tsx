@@ -2,14 +2,16 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronDown, ChevronUp, Copy, Zap } from 'lucide-react'
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
-import { LogsExplorerPanel } from "@/components/LogsExplorerPanel";
-import { LogsQueryPanel } from "@/components/LogsQueryPanel";
-import { LambdaTriggerPanel } from "@/components/LambdaTriggerPanel";
 import { listLambdaTriggers } from "@/api/cloudProxyClient";
 import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource, StorageObject } from "@/types/resource";
 import { formatBytes } from "@/lib/format";
 import { InspectorTabs, type InspectorTab } from "@/components/InspectorTabs";
+import { lazyPanel } from "@/lib/lazyPanel";
+
+const LogsExplorerPanel = lazyPanel(() => import("@/components/LogsExplorerPanel").then((m) => m.LogsExplorerPanel));
+const LogsQueryPanel = lazyPanel(() => import("@/components/LogsQueryPanel").then((m) => m.LogsQueryPanel));
+const LambdaTriggerPanel = lazyPanel(() => import("@/components/LambdaTriggerPanel").then((m) => m.LambdaTriggerPanel));
 
 interface ResourceInspectorProps {
   resource?: CloudResource;

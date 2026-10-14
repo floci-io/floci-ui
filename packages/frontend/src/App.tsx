@@ -1,11 +1,13 @@
 import {BrowserRouter, Navigate, Route, Routes, useLocation, useParams} from 'react-router-dom'
 import {Layout} from '@/components/Layout'
-import {SecretsManagerPage} from '@/features/secretsmanager/SecretsManagerPage'
 import {CloudExplorerPage} from '@/pages/CloudExplorerPage'
 import {CloudConsoleHomePage} from '@/pages/CloudConsoleHomePage'
-import {DatabaseDataPage} from '@/pages/DatabaseDataPage'
-import {SettingsPage} from '@/pages/SettingsPage'
 import {isCloudProvider} from '@/lib/cloudProvider'
+import {lazyPanel} from '@/lib/lazyPanel'
+
+const SecretsManagerPage = lazyPanel(() => import('@/features/secretsmanager/SecretsManagerPage').then((m) => m.SecretsManagerPage))
+const DatabaseDataPage = lazyPanel(() => import('@/pages/DatabaseDataPage').then((m) => m.DatabaseDataPage))
+const SettingsPage = lazyPanel(() => import('@/pages/SettingsPage').then((m) => m.SettingsPage))
 
 function LegacySettingsRedirect() {
     const location = useLocation()
