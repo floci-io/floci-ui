@@ -239,7 +239,7 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
     )
 
     return (
-        <ExpandablePanel expanded={expanded} onCollapse={() => setExpanded(false)}>
+        <ExpandablePanel expanded={expanded} label={isMultiGroup ? 'Cross-group Insights query' : `Insights query for ${logGroupName}`} onCollapse={() => setExpanded(false)}>
             {panel}
         </ExpandablePanel>
     )

@@ -233,7 +233,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
     )
 
     return (
-        <ExpandablePanel expanded={expanded} onCollapse={() => setExpanded(false)}>
+        <ExpandablePanel expanded={expanded} label={`Streams and events for ${groupId}`} onCollapse={() => setExpanded(false)}>
             {expanded ? content : summary}
         </ExpandablePanel>
     )

@@ -1,6 +1,6 @@
-import {HTMLAttributes, MouseEvent, ReactNode, useEffect, useId, useRef} from 'react'
+import {HTMLAttributes, MouseEvent, ReactNode, useEffect, useId, useRef, useState} from 'react'
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), audio[controls], video[controls], [tabindex]:not([tabindex="-1"])'
 
 const FIELD = 'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])'
 
@@ -18,13 +18,17 @@ interface ModalOverlayProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onClic
 }
 
 /**
- * Backdrop for every modal: announces it as a dialog named by its first heading, moves
- * focus to the first field and keeps Tab inside, closes on Escape or a backdrop click,
- * and returns focus to the control that opened it.
+ * Backdrop for every modal: announces it as a dialog named by its first heading (or by an
+ * explicit aria-label / aria-labelledby when it has none), moves focus to the first field
+ * and keeps Tab inside, closes on Escape or a backdrop click, and returns focus to the
+ * control that opened it.
  */
 export function ModalOverlay({onClose, className = 'modal-overlay', children, ...rest}: ModalOverlayProps) {
     const overlayRef = useRef<HTMLDivElement>(null)
     const headingId = useId()
+    const named = Boolean(rest['aria-label'] || rest['aria-labelledby'])
+    // Read during the first render: a child's autoFocus moves focus before any effect runs.
+    const [opener] = useState(() => document.activeElement instanceof HTMLElement ? document.activeElement : null)
 
     const onCloseRef = useRef(onClose)
     useEffect(() => {
@@ -34,9 +38,7 @@ export function ModalOverlay({onClose, className = 'modal-overlay', children, ..
     useEffect(() => {
         const overlay = overlayRef.current
         if (!overlay) return
-        const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
-
-        const heading = overlay.querySelector('h1, h2, h3, .modal-header')
+        const heading = named ? null : overlay.querySelector('h1, h2, h3, .modal-header')
         if (heading) {
             if (!heading.id) heading.id = headingId
             overlay.setAttribute('aria-labelledby', heading.id)
@@ -73,7 +75,7 @@ export function ModalOverlay({onClose, className = 'modal-overlay', children, ..
             openOverlays.splice(openOverlays.indexOf(overlay), 1)
             opener?.focus()
         }
-    }, [headingId])
+    }, [headingId, named, opener])
 
     function handleClick(event: MouseEvent<HTMLDivElement>) {
         if (event.target === event.currentTarget) onClose()

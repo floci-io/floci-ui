@@ -22,7 +22,7 @@ const TEXT_PREVIEW_LIMIT = 200_000
  */
 export function ImagePreviewModal({kind, name, src, onClose}: ObjectPreviewModalProps) {
     return (
-        <ModalOverlay className="copy-modal-overlay" onClose={onClose}>
+        <ModalOverlay className="copy-modal-overlay" onClose={onClose} aria-label={`Preview of ${name}`}>
             <div className="image-preview-modal">
                 <div className="image-preview-header">
                     <span className="image-preview-name" title={name}>{name}</span>

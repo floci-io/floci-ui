@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import {useState} from 'react'
 import {ModalOverlay} from './ModalOverlay'
 
-function Harness({onClose}: {onClose: () => void}) {
+function Harness({onClose, autoFocusField = false}: {onClose: () => void; autoFocusField?: boolean}) {
     const [open, setOpen] = useState(false)
     return (
         <>
@@ -13,7 +13,7 @@ function Harness({onClose}: {onClose: () => void}) {
                 <ModalOverlay onClose={() => { onClose(); setOpen(false) }}>
                     <div>
                         <h2>Create Route Table</h2>
-                        <input aria-label="Name"/>
+                        <input aria-label="Name" autoFocus={autoFocusField}/>
                         <button type="button">Create</button>
                     </div>
                 </ModalOverlay>
@@ -53,6 +53,25 @@ describe('ModalOverlay', () => {
         expect(onClose).toHaveBeenCalledTimes(1)
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         expect(screen.getByRole('button', {name: 'Open'})).toHaveFocus()
+    })
+
+    it('returns focus to the opener when a field uses autoFocus', async () => {
+        render(<Harness onClose={() => {}} autoFocusField/>)
+        await userEvent.click(screen.getByRole('button', {name: 'Open'}))
+        expect(screen.getByRole('textbox', {name: 'Name'})).toHaveFocus()
+
+        await userEvent.keyboard('{Escape}')
+        expect(screen.getByRole('button', {name: 'Open'})).toHaveFocus()
+    })
+
+    it('uses an explicit aria-label over a heading lookup', () => {
+        render(
+            <ModalOverlay onClose={() => {}} aria-label="Move photo.png">
+                <div className="modal-header">Move</div>
+            </ModalOverlay>,
+        )
+        const dialog = screen.getByRole('dialog', {name: 'Move photo.png'})
+        expect(dialog).not.toHaveAttribute('aria-labelledby')
     })
 
     it('closes on a backdrop click but not on a click inside', async () => {

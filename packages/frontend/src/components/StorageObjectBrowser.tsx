@@ -525,7 +525,7 @@ function MoveOrCopyModal({
     const resolvedDestId = isCreatingNew ? undefined : (destResourceId !== resource.id ? destResourceId : undefined)
 
     return (
-        <ModalOverlay className="copy-modal-overlay" onClose={onClose}>
+        <ModalOverlay className="copy-modal-overlay" onClose={onClose} aria-label={`${mode === 'move' ? 'Move' : 'Copy'} ${srcObject.key}`}>
             <div className="copy-modal">
                 <div className="drawer-tabs" style={{marginBottom: 14}}>
                     <button className={`drawer-tab ${mode === 'move' ? 'active' : ''}`} onClick={() => setMode('move')}>Move</button>

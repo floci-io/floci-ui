@@ -3,6 +3,7 @@ import {ModalOverlay} from './ModalOverlay'
 
 interface ExpandablePanelProps {
     expanded: boolean
+    label: string
     onCollapse: () => void
     children: React.ReactNode
 }
@@ -19,11 +20,11 @@ interface ExpandablePanelProps {
  * LogsQueryPanel and LogsExplorerPanel, which had drifted into two copies of
  * the identical expand/collapse/Escape mechanics.
  */
-export function ExpandablePanel({expanded, onCollapse, children}: ExpandablePanelProps) {
+export function ExpandablePanel({expanded, label, onCollapse, children}: ExpandablePanelProps) {
     if (!expanded) return <>{children}</>
 
     return createPortal(
-        <ModalOverlay onClose={onCollapse}>
+        <ModalOverlay onClose={onCollapse} aria-label={label}>
             <div className="logs-query-modal" onClick={(event) => event.stopPropagation()}>
                 {children}
             </div>
