@@ -1,10 +1,15 @@
-import { execFileSync } from 'child_process';
-import * as path from 'path';
+import { Plugin } from "@opencode/plugin";
+import { execFileSync } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
 
 // The dispatcher + interpreter are resolved per-project at plugin load from
 // the `directory` OpenCode passes to the plugin factory (C8), not
 // process.cwd() — OpenCode may be launched from a parent directory or host
 // another workspace, in which case process.cwd() points at the wrong project.
+//
+// V2 port: the factory below receives `ctx`, and its per-project directory is
+// `ctx.location.directory` (V1 `directory` argument).
 let DISPATCHER = '';
 let INTERPRETER = '';
 
@@ -31,8 +36,8 @@ function resolveDispatcher(directory: string): void {
   const venvPy = path.join(directory, '.venv', 'bin', 'python');
   const venvWin = path.join(directory, '.venv', 'Scripts', 'python.exe');
   INTERPRETER = (
-    (require('fs').existsSync(venvPy) && canImportSpecifyCli(venvPy) && venvPy) ||
-    (require('fs').existsSync(venvWin) && canImportSpecifyCli(venvWin) && venvWin) ||
+    (fs.existsSync(venvPy) && canImportSpecifyCli(venvPy) && venvPy) ||
+    (fs.existsSync(venvWin) && canImportSpecifyCli(venvWin) && venvWin) ||
     (process.platform === 'win32' ? 'python' : 'python3')
   ) as string;
 }
@@ -45,9 +50,9 @@ function runEvent(command: string, event: string, input: any, output: any, timeo
     // of the dispatcher argument (C9). The dispatcher arg is seconds; the
     // execFileSync timeout is ms with a buffer so the outer cap fires after
     // the dispatcher's inner subprocess (S3). stdout is captured and
-    // returned so context-injection hooks (experimental.chat.system.transform,
-    // chat.message) can push it into their outputs; stderr stays inherited so
-    // dispatcher errors remain visible (C11).
+    // returned so context-injection hooks (V2 ctx.session.hook("context"))
+    // can push it into their outputs; stderr stays inherited so dispatcher
+    // errors remain visible (C11).
     return execFileSync(INTERPRETER, [DISPATCHER, command, event, String(timeoutSec)], {
       input: JSON.stringify({ input, output }),
       stdio: ['pipe', 'pipe', 'inherit'],
@@ -63,8 +68,8 @@ function runEvent(command: string, event: string, input: any, output: any, timeo
 
 // Cache session_start handler output per sessionID so non-idempotent
 // handlers (setup, telemetry, file-mutating scripts) run once per session
-// instead of on every LLM request (experimental.chat.system.transform
-// fires per LLM turn). Evicted on session.deleted.
+// instead of on every LLM request (the V2 `context` hook fires per model
+// request). Evicted on session.deleted.
 const sessionStartCache = new Map<string, string>();
 
 function _session_start(input: any, output: any): string {
@@ -75,17 +80,45 @@ function _session_start(input: any, output: any): string {
     return contexts.join("\n\n");
   }
 
-export default (async ({ client, project, directory, $ }) => {
-  resolveDispatcher(directory);
-  return {
-    "experimental.chat.system.transform": async (input: any, output: any) => {
-      if (!input.sessionID) return;
-      let ctx = sessionStartCache.get(input.sessionID);
-      if (ctx === undefined) {
-        ctx = _session_start(input, output);
-        sessionStartCache.set(input.sessionID, ctx ?? "");
+export default Plugin.define({
+  id: "speckit-events",
+  async setup(ctx) {
+    resolveDispatcher(ctx.location.directory);
+
+    // V1 `experimental.chat.system.transform` -> V2 `ctx.session.hook("context")`.
+    // The callback receives one mutable event; push the captured dispatcher
+    // stdout as a text system part.
+    await ctx.session.hook("context", async (event) => {
+      if (!event.sessionID) return;
+      let contexts = sessionStartCache.get(event.sessionID);
+      if (contexts === undefined) {
+        // The dispatcher payload keeps the V1 `{ input, output }` envelope so
+        // `.specify/events.py` and its command handlers are unchanged.
+        const input = { sessionID: event.sessionID, agent: event.agent, model: event.model };
+        const output = { system: event.system, messages: event.messages };
+        contexts = _session_start(input, output);
+        sessionStartCache.set(event.sessionID, contexts ?? "");
       }
-      if (ctx) output.system.push(ctx);
-    },
-  };
+      if (contexts) event.system.push({ type: "text", text: contexts });
+    });
+
+    // Evict a session's cached context when that session is deleted, so the
+    // cache doesn't retain entries for the lifetime of the long-running server.
+    // The global event stream outlives any single session, so pump it in the
+    // background; the cleanup returned below aborts the pump on plugin dispose.
+    const events = new AbortController();
+    void (async () => {
+      try {
+        for await (const event of ctx.event.subscribe({ signal: events.signal })) {
+          if (event.type === "session.deleted") {
+            sessionStartCache.delete(event.data.sessionID);
+          }
+        }
+      } catch {
+        // Aborted on dispose, or the event transport closed; the pump is done.
+      }
+    })();
+
+    return () => events.abort();
+  },
 });
