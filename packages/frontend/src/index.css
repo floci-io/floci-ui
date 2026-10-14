@@ -986,6 +986,11 @@ pre,
     font-size: 12px;
 }
 
+/* Wide tables scroll inside their widget instead of running off a narrow screen. */
+.table-scroll {
+    overflow-x: auto;
+}
+
 .table th {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
@@ -3353,6 +3358,24 @@ button.console-service-card {
     }
 }
 
+@media (max-width: 680px) {
+    .console-runtime-flow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .console-flow-step:nth-child(2n) {
+        border-right: 0;
+    }
+
+    .console-flow-step:nth-child(2n)::after {
+        display: none;
+    }
+
+    .console-flow-step:nth-child(-n + 2) {
+        border-bottom: 1px solid var(--border);
+    }
+}
+
 /* ─── Stats bar (dashboard) ─────────────────────────────────────────────── */
 .stats-bar {
     display: flex;
@@ -4590,5 +4613,36 @@ button.console-service-card {
     .settings-section .settings-row {
         align-items: flex-start;
         flex-direction: column;
+    }
+}
+
+/* ─── Networking panel: resource list beside its detail ─────────────────── */
+.net-split {
+    display: flex;
+    min-height: 300px;
+}
+
+.net-split-list {
+    width: 240px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+}
+
+.net-split-detail {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+}
+
+@media (max-width: 680px) {
+    .net-split {
+        flex-direction: column;
+    }
+
+    .net-split-list {
+        width: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
     }
 }

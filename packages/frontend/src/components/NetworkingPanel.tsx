@@ -1633,10 +1633,10 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
                     <h3 style={{marginLeft: 6}}>Networking</h3>
                 </div>
                 <div className="widget-body" style={{padding: 0}}>
-                    <div style={{display: 'flex', height: 'auto', minHeight: 300}}>
+                    <div className="net-split">
 
                         {/* Left pane — section list */}
-                        <div style={{width: 240, flexShrink: 0, borderRight: '1px solid var(--border)', overflowY: 'auto'}}>
+                        <div className="net-split-list">
                             <NetSection
                                 title="Security Groups" icon={Shield} section="sg" selected={selected} onSelect={setSelected}
                                 items={sgs.map((x) => ({id: x.groupId, label: x.groupName, sub: x.groupId}))}
@@ -1683,7 +1683,7 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
                         </div>
 
                         {/* Right pane — detail */}
-                        <div style={{flex: 1, overflowY: 'auto', padding: hasDetail ? 0 : 16}}>
+                        <div className="net-split-detail" style={{padding: hasDetail ? 0 : 16}}>
                             {!hasDetail && (
                                 <p style={{fontSize: 12, color: 'var(--text-2)'}}>Select a resource to view details.</p>
                             )}
