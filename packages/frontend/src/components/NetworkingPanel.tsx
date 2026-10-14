@@ -58,6 +58,7 @@ import {
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource} from '@/types/resource'
 import {calculateSubnetCidrs, isSubnetLayoutWithinBlock, isValidCidr, isValidPort} from '@/lib/network'
+import {ModalOverlay} from './ModalOverlay'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -176,7 +177,7 @@ function ConfirmDeleteModal({title, detail, onConfirm, onClose, isPending}: {
     isPending: boolean
 }) {
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{width: 380}} onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
                     <AlertTriangle size={14} style={{color: 'var(--status-error)', flexShrink: 0}}/>
@@ -196,7 +197,7 @@ function ConfirmDeleteModal({title, detail, onConfirm, onClose, isPending}: {
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -338,7 +339,7 @@ function CreateSgModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) {
     })
 
     return (
-        <div className="modal-overlay" onClick={(e) => {if (e.target === e.currentTarget) onClose()}}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 400}}>
                 <h3>Create Security Group</h3>
                 <div className="modal-section">
@@ -367,7 +368,7 @@ function CreateSgModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) {
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -406,7 +407,7 @@ function EditSgRulesModal({sg, onClose}: {sg: Ec2SecurityGroup; onClose: () => v
     })
 
     return (
-        <div className="modal-overlay" onClick={(e) => {if (e.target === e.currentTarget) onClose()}}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 680}}>
                 <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
                     <Shield size={14} style={{color: 'var(--accent)'}}/>
@@ -430,7 +431,7 @@ function EditSgRulesModal({sg, onClose}: {sg: Ec2SecurityGroup; onClose: () => v
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -438,7 +439,7 @@ function EditSgRulesModal({sg, onClose}: {sg: Ec2SecurityGroup; onClose: () => v
 
 function PemDisplay({material, onClose}: {material: Ec2KeyPairMaterial; onClose: () => void}) {
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 600}} onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
                     <Key size={14} style={{color: '#34d399'}}/>
@@ -465,7 +466,7 @@ function PemDisplay({material, onClose}: {material: Ec2KeyPairMaterial; onClose:
                     <button className="button" onClick={onClose}>Close</button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -485,7 +486,7 @@ function CreateKpModal({onClose, onCreated}: {onClose: () => void; onCreated: (m
     })
 
     return (
-        <div className="modal-overlay" onClick={(e) => {if (e.target === e.currentTarget) onClose()}}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 380}}>
                 <h3>Create Key Pair</h3>
                 <div className="modal-section">
@@ -512,7 +513,7 @@ function CreateKpModal({onClose, onCreated}: {onClose: () => void; onCreated: (m
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -535,7 +536,7 @@ function CreateVpcModal({onClose}: {onClose: () => void}) {
     const cidrValid = isValidCidr(cidr)
 
     return (
-        <div className="modal-overlay" onClick={(e) => {if (e.target === e.currentTarget) onClose()}}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 360}}>
                 <h3>Create VPC</h3>
                 <div className="modal-section">
@@ -557,7 +558,7 @@ function CreateVpcModal({onClose}: {onClose: () => void}) {
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -628,7 +629,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
     }
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{width: 860, maxWidth: '96vw'}} onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
                     <Network size={15} style={{color: 'var(--accent)'}}/>
@@ -796,7 +797,7 @@ function WizardModal({onClose}: {onClose: () => void}) {
                     </>
                 )}
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -821,7 +822,7 @@ function CreateSubnetModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void
     })
 
     return (
-        <div className="modal-overlay" onClick={(e) => {if (e.target === e.currentTarget) onClose()}}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 400}}>
                 <h3>Create Subnet</h3>
                 <div className="modal-section">
@@ -851,7 +852,7 @@ function CreateSubnetModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -872,7 +873,7 @@ function CreateIgwModal({onClose}: {onClose: () => void}) {
     })
 
     return (
-        <div className="modal-overlay" onClick={(e) => {if (e.target === e.currentTarget) onClose()}}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 360}}>
                 <h3>Create Internet Gateway</h3>
                 <div className="modal-section">
@@ -888,7 +889,7 @@ function CreateIgwModal({onClose}: {onClose: () => void}) {
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -910,7 +911,7 @@ function CreateRtbModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) 
     })
 
     return (
-        <div className="modal-overlay" onClick={(e) => {if (e.target === e.currentTarget) onClose()}}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 380}}>
                 <h3>Create Route Table</h3>
                 <div className="modal-section">
@@ -932,7 +933,7 @@ function CreateRtbModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) 
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -952,7 +953,7 @@ function AllocateEipModal({onClose}: {onClose: () => void}) {
     })
 
     return (
-        <div className="modal-overlay" onClick={(e) => {if (e.target === e.currentTarget) onClose()}}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{maxWidth: 340}}>
                 <h3>Allocate Elastic IP</h3>
                 <div className="modal-section">
@@ -969,7 +970,7 @@ function AllocateEipModal({onClose}: {onClose: () => void}) {
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 

@@ -3,6 +3,7 @@ import { Waypoints } from 'lucide-react'
 import { useCreateNatGatewayMutation } from '@/api/aws/ec2.mutations'
 import { useEc2SubnetsQuery, useEc2ElasticIpsQuery } from '@/api/aws/ec2.queries'
 import type { Ec2NatGateway } from '@/api/aws/ec2.api'
+import { ModalOverlay } from '@/components/ModalOverlay'
 
 type Props = {
   onClose: () => void
@@ -45,7 +46,7 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Waypoints size={14} /> Create NAT Gateway
@@ -144,6 +145,6 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   )
 }

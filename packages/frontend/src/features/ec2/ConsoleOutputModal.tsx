@@ -1,5 +1,6 @@
 import { Terminal } from "lucide-react";
 import { useEc2ConsoleOutputQuery } from "@/api/aws/ec2.queries";
+import { ModalOverlay } from "@/components/ModalOverlay";
 
 interface Props {
   instanceId: string;
@@ -10,7 +11,7 @@ export function ConsoleOutputModal({ instanceId, onClose }: Props) {
   const query = useEc2ConsoleOutputQuery(instanceId);
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" style={{ maxWidth: 720, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
         <h3 style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Terminal size={14} />
@@ -57,6 +58,6 @@ export function ConsoleOutputModal({ instanceId, onClose }: Props) {
           <button className="button" onClick={onClose}>Close</button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

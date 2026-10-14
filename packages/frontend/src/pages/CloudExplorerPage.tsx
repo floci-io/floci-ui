@@ -11,6 +11,7 @@ import {normalizeCapabilities, withRuntimeState, withServiceAvailability} from '
 import {isCloudProvider} from '@/lib/cloudProvider'
 import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatus} from '@/types/cloud'
 import type {ServiceSchema} from '@/types/schema'
+import { ModalOverlay } from '@/components/ModalOverlay'
 
 export function CloudExplorerPage() {
     const params = useParams()
@@ -128,7 +129,7 @@ function ServiceInfoDialog({
     const actionFallback = schema?.actions.join(', ') ?? 'Loading actions'
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <ModalOverlay onClose={onClose}>
             <div className="service-info-dialog" onClick={(event) => event.stopPropagation()}>
                 <div className="service-info-header">
                     <div>
@@ -173,7 +174,7 @@ function ServiceInfoDialog({
                     </div>
                 )}
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 

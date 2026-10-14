@@ -3,6 +3,7 @@ import { Cloud } from 'lucide-react'
 import { useCreateInternetGatewayMutation, useAttachInternetGatewayMutation } from '@/api/aws/ec2.mutations'
 import { useEc2VpcsQuery } from '@/api/aws/ec2.queries'
 import type { Ec2InternetGateway } from '@/api/aws/ec2.api'
+import { ModalOverlay } from '@/components/ModalOverlay'
 
 type Props = {
   onClose: () => void
@@ -37,7 +38,7 @@ export function CreateIgwModal({ onClose, onCreated }: Props) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" onClick={(e) => e.stopPropagation()}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Cloud size={14} /> Create Internet Gateway
@@ -70,6 +71,6 @@ export function CreateIgwModal({ onClose, onCreated }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   )
 }

@@ -3,6 +3,7 @@ import { Router } from 'lucide-react'
 import { useCreateRouteTableMutation } from '@/api/aws/ec2.mutations'
 import { useEc2VpcsQuery } from '@/api/aws/ec2.queries'
 import type { Ec2RouteTable } from '@/api/aws/ec2.api'
+import { ModalOverlay } from '@/components/ModalOverlay'
 
 type Props = {
   onClose: () => void
@@ -32,7 +33,7 @@ export function CreateRtbModal({ onClose, onCreated }: Props) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" onClick={(e) => e.stopPropagation()}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Router size={14} /> Create Route Table
@@ -69,6 +70,6 @@ export function CreateRtbModal({ onClose, onCreated }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   )
 }

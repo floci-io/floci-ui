@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react'
+import { ModalOverlay } from '@/components/ModalOverlay'
 
 type Props = {
   /** Title line, e.g. "Delete VPC" */
@@ -26,7 +27,7 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
@@ -94,6 +95,6 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
         </div>
 
       </div>
-    </div>
+    </ModalOverlay>
   )
 }

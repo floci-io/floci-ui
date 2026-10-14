@@ -41,6 +41,7 @@ import { createCloudResource } from '@/api/cloudProxyClient'
 import type { CloudProvider } from '@/types/cloud'
 import type { CloudResource } from '@/types/resource'
 import { TagEditor } from '@/features/ec2/TagEditor'
+import { ModalOverlay } from './ModalOverlay'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
     }
 
     return (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{ maxWidth: 420 }}>
                 <h3>Create AMI</h3>
 
@@ -111,7 +112,6 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
                         autoFocus
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Escape' && onClose()}
                     />
                 </div>
 
@@ -150,7 +150,7 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -163,7 +163,7 @@ function ConsoleOutputModal({ instanceId, onClose }: { instanceId: string; onClo
     })
 
     return (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+        <ModalOverlay onClose={onClose}>
             <div className="create-table-modal" style={{ maxWidth: 720, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
                 <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Terminal size={14} />
@@ -210,7 +210,7 @@ function ConsoleOutputModal({ instanceId, onClose }: { instanceId: string; onClo
                     <button className="button" onClick={onClose}>Close</button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 
@@ -223,7 +223,7 @@ function DeregisterAmiConfirm({ imageId, onConfirm, onCancel, isPending }: {
     isPending: boolean
 }) {
     return (
-        <div className="modal-overlay" onClick={onCancel}>
+        <ModalOverlay onClose={onCancel}>
             <div className="create-table-modal" style={{ width: 380 }} onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <AlertTriangle size={14} style={{ color: 'var(--status-error)', flexShrink: 0 }} />
@@ -254,7 +254,7 @@ function DeregisterAmiConfirm({ imageId, onConfirm, onCancel, isPending }: {
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 

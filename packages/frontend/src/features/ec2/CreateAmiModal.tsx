@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { HardDrive, Loader2 } from "lucide-react";
 import { useCreateAmiMutation } from "@/api/aws/ec2.mutations";
+import { ModalOverlay } from "@/components/ModalOverlay";
 
 interface Props {
   instanceId: string;
@@ -30,7 +31,7 @@ export function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }:
   }
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" style={{ maxWidth: 420 }}>
         <h3>Create AMI</h3>
 
@@ -42,7 +43,6 @@ export function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }:
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Escape" && onClose()}
           />
         </div>
 
@@ -81,6 +81,6 @@ export function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }:
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

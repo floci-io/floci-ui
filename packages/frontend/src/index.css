@@ -4023,6 +4023,12 @@ button.console-service-card {
 }
 
 /* ─── Shared modal styles ────────────────────────────────────────────────── */
+/* Focus lands on the backdrop only when a dialog has nothing focusable. */
+.modal-overlay:focus,
+.copy-modal-overlay:focus {
+    outline: none;
+}
+
 .modal-overlay {
     position: fixed;
     inset: 0;

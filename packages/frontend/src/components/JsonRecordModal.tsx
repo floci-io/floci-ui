@@ -1,5 +1,6 @@
 import {FormEvent, useEffect, useState} from 'react'
 import {X} from 'lucide-react'
+import {ModalOverlay} from './ModalOverlay'
 
 interface JsonRecordModalProps {
     open: boolean
@@ -31,15 +32,6 @@ export function JsonRecordModal({
         setValidationError(undefined)
     }, [initialValue, open])
 
-    useEffect(() => {
-        if (!open) return
-        const closeOnEscape = (event: KeyboardEvent) => {
-            if (event.key === 'Escape' && !isPending) onClose()
-        }
-        window.addEventListener('keydown', closeOnEscape)
-        return () => window.removeEventListener('keydown', closeOnEscape)
-    }, [isPending, onClose, open])
-
     if (!open) return null
 
     function submit(event: FormEvent<HTMLFormElement>) {
@@ -58,8 +50,8 @@ export function JsonRecordModal({
     }
 
     return (
-        <div className="modal-overlay" onClick={(event) => event.target === event.currentTarget && !isPending && onClose()}>
-            <form className="record-modal" role="dialog" aria-modal="true" aria-label={title} onSubmit={submit}>
+        <ModalOverlay onClose={() => !isPending && onClose()}>
+            <form className="record-modal" onSubmit={submit}>
                 <div className="record-modal-header">
                     <div>
                         <h3>{title}</h3>
@@ -89,6 +81,6 @@ export function JsonRecordModal({
                     </button>
                 </div>
             </form>
-        </div>
+        </ModalOverlay>
     )
 }

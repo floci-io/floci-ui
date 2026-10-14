@@ -6,6 +6,7 @@ import type { SubnetGroup, VpcWizardInput, VpcWizardResult } from '@/api/aws/ec2
 import { calculateSubnetCidrs, isSubnetLayoutWithinBlock } from '@/lib/network'
 import { isValidCidr } from './validators'
 import { ec2QueryKeys } from '@/api/aws/ec2.queries'
+import { ModalOverlay } from '@/components/ModalOverlay'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -125,7 +126,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
   }, [groups])
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <div
         className="create-table-modal"
         style={{ width: 860, maxWidth: '96vw' }}
@@ -445,6 +446,6 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
           </>
         )}
       </div>
-    </div>
+    </ModalOverlay>
   )
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Network } from 'lucide-react'
 import { useAllocateElasticIpMutation } from '@/api/aws/ec2.mutations'
 import type { Ec2ElasticIp } from '@/api/aws/ec2.api'
+import { ModalOverlay } from '@/components/ModalOverlay'
 
 type Props = {
   onClose: () => void
@@ -26,7 +27,7 @@ export function AllocateEipModal({ onClose, onAllocated }: Props) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" onClick={(e) => e.stopPropagation()}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Network size={14} /> Allocate Elastic IP
@@ -53,6 +54,6 @@ export function AllocateEipModal({ onClose, onAllocated }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   )
 }

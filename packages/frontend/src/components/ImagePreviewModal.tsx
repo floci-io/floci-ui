@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
 import {AlertTriangle, Download, Loader2, X} from 'lucide-react'
 import type {ObjectPreviewKind} from '@/lib/format'
+import {ModalOverlay} from './ModalOverlay'
 
 interface ObjectPreviewModalProps {
     kind: ObjectPreviewKind
@@ -20,16 +21,8 @@ const TEXT_PREVIEW_LIMIT = 200_000
  * plain text, since there is no inline "view" mode on the download endpoint.
  */
 export function ImagePreviewModal({kind, name, src, onClose}: ObjectPreviewModalProps) {
-    useEffect(() => {
-        function onKeyDown(event: KeyboardEvent) {
-            if (event.key === 'Escape') onClose()
-        }
-        window.addEventListener('keydown', onKeyDown)
-        return () => window.removeEventListener('keydown', onKeyDown)
-    }, [onClose])
-
     return (
-        <div className="copy-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+        <ModalOverlay className="copy-modal-overlay" onClose={onClose}>
             <div className="image-preview-modal">
                 <div className="image-preview-header">
                     <span className="image-preview-name" title={name}>{name}</span>
@@ -49,7 +42,7 @@ export function ImagePreviewModal({kind, name, src, onClose}: ObjectPreviewModal
                     {kind === 'text' && <TextPreview src={src}/>}
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 

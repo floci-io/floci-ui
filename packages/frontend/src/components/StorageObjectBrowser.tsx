@@ -17,6 +17,7 @@ import type {CapabilitySchema, ObjectActionName} from '@/types/schema'
 import {formatBytes, objectIconKind, objectPreviewKind} from '@/lib/format'
 import {ImagePreviewModal} from '@/components/ImagePreviewModal'
 import {ObjectThumbnail} from '@/components/ObjectThumbnail'
+import {ModalOverlay} from './ModalOverlay'
 
 interface StorageObjectBrowserProps {
     cloud: CloudProvider
@@ -524,7 +525,7 @@ function MoveOrCopyModal({
     const resolvedDestId = isCreatingNew ? undefined : (destResourceId !== resource.id ? destResourceId : undefined)
 
     return (
-        <div className="copy-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+        <ModalOverlay className="copy-modal-overlay" onClose={onClose}>
             <div className="copy-modal">
                 <div className="drawer-tabs" style={{marginBottom: 14}}>
                     <button className={`drawer-tab ${mode === 'move' ? 'active' : ''}`} onClick={() => setMode('move')}>Move</button>
@@ -597,7 +598,7 @@ function MoveOrCopyModal({
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalOverlay>
     )
 }
 

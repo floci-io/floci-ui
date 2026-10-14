@@ -35,6 +35,7 @@ import { dataExplorerPath } from "@/lib/dataExplorer";
 import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
+import { ModalOverlay } from "@/components/ModalOverlay";
 
 const ComputePanel = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.ComputePanel));
 const LaunchInstanceForm = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.LaunchInstanceForm));
@@ -865,9 +866,8 @@ export function DynamicResourceView({
         />
       )}
       {editingResource && schema.updateFields && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
+        <ModalOverlay
+          onClose={() => {
             if (!updateMut.isPending) setEditingResource(null);
           }}
         >
@@ -909,7 +909,7 @@ export function DynamicResourceView({
               onSubmit={handleEditSubmit}
             />
           </div>
-        </div>
+        </ModalOverlay>
       )}
       {successToast && (
         <div
