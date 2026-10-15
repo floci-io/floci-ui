@@ -45,7 +45,7 @@ const DELETE_BATCH_SIZE = 1000
  * deadline, so this bound keeps one started just before that deadline inside the
  * route's connection budget (120 s + 25 s < 150 s).
  */
-const DELETE_BATCH_TIMEOUT_MS = 25_000
+export const DELETE_BATCH_TIMEOUT_MS = 25_000
 /** Per-object failures quoted in an error, and the length each quoted field is cut to. */
 const MAX_REPORTED_FAILURES = 10
 const MAX_REPORTED_FIELD_LENGTH = 256
@@ -346,7 +346,9 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
  * is in flight, some versions may be.
  */
 function emptyFailure(bucket: string, err: unknown, signal: AbortSignal | undefined, progress: EmptyProgress): CloudError {
-    const aborted = signal?.aborted === true
+    // Decided from the error, not the signal: a batch in flight when the deadline
+    // fired still reports its own outcome, such as a per-object refusal.
+    const aborted = signal?.aborted === true && (err === signal.reason || isAbortError(err))
     const cause = aborted
         ? new RuntimeUnavailableError((signal.reason as {name?: unknown} | undefined)?.name === 'TimeoutError'
             ? 'the operation ran past its time limit'
@@ -358,6 +360,10 @@ function emptyFailure(bucket: string, err: unknown, signal: AbortSignal | undefi
         : 'stopped before deleting anything'
     const ErrorClass = cause.constructor as new (message: string, options?: {cause?: unknown}) => CloudError
     return new ErrorClass(`Emptying bucket "${bucket}" ${phase}: ${cause.message}`, {cause: err})
+}
+
+function isAbortError(err: unknown): boolean {
+    return !(err instanceof CloudError) && err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
 }
 
 function partialFailureMessage(bucket: string, errors: S3Error[], batchSize: number): string {

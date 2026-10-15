@@ -500,6 +500,25 @@ describe('AwsStorageAdapter emptyBucket', () => {
     })
 })
 
+describe('AwsStorageAdapter emptyBucket at the deadline', () => {
+    test('a batch in flight when the deadline fires reports its own per-object refusal', async () => {
+        const bucket = versionedBucket(versionsOf('a.txt', 2), {
+            beforeSend: async (command) => {
+                if (command instanceof DeleteObjectsCommand) await Bun.sleep(60)
+            },
+            deleteError: (id) => id.VersionId === 'a.txt-v1' ? {Code: 'AccessDenied', Message: 'Access Denied'} : undefined,
+        })
+
+        const error = await withDeadline(20, undefined, (signal) => new AwsStorageAdapter(bucket.client).emptyBucket('versioned', {signal}))
+            .catch((err: unknown) => err)
+
+        expect(error).toBeInstanceOf(RuntimeError)
+        expect((error as Error).message).toContain('stopped after deletion started')
+        expect((error as Error).message).toContain('refused to delete 1 of 2 entries')
+        expect((error as Error).message).toContain('code=AccessDenied')
+    })
+})
+
 describe('AwsStorageAdapter emptyBucket delete batch bound', () => {
     test('a sent batch that never answers fails on its own bound with partial-deletion wording', async () => {
         const bucket = versionedBucket(versionsOf('a.txt', 3), {
