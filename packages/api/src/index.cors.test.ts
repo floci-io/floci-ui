@@ -78,3 +78,16 @@ describe('credentialed route CORS', () => {
         expect(schema.headers.get('access-control-allow-origin')).toBe('*')
     })
 })
+
+describe('production server wiring', () => {
+    test('hands the Bun server to routes that extend their request timeout', async () => {
+        // A storage adapter without emptyBucket answers 501 once the route got its
+        // server binding; without the binding the route refuses with a 500.
+        const res = await server.fetch(
+            new Request('http://localhost/api/clouds/azure/services/storage/resources/logs/empty', {method: 'POST'}),
+            {timeout() {}},
+        )
+
+        expect(res.status).toBe(501)
+    })
+})

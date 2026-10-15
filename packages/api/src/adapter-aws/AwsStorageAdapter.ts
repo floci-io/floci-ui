@@ -49,8 +49,6 @@ interface EmptyProgress {
     deleteDispatched: boolean
 }
 
-/** Errors that already carry the emptying phase, so they are not wrapped twice. */
-const phasedErrors = new WeakSet<CloudError>()
 
 export class AwsStorageAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
@@ -178,17 +176,17 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
         try {
             const entries = await this.listAllVersions(id, signal, progress)
             for (let start = 0; start < entries.length; start += DELETE_BATCH_SIZE) {
-                throwIfAborted(id, signal, progress)
+                throwIfAborted(signal)
                 const batch = entries.slice(start, start + DELETE_BATCH_SIZE)
                 progress.deleteDispatched = true
-                const res = await this.s3.send(
-                    new DeleteObjectsCommand({Bucket: id, Delete: {Objects: batch, Quiet: true}}),
-                    {abortSignal: signal},
-                )
+                // Sent without the signal: S3 applies a batch it has received whether or
+                // not the caller is still waiting, so the batch is left to finish and its
+                // per-object result is read. The deadline only stops the next one.
+                const res = await this.s3.send(new DeleteObjectsCommand({Bucket: id, Delete: {Objects: batch, Quiet: true}}))
                 if (res.Errors?.length) throw new RuntimeError(partialFailureMessage(id, res.Errors, batch.length))
             }
 
-            throwIfAborted(id, signal, progress)
+            throwIfAborted(signal)
             const remaining = await this.s3.send(new ListObjectVersionsCommand({Bucket: id, MaxKeys: 1}), {abortSignal: signal})
             if ((remaining.Versions?.length ?? 0) + (remaining.DeleteMarkers?.length ?? 0) > 0) {
                 throw new ConflictError(
@@ -206,7 +204,7 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
         let keyMarker: string | undefined
         let versionIdMarker: string | undefined
         for (;;) {
-            throwIfAborted(bucket, signal, progress)
+            throwIfAborted(signal)
             const page = await this.s3.send(
                 new ListObjectVersionsCommand({Bucket: bucket, KeyMarker: keyMarker, VersionIdMarker: versionIdMarker}),
                 {abortSignal: signal},
@@ -302,8 +300,8 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
     }
 }
 
-function throwIfAborted(bucket: string, signal: AbortSignal | undefined, progress: EmptyProgress): void {
-    if (signal?.aborted) throw emptyFailure(bucket, signal.reason, signal, progress)
+function throwIfAborted(signal: AbortSignal | undefined): void {
+    if (signal?.aborted) throw signal.reason ?? new DOMException('The operation was aborted', 'AbortError')
 }
 
 /**
@@ -312,8 +310,6 @@ function throwIfAborted(bucket: string, signal: AbortSignal | undefined, progres
  * is in flight, some versions may be.
  */
 function emptyFailure(bucket: string, err: unknown, signal: AbortSignal | undefined, progress: EmptyProgress): CloudError {
-    if (err instanceof CloudError && phasedErrors.has(err)) return err
-
     const aborted = signal?.aborted === true
     const cause = aborted
         ? new RuntimeUnavailableError((signal.reason as {name?: unknown} | undefined)?.name === 'TimeoutError'
@@ -325,9 +321,7 @@ function emptyFailure(bucket: string, err: unknown, signal: AbortSignal | undefi
         ? 'stopped after deletion started, so some versions and delete markers may already be permanently deleted. Run Empty bucket again to remove the rest'
         : 'stopped before deleting anything'
     const ErrorClass = cause.constructor as new (message: string, options?: {cause?: unknown}) => CloudError
-    const phased = new ErrorClass(`Emptying bucket "${bucket}" ${phase}: ${cause.message}`, {cause: err})
-    phasedErrors.add(phased)
-    return phased
+    return new ErrorClass(`Emptying bucket "${bucket}" ${phase}: ${cause.message}`, {cause: err})
 }
 
 function partialFailureMessage(bucket: string, errors: S3Error[], batchSize: number): string {
