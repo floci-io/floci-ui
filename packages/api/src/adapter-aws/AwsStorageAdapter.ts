@@ -40,6 +40,12 @@ import {mapAwsSdkError} from './awsErrors'
 
 /** DeleteObjects accepts at most this many identifiers per request. */
 const DELETE_BATCH_SIZE = 1000
+/**
+ * How long a sent delete batch may take. It is not cut off by the operation
+ * deadline, so this bound keeps one started just before that deadline inside the
+ * route's connection budget (120 s + 25 s < 150 s).
+ */
+const DELETE_BATCH_TIMEOUT_MS = 25_000
 /** Per-object failures quoted in an error, and the length each quoted field is cut to. */
 const MAX_REPORTED_FAILURES = 10
 const MAX_REPORTED_FIELD_LENGTH = 256
@@ -54,7 +60,10 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'storage' as const
 
-    constructor(private readonly s3: S3Client = defaultS3) {}
+    constructor(
+        private readonly s3: S3Client = defaultS3,
+        private readonly deleteBatchTimeoutMs = DELETE_BATCH_TIMEOUT_MS,
+    ) {}
 
     schema(): ServiceSchema {
         return awsStorageSchema()
@@ -179,10 +188,11 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
                 throwIfAborted(signal)
                 const batch = entries.slice(start, start + DELETE_BATCH_SIZE)
                 progress.deleteDispatched = true
-                // Sent without the signal: S3 applies a batch it has received whether or
-                // not the caller is still waiting, so the batch is left to finish and its
-                // per-object result is read. The deadline only stops the next one.
-                const res = await this.s3.send(new DeleteObjectsCommand({Bucket: id, Delete: {Objects: batch, Quiet: true}}))
+                // Not tied to the operation signal: S3 applies a batch it has received
+                // whether or not the caller is still waiting, so the batch is left to
+                // finish and its per-object result is read. The deadline only stops the
+                // next one, and the batch has a bound of its own.
+                const res = await this.sendDeleteBatch(id, batch)
                 if (res.Errors?.length) throw new RuntimeError(partialFailureMessage(id, res.Errors, batch.length))
             }
 
@@ -196,6 +206,22 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
             return {deleted: entries.length}
         } catch (err) {
             throw emptyFailure(id, err, signal, progress)
+        }
+    }
+
+    private async sendDeleteBatch(bucket: string, batch: ObjectIdentifier[]) {
+        const batchSignal = AbortSignal.timeout(this.deleteBatchTimeoutMs)
+        try {
+            return await this.s3.send(
+                new DeleteObjectsCommand({Bucket: bucket, Delete: {Objects: batch, Quiet: true}}),
+                {abortSignal: batchSignal},
+            )
+        } catch (err) {
+            if (!batchSignal.aborted) throw err
+            throw new RuntimeUnavailableError(
+                `a delete batch got no response within ${this.deleteBatchTimeoutMs / 1000} seconds`,
+                {cause: err},
+            )
         }
     }
 
