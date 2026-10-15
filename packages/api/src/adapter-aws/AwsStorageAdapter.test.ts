@@ -532,7 +532,17 @@ describe('AwsStorageAdapter emptyBucket delete batch bound against the SDK', () 
             endpoint: 'http://127.0.0.1:1',
             forcePathStyle: true,
             credentials: {accessKeyId: '000000000000', secretAccessKey: 'test'},
-            maxAttempts: 5,
+            // Fixed 2-second backoff, so the test does not depend on retry jitter:
+            // without the bound the batch takes at least that long.
+            retryStrategy: {
+                mode: 'standard',
+                acquireInitialRetryToken: async () => ({getRetryCount: () => 0, getRetryDelay: () => 0}),
+                refreshRetryTokenForRetry: async (token: {getRetryCount(): number}) => {
+                    if (token.getRetryCount() >= 4) throw new Error('out of retries')
+                    return {getRetryCount: () => token.getRetryCount() + 1, getRetryDelay: () => 2_000}
+                },
+                recordSuccess: () => {},
+            },
             requestHandler: {
                 handle: async (request: {method: string; query?: Record<string, unknown>}) => {
                     if (request.method === 'GET') {
