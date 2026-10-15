@@ -39,7 +39,8 @@ import type {
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
 import type {RuntimeProbe} from '../service/runtimeProbe'
-import {createCloudRoutes} from './clouds'
+import {DELETE_BATCH_TIMEOUT_MS} from '../adapter-aws/AwsStorageAdapter'
+import {createCloudRoutes, EMPTY_BUCKET_DEADLINE_MS, EMPTY_BUCKET_IDLE_TIMEOUT_SECONDS} from './clouds'
 
 function mockAdapter(cloud: CloudProvider, overrides: Partial<CloudServiceAdapter> = {}): CloudServiceAdapter {
     return {
@@ -1992,6 +1993,10 @@ describe('empty bucket route', () => {
         expect(seen).toHaveLength(1)
         expect(seen[0].id).toBe('logs')
         expect(seen[0].signal).toBeInstanceOf(AbortSignal)
+    })
+
+    test('a delete batch sent at the deadline still finishes inside the connection budget', () => {
+        expect(EMPTY_BUCKET_DEADLINE_MS + DELETE_BATCH_TIMEOUT_MS).toBeLessThan(EMPTY_BUCKET_IDLE_TIMEOUT_SECONDS * 1000)
     })
 
     test('a client disconnect reaches the adapter as an aborted signal', async () => {
