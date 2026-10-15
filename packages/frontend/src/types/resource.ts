@@ -53,6 +53,11 @@ export interface StorageObjectList {
     objects: StorageObject[]
 }
 
+export interface EmptyBucketResult {
+    /** Object versions and delete markers permanently deleted. */
+    deleted: number
+}
+
 export interface CosmosContainer {
     id: string
     name: string

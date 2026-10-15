@@ -17,6 +17,8 @@ import type {
     CreateLambdaTriggerInput,
     CreateResourceInput,
     DeleteLambdaTriggerOptions,
+    EmptyBucketOptions,
+    EmptyBucketResult,
     AppConfigConfigurationProfile,
     AppConfigDeployment,
     AppConfigDeploymentStrategy,
@@ -294,6 +296,12 @@ export class CloudProxyService {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.purgeQueue) throw new NotSupportedError(`${cloud}/${service} purgeQueue is not supported`)
         await adapter.purgeQueue(id)
+    }
+
+    async emptyBucket(cloud: CloudProvider, id: string, options?: EmptyBucketOptions): Promise<EmptyBucketResult> {
+        const adapter = this.requireAdapter(cloud, 'storage')
+        if (!adapter.emptyBucket) throw new NotSupportedError(`${cloud}/storage emptyBucket is not supported`)
+        return adapter.emptyBucket(id, options)
     }
 
     async listObjects(cloud: CloudProvider, service: CloudServiceType, resourceId: string, prefix?: string): Promise<StorageObjectList> {
