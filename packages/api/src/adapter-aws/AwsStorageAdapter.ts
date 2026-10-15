@@ -209,13 +209,23 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
         }
     }
 
+    /**
+     * The signal stops the request in flight, but the SDK waits out retry backoff
+     * without watching it, so the bound itself is a race against a timer.
+     */
     private async sendDeleteBatch(bucket: string, batch: ObjectIdentifier[]) {
         const batchSignal = AbortSignal.timeout(this.deleteBatchTimeoutMs)
+        const sent = this.s3.send(
+            new DeleteObjectsCommand({Bucket: bucket, Delete: {Objects: batch, Quiet: true}}),
+            {abortSignal: batchSignal},
+        )
+        // Once the race is lost, the send's own outcome no longer matters.
+        sent.catch(() => {})
+        const timedOut = new Promise<never>((_, reject) => {
+            batchSignal.addEventListener('abort', () => reject(batchSignal.reason), {once: true})
+        })
         try {
-            return await this.s3.send(
-                new DeleteObjectsCommand({Bucket: bucket, Delete: {Objects: batch, Quiet: true}}),
-                {abortSignal: batchSignal},
-            )
+            return await Promise.race([sent, timedOut])
         } catch (err) {
             if (!batchSignal.aborted) throw err
             throw new RuntimeUnavailableError(
