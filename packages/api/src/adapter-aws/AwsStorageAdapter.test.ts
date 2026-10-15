@@ -8,7 +8,8 @@ import {
     ListBucketsCommand,
     ListObjectVersionsCommand,
     type ListObjectVersionsCommandInput,
-    type S3Client,
+    S3Client,
+    type S3ClientConfig,
 } from '@aws-sdk/client-s3'
 import {AccessDeniedError, CloudError, ConflictError, RuntimeError, RuntimeUnavailableError} from '../cloud-spi/errors'
 import {withDeadline} from '../service/deadline'
@@ -514,6 +515,44 @@ describe('AwsStorageAdapter emptyBucket delete batch bound', () => {
         expect(error).toBeInstanceOf(RuntimeUnavailableError)
         expect((error as Error).message).toContain('stopped after deletion started')
         expect((error as Error).message).toContain('a delete batch got no response within 0.03 seconds')
+    })
+})
+
+describe('AwsStorageAdapter emptyBucket delete batch bound against the SDK', () => {
+    test('the bound holds while the SDK waits out retry backoff', async () => {
+        let deleteAttempts = 0
+        const throttled = () => Object.assign(new Error('Please reduce your request rate.'), {
+            name: 'SlowDown',
+            $fault: 'server',
+            $metadata: {httpStatusCode: 503},
+        })
+        // A real client, so its retry strategy and backoff run; only the transport is faked.
+        const s3 = new S3Client({
+            region: 'us-east-1',
+            endpoint: 'http://127.0.0.1:1',
+            forcePathStyle: true,
+            credentials: {accessKeyId: '000000000000', secretAccessKey: 'test'},
+            maxAttempts: 5,
+            requestHandler: {
+                handle: async (request: {method: string; query?: Record<string, unknown>}) => {
+                    if (request.method === 'GET') {
+                        const body = '<ListVersionsResult><IsTruncated>false</IsTruncated><Version><Key>a.txt</Key><VersionId>v1</VersionId></Version></ListVersionsResult>'
+                        return {response: {statusCode: 200, headers: {'content-type': 'application/xml'}, body: new Response(body).body}}
+                    }
+                    deleteAttempts += 1
+                    throw throttled()
+                },
+            },
+        } as unknown as S3ClientConfig)
+        const started = performance.now()
+
+        const error = await new AwsStorageAdapter(s3, 100).emptyBucket('versioned').catch((err: unknown) => err)
+
+        expect(performance.now() - started).toBeLessThan(1_000)
+        expect(error).toBeInstanceOf(RuntimeUnavailableError)
+        expect((error as Error).message).toContain('stopped after deletion started')
+        expect((error as Error).message).toContain('no response within 0.1 seconds')
+        expect(deleteAttempts).toBeGreaterThanOrEqual(1)
     })
 })
 
