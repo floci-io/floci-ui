@@ -37,7 +37,7 @@ import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { ModalOverlay } from "@/components/ModalOverlay";
-import { storageObjectsKey, type StorageTarget } from "@/lib/storageQueryKeys";
+import { storageObjectsKey, storageTargetKey as targetKey, type StorageTarget } from "@/lib/storageQueryKeys";
 
 const ComputePanel = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.ComputePanel));
 const LaunchInstanceForm = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.LaunchInstanceForm));
@@ -92,7 +92,10 @@ export function DynamicResourceView({
   const [selectedItems, setSelectedItems] = useState<CloudResource[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
-  const [bucketDeleteError, setBucketDeleteError] = useState<string | null>(null);
+  // A refused bucket delete, kept with the account and bucket it was for.
+  const [bucketDeleteError, setBucketDeleteError] = useState<
+    { accountId: string; bucketId: string; message: string } | null
+  >(null);
   // The bucket the open Empty bucket dialog was opened for, captured at that moment.
   const [emptyConfirm, setEmptyConfirm] = useState<StorageTarget | null>(null);
 
@@ -172,20 +175,23 @@ export function DynamicResourceView({
     onSuccess: (result, target) => {
       if (storageTargetKeyRef.current !== targetKey(target)) return;
       setSelectedObject(undefined);
-      // A "not empty" refusal shown for this bucket no longer holds.
-      setBucketDeleteError(null);
+      // A "not empty" refusal for this bucket no longer holds.
+      setBucketDeleteError((refusal) =>
+        refusal?.accountId === target.accountId && refusal.bucketId === target.bucketId ? null : refusal,
+      );
       setSuccessToast(
         `Emptied ${target.bucketId}: permanently deleted ${result.deleted} object version(s) and delete marker(s).`,
       );
     },
   });
-  const emptyingBucketId = emptyMut.isPending ? emptyMut.variables?.bucketId : undefined;
+  const emptyingKey =
+    emptyMut.isPending && emptyMut.variables ? targetKey(emptyMut.variables) : undefined;
 
   const isAwsSageMaker = cloud === "aws" && service === "sagemaker";
   const canDeleteResource = isAwsSageMaker
     ? (resource: CloudResource) => resource.type !== "sagemaker-training-job"
-    : emptyingBucketId !== undefined
-      ? (resource: CloudResource) => resource.id !== emptyingBucketId
+    : emptyingKey !== undefined
+      ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
       : undefined;
   const sagemakerDashboardResourcesQuery = useQuery({
     queryKey: ["sagemaker-dashboard-resources", accountId, cloud, service],
@@ -250,12 +256,17 @@ export function DynamicResourceView({
   const deleteMut = useMutation({
     mutationFn: (resource: CloudResource) =>
       deleteCloudResource(cloud, service, resource.id),
-    onMutate: () => setBucketDeleteError(null),
-    onError: (error, resource) => {
-      if (resource.service !== "storage") return;
-      setBucketDeleteError(
-        `Could not delete ${resource.name || resource.id}: ${errorMessage(error)}`,
-      );
+    onMutate: () => {
+      setBucketDeleteError(null);
+      return { accountId };
+    },
+    onError: (error, resource, context) => {
+      if (resource.service !== "storage" || !context) return;
+      setBucketDeleteError({
+        accountId: context.accountId,
+        bucketId: resource.id,
+        message: `Could not delete ${resource.name || resource.id}: ${errorMessage(error)}`,
+      });
     },
     onSuccess: (_, resource) => {
       if (selected?.id === resource.id) selectResource(undefined);
@@ -809,9 +820,9 @@ export function DynamicResourceView({
                   {bulkDeleteError}
                 </p>
               )}
-              {bucketDeleteError && (
+              {bucketDeleteError?.accountId === accountId && (
                 <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
-                  {bucketDeleteError}
+                  {bucketDeleteError.message}
                 </p>
               )}
               {showEmptyError && (
@@ -925,6 +936,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
           selectedObjectKey={selectedObject?.key}
           onSelectObject={setSelectedObject}
+          writesBlocked={emptyingKey !== undefined && emptyingKey === storageTargetKey}
         />
       )}
       {service === "compute" && (
@@ -1103,10 +1115,6 @@ export function DynamicResourceView({
       )}
     </div>
   );
-}
-
-function targetKey(target: StorageTarget): string {
-  return JSON.stringify([target.accountId, target.cloud, target.bucketId]);
 }
 
 function errorMessage(error: unknown): string {

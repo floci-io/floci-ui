@@ -28,9 +28,13 @@ interface StorageObjectBrowserProps {
     runtimeReachable?: boolean
     selectedObjectKey?: string
     onSelectObject: (object?: StorageObject) => void
+    /** True while Empty bucket runs on this bucket: a write now would spoil its final check. */
+    writesBlocked?: boolean
 }
 
-export function StorageObjectBrowser({cloud, resource, capabilities = [], runtimeReachable = false, selectedObjectKey, onSelectObject}: StorageObjectBrowserProps) {
+const WRITE_ACTIONS: ObjectActionName[] = ['upload', 'delete', 'createFolder', 'copy']
+
+export function StorageObjectBrowser({cloud, resource, capabilities = [], runtimeReachable = false, selectedObjectKey, onSelectObject, writesBlocked = false}: StorageObjectBrowserProps) {
     const qc = useQueryClient()
     const accountId = useAccountId()
     // Captured into each mutation, so a write that settles after the account or
@@ -55,7 +59,10 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     const [bulkDeleting, setBulkDeleting] = useState(false)
     const [previewObject, setPreviewObject] = useState<StorageObject | null>(null)
 
-    const resolvedCapabilities = withRuntimeState(normalizeCapabilities(capabilities), runtimeReachable)
+    const resolvedCapabilities = withRuntimeState(normalizeCapabilities(capabilities), runtimeReachable).map((capability) =>
+        writesBlocked && WRITE_ACTIONS.includes(capability.name)
+            ? {...capability, enabled: false, status: 'blocked' as const, reason: 'Empty bucket is running on this bucket.'}
+            : capability)
     const uploadCapability = capabilityFor(resolvedCapabilities, 'upload')
     const downloadCapability = capabilityFor(resolvedCapabilities, 'download')
     const deleteCapability = capabilityFor(resolvedCapabilities, 'delete')
