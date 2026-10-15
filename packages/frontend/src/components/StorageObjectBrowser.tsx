@@ -57,6 +57,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     const [search, setSearch] = useState('')
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
     const [bulkDeleting, setBulkDeleting] = useState(false)
+    const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null)
     const [previewObject, setPreviewObject] = useState<StorageObject | null>(null)
 
     const resolvedCapabilities = withRuntimeState(normalizeCapabilities(capabilities), runtimeReachable).map((capability) =>
@@ -93,6 +94,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         setCopyObject(null)
         setSearch('')
         setSelectedKeys(new Set())
+        setBulkDeleteError(null)
         setPreviewObject(null)
         onSelectObject(undefined)
     }, [accountId, cloud, resource?.id, onSelectObject])
@@ -173,20 +175,27 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     }
 
     // ── Bulk delete ──
+    // Every delete settles before anything is reported, and the listing is always
+    // refreshed: keys that did go are dropped from the selection, so retrying the
+    // rest cannot send a delete for an object that is already gone.
     async function handleBulkDelete() {
         if (!target || selectedKeys.size === 0) return
         const bulkTarget = target
+        const keys = [...selectedKeys]
         setBulkDeleting(true)
-        try {
-            await Promise.all([...selectedKeys].map((key) => deleteStorageObject(bulkTarget.accountId, bulkTarget.cloud, bulkTarget.bucketId, key)))
-            if (isCurrent(bulkTarget)) {
-                if (selectedObjectKey && selectedKeys.has(selectedObjectKey)) onSelectObject(undefined)
-                setSelectedKeys(new Set())
-            }
-            void qc.invalidateQueries({queryKey: storageObjectsKey(bulkTarget)})
-        } finally {
-            setBulkDeleting(false)
+        setBulkDeleteError(null)
+        const results = await Promise.allSettled(keys.map((key) => deleteStorageObject(bulkTarget.accountId, bulkTarget.cloud, bulkTarget.bucketId, key)))
+        const deleted = new Set(keys.filter((_, index) => results[index].status === 'fulfilled'))
+        const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+        if (isCurrent(bulkTarget)) {
+            if (selectedObjectKey && deleted.has(selectedObjectKey)) onSelectObject(undefined)
+            setSelectedKeys((prev) => new Set([...prev].filter((key) => !deleted.has(key))))
+            setBulkDeleteError(failure
+                ? `Could not delete ${keys.length - deleted.size} of ${keys.length} selected. ${failure.reason instanceof Error ? failure.reason.message : ''}`.trim()
+                : null)
         }
+        setBulkDeleting(false)
+        void qc.invalidateQueries({queryKey: storageObjectsKey(bulkTarget)})
     }
 
     if (!resource) {
@@ -303,6 +312,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
             )}
 
             {/* ── Error ── */}
+            {bulkDeleteError && <div className="inline-error">{bulkDeleteError}</div>}
             {error && (
                 <div className="inline-error">
                     {error instanceof Error ? error.message : 'Storage operation failed'}

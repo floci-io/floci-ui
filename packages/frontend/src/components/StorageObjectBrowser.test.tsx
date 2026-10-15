@@ -234,4 +234,97 @@ describe('StorageObjectBrowser storage cache', () => {
         await waitFor(() => expect(deleteStorageObject).toHaveBeenCalled())
         expect(onSelectObject).not.toHaveBeenCalled()
     })
+
+    test('a partly failed bulk delete refreshes, keeps only the keys that failed, and says so', async () => {
+        const user = userEvent.setup()
+        vi.mocked(deleteStorageObject).mockImplementation(async (_account, _cloud, _bucket, key) => {
+            if (key === 'b.txt') throw new Error('Access Denied')
+        })
+        const {invalidate} = renderBrowser()
+        await user.click(await screen.findByLabelText('Select a.txt'))
+        await user.click(screen.getByLabelText('Select b.txt'))
+
+        await user.click(screen.getByRole('button', {name: 'Delete 2'}))
+
+        expect(await screen.findByText('Could not delete 1 of 2 selected. Access Denied')).toBeInTheDocument()
+        expect(screen.getByText('1 object selected')).toBeInTheDocument()
+        expect(screen.getByLabelText('Select b.txt')).toBeChecked()
+        expect(invalidatedStorageKeys(invalidate)).toContainEqual(['storage-objects', ACCOUNT_A, 'aws', 'logs'])
+    })
+
+    // Each write starts under account A and settles after the user has started the
+    // same kind of work under account B; A's completion must leave B's state alone.
+    const viewStates: Array<{
+        name: string
+        mock: () => ReturnType<typeof vi.fn>
+        startInA: (user: ReturnType<typeof userEvent.setup>) => Promise<void>
+        openInB: (user: ReturnType<typeof userEvent.setup>) => Promise<void>
+        stillOpenInB: () => void
+    }> = [
+        {
+            name: 'create folder',
+            mock: () => vi.mocked(uploadStorageObject),
+            startInA: async (user) => {
+                await user.click(screen.getByRole('button', {name: 'New folder'}))
+                await user.type(screen.getByPlaceholderText('new-folder/'), 'docs')
+                await user.click(screen.getByRole('button', {name: 'Create folder'}))
+            },
+            openInB: async (user) => {
+                await user.click(screen.getByRole('button', {name: 'New folder'}))
+                await user.type(screen.getByPlaceholderText('new-folder/'), 'other')
+            },
+            stillOpenInB: () => expect(screen.getByPlaceholderText('new-folder/')).toHaveValue('other'),
+        },
+        {
+            name: 'move',
+            mock: () => vi.mocked(copyStorageObject),
+            startInA: async (user) => {
+                await user.click(screen.getByTitle('Move / Copy a.txt'))
+                const dialog = await screen.findByRole('dialog')
+                await user.clear(within(dialog).getByLabelText('Destination key'))
+                await user.type(within(dialog).getByLabelText('Destination key'), 'moved.txt')
+                const moveButtons = within(dialog).getAllByRole('button', {name: 'Move'})
+                await user.click(moveButtons[moveButtons.length - 1])
+            },
+            openInB: async (user) => {
+                await user.click(screen.getByTitle('Move / Copy b.txt'))
+                await screen.findByRole('dialog')
+            },
+            stillOpenInB: () => expect(screen.getByRole('dialog')).toBeInTheDocument(),
+        },
+        {
+            name: 'bulk delete',
+            mock: () => vi.mocked(deleteStorageObject),
+            startInA: async (user) => {
+                await user.click(screen.getByLabelText('Select a.txt'))
+                await user.click(screen.getByRole('button', {name: 'Delete 1'}))
+            },
+            // Account B has its own a.txt; A's completed delete must not unselect it.
+            openInB: async (user) => {
+                await user.click(screen.getByLabelText('Select a.txt'))
+            },
+            stillOpenInB: () => expect(screen.getByLabelText('Select a.txt')).toBeChecked(),
+        },
+    ]
+
+    for (const state of viewStates) {
+        test(`${state.name} settling after the account changed leaves the new account's view alone`, async () => {
+            const user = userEvent.setup()
+            const gate = deferred()
+            state.mock().mockReturnValue(gate.promise)
+            const {onSelectObject} = renderBrowser()
+            await screen.findByText('a.txt')
+            await state.startInA(user)
+            await waitFor(() => expect(state.mock()).toHaveBeenCalled())
+
+            act(() => setAccountId(ACCOUNT_B))
+            await screen.findByText('b.txt')
+            await state.openInB(user)
+            onSelectObject.mockClear()
+            await act(async () => gate.resolve())
+
+            state.stillOpenInB()
+            expect(onSelectObject).not.toHaveBeenCalled()
+        })
+    }
 })
