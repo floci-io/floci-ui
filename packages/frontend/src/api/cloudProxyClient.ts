@@ -26,6 +26,7 @@ import type {
   CreateLambdaTriggerInput,
   DatabaseSnapshot,
   DeleteLambdaTriggerOptions,
+  EmptyBucketResult,
   KeyQuery,
   KubernetesFargateProfile,
   KubernetesNodegroup,
@@ -40,7 +41,7 @@ import type {
   StorageObjectList,
 } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
-import { getAccountId } from "@/lib/accountStore";
+import { ACCOUNT_HEADER, getAccountId } from "@/lib/accountStore";
 
 type CloudPathParams = Record<string, string>;
 
@@ -50,6 +51,8 @@ const SQL_DATA_TIMEOUT_MS = 45_000;
 const LOGS_QUERY_TIMEOUT_MS = 20_000;
 /** Cold starts pull a container image; measured at ~60s on a first invoke. */
 const INVOKE_TIMEOUT_MS = 120_000;
+/** The API stops emptying after 120s and keeps the connection for 150s, so wait past both. */
+const EMPTY_BUCKET_TIMEOUT_MS = 180_000;
 
 export async function listClouds(
   signal?: AbortSignal,
@@ -362,6 +365,29 @@ export async function purgeQueue(
     requestOptions(cloud, service, { signal }),
     { cloud, service, id },
   );
+}
+
+/**
+ * Permanently delete every object version and delete marker in an AWS bucket.
+ * The account is passed explicitly so the request runs against the account the
+ * user confirmed, even if another account is selected before it is sent.
+ */
+export async function emptyStorageBucket(
+  accountId: string,
+  cloud: CloudProvider,
+  resourceId: string,
+  signal?: AbortSignal,
+): Promise<EmptyBucketResult> {
+  const res = await apiClient.call<EmptyBucketResult>(
+    apiEndpointKeys.clouds.storage.empty,
+    requestOptions(cloud, "storage", {
+      signal,
+      headers: { [ACCOUNT_HEADER]: accountId },
+      timeout: EMPTY_BUCKET_TIMEOUT_MS,
+    }),
+    storagePathParams(cloud, resourceId),
+  );
+  return res.data;
 }
 
 export async function listStorageObjects(

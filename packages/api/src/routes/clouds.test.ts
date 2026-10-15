@@ -1963,3 +1963,101 @@ describe('route guard error shape', () => {
         expect(await res.text()).toBe('Internal Server Error')
     })
 })
+
+describe('empty bucket route', () => {
+    const emptyUrl = '/api/clouds/aws/services/storage/resources/logs/empty'
+    const post = {method: 'POST'}
+
+    function serverBinding() {
+        const calls: Array<{request: Request; seconds: number}> = []
+        return {calls, env: {server: {timeout: (request: Request, seconds: number) => calls.push({request, seconds})}}}
+    }
+
+    test('extends the request timeout, passes a signal and returns the result', async () => {
+        const seen: Array<{id: string; signal?: AbortSignal}> = []
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async (id, options) => {
+                seen.push({id, signal: options?.signal})
+                return {deleted: 7}
+            },
+        })])
+        const binding = serverBinding()
+
+        const res = await app.request(emptyUrl, post, binding.env)
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({deleted: 7})
+        expect(binding.calls.map((call) => call.seconds)).toEqual([150])
+        expect(binding.calls[0].request.url).toEndWith(emptyUrl)
+        expect(seen).toHaveLength(1)
+        expect(seen[0].id).toBe('logs')
+        expect(seen[0].signal).toBeInstanceOf(AbortSignal)
+    })
+
+    test('a typed adapter failure keeps its status and detail', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async () => {
+                throw new RuntimeError('Emptying bucket "logs" stopped after deletion started: S3 refused to delete 1 of 1 entries')
+            },
+        })])
+
+        const res = await app.request(emptyUrl, post, serverBinding().env)
+
+        expect(res.status).toBe(502)
+        expect(await res.json()).toMatchObject({code: 'runtime_error', detail: expect.stringContaining('stopped after deletion started')})
+    })
+
+    test('a storage adapter without emptyBucket answers 501', async () => {
+        const res = await appWithRoutes().request('/api/clouds/azure/services/storage/resources/logs/empty', post, serverBinding().env)
+
+        expect(res.status).toBe(501)
+        expect(await res.json()).toMatchObject({code: 'operation_not_supported'})
+    })
+
+    test('other services and unknown clouds have no empty route', async () => {
+        const binding = serverBinding()
+        const app = appWithRoutes()
+
+        expect((await app.request('/api/clouds/aws/services/messaging/resources/orders/empty', post, binding.env)).status).toBe(404)
+        expect((await app.request('/api/clouds/mars/services/storage/resources/logs/empty', post, binding.env)).status).toBe(404)
+        expect(binding.calls).toEqual([])
+    })
+
+    test('refuses to start without the Bun server binding', async () => {
+        let called = false
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async () => {
+                called = true
+                return {deleted: 0}
+            },
+        })])
+
+        const res = await app.request(emptyUrl, post)
+
+        expect(res.status).toBe(500)
+        expect(called).toBe(false)
+    })
+
+    test('runs on the service for the account in the header, else the query', async () => {
+        const requested: Array<string | null | undefined> = []
+        const emptied: string[] = []
+        const accountService = (accountId?: string | null) => {
+            requested.push(accountId)
+            return new CloudProxyService(new CloudAdapterRegistry([mockAdapter('aws', {
+                emptyBucket: async (id) => {
+                    emptied.push(`${accountId}:${id}`)
+                    return {deleted: 1}
+                },
+            })]), stubProbes())
+        }
+        const app = new Hono()
+        app.route('/api/clouds', createCloudRoutes(undefined, accountService))
+        const {env} = serverBinding()
+
+        await app.request(`${emptyUrl}?account=222222222222`, {...post, headers: {'x-floci-account-id': '111111111111'}}, env)
+        await app.request(`${emptyUrl}?account=222222222222`, post, env)
+
+        expect(requested).toEqual(['111111111111', '222222222222'])
+        expect(emptied).toEqual(['111111111111:logs', '222222222222:logs'])
+    })
+})

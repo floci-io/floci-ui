@@ -15,6 +15,8 @@ import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource, StorageObject} from '@/types/resource'
 import type {CapabilitySchema, ObjectActionName} from '@/types/schema'
 import {formatBytes, objectIconKind, objectPreviewKind} from '@/lib/format'
+import {useAccountId} from '@/lib/accountStore'
+import {storageObjectsKey, type StorageTarget} from '@/lib/storageQueryKeys'
 import {ImagePreviewModal} from '@/components/ImagePreviewModal'
 import {ObjectThumbnail} from '@/components/ObjectThumbnail'
 import {ModalOverlay} from './ModalOverlay'
@@ -30,6 +32,10 @@ interface StorageObjectBrowserProps {
 
 export function StorageObjectBrowser({cloud, resource, capabilities = [], runtimeReachable = false, selectedObjectKey, onSelectObject}: StorageObjectBrowserProps) {
     const qc = useQueryClient()
+    const accountId = useAccountId()
+    // Captured into each mutation, so a write that settles after the account or
+    // bucket changed still refreshes the listing it wrote to.
+    const target: StorageTarget | undefined = resource ? {accountId, cloud, bucketId: resource.id} : undefined
     const fileRef = useRef<HTMLInputElement | null>(null)
     const [prefix, setPrefix] = useState('')
     const [uploadPrefix, setUploadPrefix] = useState('')
@@ -75,60 +81,66 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         setSelectedKeys(new Set())
         setPreviewObject(null)
         onSelectObject(undefined)
-    }, [resource?.id, onSelectObject])
+    }, [accountId, cloud, resource?.id, onSelectObject])
 
     const query = useQuery({
-        queryKey: ['storage-objects', cloud, resource?.id, prefix],
+        queryKey: target ? storageObjectsKey(target, prefix) : ['storage-objects', accountId, cloud, undefined, prefix],
         queryFn: ({signal}) => listStorageObjects(cloud, resource?.id ?? '', prefix, signal),
         enabled: !!resource,
     })
 
+    // Keys can vanish without this view deleting them (Empty bucket, another
+    // tab), and a delete of a key that is gone would add a delete marker.
+    useEffect(() => {
+        const present = new Set((query.data?.objects ?? []).map((object) => object.key))
+        setSelectedKeys((prev) => {
+            const next = new Set([...prev].filter((key) => present.has(key)))
+            return next.size === prev.size ? prev : next
+        })
+    }, [query.data])
+
     const uploadMut = useMutation({
-        mutationFn: async (file: File) => {
-            if (!resource) return
+        mutationFn: async ({file, target}: {file: File; target: StorageTarget}) => {
             const key = `${uploadPrefix || prefix}${file.name}`
-            await uploadStorageObject(cloud, resource.id, key, file)
+            await uploadStorageObject(target.cloud, target.bucketId, key, file)
         },
-        onSuccess: () => qc.invalidateQueries({queryKey: ['storage-objects', cloud, resource?.id]}),
+        onSuccess: (_, {target}) => qc.invalidateQueries({queryKey: storageObjectsKey(target)}),
     })
 
     const createFolderMut = useMutation({
-        mutationFn: async (name: string) => {
-            if (!resource) return
+        mutationFn: async ({name, target}: {name: string; target: StorageTarget}) => {
             const folderKey = `${prefix}${normalizeFolderName(name)}`
-            await uploadStorageObject(cloud, resource.id, folderKey, new Blob([], {type: 'application/x-directory'}))
+            await uploadStorageObject(target.cloud, target.bucketId, folderKey, new Blob([], {type: 'application/x-directory'}))
         },
-        onSuccess: () => {
+        onSuccess: (_, {target}) => {
             setFolderName('')
             setCreateFolderOpen(false)
-            void qc.invalidateQueries({queryKey: ['storage-objects', cloud, resource?.id]})
+            void qc.invalidateQueries({queryKey: storageObjectsKey(target)})
         },
     })
 
     const deleteMut = useMutation({
-        mutationFn: async (object: StorageObject) => {
-            if (!resource) return
-            await deleteStorageObject(cloud, resource.id, object.key)
+        mutationFn: async ({object, target}: {object: StorageObject; target: StorageTarget}) => {
+            await deleteStorageObject(target.cloud, target.bucketId, object.key)
         },
-        onSuccess: (_, deleted) => {
-            if (selectedObjectKey === deleted.key) onSelectObject(undefined)
-            qc.invalidateQueries({queryKey: ['storage-objects', cloud, resource?.id]})
+        onSuccess: (_, {object, target}) => {
+            if (selectedObjectKey === object.key) onSelectObject(undefined)
+            void qc.invalidateQueries({queryKey: storageObjectsKey(target)})
         },
     })
 
     const moveCopyMut = useMutation({
-        mutationFn: async ({srcKey, destKey, destResourceId, mode}: {
-            srcKey: string; destKey: string; destResourceId?: string; mode: 'move' | 'copy'
+        mutationFn: async ({srcKey, destKey, destResourceId, mode, target}: {
+            srcKey: string; destKey: string; destResourceId?: string; mode: 'move' | 'copy'; target: StorageTarget
         }) => {
-            if (!resource) return
-            await copyStorageObject(cloud, resource.id, srcKey, destKey, destResourceId)
-            if (mode === 'move') await deleteStorageObject(cloud, resource.id, srcKey)
+            await copyStorageObject(target.cloud, target.bucketId, srcKey, destKey, destResourceId)
+            if (mode === 'move') await deleteStorageObject(target.cloud, target.bucketId, srcKey)
         },
         onSuccess: (_, vars) => {
             setCopyObject(null)
             if (vars.mode === 'move') onSelectObject(undefined)
-            void qc.invalidateQueries({queryKey: ['storage-objects', cloud, resource?.id]})
-            if (vars.destResourceId) void qc.invalidateQueries({queryKey: ['storage-objects', cloud, vars.destResourceId]})
+            void qc.invalidateQueries({queryKey: storageObjectsKey(vars.target)})
+            if (vars.destResourceId) void qc.invalidateQueries({queryKey: storageObjectsKey({...vars.target, bucketId: vars.destResourceId})})
         },
     })
 
@@ -144,13 +156,14 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
 
     // ── Bulk delete ──
     async function handleBulkDelete() {
-        if (!resource || selectedKeys.size === 0) return
+        if (!target || selectedKeys.size === 0) return
+        const bulkTarget = target
         setBulkDeleting(true)
         try {
-            await Promise.all([...selectedKeys].map((key) => deleteStorageObject(cloud, resource.id, key)))
+            await Promise.all([...selectedKeys].map((key) => deleteStorageObject(bulkTarget.cloud, bulkTarget.bucketId, key)))
             if (selectedObjectKey && selectedKeys.has(selectedObjectKey)) onSelectObject(undefined)
             setSelectedKeys(new Set())
-            void qc.invalidateQueries({queryKey: ['storage-objects', cloud, resource.id]})
+            void qc.invalidateQueries({queryKey: storageObjectsKey(bulkTarget)})
         } finally {
             setBulkDeleting(false)
         }
@@ -204,7 +217,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                     isPending={moveCopyMut.isPending}
                     error={moveCopyMut.error instanceof Error ? moveCopyMut.error.message : null}
                     onClose={() => { setCopyObject(null); moveCopyMut.reset() }}
-                    onConfirm={(destKey, destResourceId, mode) => moveCopyMut.mutate({srcKey: copyObject.key, destKey, destResourceId, mode})}
+                    onConfirm={(destKey, destResourceId, mode) => { if (target) moveCopyMut.mutate({srcKey: copyObject.key, destKey, destResourceId, mode, target}) }}
                 />
             )}
 
@@ -236,7 +249,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                             <input aria-label="Upload prefix" className="input object-prefix-input" value={uploadPrefix} onChange={(event) => setUploadPrefix(normalizePrefix(event.target.value))} placeholder={prefix ? `Upload to ${prefix}` : 'Upload prefix'}/>
                             <input aria-label="Choose file to upload" ref={fileRef} type="file" hidden onChange={(event) => {
                                 const file = event.target.files?.[0]
-                                if (file) uploadMut.mutate(file)
+                                if (file && target) uploadMut.mutate({file, target})
                                 event.currentTarget.value = ''
                             }}/>
                             <button className="button" type="button" disabled={!canUpload} title={uploadCapability.reason} onClick={() => fileRef.current?.click()}>
@@ -256,7 +269,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
             {createFolderOpen && (
                 <form className="object-create-folder" onSubmit={(event) => {
                     event.preventDefault()
-                    if (folderName.trim()) createFolderMut.mutate(folderName)
+                    if (folderName.trim() && target) createFolderMut.mutate({name: folderName, target})
                 }}>
                     <label>
                         <span>Folder name</span>
@@ -417,7 +430,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                         )}
                                         {canDelete && deleteConfirm === object.key ? (
                                             <button className="button danger compact" disabled={deleteMut.isPending} onClick={() => {
-                                                deleteMut.mutate(object)
+                                                if (target) deleteMut.mutate({object, target})
                                                 setDeleteConfirm(null)
                                             }}>
                                                 Confirm
