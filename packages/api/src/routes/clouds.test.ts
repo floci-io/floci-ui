@@ -1994,6 +1994,22 @@ describe('empty bucket route', () => {
         expect(seen[0].signal).toBeInstanceOf(AbortSignal)
     })
 
+    test('a client disconnect reaches the adapter as an aborted signal', async () => {
+        let signal: AbortSignal | undefined
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async (_id, options) => {
+                signal = options?.signal
+                return {deleted: 0}
+            },
+        })])
+        const disconnected = new AbortController()
+        disconnected.abort()
+
+        await app.request(new Request(`http://localhost${emptyUrl}`, {...post, signal: disconnected.signal}), undefined, serverBinding().env)
+
+        expect(signal?.aborted).toBe(true)
+    })
+
     test('a typed adapter failure keeps its status and detail', async () => {
         const app = appWithRoutes([mockAdapter('aws', {
             emptyBucket: async () => {

@@ -448,14 +448,17 @@ describe('AwsStorageAdapter emptyBucket', () => {
         expect(lists).toBe(2)
     })
 
-    test('passes the signal to every request', async () => {
+    test('passes the signal to every listing request but lets a sent delete batch finish', async () => {
         const controller = new AbortController()
         const bucket = versionedBucket(versionsOf('a.txt', 3), {pageSize: 2})
 
         await new AwsStorageAdapter(bucket.client).emptyBucket('versioned', {signal: controller.signal})
 
         expect(bucket.sent.length).toBe(4)
-        expect(bucket.sent.every((entry) => entry.abortSignal === controller.signal)).toBe(true)
+        const lists = bucket.sent.filter((entry) => entry.command instanceof ListObjectVersionsCommand)
+        expect(lists.length).toBe(3)
+        expect(lists.every((entry) => entry.abortSignal === controller.signal)).toBe(true)
+        expect(bucket.sent.filter((entry) => entry.command instanceof DeleteObjectsCommand).map((entry) => entry.abortSignal)).toEqual([undefined])
     })
 
     test('an aborted request sends nothing and says nothing was deleted', async () => {
@@ -486,6 +489,8 @@ describe('AwsStorageAdapter emptyBucket', () => {
         expect((error as Error).message).toContain('ran past its time limit')
         expect(deleteCalls(bucket.sent).length).toBe(1)
         expect(bucket.sent.at(-1)?.command).toBeInstanceOf(DeleteObjectsCommand)
+        // The batch in flight at the deadline was not cut off: all of it was applied.
+        expect(bucket.remaining().length).toBe(1_500)
     })
 })
 
