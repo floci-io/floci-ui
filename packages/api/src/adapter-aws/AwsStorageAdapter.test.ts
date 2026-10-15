@@ -242,6 +242,8 @@ function versionedBucket(initial: StoredVersion[], options: {
         send: async (command: unknown, sendOptions?: {abortSignal?: AbortSignal}) => {
             sent.push({command, abortSignal: sendOptions?.abortSignal})
             await options.beforeSend?.(command, sent)
+            // Like the SDK, a send whose signal fired while it was in flight rejects.
+            if (sendOptions?.abortSignal?.aborted) throw sendOptions.abortSignal.reason
             if (command instanceof ListObjectVersionsCommand) return listPage(command.input)
             if (command instanceof DeleteObjectsCommand) return deleteBatch(command.input)
             throw new Error(`Unexpected command: ${(command as object)?.constructor?.name}`)
@@ -458,7 +460,10 @@ describe('AwsStorageAdapter emptyBucket', () => {
         const lists = bucket.sent.filter((entry) => entry.command instanceof ListObjectVersionsCommand)
         expect(lists.length).toBe(3)
         expect(lists.every((entry) => entry.abortSignal === controller.signal)).toBe(true)
-        expect(bucket.sent.filter((entry) => entry.command instanceof DeleteObjectsCommand).map((entry) => entry.abortSignal)).toEqual([undefined])
+        const deletes = bucket.sent.filter((entry) => entry.command instanceof DeleteObjectsCommand)
+        expect(deletes.length).toBe(1)
+        expect(deletes[0].abortSignal).toBeInstanceOf(AbortSignal)
+        expect(deletes[0].abortSignal).not.toBe(controller.signal)
     })
 
     test('an aborted request sends nothing and says nothing was deleted', async () => {
@@ -491,6 +496,38 @@ describe('AwsStorageAdapter emptyBucket', () => {
         expect(bucket.sent.at(-1)?.command).toBeInstanceOf(DeleteObjectsCommand)
         // The batch in flight at the deadline was not cut off: all of it was applied.
         expect(bucket.remaining().length).toBe(1_500)
+    })
+})
+
+describe('AwsStorageAdapter emptyBucket delete batch bound', () => {
+    test('a sent batch that never answers fails on its own bound with partial-deletion wording', async () => {
+        const bucket = versionedBucket(versionsOf('a.txt', 3), {
+            beforeSend: (command, sent) => {
+                const signal = sent.at(-1)?.abortSignal
+                if (!(command instanceof DeleteObjectsCommand) || !signal) return
+                return new Promise<void>((_, reject) => signal.addEventListener('abort', () => reject(signal.reason)))
+            },
+        })
+
+        const error = await new AwsStorageAdapter(bucket.client, 30).emptyBucket('versioned').catch((err: unknown) => err)
+
+        expect(error).toBeInstanceOf(RuntimeUnavailableError)
+        expect((error as Error).message).toContain('stopped after deletion started')
+        expect((error as Error).message).toContain('a delete batch got no response within 0.03 seconds')
+    })
+})
+
+describe('AwsStorageAdapter emptyBucket delete batch bound (inside it)', () => {
+    test('a slow batch that answers inside its bound completes', async () => {
+        const bucket = versionedBucket(versionsOf('a.txt', 3), {
+            beforeSend: async (command) => {
+                if (command instanceof DeleteObjectsCommand) await Bun.sleep(30)
+            },
+        })
+
+        const result = await new AwsStorageAdapter(bucket.client, 300).emptyBucket('versioned')
+
+        expect(result).toEqual({deleted: 3})
     })
 })
 

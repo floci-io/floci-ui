@@ -47,8 +47,9 @@ const MAX_QUERY_LOG_GROUPS = 50
 /**
  * Emptying a bucket lists and deletes every version, so it can outlast Bun's
  * 10-second idle default. The operation stops starting new requests at the
- * deadline; the connection budget covers an in-flight batch after that, and the
- * browser waits longer than both.
+ * deadline; a delete batch already sent gets up to 25 seconds more (the
+ * adapter's own bound), inside the connection budget, and the browser waits
+ * longer than both.
  */
 export const EMPTY_BUCKET_DEADLINE_MS = 120_000
 export const EMPTY_BUCKET_IDLE_TIMEOUT_SECONDS = 150
