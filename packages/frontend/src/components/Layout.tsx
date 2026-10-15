@@ -1,6 +1,6 @@
 import {NavLink, Outlet, useLocation, useSearchParams} from 'react-router-dom'
 import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Search, Settings} from 'lucide-react'
-import {useCallback, useEffect, useRef, useState} from 'react'
+import {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react'
 import flociWhite from '@/assets/floci-white.svg'
 import flociBlack from '@/assets/floci-black.svg'
 import flociMarkWhite from '@/assets/floci-mark-white.svg'
@@ -249,13 +249,14 @@ export function Layout() {
  * matching the keyboard hint shown in the widget.
  * Pressing Escape clears the query and blurs the input.
  */
-function TopbarSearch() {
+export function TopbarSearch() {
     const location = useLocation()
     const [searchParams, setSearchParams] = useSearchParams()
     const initialQuery = searchParams.get('search') ?? ''
     const [draft, setDraft] = useState(initialQuery)
     const inputRef = useRef<HTMLInputElement>(null)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const pendingRef = useRef<{value: string; pathname: string; search: string; ready: boolean} | null>(null)
 
     const commit = useCallback((value: string) => {
         setSearchParams(
@@ -272,21 +273,48 @@ function TopbarSearch() {
         )
     }, [setSearchParams, location.state])
 
+    // A transition can update window.location before the rendered route commits.
+    const committedRef = useRef({location, commit})
+    useLayoutEffect(() => {
+        committedRef.current = {location, commit}
+    }, [location, commit])
+
+    const scheduleCommit = (value: string, delay: number) => {
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        const pending = {
+            value,
+            pathname: window.location.pathname,
+            search: window.location.search,
+            ready: false,
+        }
+        pendingRef.current = pending
+        const flush = () => {
+            if (pendingRef.current !== pending) return
+            debounceRef.current = null
+            const rendered = committedRef.current.location
+            if (rendered.pathname === pending.pathname && rendered.search === pending.search) {
+                pendingRef.current = null
+                committedRef.current.commit(value)
+            } else if (window.location.pathname === pending.pathname && window.location.search === pending.search) {
+                pending.ready = true
+            } else {
+                pendingRef.current = null
+            }
+        }
+        if (delay === 0) flush()
+        else debounceRef.current = setTimeout(flush, delay)
+    }
+
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
         setDraft(value)
-        if (debounceRef.current) clearTimeout(debounceRef.current)
-        debounceRef.current = setTimeout(() => commit(value), 300)
+        scheduleCommit(value, 300)
     }
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Escape') {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current)
-                debounceRef.current = null
-            }
             setDraft('')
-            commit('')
+            scheduleCommit('', 0)
             inputRef.current?.blur()
         }
     }
@@ -294,23 +322,41 @@ function TopbarSearch() {
     /** Clean up pending debounce timer on unmount. */
     useEffect(() => {
         return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current)
-                debounceRef.current = null
-            }
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+            debounceRef.current = null
+            pendingRef.current = null
         }
     }, [])
 
-    /** Clear pending debounce and restore draft from destination URL search param on route change. */
+    /** Keep the draft until its destination commits; cancel it for any other navigation. */
     useEffect(() => {
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current)
-            debounceRef.current = null
+        const pending = pendingRef.current
+        if (pending && pending.pathname === location.pathname && pending.search === location.search) {
+            if (pending.ready) {
+                pendingRef.current = null
+                committedRef.current.commit(pending.value)
+            }
+            return
         }
-        const urlSearch = searchParams.get('search') ?? ''
-        setDraft(urlSearch)
-    }, [location.pathname, searchParams])
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        debounceRef.current = null
+        pendingRef.current = null
+        setDraft(new URLSearchParams(location.search).get('search') ?? '')
+    }, [location])
 
+    /** Back can cancel a suspended navigation without changing the rendered location. */
+    useEffect(() => {
+        const onPopState = () => {
+            const pending = pendingRef.current
+            if (!pending || (window.location.pathname === pending.pathname && window.location.search === pending.search)) return
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+            debounceRef.current = null
+            pendingRef.current = null
+            setDraft(new URLSearchParams(window.location.search).get('search') ?? '')
+        }
+        window.addEventListener('popstate', onPopState)
+        return () => window.removeEventListener('popstate', onPopState)
+    }, [])
     /** Focus on `/` when no other input/textarea/select is active. */
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -324,20 +370,6 @@ function TopbarSearch() {
         return () => window.removeEventListener('keydown', onKeyDown)
     }, [])
 
-    /** Keep local draft in sync if the param changes externally (e.g. nav, browser history). */
-    useEffect(() => {
-        const external = searchParams.get('search') ?? ''
-        setDraft((prev) => {
-            if (prev !== external) {
-                if (debounceRef.current) {
-                    clearTimeout(debounceRef.current)
-                    debounceRef.current = null
-                }
-                return external
-            }
-            return prev
-        })
-    }, [searchParams])
 
     return (
         <div className="search">
