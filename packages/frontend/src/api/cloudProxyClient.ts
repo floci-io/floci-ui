@@ -390,7 +390,10 @@ export async function emptyStorageBucket(
   return res.data;
 }
 
+// Object calls name their account explicitly: a write that settles after another
+// account is selected still lands in, and refreshes, the account it started in.
 export async function listStorageObjects(
+  accountId: string,
   cloud: CloudProvider,
   resourceId: string,
   prefix?: string,
@@ -398,13 +401,18 @@ export async function listStorageObjects(
 ): Promise<StorageObjectList> {
   const res = await apiClient.call<StorageObjectList>(
     apiEndpointKeys.clouds.storage.objects.list,
-    requestOptions(cloud, "storage", { signal, params: { prefix } }),
+    requestOptions(cloud, "storage", {
+      signal,
+      params: { prefix },
+      headers: { [ACCOUNT_HEADER]: accountId },
+    }),
     storagePathParams(cloud, resourceId),
   );
   return res.data;
 }
 
 export async function uploadStorageObject(
+  accountId: string,
   cloud: CloudProvider,
   resourceId: string,
   key: string,
@@ -417,7 +425,10 @@ export async function uploadStorageObject(
       signal,
       rawBody: file,
       params: { key },
-      headers: { "Content-Type": file.type || "application/octet-stream" },
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+        [ACCOUNT_HEADER]: accountId,
+      },
     }),
     storagePathParams(cloud, resourceId),
   );
@@ -439,6 +450,7 @@ export function storageObjectDownloadUrl(
 }
 
 export async function deleteStorageObject(
+  accountId: string,
   cloud: CloudProvider,
   resourceId: string,
   key: string,
@@ -446,12 +458,17 @@ export async function deleteStorageObject(
 ): Promise<void> {
   await apiClient.call<void>(
     apiEndpointKeys.clouds.storage.objects.delete,
-    requestOptions(cloud, "storage", { signal, params: { key } }),
+    requestOptions(cloud, "storage", {
+      signal,
+      params: { key },
+      headers: { [ACCOUNT_HEADER]: accountId },
+    }),
     storagePathParams(cloud, resourceId),
   );
 }
 
 export async function copyStorageObject(
+  accountId: string,
   cloud: CloudProvider,
   srcResourceId: string,
   srcKey: string,
@@ -464,6 +481,7 @@ export async function copyStorageObject(
     requestOptions(cloud, "storage", {
       signal,
       body: { srcKey, destKey, ...(destResourceId ? { destResourceId } : {}) },
+      headers: { [ACCOUNT_HEADER]: accountId },
     }),
     storagePathParams(cloud, srcResourceId),
   );

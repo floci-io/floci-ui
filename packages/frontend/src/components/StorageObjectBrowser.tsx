@@ -16,7 +16,7 @@ import type {CloudResource, StorageObject} from '@/types/resource'
 import type {CapabilitySchema, ObjectActionName} from '@/types/schema'
 import {formatBytes, objectIconKind, objectPreviewKind} from '@/lib/format'
 import {useAccountId} from '@/lib/accountStore'
-import {storageObjectsKey, type StorageTarget} from '@/lib/storageQueryKeys'
+import {storageObjectsKey, storageTargetKey, type StorageTarget} from '@/lib/storageQueryKeys'
 import {ImagePreviewModal} from '@/components/ImagePreviewModal'
 import {ObjectThumbnail} from '@/components/ObjectThumbnail'
 import {ModalOverlay} from './ModalOverlay'
@@ -36,6 +36,13 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     // Captured into each mutation, so a write that settles after the account or
     // bucket changed still refreshes the listing it wrote to.
     const target: StorageTarget | undefined = resource ? {accountId, cloud, bucketId: resource.id} : undefined
+    // What is on screen now, read by settle callbacks: a write for another target
+    // refreshes its own listing but leaves this view's selection and dialogs alone.
+    const currentTargetKey = useRef('')
+    useEffect(() => {
+        currentTargetKey.current = target ? storageTargetKey(target) : ''
+    })
+    const isCurrent = (written: StorageTarget) => currentTargetKey.current === storageTargetKey(written)
     const fileRef = useRef<HTMLInputElement | null>(null)
     const [prefix, setPrefix] = useState('')
     const [uploadPrefix, setUploadPrefix] = useState('')
@@ -85,7 +92,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
 
     const query = useQuery({
         queryKey: target ? storageObjectsKey(target, prefix) : ['storage-objects', accountId, cloud, undefined, prefix],
-        queryFn: ({signal}) => listStorageObjects(cloud, resource?.id ?? '', prefix, signal),
+        queryFn: ({signal}) => listStorageObjects(accountId, cloud, resource?.id ?? '', prefix, signal),
         enabled: !!resource,
     })
 
@@ -102,7 +109,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     const uploadMut = useMutation({
         mutationFn: async ({file, target}: {file: File; target: StorageTarget}) => {
             const key = `${uploadPrefix || prefix}${file.name}`
-            await uploadStorageObject(target.cloud, target.bucketId, key, file)
+            await uploadStorageObject(target.accountId, target.cloud, target.bucketId, key, file)
         },
         onSuccess: (_, {target}) => qc.invalidateQueries({queryKey: storageObjectsKey(target)}),
     })
@@ -110,21 +117,23 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     const createFolderMut = useMutation({
         mutationFn: async ({name, target}: {name: string; target: StorageTarget}) => {
             const folderKey = `${prefix}${normalizeFolderName(name)}`
-            await uploadStorageObject(target.cloud, target.bucketId, folderKey, new Blob([], {type: 'application/x-directory'}))
+            await uploadStorageObject(target.accountId, target.cloud, target.bucketId, folderKey, new Blob([], {type: 'application/x-directory'}))
         },
         onSuccess: (_, {target}) => {
-            setFolderName('')
-            setCreateFolderOpen(false)
+            if (isCurrent(target)) {
+                setFolderName('')
+                setCreateFolderOpen(false)
+            }
             void qc.invalidateQueries({queryKey: storageObjectsKey(target)})
         },
     })
 
     const deleteMut = useMutation({
         mutationFn: async ({object, target}: {object: StorageObject; target: StorageTarget}) => {
-            await deleteStorageObject(target.cloud, target.bucketId, object.key)
+            await deleteStorageObject(target.accountId, target.cloud, target.bucketId, object.key)
         },
         onSuccess: (_, {object, target}) => {
-            if (selectedObjectKey === object.key) onSelectObject(undefined)
+            if (isCurrent(target) && selectedObjectKey === object.key) onSelectObject(undefined)
             void qc.invalidateQueries({queryKey: storageObjectsKey(target)})
         },
     })
@@ -133,12 +142,14 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         mutationFn: async ({srcKey, destKey, destResourceId, mode, target}: {
             srcKey: string; destKey: string; destResourceId?: string; mode: 'move' | 'copy'; target: StorageTarget
         }) => {
-            await copyStorageObject(target.cloud, target.bucketId, srcKey, destKey, destResourceId)
-            if (mode === 'move') await deleteStorageObject(target.cloud, target.bucketId, srcKey)
+            await copyStorageObject(target.accountId, target.cloud, target.bucketId, srcKey, destKey, destResourceId)
+            if (mode === 'move') await deleteStorageObject(target.accountId, target.cloud, target.bucketId, srcKey)
         },
         onSuccess: (_, vars) => {
-            setCopyObject(null)
-            if (vars.mode === 'move') onSelectObject(undefined)
+            if (isCurrent(vars.target)) {
+                setCopyObject(null)
+                if (vars.mode === 'move') onSelectObject(undefined)
+            }
             void qc.invalidateQueries({queryKey: storageObjectsKey(vars.target)})
             if (vars.destResourceId) void qc.invalidateQueries({queryKey: storageObjectsKey({...vars.target, bucketId: vars.destResourceId})})
         },
@@ -160,9 +171,11 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         const bulkTarget = target
         setBulkDeleting(true)
         try {
-            await Promise.all([...selectedKeys].map((key) => deleteStorageObject(bulkTarget.cloud, bulkTarget.bucketId, key)))
-            if (selectedObjectKey && selectedKeys.has(selectedObjectKey)) onSelectObject(undefined)
-            setSelectedKeys(new Set())
+            await Promise.all([...selectedKeys].map((key) => deleteStorageObject(bulkTarget.accountId, bulkTarget.cloud, bulkTarget.bucketId, key)))
+            if (isCurrent(bulkTarget)) {
+                if (selectedObjectKey && selectedKeys.has(selectedObjectKey)) onSelectObject(undefined)
+                setSelectedKeys(new Set())
+            }
             void qc.invalidateQueries({queryKey: storageObjectsKey(bulkTarget)})
         } finally {
             setBulkDeleting(false)

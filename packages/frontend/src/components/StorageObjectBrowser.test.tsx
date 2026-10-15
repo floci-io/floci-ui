@@ -119,7 +119,13 @@ describe('StorageObjectBrowser storage cache', () => {
 
     // Each write starts under account A and settles after B is selected. The
     // refresh has to go to the listing the write changed, which is A's.
-    const writes: Array<{name: string; mock: () => ReturnType<typeof vi.fn>; start: (user: ReturnType<typeof userEvent.setup>) => Promise<void>; extraKey?: unknown[]}> = [
+    const writes: Array<{
+        name: string
+        mock: () => ReturnType<typeof vi.fn>
+        start: (user: ReturnType<typeof userEvent.setup>) => Promise<void>
+        extraKey?: unknown[]
+        verify?: () => void
+    }> = [
         {
             name: 'upload',
             mock: () => vi.mocked(uploadStorageObject),
@@ -165,6 +171,22 @@ describe('StorageObjectBrowser storage cache', () => {
             },
             extraKey: ['storage-objects', ACCOUNT_A, 'aws', 'archive'],
         },
+        {
+            name: 'move (its source delete included)',
+            mock: () => vi.mocked(copyStorageObject),
+            start: async (user) => {
+                await user.click(screen.getByTitle('Move / Copy a.txt'))
+                const dialog = await screen.findByRole('dialog')
+                await user.clear(within(dialog).getByLabelText('Destination key'))
+                await user.type(within(dialog).getByLabelText('Destination key'), 'moved.txt')
+                // The tab and the submit button are both named Move; the submit is last.
+                const moveButtons = within(dialog).getAllByRole('button', {name: 'Move'})
+                await user.click(moveButtons[moveButtons.length - 1])
+            },
+            // The delete is sent after the copy settles, by which time account B is
+            // selected; it must still go to account A, where the copy was made.
+            verify: () => expect(deleteStorageObject).toHaveBeenCalledWith(ACCOUNT_A, 'aws', 'logs', 'a.txt'),
+        },
     ]
 
     for (const write of writes) {
@@ -182,7 +204,34 @@ describe('StorageObjectBrowser storage cache', () => {
 
             await waitFor(() => expect(invalidatedStorageKeys(invalidate)).toContainEqual(['storage-objects', ACCOUNT_A, 'aws', 'logs']))
             if (write.extraKey) expect(invalidatedStorageKeys(invalidate)).toContainEqual(write.extraKey)
+            write.verify?.()
             expect(invalidatedStorageKeys(invalidate).some((key) => key[1] === ACCOUNT_B)).toBe(false)
         })
     }
+
+    test('a write settling after the account changed leaves the new view alone', async () => {
+        const user = userEvent.setup()
+        const gate = deferred()
+        vi.mocked(deleteStorageObject).mockReturnValue(gate.promise)
+        const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+        const onSelectObject = vi.fn()
+        const view = (selectedObjectKey?: string) => (
+            <QueryClientProvider client={qc}>
+                <StorageObjectBrowser cloud="aws" resource={bucket} capabilities={ACTIONS} runtimeReachable selectedObjectKey={selectedObjectKey} onSelectObject={onSelectObject}/>
+            </QueryClientProvider>
+        )
+        const {rerender} = render(view('a.txt'))
+        await screen.findByText('a.txt')
+        await user.click(screen.getByTitle('Delete a.txt'))
+        await user.click(screen.getByRole('button', {name: 'Confirm'}))
+
+        act(() => setAccountId(ACCOUNT_B))
+        rerender(view('a.txt'))
+        await screen.findByText('a.txt')
+        onSelectObject.mockClear()
+        await act(async () => gate.resolve())
+
+        await waitFor(() => expect(deleteStorageObject).toHaveBeenCalled())
+        expect(onSelectObject).not.toHaveBeenCalled()
+    })
 })
