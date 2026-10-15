@@ -232,6 +232,7 @@ const awsStorageSchema: ServiceSchema = {
     ],
     objectActions: [
       { name: "list", label: "List objects", enabled: true, status: "available", runtimeRequired: true },
+      { name: "upload", label: "Upload object", enabled: true, status: "available", runtimeRequired: true },
     ],
   },
 };
@@ -429,7 +430,7 @@ describe("DynamicResourceView Empty bucket", () => {
     expect(emptyStorageBucket).toHaveBeenCalledTimes(1);
   });
 
-  it("shows why a bucket could not be deleted, next to that bucket", async () => {
+  it("shows why a bucket could not be deleted, naming that bucket", async () => {
     const user = userEvent.setup();
     vi.mocked(deleteCloudResource).mockRejectedValue(
       new Error('Resource already exists or is in use: Bucket "logs" is not empty. Use Empty bucket to remove them, then delete the bucket. (resource_conflict)'),
@@ -442,6 +443,68 @@ describe("DynamicResourceView Empty bucket", () => {
     expect(await screen.findByText(/Could not delete logs: .*Use Empty bucket/)).toBeInTheDocument();
     // The refused row can be confirmed again once the bucket is emptied.
     expect(screen.getByRole("button", { name: "Confirm" })).toBeEnabled();
+  });
+
+  it("does not show a refusal that arrives after another account is selected", async () => {
+    const user = userEvent.setup();
+    const gate = deferred<void>();
+    vi.mocked(deleteCloudResource).mockReturnValue(gate.promise);
+    renderStorage();
+    await user.click(await screen.findByRole("button", { name: "Delete logs" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    act(() => setAccountId(ACCOUNT_B));
+    await act(async () => gate.reject(new Error('Bucket "logs" is not empty. Use Empty bucket.')));
+
+    await screen.findByText("logs");
+    expect(screen.queryByText(/Could not delete logs/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a failed empty's message with the account it ran in", async () => {
+    const user = userEvent.setup();
+    vi.mocked(emptyStorageBucket).mockRejectedValue(new Error("S3 refused to delete 1 of 1 entries"));
+    renderStorage();
+    const dialog = await openEmptyDialog(user);
+    await user.click(within(dialog).getByRole("button", { name: "Empty bucket" }));
+    await screen.findByText(/Empty bucket did not finish for logs/);
+
+    act(() => setAccountId(ACCOUNT_B));
+
+    await waitFor(() => expect(screen.queryByText(/Empty bucket did not finish/)).not.toBeInTheDocument());
+  });
+
+  it("pauses object writes in the bucket while it is being emptied", async () => {
+    const user = userEvent.setup();
+    const gate = deferred<{ deleted: number }>();
+    vi.mocked(emptyStorageBucket).mockReturnValue(gate.promise);
+    renderStorage();
+    await user.click(await screen.findByText("logs"));
+    expect(await screen.findByRole("button", { name: "Upload" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Empty bucket" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Empty bucket" }));
+
+    expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Upload" })).toHaveAttribute("title", "Empty bucket is running on this bucket.");
+    await act(async () => gate.resolve({ deleted: 0 }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+  });
+
+  it("keeps another bucket's refusal when a different bucket is emptied", async () => {
+    const user = userEvent.setup();
+    vi.mocked(deleteCloudResource).mockRejectedValue(new Error('Bucket "assets" is not empty. Use Empty bucket.'));
+    vi.mocked(emptyStorageBucket).mockResolvedValue({ deleted: 1 });
+    renderStorage();
+    await user.click(await screen.findByRole("button", { name: "Delete assets" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await screen.findByText(/Could not delete assets/);
+
+    await user.click(screen.getByText("logs"));
+    await user.click(screen.getByRole("button", { name: "Empty bucket" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Empty bucket" }));
+
+    await screen.findByText(/Emptied logs/);
+    expect(screen.getByText(/Could not delete assets/)).toBeInTheDocument();
   });
 
   it("clears a bucket's not-empty refusal once that bucket is emptied", async () => {
