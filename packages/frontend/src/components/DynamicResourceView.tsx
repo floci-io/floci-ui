@@ -91,7 +91,10 @@ export function DynamicResourceView({
   const [isDeleteMulti, setIsDeleteMulti] = useState(false);
   const [selectedItems, setSelectedItems] = useState<CloudResource[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  // Kept with the account it was for, like the single-delete refusal below.
+  const [bulkDeleteError, setBulkDeleteError] = useState<
+    { accountId: string; message: string } | null
+  >(null);
   // A refused bucket delete, kept with the account and bucket it was for.
   const [bucketDeleteError, setBucketDeleteError] = useState<
     { accountId: string; bucketId: string; message: string } | null
@@ -303,7 +306,8 @@ export function DynamicResourceView({
         queryKey: ["cloud-resources", accountId, cloud, service],
       });
     },
-    onSuccess: ({ succeededIds, failedItems }) => {
+    onMutate: () => ({ accountId }),
+    onSuccess: ({ succeededIds, failedItems }, _items, context) => {
       setDeleteConfirm(false);
       setSelectedItems((prev) =>
         prev.filter((item) => !succeededIds.has(item.id)),
@@ -313,17 +317,18 @@ export function DynamicResourceView({
       }
 
       if (failedItems.length > 0) {
-        // A bucket refusing deletion usually still holds versions, and the
-        // reason (with its Empty bucket hint) belongs next to that bucket.
+        // A bucket refusing deletion usually still holds versions, so each
+        // refused bucket is named with its reason (and its Empty bucket hint).
         const reasons =
           service === "storage"
             ? failedItems.map(({ id, error }) => `\n${id}: ${errorMessage(error)}`).join("")
             : "";
-        setBulkDeleteError(
-          `Failed to delete ${failedItems.length} of ${
+        setBulkDeleteError({
+          accountId: context.accountId,
+          message: `Failed to delete ${failedItems.length} of ${
             succeededIds.size + failedItems.length
           } selected resource(s).${reasons}`,
-        );
+        });
       } else {
         setBulkDeleteError(null);
         setIsDeleteMulti(false);
@@ -815,9 +820,9 @@ export function DynamicResourceView({
                     : "Unable to clear the inbox."}
                 </p>
               )}
-              {bulkDeleteError && (
+              {bulkDeleteError?.accountId === accountId && (
                 <p className="error-text compact-text" style={{ margin: "0 12px 10px", whiteSpace: "pre-line" }}>
-                  {bulkDeleteError}
+                  {bulkDeleteError.message}
                 </p>
               )}
               {bucketDeleteError?.accountId === accountId && (

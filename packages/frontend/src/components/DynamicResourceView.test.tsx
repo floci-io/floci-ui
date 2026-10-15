@@ -460,6 +460,26 @@ describe("DynamicResourceView Empty bucket", () => {
     expect(screen.queryByText(/Could not delete logs/)).not.toBeInTheDocument();
   });
 
+  it("does not show a bulk refusal that arrives after another account is selected", async () => {
+    const user = userEvent.setup();
+    const gate = deferred<void>();
+    vi.mocked(deleteCloudResource).mockImplementation(async (_cloud, _service, id) => {
+      if (id === "logs") return gate.promise;
+    });
+    renderStorage();
+    await screen.findByText("logs");
+    await user.click(screen.getByRole("button", { name: "Delete Multiple" }));
+    await user.click(screen.getByLabelText("Select all resources"));
+    await user.click(screen.getByRole("button", { name: "Delete Selected (2)" }));
+    await user.click(screen.getByRole("button", { name: "Confirm Delete (2)" }));
+
+    act(() => setAccountId(ACCOUNT_B));
+    await act(async () => gate.reject(new Error('Bucket "logs" is not empty. Use Empty bucket.')));
+
+    await screen.findByText("logs");
+    expect(screen.queryByText(/Failed to delete 1 of 2/)).not.toBeInTheDocument();
+  });
+
   it("keeps a failed empty's message with the account it ran in", async () => {
     const user = userEvent.setup();
     vi.mocked(emptyStorageBucket).mockRejectedValue(new Error("S3 refused to delete 1 of 1 entries"));
