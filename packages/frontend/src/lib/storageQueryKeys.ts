@@ -16,3 +16,8 @@ export function storageObjectsKey(target: StorageTarget, prefix?: string): unkno
     const key: unknown[] = ['storage-objects', target.accountId, target.cloud, target.bucketId]
     return prefix === undefined ? key : [...key, prefix]
 }
+
+/** One string per target, for comparing a captured target with the one on screen. */
+export function storageTargetKey(target: StorageTarget): string {
+    return JSON.stringify([target.accountId, target.cloud, target.bucketId])
+}

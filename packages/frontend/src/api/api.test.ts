@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, describe, expect, test, vi} from 'vitest'
 import {apiEndpointKeys, createApiClient} from './api'
-import {emptyStorageBucket} from './cloudProxyClient'
+import {copyStorageObject, deleteStorageObject, emptyStorageBucket, listStorageObjects, uploadStorageObject} from './cloudProxyClient'
 import {ACCOUNT_HEADER, setAccountId} from '@/lib/accountStore'
 
 const ACTIVE = '111111111111'
@@ -74,6 +74,17 @@ describe('shared request interceptors', () => {
             expect(fetchMock).not.toHaveBeenCalled()
         })
     }
+
+    test('object calls send the account they were given, not the active one', async () => {
+        await listStorageObjects(CONFIRMED, 'aws', 'logs')
+        await uploadStorageObject(CONFIRMED, 'aws', 'logs', 'a.txt', new Blob(['x'], {type: 'text/plain'}))
+        await deleteStorageObject(CONFIRMED, 'aws', 'logs', 'a.txt')
+        await copyStorageObject(CONFIRMED, 'aws', 'logs', 'a.txt', 'b.txt')
+
+        expect(fetchMock).toHaveBeenCalledTimes(4)
+        for (let call = 0; call < 4; call += 1) expect(sentHeaders(call).get(ACCOUNT_HEADER)).toBe(CONFIRMED)
+        expect(sentHeaders(1).get('content-type')).toBe('text/plain')
+    })
 
     test('emptyStorageBucket runs against the confirmed account, not the active one', async () => {
         const result = await emptyStorageBucket(CONFIRMED, 'aws', 'logs')
