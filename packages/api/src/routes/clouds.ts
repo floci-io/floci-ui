@@ -10,7 +10,7 @@ import type {
     ServiceSchema,
     SqlConnectionInput,
 } from '../cloud-spi/types'
-import {clampLimit, type PageQuery} from '../cloud-spi/childCollections'
+import {clampLimit, parseKeyQuery, type PageQuery} from '../cloud-spi/childCollections'
 import {CloudError, NotFoundError, toHttpError, ValidationError} from '../cloud-spi/errors'
 import {isServiceType} from '../cloud-spi/serviceCatalog'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
@@ -686,6 +686,17 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.post('/:cloud/services/:service/resources/:id/key-query', async (c) => {
+        const target = childTarget(c)
+        if (!target) throw new NotFoundError('Unknown cloud or service')
+
+        return withRuntime(c, async () => {
+            const body = await c.req.json<KeyQueryBody>()
+            const page = await svc(c).queryFlatItemsByKey(target.cloud, target.service, c.req.param('id'), parseKeyQuery(body), bodyPageQuery(body))
+            return c.json(page)
+        })
+    })
+
     app.get('/:cloud/services/:service/resources/:id', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
@@ -1009,15 +1020,20 @@ function pageQuery(c: Context): PageQuery {
     return {cursor: c.req.query('cursor'), limit: clampLimit(c.req.query('limit'))}
 }
 
-interface QueryBody {
-    query?: string
+interface PageBody {
     cursor?: unknown
     limit?: unknown
 }
 
+interface QueryBody extends PageBody {
+    query?: string
+}
+
+type KeyQueryBody = PageBody & Record<string, unknown>
+
 // A query travels in the body, so its continuation does too: a cursor in the
 // URL would sit next to a statement it is not valid for.
-function bodyPageQuery(body: QueryBody): PageQuery {
+function bodyPageQuery(body: PageBody): PageQuery {
     if (body.cursor !== undefined && body.cursor !== null && typeof body.cursor !== 'string') {
         throw new ValidationError('cursor must be a string.')
     }

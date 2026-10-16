@@ -52,6 +52,7 @@ import type {
     CollectionPage,
     DocumentStoreAdapter,
     ItemStoreAdapter,
+    KeyQuery,
     PageQuery,
 } from '../cloud-spi/childCollections'
 import {NotSupportedError} from '../cloud-spi/errors'
@@ -387,6 +388,12 @@ export class CloudProxyService {
         const items = this.requireItems(cloud, service)
         if (!items.queryItems) throw new NotSupportedError(`Querying items is not supported for ${cloud}/${service}`)
         return items.queryItems(resourceId, query, page)
+    }
+
+    async queryFlatItemsByKey(cloud: CloudProvider, service: CloudServiceType, resourceId: string, query: KeyQuery, page: PageQuery = {}): Promise<CollectionPage<ChildItem>> {
+        const items = this.requireItems(cloud, service)
+        if (!items.queryItemsByKey) throw new NotSupportedError(`Querying items by key is not supported for ${cloud}/${service}`)
+        return items.queryItemsByKey(resourceId, query, page)
     }
 
     private requireDocuments(cloud: CloudProvider, service: CloudServiceType): DocumentStoreAdapter {

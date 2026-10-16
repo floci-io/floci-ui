@@ -84,11 +84,13 @@ export function awsDynamoDbSchema(): ServiceSchema {
                 {name: 'inspect', label: 'Inspect table', enabled: true, status: 'available', runtimeRequired: true},
             ],
             // A table is a flat item store: no collections between the table
-            // and its items. Query is PartiQL through ExecuteStatement.
+            // and its items. Query is PartiQL through ExecuteStatement; key
+            // query is Query against the table or a secondary index.
             itemActions: [
                 {name: 'list', label: 'Scan items', enabled: true, status: 'available', runtimeRequired: true},
                 {name: 'put', label: 'Put item', enabled: true, status: 'available', runtimeRequired: true},
                 {name: 'query', label: 'Run PartiQL', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'keyQuery', label: 'Query by key', enabled: true, status: 'available', runtimeRequired: true},
             ],
         },
         filters: dynamodbFilters,

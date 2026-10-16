@@ -1707,6 +1707,85 @@ describe('child collection routes', () => {
         expect(res.status).toBe(501)
     })
 
+    test('runs a key query with its continuation from the body', async () => {
+        let seen: unknown
+        const app = appWithRoutes([
+            mockAdapter('aws', {
+                items: {
+                    ...itemsStub,
+                    queryItemsByKey: async (resourceId, query, page) => {
+                        seen = {resourceId, query, page}
+                        return {items: stubItems.items, nextCursor: 'next-key'}
+                    },
+                },
+            }),
+        ])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/table-1/key-query', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({
+                index: 'by-status',
+                partitionKey: 'open',
+                sortKey: {operator: 'between', value: '2026-01', to: '2026-06'},
+                descending: true,
+                cursor: 'key-1',
+                limit: 25,
+            }),
+        })
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({items: stubItems.items, nextCursor: 'next-key'})
+        expect(seen).toEqual({
+            resourceId: 'table-1',
+            query: {index: 'by-status', partitionKey: 'open', sortKey: {operator: 'between', value: '2026-01', to: '2026-06'}, descending: true},
+            page: {cursor: 'key-1', limit: 25},
+        })
+    })
+
+    test.each([
+        ['no partition key', {}],
+        ['an empty partition key', {partitionKey: ''}],
+        ['a non-string index', {partitionKey: 'a', index: 7}],
+        ['a non-boolean descending', {partitionKey: 'a', descending: 'yes'}],
+        ['an unknown operator', {partitionKey: 'a', sortKey: {operator: 'contains', value: 'x'}}],
+        ['a sort condition without a value', {partitionKey: 'a', sortKey: {operator: 'eq'}}],
+        ['between without an upper bound', {partitionKey: 'a', sortKey: {operator: 'between', value: '1'}}],
+        ['an upper bound outside between', {partitionKey: 'a', sortKey: {operator: 'gt', value: '1', to: '2'}}],
+        ['an out-of-range limit', {partitionKey: 'a', limit: 5000}],
+    ])('rejects a key query with %s', async (_name, body) => {
+        let called = false
+        const app = appWithRoutes([
+            mockAdapter('aws', {
+                items: {
+                    ...itemsStub,
+                    queryItemsByKey: async () => {
+                        called = true
+                        return stubItems
+                    },
+                },
+            }),
+        ])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/table-1/key-query', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify(body),
+        })
+
+        expect(res.status).toBe(400)
+        expect(called).toBe(false)
+    })
+
+    test('501s a key query the store does not implement', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {items: itemsStub})])
+        const res = await app.request('/api/clouds/aws/services/storage/resources/table-1/key-query', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({partitionKey: 'a'}),
+        })
+
+        expect(res.status).toBe(501)
+    })
+
     test('passes cursor and limit through to the adapter', async () => {
         let seen: unknown
         const app = appWithRoutes([

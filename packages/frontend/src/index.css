@@ -2538,6 +2538,10 @@ pre,
     grid-column: 1 / -1;
 }
 
+.dynamodb-mode {
+    margin-right: auto;
+}
+
 .dynamodb-load-more {
     display: flex;
     justify-content: center;

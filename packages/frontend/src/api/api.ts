@@ -97,6 +97,7 @@ export const apiEndpointKeys = {
         list: "clouds.services.childCollections.flatItems.list",
         put: "clouds.services.childCollections.flatItems.put",
         query: "clouds.services.childCollections.flatItems.query",
+        keyQuery: "clouds.services.childCollections.flatItems.keyQuery",
       },
     },
     configuration: {
@@ -792,6 +793,14 @@ export const endpointRegistry: EndpointRegistry = new Map([
     apiEndpointKeys.clouds.childCollections.flatItems.query,
     {
       path: "/clouds/:cloud/services/:service/resources/:id/query",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.childCollections.flatItems.keyQuery,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/key-query",
       method: "POST",
       telemetry: { service: "cloud-proxy" },
     },

@@ -6,6 +6,7 @@ import {
     ExecuteStatementCommand,
     ListTablesCommand,
     PutItemCommand,
+    QueryCommand,
     ScanCommand,
     type DynamoDBClient,
 } from '@aws-sdk/client-dynamodb'
@@ -19,6 +20,7 @@ type Command =
     | ExecuteStatementCommand
     | ListTablesCommand
     | PutItemCommand
+    | QueryCommand
     | ScanCommand
 
 function fakeClient(send: (command: Command) => Promise<unknown>): DynamoDBClient {
@@ -281,10 +283,160 @@ describe('AwsDynamoDbAdapter', () => {
             })
 
             await expect(new AwsDynamoDbAdapter(client).items.listItems('orders', {cursor}))
-                .rejects.toThrow(new ValidationError('cursor is not a valid DynamoDB scan cursor.'))
+                .rejects.toThrow(new ValidationError('cursor is not a valid DynamoDB page cursor.'))
             expect(scans).toBe(0)
         },
     )
+
+    const indexedTable = {
+        TableName: 'orders',
+        KeySchema: [
+            {AttributeName: 'customerId', KeyType: 'HASH'},
+            {AttributeName: 'orderId', KeyType: 'RANGE'},
+        ],
+        AttributeDefinitions: [
+            {AttributeName: 'customerId', AttributeType: 'S'},
+            {AttributeName: 'orderId', AttributeType: 'S'},
+            {AttributeName: 'status', AttributeType: 'S'},
+            {AttributeName: 'total', AttributeType: 'N'},
+            {AttributeName: 'placedAt', AttributeType: 'N'},
+        ],
+        GlobalSecondaryIndexes: [{
+            IndexName: 'by-status',
+            KeySchema: [
+                {AttributeName: 'status', KeyType: 'HASH'},
+                {AttributeName: 'total', KeyType: 'RANGE'},
+            ],
+        }],
+        LocalSecondaryIndexes: [{
+            IndexName: 'by-placed-at',
+            KeySchema: [
+                {AttributeName: 'customerId', KeyType: 'HASH'},
+                {AttributeName: 'placedAt', KeyType: 'RANGE'},
+            ],
+        }],
+    }
+
+    function queryClient(onQuery: (command: QueryCommand) => unknown): DynamoDBClient {
+        return fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) return {Table: indexedTable}
+            if (command instanceof QueryCommand) return onQuery(command)
+            throw new Error('Unexpected command')
+        })
+    }
+
+    test('queries the table by partition key alone', async () => {
+        let captured: QueryCommand | undefined
+        const client = queryClient((command) => {
+            captured = command
+            return {Items: [{customerId: {S: 'c-1'}, orderId: {S: 'o-1'}, total: {N: '12'}}]}
+        })
+
+        const result = await new AwsDynamoDbAdapter(client).items.queryItemsByKey!('orders', {partitionKey: 'c-1'})
+
+        expect(captured?.input).toEqual({
+            TableName: 'orders',
+            IndexName: undefined,
+            KeyConditionExpression: '#pk = :pk',
+            ExpressionAttributeNames: {'#pk': 'customerId'},
+            ExpressionAttributeValues: {':pk': {S: 'c-1'}},
+            ScanIndexForward: true,
+            Limit: 100,
+            ExclusiveStartKey: undefined,
+        })
+        expect(result).toEqual({
+            items: [childItem({customerId: 'c-1', orderId: 'o-1'}, {customerId: 'c-1', orderId: 'o-1', total: 12})],
+            nextCursor: null,
+        })
+    })
+
+    test.each([
+        ['eq', '#pk = :pk AND #sk = :sk'],
+        ['lt', '#pk = :pk AND #sk < :sk'],
+        ['lte', '#pk = :pk AND #sk <= :sk'],
+        ['gt', '#pk = :pk AND #sk > :sk'],
+        ['gte', '#pk = :pk AND #sk >= :sk'],
+        ['beginsWith', '#pk = :pk AND begins_with(#sk, :sk)'],
+    ] as const)('builds the %s sort key condition', async (operator, expression) => {
+        let captured: QueryCommand | undefined
+        const client = queryClient((command) => {
+            captured = command
+            return {Items: []}
+        })
+
+        await new AwsDynamoDbAdapter(client).items.queryItemsByKey!('orders', {partitionKey: 'c-1', sortKey: {operator, value: 'o-1'}})
+
+        expect(captured?.input.KeyConditionExpression).toBe(expression)
+        expect(captured?.input.ExpressionAttributeNames).toEqual({'#pk': 'customerId', '#sk': 'orderId'})
+        expect(captured?.input.ExpressionAttributeValues).toEqual({':pk': {S: 'c-1'}, ':sk': {S: 'o-1'}})
+    })
+
+    test('queries a global secondary index with typed keys, between and descending order', async () => {
+        let captured: QueryCommand | undefined
+        const client = queryClient((command) => {
+            captured = command
+            return {
+                Items: [{customerId: {S: 'c-2'}, orderId: {S: 'o-9'}, status: {S: 'open'}, total: {N: '40'}}],
+                LastEvaluatedKey: {customerId: {S: 'c-2'}, orderId: {S: 'o-9'}, status: {S: 'open'}, total: {N: '40'}},
+            }
+        })
+
+        const result = await new AwsDynamoDbAdapter(client).items.queryItemsByKey!(
+            'orders',
+            {index: 'by-status', partitionKey: 'open', sortKey: {operator: 'between', value: '10', to: '50'}, descending: true},
+            {limit: 5},
+        )
+
+        expect(captured?.input).toMatchObject({
+            TableName: 'orders',
+            IndexName: 'by-status',
+            KeyConditionExpression: '#pk = :pk AND #sk BETWEEN :sk AND :skTo',
+            ExpressionAttributeNames: {'#pk': 'status', '#sk': 'total'},
+            ExpressionAttributeValues: {':pk': {S: 'open'}, ':sk': {N: '10'}, ':skTo': {N: '50'}},
+            ScanIndexForward: false,
+            Limit: 5,
+        })
+        // Ids stay the table's primary key, so a row matches its scanned record.
+        expect(result.items[0].id).toBe(JSON.stringify({customerId: 'c-2', orderId: 'o-9'}))
+        expect(result.nextCursor).not.toBeNull()
+    })
+
+    test('continues an index query from its cursor', async () => {
+        const startKeys: unknown[] = []
+        const client = queryClient((command) => {
+            startKeys.push(command.input.ExclusiveStartKey)
+            return {Items: [], LastEvaluatedKey: {customerId: {S: 'c-1'}, orderId: {S: 'o-3'}, placedAt: {N: '1700'}}}
+        })
+        const items = new AwsDynamoDbAdapter(client).items
+        const query = {index: 'by-placed-at', partitionKey: 'c-1'}
+
+        const first = await items.queryItemsByKey!('orders', query)
+        await items.queryItemsByKey!('orders', query, {cursor: first.nextCursor ?? undefined})
+
+        expect(startKeys).toEqual([undefined, {customerId: {S: 'c-1'}, orderId: {S: 'o-3'}, placedAt: {N: '1700'}}])
+    })
+
+    test.each([
+        ['an unknown index', {index: 'missing', partitionKey: 'a'}, 'DynamoDB table orders has no index named missing.'],
+        ['a sort condition on a table without a sort key', {partitionKey: 'a', sortKey: {operator: 'eq' as const, value: 'x'}}, 'DynamoDB table events has no sort key.'],
+        ['an unquoted number key value', {index: 'by-status', partitionKey: 'open', sortKey: {operator: 'gt' as const, value: 'ten'}}, 'Key attribute total must be a number.'],
+    ])('rejects %s before querying', async (_name, query, message) => {
+        let queries = 0
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return command.input.TableName === 'events'
+                    ? {Table: {TableName: 'events', KeySchema: [{AttributeName: 'id', KeyType: 'HASH'}], AttributeDefinitions: [{AttributeName: 'id', AttributeType: 'S'}]}}
+                    : {Table: indexedTable}
+            }
+            queries += 1
+            return {}
+        })
+        const tableName = message.includes('events') ? 'events' : 'orders'
+
+        await expect(new AwsDynamoDbAdapter(client).items.queryItemsByKey!(tableName, query))
+            .rejects.toThrow(new ValidationError(message))
+        expect(queries).toBe(0)
+    })
 
     test('puts a record using the table key types', async () => {
         let captured: PutItemCommand | undefined

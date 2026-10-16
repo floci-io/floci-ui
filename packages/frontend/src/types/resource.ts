@@ -100,6 +100,16 @@ export interface CollectionPage<T> {
     nextCursor: string | null
 }
 
+export type KeyConditionOperator = 'eq' | 'lt' | 'lte' | 'gt' | 'gte' | 'beginsWith' | 'between'
+
+/** A flat-store lookup by key; the API resolves key names and types. */
+export interface KeyQuery {
+    index?: string
+    partitionKey: string
+    sortKey?: {operator: KeyConditionOperator; value: string; to?: string}
+    descending?: boolean
+}
+
 export interface SqlCredentials {
     username: string
     password: string

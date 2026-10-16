@@ -1,17 +1,18 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {render, screen, waitFor} from '@testing-library/react'
+import {render, screen, waitFor, within} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {ReactElement} from 'react'
 import {DynamoDbTableExplorer} from '@/components/DynamoDbTableExplorer'
 import type {ChildItem, CloudResource, CollectionPage} from '@/types/resource'
 
-const {listFlatItems, putFlatItem, queryFlatItems} = vi.hoisted(() => ({
+const {listFlatItems, putFlatItem, queryFlatItems, queryFlatItemsByKey} = vi.hoisted(() => ({
     listFlatItems: vi.fn(),
     putFlatItem: vi.fn(),
     queryFlatItems: vi.fn(),
+    queryFlatItemsByKey: vi.fn(),
 }))
 
-vi.mock('@/api/cloudProxyClient', () => ({listFlatItems, putFlatItem, queryFlatItems}))
+vi.mock('@/api/cloudProxyClient', () => ({listFlatItems, putFlatItem, queryFlatItems, queryFlatItemsByKey}))
 
 function table(id: string): CloudResource {
     return {
@@ -251,5 +252,138 @@ describe('DynamoDbTableExplorer', () => {
 
         expect(await screen.findByRole('cell', {name: '{"id":"order-2"}'})).toBeInTheDocument()
         expect(listFlatItems).toHaveBeenLastCalledWith('aws', 'nosql', 'orders', 'new-token', expect.any(AbortSignal))
+    })
+})
+
+function indexedTable(): CloudResource {
+    return {
+        ...table('orders'),
+        metadata: {
+            keySchema: [{AttributeName: 'customerId', KeyType: 'HASH'}, {AttributeName: 'orderId', KeyType: 'RANGE'}],
+            attributeDefinitions: [
+                {AttributeName: 'customerId', AttributeType: 'S'},
+                {AttributeName: 'orderId', AttributeType: 'S'},
+                {AttributeName: 'status', AttributeType: 'S'},
+                {AttributeName: 'total', AttributeType: 'N'},
+            ],
+            globalSecondaryIndexes: [{
+                IndexName: 'by-status',
+                KeySchema: [{AttributeName: 'status', KeyType: 'HASH'}, {AttributeName: 'total', KeyType: 'RANGE'}],
+            }],
+        },
+    }
+}
+
+function order(body: Record<string, unknown>): ChildItem {
+    const key = {customerId: body.customerId, orderId: body.orderId}
+    return {id: JSON.stringify(key), collectionId: null, timestamp: null, body, metadata: {key}}
+}
+
+describe('DynamoDbTableExplorer query mode', () => {
+    beforeEach(() => {
+        listFlatItems.mockResolvedValue(page([order({customerId: 'c-1', orderId: 'o-1'})]))
+    })
+
+    async function openQueryMode() {
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={indexedTable()} runtimeReachable/>)
+        await user.click(screen.getByRole('radio', {name: 'Query'}))
+        return user
+    }
+
+    test('offers the table and every secondary index with their keys', async () => {
+        await openQueryMode()
+
+        const options = within(screen.getByRole('combobox', {name: 'Table or index'})).getAllByRole('option')
+        expect(options.map((option) => option.textContent)).toEqual([
+            'Table: orders (customerId, orderId)',
+            'GSI: by-status (status, total)',
+        ])
+        expect(queryFlatItemsByKey).not.toHaveBeenCalled()
+    })
+
+    test('queries the table by partition key and shows the matches', async () => {
+        queryFlatItemsByKey.mockResolvedValue(page([order({customerId: 'c-9', orderId: 'o-4'})]))
+        const user = await openQueryMode()
+        const run = screen.getByRole('button', {name: 'Run query'})
+
+        expect(run).toBeDisabled()
+        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-9')
+        await user.click(run)
+
+        expect(await screen.findByRole('cell', {name: '{"customerId":"c-9","orderId":"o-4"}'})).toBeInTheDocument()
+        expect(screen.queryByRole('cell', {name: '{"customerId":"c-1","orderId":"o-1"}'})).not.toBeInTheDocument()
+        expect(queryFlatItemsByKey).toHaveBeenCalledWith('aws', 'nosql', 'orders', {partitionKey: 'c-9'}, undefined, expect.any(AbortSignal))
+    })
+
+    test('queries an index with a between condition in descending order', async () => {
+        queryFlatItemsByKey.mockResolvedValue(page([]))
+        const user = await openQueryMode()
+
+        await user.selectOptions(screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
+        await user.type(screen.getByRole('textbox', {name: 'status (S)'}), 'open')
+        const condition = screen.getByRole('combobox', {name: 'total condition'})
+        expect(within(condition).queryByRole('option', {name: 'Begins with'})).not.toBeInTheDocument()
+        await user.selectOptions(condition, 'between')
+        await user.type(screen.getByRole('textbox', {name: 'total lower bound'}), '10')
+        expect(screen.getByRole('button', {name: 'Run query'})).toBeDisabled()
+        await user.type(screen.getByRole('textbox', {name: 'total upper bound'}), '50')
+        await user.selectOptions(screen.getByRole('combobox', {name: 'Order'}), 'desc')
+        await user.click(screen.getByRole('button', {name: 'Run query'}))
+
+        expect(await screen.findByText('No items match this key condition.')).toBeInTheDocument()
+        expect(queryFlatItemsByKey).toHaveBeenCalledWith('aws', 'nosql', 'orders', {
+            index: 'by-status',
+            partitionKey: 'open',
+            sortKey: {operator: 'between', value: '10', to: '50'},
+            descending: true,
+        }, undefined, expect.any(AbortSignal))
+    })
+
+    test('continues the query that produced the cursor', async () => {
+        queryFlatItemsByKey
+            .mockResolvedValueOnce(page([order({customerId: 'c-1', orderId: 'o-1'})], 'key-2'))
+            .mockResolvedValueOnce(page([order({customerId: 'c-1', orderId: 'o-2'})]))
+        const user = await openQueryMode()
+
+        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
+        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), '-edited')
+        await user.click(await screen.findByRole('button', {name: 'Load more'}))
+
+        expect(await screen.findByRole('cell', {name: '{"customerId":"c-1","orderId":"o-2"}'})).toBeInTheDocument()
+        expect(queryFlatItemsByKey).toHaveBeenLastCalledWith('aws', 'nosql', 'orders', {partitionKey: 'c-1'}, 'key-2', expect.any(AbortSignal))
+    })
+
+    test('reruns an identical query instead of serving the cached result', async () => {
+        queryFlatItemsByKey.mockResolvedValue(page([]))
+        const user = await openQueryMode()
+        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1')
+
+        await user.click(screen.getByRole('button', {name: 'Run query'}))
+        await screen.findByText('No items match this key condition.')
+        await user.click(screen.getByRole('button', {name: 'Run query'}))
+
+        await waitFor(() => expect(queryFlatItemsByKey).toHaveBeenCalledTimes(2))
+    })
+
+    test('shows the query error', async () => {
+        queryFlatItemsByKey.mockRejectedValue(new Error('Key attribute total must be a number. (invalid_request)'))
+        const user = await openQueryMode()
+
+        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
+
+        expect(await screen.findByText('Key attribute total must be a number. (invalid_request)')).toBeInTheDocument()
+    })
+
+    test('returns to the scanned records', async () => {
+        queryFlatItemsByKey.mockResolvedValue(page([]))
+        const user = await openQueryMode()
+        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
+        await screen.findByText('No items match this key condition.')
+
+        await user.click(screen.getByRole('radio', {name: 'Scan'}))
+
+        expect(await screen.findByRole('cell', {name: '{"customerId":"c-1","orderId":"o-1"}'})).toBeInTheDocument()
+        expect(screen.queryByRole('form', {name: 'Query by key'})).not.toBeInTheDocument()
     })
 })

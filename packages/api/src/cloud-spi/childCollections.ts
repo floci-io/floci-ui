@@ -49,8 +49,30 @@ export interface ChildItem {
     metadata: Record<string, unknown>
 }
 
+export const KEY_CONDITION_OPERATORS = ['eq', 'lt', 'lte', 'gt', 'gte', 'beginsWith', 'between'] as const
+export type KeyConditionOperator = typeof KEY_CONDITION_OPERATORS[number]
+
+/**
+ * A lookup by key rather than by a query language: the partition key value,
+ * optionally narrowed by a condition on the sort key. Values are strings; the
+ * adapter resolves each key's attribute name and type from the resource or the
+ * named index, so callers never restate the key schema.
+ */
+export interface KeyQuery {
+    /** A secondary index to read; omitted reads the resource itself. */
+    index?: string
+    partitionKey: string
+    sortKey?: {
+        operator: KeyConditionOperator
+        value: string
+        /** Upper bound, only for `between`. */
+        to?: string
+    }
+    descending?: boolean
+}
+
 export type CollectionActionName = 'list' | 'create' | 'delete'
-export type ItemActionName = 'list' | 'get' | 'put' | 'delete' | 'query'
+export type ItemActionName = 'list' | 'get' | 'put' | 'delete' | 'query' | 'keyQuery'
 
 /** Two-level store: resource → collections → items. */
 export interface DocumentStoreAdapter {
@@ -75,6 +97,53 @@ export interface ItemStoreAdapter {
      * cursor is only valid for the same `query` against the same resource.
      */
     queryItems?(resourceId: string, query: string, page?: PageQuery): Promise<CollectionPage<ChildItem>>
+    /** `page.cursor` is only valid for the same `query` against the same resource. */
+    queryItemsByKey?(resourceId: string, query: KeyQuery, page?: PageQuery): Promise<CollectionPage<ChildItem>>
+}
+
+/** Validate a request body into a KeyQuery. Shape only; the adapter checks it against the key schema. */
+export function parseKeyQuery(body: unknown): KeyQuery {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        throw new ValidationError('A key query must be a JSON object.')
+    }
+    const {index, partitionKey, sortKey, descending} = body as Record<string, unknown>
+
+    if (index !== undefined && index !== null && (typeof index !== 'string' || !index)) {
+        throw new ValidationError('index must be a non-empty string.')
+    }
+    if (typeof partitionKey !== 'string' || !partitionKey) {
+        throw new ValidationError('partitionKey is required.')
+    }
+    if (descending !== undefined && descending !== null && typeof descending !== 'boolean') {
+        throw new ValidationError('descending must be a boolean.')
+    }
+
+    const query: KeyQuery = {partitionKey}
+    if (index) query.index = index
+    if (descending) query.descending = true
+    if (sortKey !== undefined && sortKey !== null) query.sortKey = parseSortKeyCondition(sortKey)
+    return query
+}
+
+function parseSortKeyCondition(value: unknown): NonNullable<KeyQuery['sortKey']> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new ValidationError('sortKey must be an object.')
+    }
+    const {operator, value: operand, to} = value as Record<string, unknown>
+    if (!KEY_CONDITION_OPERATORS.includes(operator as KeyConditionOperator)) {
+        throw new ValidationError(`sortKey.operator must be one of ${KEY_CONDITION_OPERATORS.join(', ')}.`)
+    }
+    if (typeof operand !== 'string' || !operand) {
+        throw new ValidationError('sortKey.value is required.')
+    }
+    if (operator !== 'between') {
+        if (to !== undefined && to !== null) throw new ValidationError('sortKey.to is only valid with between.')
+        return {operator: operator as KeyConditionOperator, value: operand}
+    }
+    if (typeof to !== 'string' || !to) {
+        throw new ValidationError('sortKey.to is required with between.')
+    }
+    return {operator: 'between', value: operand, to}
 }
 
 /**

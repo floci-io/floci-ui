@@ -26,6 +26,7 @@ import type {
   CreateLambdaTriggerInput,
   DatabaseSnapshot,
   DeleteLambdaTriggerOptions,
+  KeyQuery,
   KubernetesFargateProfile,
   KubernetesNodegroup,
   LambdaTrigger,
@@ -628,6 +629,22 @@ export async function queryFlatItems(
   const res = await apiClient.call<CollectionPage<ChildItem>, { query: string; cursor?: string }>(
     apiEndpointKeys.clouds.childCollections.flatItems.query,
     requestOptions(cloud, service, { signal, body: cursor ? { query, cursor } : { query } }),
+    { cloud, service, id: resourceId },
+  );
+  return res.data;
+}
+
+export async function queryFlatItemsByKey(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  resourceId: string,
+  query: KeyQuery,
+  cursor?: string,
+  signal?: AbortSignal,
+): Promise<CollectionPage<ChildItem>> {
+  const res = await apiClient.call<CollectionPage<ChildItem>, KeyQuery & { cursor?: string }>(
+    apiEndpointKeys.clouds.childCollections.flatItems.keyQuery,
+    requestOptions(cloud, service, { signal, body: cursor ? { ...query, cursor } : query }),
     { cloud, service, id: resourceId },
   );
   return res.data;

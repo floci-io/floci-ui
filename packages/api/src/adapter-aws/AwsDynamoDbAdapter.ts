@@ -5,11 +5,13 @@ import {
     ExecuteStatementCommand,
     ListTablesCommand,
     PutItemCommand,
+    QueryCommand,
     ScanCommand,
     type AttributeDefinition,
     type AttributeValue,
     type DynamoDBClient,
     type KeySchemaElement,
+    type KeyType,
     type ScalarAttributeType,
     type TableDescription,
 } from '@aws-sdk/client-dynamodb'
@@ -21,6 +23,8 @@ import {
     type ChildItem,
     type CollectionPage,
     type ItemStoreAdapter,
+    type KeyConditionOperator,
+    type KeyQuery,
     type PageQuery,
 } from '../cloud-spi/childCollections'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
@@ -150,11 +154,11 @@ class DynamoDbItemStore implements ItemStoreAdapter {
         const response = await this.dynamodb.send(new ScanCommand({
             TableName: resourceId,
             Limit: page.limit ?? DEFAULT_PAGE_LIMIT,
-            ExclusiveStartKey: page.cursor ? decodeScanCursor(page.cursor) : undefined,
+            ExclusiveStartKey: page.cursor ? decodePageCursor(page.cursor) : undefined,
         }))
         return {
             items: (response.Items ?? []).map((rawItem, index) => toChildItem(rawItem, keys, index)),
-            nextCursor: encodeScanCursor(response.LastEvaluatedKey),
+            nextCursor: encodePageCursor(response.LastEvaluatedKey),
         }
     }
 
@@ -200,6 +204,67 @@ class DynamoDbItemStore implements ItemStoreAdapter {
             nextCursor: response.NextToken ?? null,
         }
     }
+
+    /**
+     * Runs Query against the table or one of its secondary indexes. Key names
+     * and types come from the described table, so the caller sends values only.
+     */
+    async queryItemsByKey(resourceId: string, query: KeyQuery, page: PageQuery = {}): Promise<CollectionPage<ChildItem>> {
+        const table = await describeTable(this.dynamodb, resourceId)
+        const accessPath = query.index ? `index ${query.index}` : `table ${resourceId}`
+        const accessKeys = keyAttributes(table, query.index ? indexKeySchema(table, query.index) : table.KeySchema)
+        const partitionKey = accessKeys.find(({keyType}) => keyType === 'HASH')
+        const sortKey = accessKeys.find(({keyType}) => keyType === 'RANGE')
+        if (!partitionKey) throw new RuntimeError(`DynamoDB ${accessPath} has no partition key`)
+        const untypedKey = [partitionKey, sortKey].find((key) => key && !key.type)
+        if (untypedKey) throw new RuntimeError(`DynamoDB ${accessPath} has no type definition for key ${untypedKey.name}`)
+
+        const names: Record<string, string> = {'#pk': partitionKey.name}
+        const values: Record<string, AttributeValue> = {':pk': marshalKey(partitionKey, query.partitionKey)}
+        let keyCondition = '#pk = :pk'
+        if (query.sortKey) {
+            if (!sortKey) throw new ValidationError(`DynamoDB ${accessPath} has no sort key.`)
+            names['#sk'] = sortKey.name
+            values[':sk'] = marshalKey(sortKey, query.sortKey.value)
+            if (query.sortKey.operator === 'between') values[':skTo'] = marshalKey(sortKey, query.sortKey.to ?? '')
+            keyCondition += ` AND ${SORT_KEY_CONDITIONS[query.sortKey.operator]}`
+        }
+
+        const response = await this.dynamodb.send(new QueryCommand({
+            TableName: resourceId,
+            IndexName: query.index,
+            KeyConditionExpression: keyCondition,
+            ExpressionAttributeNames: names,
+            ExpressionAttributeValues: values,
+            ScanIndexForward: !query.descending,
+            Limit: page.limit ?? DEFAULT_PAGE_LIMIT,
+            ExclusiveStartKey: page.cursor ? decodePageCursor(page.cursor) : undefined,
+        }))
+        // Rows are identified by the table's primary key, which every index
+        // projection carries, so ids match the scanned records.
+        const tableKeys = keyAttributes(table)
+        return {
+            items: (response.Items ?? []).map((rawItem, index) => toChildItem(rawItem, tableKeys, index)),
+            nextCursor: encodePageCursor(response.LastEvaluatedKey),
+        }
+    }
+}
+
+const SORT_KEY_CONDITIONS: Record<KeyConditionOperator, string> = {
+    eq: '#sk = :sk',
+    lt: '#sk < :sk',
+    lte: '#sk <= :sk',
+    gt: '#sk > :sk',
+    gte: '#sk >= :sk',
+    beginsWith: 'begins_with(#sk, :sk)',
+    between: '#sk BETWEEN :sk AND :skTo',
+}
+
+function indexKeySchema(table: TableDescription, indexName: string): KeySchemaElement[] | undefined {
+    const index = [...(table.GlobalSecondaryIndexes ?? []), ...(table.LocalSecondaryIndexes ?? [])]
+        .find(({IndexName}) => IndexName === indexName)
+    if (!index) throw new ValidationError(`DynamoDB table ${table.TableName} has no index named ${indexName}.`)
+    return index.KeySchema
 }
 
 async function describeTable(dynamodb: DynamoDBClient, tableName: string): Promise<TableDescription> {
@@ -229,7 +294,7 @@ function toChildItem(rawItem: Record<string, AttributeValue>, keys: KeyAttribute
  * LastEvaluatedKey holds only key attributes, which are scalar S, N or B.
  * Binary values are carried as base64 so the cursor survives JSON.
  */
-function encodeScanCursor(lastEvaluatedKey?: Record<string, AttributeValue>): string | null {
+function encodePageCursor(lastEvaluatedKey?: Record<string, AttributeValue>): string | null {
     if (!lastEvaluatedKey || Object.keys(lastEvaluatedKey).length === 0) return null
     const portable = Object.fromEntries(Object.entries(lastEvaluatedKey).map(([name, value]) => {
         if (value.B !== undefined) return [name, {B: Buffer.from(value.B).toString('base64')}]
@@ -238,39 +303,42 @@ function encodeScanCursor(lastEvaluatedKey?: Record<string, AttributeValue>): st
     return Buffer.from(JSON.stringify(portable)).toString('base64url')
 }
 
-function decodeScanCursor(cursor: string): Record<string, AttributeValue> {
+function decodePageCursor(cursor: string): Record<string, AttributeValue> {
     let parsed: unknown
     try {
         parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
     } catch (error) {
-        throw new ValidationError('cursor is not a valid DynamoDB scan cursor.', {cause: error})
+        throw new ValidationError('cursor is not a valid DynamoDB page cursor.', {cause: error})
     }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.keys(parsed).length === 0) {
-        throw new ValidationError('cursor is not a valid DynamoDB scan cursor.')
+        throw new ValidationError('cursor is not a valid DynamoDB page cursor.')
     }
     return Object.fromEntries(Object.entries(parsed).map(([name, value]) => {
         const attribute = value as {S?: unknown; N?: unknown; B?: unknown}
         if (typeof attribute?.S === 'string') return [name, {S: attribute.S}]
         if (typeof attribute?.N === 'string') return [name, {N: attribute.N}]
         if (typeof attribute?.B === 'string') return [name, {B: Buffer.from(attribute.B, 'base64')}]
-        throw new ValidationError('cursor is not a valid DynamoDB scan cursor.')
+        throw new ValidationError('cursor is not a valid DynamoDB page cursor.')
     }))
 }
 
 interface KeyAttribute {
     name: string
     type?: ScalarAttributeType
+    keyType?: KeyType
 }
 
-function keyAttributes(table: TableDescription): KeyAttribute[] {
+// AttributeDefinitions covers every key of the table and its indexes, so one
+// lookup types the table's own key schema or any index's.
+function keyAttributes(table: TableDescription, keySchema: KeySchemaElement[] = table.KeySchema ?? []): KeyAttribute[] {
     const attributeTypes = new Map(
         (table.AttributeDefinitions ?? [])
             .filter((definition): definition is AttributeDefinition & {AttributeName: string} => Boolean(definition.AttributeName))
             .map((definition) => [definition.AttributeName, definition.AttributeType]),
     )
-    return (table.KeySchema ?? [])
+    return keySchema
         .filter((key): key is KeySchemaElement & {AttributeName: string} => Boolean(key.AttributeName))
-        .map((key) => ({name: key.AttributeName, type: attributeTypes.get(key.AttributeName)}))
+        .map((key) => ({name: key.AttributeName, type: attributeTypes.get(key.AttributeName), keyType: key.KeyType}))
 }
 
 function marshalDocument(document: Record<string, unknown>, keys: KeyAttribute[]): Record<string, AttributeValue> {

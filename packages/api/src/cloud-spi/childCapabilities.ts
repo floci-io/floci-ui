@@ -22,6 +22,7 @@ const ITEM_METHODS: Record<ItemActionName, string> = {
     put: 'putItem',
     delete: 'deleteItem',
     query: 'queryItems',
+    keyQuery: 'queryItemsByKey',
 }
 
 export function checkChildCapabilities(adapter: CloudServiceAdapter): string[] {
