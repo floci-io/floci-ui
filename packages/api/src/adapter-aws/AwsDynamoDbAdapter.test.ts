@@ -11,7 +11,7 @@ import {
     type DynamoDBClient,
 } from '@aws-sdk/client-dynamodb'
 import {AwsDynamoDbAdapter} from './AwsDynamoDbAdapter'
-import {ValidationError} from '../cloud-spi/errors'
+import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 
 type Command =
     | CreateTableCommand
@@ -435,6 +435,21 @@ describe('AwsDynamoDbAdapter', () => {
 
         await expect(new AwsDynamoDbAdapter(client).items.queryItemsByKey!(tableName, query))
             .rejects.toThrow(new ValidationError(message))
+        expect(queries).toBe(0)
+    })
+
+    test('does not fall back to the table keys for an index described without a key schema', async () => {
+        let queries = 0
+        const client = fakeClient(async (command) => {
+            if (command instanceof DescribeTableCommand) {
+                return {Table: {...indexedTable, GlobalSecondaryIndexes: [{IndexName: 'broken'}]}}
+            }
+            queries += 1
+            return {}
+        })
+
+        await expect(new AwsDynamoDbAdapter(client).items.queryItemsByKey!('orders', {index: 'broken', partitionKey: 'c-1'}))
+            .rejects.toThrow(new RuntimeError('DynamoDB index broken has no partition key'))
         expect(queries).toBe(0)
     })
 

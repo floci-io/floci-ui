@@ -260,11 +260,12 @@ const SORT_KEY_CONDITIONS: Record<KeyConditionOperator, string> = {
     between: '#sk BETWEEN :sk AND :skTo',
 }
 
-function indexKeySchema(table: TableDescription, indexName: string): KeySchemaElement[] | undefined {
+function indexKeySchema(table: TableDescription, indexName: string): KeySchemaElement[] {
     const index = [...(table.GlobalSecondaryIndexes ?? []), ...(table.LocalSecondaryIndexes ?? [])]
         .find(({IndexName}) => IndexName === indexName)
     if (!index) throw new ValidationError(`DynamoDB table ${table.TableName} has no index named ${indexName}.`)
-    return index.KeySchema
+    // Never undefined: keyAttributes would default to the table's own keys.
+    return index.KeySchema ?? []
 }
 
 async function describeTable(dynamodb: DynamoDBClient, tableName: string): Promise<TableDescription> {

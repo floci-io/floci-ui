@@ -375,6 +375,82 @@ describe('DynamoDbTableExplorer query mode', () => {
         expect(await screen.findByText('Key attribute total must be a number. (invalid_request)')).toBeInTheDocument()
     })
 
+    test('prompts for a partition key instead of counting zero records before the first query', async () => {
+        await openQueryMode()
+
+        expect(screen.getByText('Enter a partition key to query')).toBeInTheDocument()
+        expect(screen.queryByText('0 records')).not.toBeInTheDocument()
+    })
+
+    test('does not rescan the hidden records while in query mode', async () => {
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={indexedTable()} runtimeReachable/>)
+        await screen.findByRole('cell', {name: '{"customerId":"c-1","orderId":"o-1"}'})
+        await user.click(screen.getByRole('radio', {name: 'Query'}))
+        const scans = listFlatItems.mock.calls.length
+        queryFlatItems.mockResolvedValue(page([]))
+
+        const editor = screen.getByRole('textbox', {name: 'PartiQL statement'})
+        await user.clear(editor)
+        await user.type(editor, `DELETE FROM "orders" WHERE customerId = 'c-1' AND orderId = 'o-1'`)
+        await user.click(screen.getByRole('button', {name: 'Run statement'}))
+        await screen.findByText('0 rows')
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(listFlatItems.mock.calls.length).toBe(scans)
+    })
+
+    test('refreshes the query results after a PartiQL write', async () => {
+        queryFlatItemsByKey.mockResolvedValue(page([order({customerId: 'c-1', orderId: 'o-1'})]))
+        queryFlatItems.mockResolvedValue(page([]))
+        const user = await openQueryMode()
+        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
+        await screen.findByRole('cell', {name: '{"customerId":"c-1","orderId":"o-1"}'})
+        queryFlatItemsByKey.mockResolvedValue(page([]))
+
+        const editor = screen.getByRole('textbox', {name: 'PartiQL statement'})
+        await user.clear(editor)
+        await user.type(editor, `DELETE FROM "orders" WHERE customerId = 'c-1' AND orderId = 'o-1'`)
+        await user.click(screen.getByRole('button', {name: 'Run statement'}))
+
+        expect(await screen.findByText('No items match this key condition.')).toBeInTheDocument()
+        expect(screen.queryByRole('cell', {name: '{"customerId":"c-1","orderId":"o-1"}'})).not.toBeInTheDocument()
+    })
+
+    test('labels rows from an index that does not project every attribute', async () => {
+        const resource = indexedTable()
+        resource.metadata.globalSecondaryIndexes = [{
+            IndexName: 'by-status',
+            KeySchema: [{AttributeName: 'status', KeyType: 'HASH'}, {AttributeName: 'total', KeyType: 'RANGE'}],
+            Projection: {ProjectionType: 'KEYS_ONLY'},
+        }]
+        queryFlatItemsByKey.mockResolvedValue(page([order({customerId: 'c-1', orderId: 'o-1', status: 'open', total: 10})]))
+        const user = userEvent.setup()
+        renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={resource} runtimeReachable/>)
+        await user.click(screen.getByRole('radio', {name: 'Query'}))
+
+        await user.selectOptions(screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
+        await user.type(screen.getByRole('textbox', {name: 'status (S)'}), 'open{Enter}')
+        await user.click(await screen.findByRole('button', {name: '{"customerId":"c-1","orderId":"o-1"}'}))
+
+        expect(screen.getByText('Attributes projected into by-status')).toBeInTheDocument()
+    })
+
+    test('shows a record added in query mode among the scanned records', async () => {
+        queryFlatItemsByKey.mockResolvedValue(page([]))
+        putFlatItem.mockResolvedValue(order({customerId: 'c-5', orderId: 'o-1'}))
+        const user = await openQueryMode()
+        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
+        await screen.findByText('No items match this key condition.')
+
+        await user.click(screen.getByRole('button', {name: 'Add record'}))
+        listFlatItems.mockResolvedValue(page([order({customerId: 'c-1', orderId: 'o-1'}), order({customerId: 'c-5', orderId: 'o-1'})]))
+        await user.click(within(screen.getByRole('dialog')).getByRole('button', {name: 'Add record'}))
+
+        expect(await screen.findByRole('button', {name: '{"customerId":"c-5","orderId":"o-1"}', pressed: true})).toBeInTheDocument()
+        expect(screen.getByRole('radio', {name: 'Scan'})).toBeChecked()
+    })
+
     test('returns to the scanned records', async () => {
         queryFlatItemsByKey.mockResolvedValue(page([]))
         const user = await openQueryMode()

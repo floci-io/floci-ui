@@ -691,7 +691,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         if (!target) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
-            const body = await c.req.json<KeyQueryBody>()
+            const body = await c.req.json<PageBody>()
             const page = await svc(c).queryFlatItemsByKey(target.cloud, target.service, c.req.param('id'), parseKeyQuery(body), bodyPageQuery(body))
             return c.json(page)
         })
@@ -1028,8 +1028,6 @@ interface PageBody {
 interface QueryBody extends PageBody {
     query?: string
 }
-
-type KeyQueryBody = PageBody & Record<string, unknown>
 
 // A query travels in the body, so its continuation does too: a cursor in the
 // URL would sit next to a statement it is not valid for.
