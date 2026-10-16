@@ -145,14 +145,16 @@ function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExpl
                         {records.isRefreshing ? 'Loading' : 'Refresh'}
                     </button>
                 </div>
-                {mode === 'query' && (
+                {/* Hidden rather than unmounted, so the inputs still match
+                    the query results when the user comes back from Scan. */}
+                <div hidden={mode !== 'query'}>
                     <KeyQueryForm
                         accessPaths={accessPaths}
                         runtimeReachable={runtimeReachable}
                         isRunning={queried.isRefreshing}
                         onRun={runKeyQuery}
                     />
-                )}
+                </div>
                 {records.error && (
                     <div className="form-error">
                         {records.error.message}

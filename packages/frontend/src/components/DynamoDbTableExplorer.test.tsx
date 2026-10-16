@@ -471,6 +471,24 @@ describe('DynamoDbTableExplorer query mode', () => {
         expect(screen.getByRole('radio', {name: 'Scan'})).toBeChecked()
     })
 
+    test('keeps the query inputs when switching to Scan and back', async () => {
+        queryFlatItemsByKey.mockResolvedValue(page([]))
+        const user = await openQueryMode()
+        await user.selectOptions(screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'open')
+        await user.selectOptions(screen.getByRole('combobox', {name: 'Sort key condition'}), 'gt')
+        await user.type(screen.getByRole('textbox', {name: 'Sort key value'}), '20{Enter}')
+        await screen.findByText('No items match this key condition.')
+
+        await user.click(screen.getByRole('radio', {name: 'Scan'}))
+        await user.click(screen.getByRole('radio', {name: 'Query'}))
+
+        expect(screen.getByRole('combobox', {name: 'Table or index'})).toHaveValue('by-status')
+        expect(screen.getByRole('textbox', {name: 'Partition key'})).toHaveValue('open')
+        expect(screen.getByRole('combobox', {name: 'Sort key condition'})).toHaveValue('gt')
+        expect(screen.getByRole('textbox', {name: 'Sort key value'})).toHaveValue('20')
+    })
+
     test('returns to the scanned records', async () => {
         queryFlatItemsByKey.mockResolvedValue(page([]))
         const user = await openQueryMode()
