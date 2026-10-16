@@ -191,6 +191,7 @@ export function ResourceInspector({
   const isSqsQueue =
     resource.cloud === "aws" &&
     (resource.service === "messaging" || resource.type === "queue" || resource.type === "fifo-queue");
+  const isOciQueue = resource.cloud === "oci" && resource.service === "messaging" && resource.type === "queue";
 
   return (
     <aside className="resource-inspector">
@@ -424,6 +425,43 @@ export function ResourceInspector({
                       ? `${getNumberMetadata(resource.metadata.messagesDelayed)}`
                       : "-"
                   }
+                />
+              </div>
+            </section>
+          )}
+          {isOciQueue && (
+            <section className="inspector-section">
+              <p className="metric-label">Queue Details</p>
+              <div className="inspector-grid compact-grid">
+                <InspectorItem
+                  label="Visibility Timeout"
+                  value={getNumberMetadata(resource.metadata.visibilityInSeconds) !== null
+                    ? `${getNumberMetadata(resource.metadata.visibilityInSeconds)}s` : "-"}
+                />
+                <InspectorItem
+                  label="Retention Period"
+                  value={getNumberMetadata(resource.metadata.retentionInSeconds) !== null
+                    ? `${getNumberMetadata(resource.metadata.retentionInSeconds)}s` : "-"}
+                />
+                <InspectorItem
+                  label="Dead Letter Delivery Count"
+                  value={getNumberMetadata(resource.metadata.deadLetterQueueDeliveryCount) !== null
+                    ? `${getNumberMetadata(resource.metadata.deadLetterQueueDeliveryCount)}` : "-"}
+                />
+                <InspectorItem
+                  label="Visible Messages"
+                  value={getNumberMetadata(resource.metadata.approximateMessages) !== null
+                    ? `${getNumberMetadata(resource.metadata.approximateMessages)}` : "-"}
+                />
+                <InspectorItem
+                  label="Messages in Flight"
+                  value={getNumberMetadata(resource.metadata.messagesInFlight) !== null
+                    ? `${getNumberMetadata(resource.metadata.messagesInFlight)}` : "-"}
+                />
+                <InspectorItem
+                  label="Dead Letter Messages"
+                  value={getNumberMetadata(resource.metadata.deadLetterMessages) !== null
+                    ? `${getNumberMetadata(resource.metadata.deadLetterMessages)}` : "-"}
                 />
               </div>
             </section>

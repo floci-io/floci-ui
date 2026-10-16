@@ -35,13 +35,17 @@ function crudCapabilities(noun: string): CapabilitySchema<ResourceActionName>[] 
 }
 
 /**
- * SQS-only message-level verbs. Pub/Sub's pull semantics (acks, subscriptions)
- * don't map onto these one-for-one, so they are not offered on the GCP schema.
+ * Queue message verbs shared by SQS and OCI Queue. Pub/Sub's pull semantics
+ * (acks, subscriptions) differ, so these are not offered on the GCP schema.
  */
-const sqsMessageCapabilities: CapabilitySchema<ResourceActionName>[] = [
+const queueMessageCapabilities: CapabilitySchema<ResourceActionName>[] = [
     {name: 'sendMessage', label: 'Send Message', enabled: true, status: 'available', runtimeRequired: true},
     {name: 'receiveMessages', label: 'Receive Messages', enabled: true, status: 'available', runtimeRequired: true},
     {name: 'deleteMessage', label: 'Delete Message', enabled: true, status: 'available', runtimeRequired: true},
+]
+
+const sqsMessageCapabilities: CapabilitySchema<ResourceActionName>[] = [
+    ...queueMessageCapabilities,
     {name: 'purgeQueue', label: 'Purge Queue', enabled: true, status: 'available', runtimeRequired: true},
 ]
 
@@ -171,7 +175,7 @@ export function ociMessagingSchema(): ServiceSchema {
         actions: ['list', 'create', 'inspect', 'delete'],
         filters: messagingFilters,
         columns: ociQueueColumns,
-        capabilities: {resourceActions: crudCapabilities('queue')},
+        capabilities: {resourceActions: [...crudCapabilities('queue'), ...queueMessageCapabilities]},
     }
 }
 

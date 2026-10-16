@@ -61,6 +61,7 @@ describe('OciQueueAdapter', () => {
         expect(instance.cloud).toBe('oci')
         expect(instance.service).toBe('messaging')
         expect(instance.schema().displayName).toBe('OCI Queue')
+        expect(instance.schema().capabilities?.resourceActions?.map((action) => action.name)).toContain('sendMessage')
     })
 
     test('lists queues in the tenancy root compartment with their stats', async () => {
@@ -272,6 +273,45 @@ describe('OciQueueAdapter', () => {
     test('delete throws NotFoundError for a missing queue', async () => {
         stubFetch(notFound)
         await expect(adapter().delete('missing')).rejects.toBeInstanceOf(NotFoundError)
+    })
+
+    test('publishes a message to the OCI Queue data plane', async () => {
+        const calls = stubFetch(() => json({messages: [{id: 42, expireAfter: '2026-10-17T00:00:00Z'}]}))
+
+        await expect(adapter().sendMessage(QUEUE_ID, 'hello')).resolves.toEqual({messageId: '42'})
+        expect(calls[0]?.url).toBe(`${QUEUES}/${encodeURIComponent(QUEUE_ID)}/messages`)
+        expect(calls[0]?.init?.method).toBe('POST')
+        expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({messages: [{content: 'hello'}]})
+    })
+
+    test('receives OCI messages with usable receipts and their delivery metadata', async () => {
+        const calls = stubFetch(() => json({messages: [
+            {id: 42, content: 'hello', receipt: 'receipt/one', deliveryCount: 2, createdAt: '2026-10-16T00:00:00Z'},
+        ]}))
+
+        await expect(adapter().receiveMessages(QUEUE_ID, 3)).resolves.toEqual([{
+            messageId: '42', body: 'hello', receiptHandle: 'receipt/one',
+            attributes: {deliveryCount: '2', createdAt: '2026-10-16T00:00:00Z'},
+        }])
+        expect(calls[0]?.url).toBe(`${QUEUES}/${encodeURIComponent(QUEUE_ID)}/messages?limit=3`)
+        expect(calls[0]?.init?.method).toBe('GET')
+    })
+
+    test('deletes one received message using its encoded receipt', async () => {
+        const calls = stubFetch(() => new Response(null, {status: 204}))
+
+        await adapter().deleteMessage(QUEUE_ID, 'receipt/one')
+        expect(calls[0]?.url).toBe(`${QUEUES}/${encodeURIComponent(QUEUE_ID)}/messages/receipt%2Fone`)
+        expect(calls[0]?.init?.method).toBe('DELETE')
+    })
+
+    test('rejects unsupported custom attributes and invalid receive limits before I/O', async () => {
+        const calls = stubFetch(() => json({messages: []}))
+
+        await expect(adapter().sendMessage(QUEUE_ID, 'hello', {Key: 'value'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(adapter().receiveMessages(QUEUE_ID, 0)).rejects.toBeInstanceOf(ValidationError)
+        await expect(adapter().receiveMessages(QUEUE_ID, 1.5)).rejects.toBeInstanceOf(ValidationError)
+        expect(calls).toHaveLength(0)
     })
 
     test('maps an unreachable runtime to RuntimeUnavailableError', async () => {

@@ -552,4 +552,33 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
         expect(screen.getByText('20s')).toBeInTheDocument()
         expect(screen.getByText('256.0 KB')).toBeInTheDocument()
     })
+
+    test('renders OCI Queue visibility, dead letter settings, and stats', () => {
+        const ociQueue: CloudResource = {
+            id: 'ocid1.queue.oc1.iad.aaaa',
+            name: 'orders',
+            cloud: 'oci',
+            service: 'messaging',
+            type: 'queue',
+            region: 'us-ashburn-1',
+            createdAt: null,
+            metadata: {
+                visibilityInSeconds: 45,
+                retentionInSeconds: 3600,
+                deadLetterQueueDeliveryCount: 3,
+                approximateMessages: 2,
+                messagesInFlight: 1,
+                deadLetterMessages: 4,
+            },
+        }
+
+        renderWithClient(<ResourceInspector resource={ociQueue} cloud="oci" runtimeReachable={true} />)
+
+        expect(screen.getByText('Queue Details')).toBeInTheDocument()
+        expect(screen.getByText('45s')).toBeInTheDocument()
+        expect(screen.getByText('3600s')).toBeInTheDocument()
+        expect(screen.getByText('Dead Letter Delivery Count')).toBeInTheDocument()
+        expect(screen.getByText('Dead Letter Messages')).toBeInTheDocument()
+        expect(screen.getByText('Visible Messages')).toBeInTheDocument()
+    })
 })

@@ -5,7 +5,9 @@ import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
+    QueueMessage,
     ResourceQuery,
+    SendQueueMessageResult,
     ServiceSchema,
 } from '../cloud-spi/types'
 
@@ -40,6 +42,20 @@ interface OciQueue {
 interface OciQueueStats {
     queue?: {visibleMessages?: number; inFlightMessages?: number; sizeInBytes?: number}
     dlq?: {visibleMessages?: number; inFlightMessages?: number; sizeInBytes?: number}
+}
+
+interface OciQueueDataMessage {
+    id?: string | number
+    content?: string
+    receipt?: string
+    deliveryCount?: number
+    createdAt?: string
+    visibleAfter?: string
+    expireAfter?: string
+}
+
+interface OciQueueMessages {
+    messages?: OciQueueDataMessage[]
 }
 
 /** Work request states that mean the operation will never complete. */
@@ -128,6 +144,52 @@ export class OciQueueAdapter implements CloudServiceAdapter {
     async delete(id: string): Promise<void> {
         const res = await this.client.fetch(this.queuePath(id), {method: 'DELETE'}, {emptyOnNotFound: true})
         if (!res) throw new NotFoundError(`Queue ${id} does not exist`)
+    }
+
+    async sendMessage(id: string, body: string, attributes?: Record<string, string>): Promise<SendQueueMessageResult> {
+        if (attributes && Object.keys(attributes).length > 0) {
+            throw new ValidationError('OCI Queue message attributes are not supported')
+        }
+        const response = await this.client.json<OciQueueMessages>(`${this.queuePath(id)}/messages`, {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({messages: [{content: body}]}),
+        })
+        const messageId = response?.messages?.[0]?.id
+        if (messageId === undefined || messageId === null) {
+            throw new RuntimeError('OCI Queue did not return a message ID')
+        }
+        return {messageId: String(messageId)}
+    }
+
+    async receiveMessages(id: string, maxMessages = 10): Promise<QueueMessage[]> {
+        if (!Number.isInteger(maxMessages) || maxMessages < 1 || maxMessages > 10) {
+            throw new ValidationError('maxMessages must be an integer between 1 and 10')
+        }
+        const query = new URLSearchParams({limit: String(maxMessages)})
+        const response = await this.client.json<OciQueueMessages>(`${this.queuePath(id)}/messages?${query}`, {method: 'GET'})
+        return (response?.messages ?? []).map((message) => {
+            if (message.id === undefined || message.content === undefined || !message.receipt) {
+                throw new RuntimeError('OCI Queue returned a message without an ID, content, or receipt')
+            }
+            const attributes: Record<string, string> = {}
+            if (message.deliveryCount !== undefined) attributes.deliveryCount = String(message.deliveryCount)
+            if (message.createdAt) attributes.createdAt = message.createdAt
+            if (message.visibleAfter) attributes.visibleAfter = message.visibleAfter
+            if (message.expireAfter) attributes.expireAfter = message.expireAfter
+            return {
+                messageId: String(message.id),
+                body: message.content,
+                receiptHandle: message.receipt,
+                ...(Object.keys(attributes).length ? {attributes} : {}),
+            }
+        })
+    }
+
+    async deleteMessage(id: string, receiptHandle: string): Promise<void> {
+        const path = `${this.queuePath(id)}/messages/${encodeURIComponent(receiptHandle)}`
+        const response = await this.client.fetch(path, {method: 'DELETE'}, {emptyOnNotFound: true})
+        if (!response) throw new NotFoundError(`Message receipt does not exist in queue ${id}`)
     }
 
     async health(): Promise<void> {

@@ -35,6 +35,38 @@ afterEach(() => {
 });
 
 describe("SqsMessagingPanel", () => {
+  test("uses the shared queue panel for OCI without offering SQS-only actions", async () => {
+    const ociQueue: CloudResource = {
+      ...resource,
+      id: "ocid1.queue.oc1.iad.aaaa",
+      cloud: "oci",
+      metadata: {provider: "oci", messagingService: "queue"},
+    };
+    vi.mocked(sendQueueMessage).mockResolvedValue({messageId: "42"});
+    vi.mocked(receiveQueueMessages).mockResolvedValue([
+      {messageId: "42", body: "hello", receiptHandle: "receipt/one"},
+    ]);
+    vi.mocked(deleteQueueMessage).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+
+    render(<SqsMessagingPanel cloud="oci" resource={ociQueue} runtimeReachable={true}/>);
+
+    expect(screen.queryByRole("button", {name: "Purge"})).not.toBeInTheDocument();
+    expect(screen.queryByText("Custom attributes")).not.toBeInTheDocument();
+    expect(screen.getByText(/shared controls use immediate, unfiltered receives/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Message body"), "hello");
+    const sendButtons = screen.getAllByRole("button", {name: "Send"});
+    await user.click(sendButtons[sendButtons.length - 1]);
+    expect(sendQueueMessage).toHaveBeenCalledWith("oci", "messaging", ociQueue.id, "hello", undefined);
+
+    await user.click(screen.getByRole("button", {name: "Receive"}));
+    expect(screen.getByText(/Receives use the queue visibility timeout/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: "Receive messages"}));
+    expect(await screen.findByText("hello")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: "Delete"}));
+    expect(deleteQueueMessage).toHaveBeenCalledWith("oci", "messaging", ociQueue.id, "receipt/one");
+  });
+
   test("sends a message and shows the returned message id", async () => {
     vi.mocked(sendQueueMessage).mockResolvedValue({messageId: "msg-1"});
     const user = userEvent.setup();

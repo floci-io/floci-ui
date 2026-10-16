@@ -851,7 +851,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-      {service === "messaging" && cloud === "aws" && (
+      {service === "messaging" && (cloud === "aws" || cloud === "oci") && (
         <SqsMessagingPanel
           cloud={cloud}
           resource={activeSelected}
