@@ -1,110 +1,83 @@
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react'
-import {Suspense} from 'react'
-import {BrowserRouter, Route, Routes, useNavigate} from 'react-router-dom'
+import {BrowserRouter, Outlet, Route, Routes, useNavigate} from 'react-router-dom'
 import {afterEach, describe, expect, test} from 'vitest'
+import {lazyPanel} from '@/lib/lazyPanel'
 import {TopbarSearch} from './Layout'
+
+function SearchShell() {
+    const navigate = useNavigate()
+    return (
+        <>
+            <button onClick={() => navigate('/settings')}>Settings</button>
+            <TopbarSearch/>
+            <Outlet/>
+        </>
+    )
+}
+
+function renderWithDelayedSettings() {
+    let releaseImport!: () => void
+    const importGate = new Promise<void>((resolve) => {
+        releaseImport = resolve
+    })
+    const SettingsRoute = lazyPanel(() => importGate.then(() =>
+        import('./LayoutTestSettingsPage').then((module) => module.SettingsRoute)))
+
+    render(
+        <BrowserRouter>
+            <Routes>
+                <Route element={<SearchShell/>}>
+                    <Route path="/cloud-explorer/aws/storage" element={<div>Storage page</div>}/>
+                    <Route path="/settings" element={<SettingsRoute/>}/>
+                </Route>
+            </Routes>
+        </BrowserRouter>,
+    )
+    return releaseImport
+}
 
 describe('TopbarSearch during navigation', () => {
     afterEach(() => {
         window.history.replaceState(null, '', '/')
     })
 
-    test('commits text typed while the destination route is suspended to that route', async () => {
+    test('keeps a search on the destination before and after its page chunk loads', async () => {
         window.history.replaceState(null, '', '/cloud-explorer/aws/storage')
-        let releaseDestination!: () => void
-        let destinationReady = false
-        const destination = new Promise<void>((resolve) => {
-            releaseDestination = resolve
-        })
-
-        function SettingsRoute() {
-            if (!destinationReady) throw destination
-            return <div>Settings page</div>
-        }
-
-        function SearchShell() {
-            const navigate = useNavigate()
-            return (
-                <>
-                    <button onClick={() => navigate('/settings')}>Settings</button>
-                    <TopbarSearch/>
-                    <Suspense fallback={<div>Loading settings</div>}>
-                        <Routes>
-                            <Route path="/cloud-explorer/aws/storage" element={<div>Storage page</div>}/>
-                            <Route path="/settings" element={<SettingsRoute/>}/>
-                        </Routes>
-                    </Suspense>
-                </>
-            )
-        }
-
-        render(<BrowserRouter><SearchShell/></BrowserRouter>)
+        const releaseImport = renderWithDelayedSettings()
         expect(screen.getByText('Storage page')).toBeInTheDocument()
         fireEvent.click(screen.getByRole('button', {name: 'Settings'}))
         expect(window.location.pathname).toBe('/settings')
+        expect(screen.queryByText('Settings page')).not.toBeInTheDocument()
 
         const input = screen.getByRole('textbox', {name: /search services/i})
         fireEvent.change(input, {target: {value: 'storage'}})
-        await act(async () => {
-            await new Promise((resolve) => setTimeout(resolve, 350))
-        })
-        expect(window.location.pathname).toBe('/settings')
-
-        await act(async () => {
-            destinationReady = true
-            releaseDestination()
-        })
-        await waitFor(() => expect(screen.getByText('Settings page')).toBeInTheDocument())
         await waitFor(() => expect(window.location.pathname + window.location.search).toBe('/settings?search=storage'))
+        expect(input).toHaveValue('storage')
+        expect(screen.queryByText('Settings page')).not.toBeInTheDocument()
+
+        await act(async () => releaseImport())
+        await waitFor(() => expect(screen.getByText('Settings page')).toBeInTheDocument())
+        expect(window.location.pathname + window.location.search).toBe('/settings?search=storage')
         expect(input).toHaveValue('storage')
     })
 
-    test('discards a draft when Back cancels a suspended destination after the debounce', async () => {
+    test('discards a draft when Back leaves a destination whose page chunk is loading', async () => {
         window.history.replaceState(null, '', '/cloud-explorer/aws/storage')
-        let releaseDestination!: () => void
-        let destinationReady = false
-        const destination = new Promise<void>((resolve) => {
-            releaseDestination = resolve
-        })
-
-        function SettingsRoute() {
-            if (!destinationReady) throw destination
-            return <div>Settings page</div>
-        }
-
-        function SearchShell() {
-            const navigate = useNavigate()
-            return (
-                <>
-                    <button onClick={() => navigate('/settings')}>Settings</button>
-                    <TopbarSearch/>
-                    <Suspense fallback={<div>Loading settings</div>}>
-                        <Routes>
-                            <Route path="/cloud-explorer/aws/storage" element={<div>Storage page</div>}/>
-                            <Route path="/settings" element={<SettingsRoute/>}/>
-                        </Routes>
-                    </Suspense>
-                </>
-            )
-        }
-
-        render(<BrowserRouter><SearchShell/></BrowserRouter>)
+        const releaseImport = renderWithDelayedSettings()
         fireEvent.click(screen.getByRole('button', {name: 'Settings'}))
         const input = screen.getByRole('textbox', {name: /search services/i})
         fireEvent.change(input, {target: {value: 'stale'}})
-        await act(async () => {
-            await new Promise((resolve) => setTimeout(resolve, 350))
-        })
-        expect(window.location.pathname).toBe('/settings')
+        await waitFor(() => expect(window.location.pathname + window.location.search).toBe('/settings?search=stale'))
         expect(input).toHaveValue('stale')
+        expect(screen.queryByText('Settings page')).not.toBeInTheDocument()
 
         await act(async () => {
             window.history.back()
         })
         await waitFor(() => expect(window.location.pathname).toBe('/cloud-explorer/aws/storage'))
         await waitFor(() => expect(input).toHaveValue(''))
-        destinationReady = true
-        await act(async () => releaseDestination())
+        await act(async () => releaseImport())
+        expect(screen.queryByText('Settings page')).not.toBeInTheDocument()
         expect(window.location.pathname + window.location.search).toBe('/cloud-explorer/aws/storage')
     })
     test('commits an ordinary search and clears it on Escape', async () => {
