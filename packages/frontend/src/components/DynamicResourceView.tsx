@@ -856,6 +856,12 @@ export function DynamicResourceView({
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}
+          onMessagesChanged={() => {
+            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            if (activeSelected) {
+              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
+            }
+          }}
         />
       )}
       {service === "workflows" && cloud === "aws" && (

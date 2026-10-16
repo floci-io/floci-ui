@@ -15,11 +15,12 @@ interface SqsMessagingPanelProps {
   cloud: CloudProvider;
   resource?: CloudResource;
   runtimeReachable: boolean;
+  onMessagesChanged?: () => void;
 }
 
 type MessagingTab = "send" | "receive" | "purge";
 
-export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessagingPanelProps) {
+export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessagesChanged}: SqsMessagingPanelProps) {
   const isOci = cloud === "oci";
   const accountId = useAccountId();
   const [tab, setTab] = useState<MessagingTab>("send");
@@ -92,6 +93,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
       setSendResult({messageId: result.messageId});
       setBody("");
       setCustomAttributes({});
+      onMessagesChanged?.();
     } catch (error) {
       setSendError(error instanceof Error ? error.message : "Failed to send the message.");
     } finally {
@@ -107,6 +109,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
       const received = await receiveQueueMessages(cloud, "messaging", resource.id, maxMessages || 10);
       setMessages(received);
       setHasPolled(true);
+      onMessagesChanged?.();
     } catch (error) {
       setReceiveError(error instanceof Error ? error.message : "Failed to receive messages.");
     } finally {
@@ -120,6 +123,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
     try {
       await deleteQueueMessage(cloud, "messaging", resource.id, receiptHandle);
       setMessages((current) => current.filter((message) => message.receiptHandle !== receiptHandle));
+      onMessagesChanged?.();
     } catch (error) {
       setReceiveError(error instanceof Error ? error.message : "Failed to delete the message.");
     } finally {
@@ -136,6 +140,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable}: SqsMessag
       setPurged(true);
       setPurgeConfirming(false);
       setMessages([]);
+      onMessagesChanged?.();
     } catch (error) {
       setPurgeError(error instanceof Error ? error.message : "Failed to purge the queue.");
     } finally {

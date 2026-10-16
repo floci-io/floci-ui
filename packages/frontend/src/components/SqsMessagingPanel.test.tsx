@@ -48,8 +48,9 @@ describe("SqsMessagingPanel", () => {
     ]);
     vi.mocked(deleteQueueMessage).mockResolvedValue(undefined);
     const user = userEvent.setup();
+    const onMessagesChanged = vi.fn();
 
-    render(<SqsMessagingPanel cloud="oci" resource={ociQueue} runtimeReachable={true}/>);
+    render(<SqsMessagingPanel cloud="oci" resource={ociQueue} runtimeReachable={true} onMessagesChanged={onMessagesChanged}/>);
 
     expect(screen.queryByRole("button", {name: "Purge"})).not.toBeInTheDocument();
     expect(screen.queryByText("Custom attributes")).not.toBeInTheDocument();
@@ -58,13 +59,16 @@ describe("SqsMessagingPanel", () => {
     const sendButtons = screen.getAllByRole("button", {name: "Send"});
     await user.click(sendButtons[sendButtons.length - 1]);
     expect(sendQueueMessage).toHaveBeenCalledWith("oci", "messaging", ociQueue.id, "hello", undefined);
+    expect(onMessagesChanged).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", {name: "Receive"}));
     expect(screen.getByText(/Receives use the queue visibility timeout/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", {name: "Receive messages"}));
     expect(await screen.findByText("hello")).toBeInTheDocument();
+    expect(onMessagesChanged).toHaveBeenCalledTimes(2);
     await user.click(screen.getByRole("button", {name: "Delete"}));
     expect(deleteQueueMessage).toHaveBeenCalledWith("oci", "messaging", ociQueue.id, "receipt/one");
+    expect(onMessagesChanged).toHaveBeenCalledTimes(3);
   });
 
   test("sends a message and shows the returned message id", async () => {
