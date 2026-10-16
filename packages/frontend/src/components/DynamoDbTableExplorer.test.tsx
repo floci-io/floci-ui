@@ -55,6 +55,7 @@ describe('DynamoDbTableExplorer', () => {
         renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={table('orders')} runtimeReachable/>)
 
         expect(await screen.findByRole('cell', {name: '{"id":"order-1"}'})).toBeInTheDocument()
+        expect(screen.getByText('1 record')).toBeInTheDocument()
         expect(listFlatItems).toHaveBeenCalledWith('aws', 'nosql', 'orders', undefined, expect.any(AbortSignal))
     })
 

@@ -111,7 +111,7 @@ function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExpl
                     icon={<TableProperties size={15}/>}
                     eyebrow="Table explorer"
                     title={tableName}
-                    detail={mode === 'query' && !keyQuery ? 'Enter a partition key to query' : `${records.items.length}${records.nextCursor ? '+' : ''} records`}
+                    detail={mode === 'query' && !keyQuery ? 'Enter a partition key to query' : recordCount(records)}
                 />
                 <div className="cosmos-toolbar">
                     <div className="settings-toggle-group dynamodb-mode" role="radiogroup" aria-label="Read mode">
@@ -611,6 +611,12 @@ function PanelHeader({icon, eyebrow, title, detail}: {icon: React.ReactNode; eye
 function itemKey(item: ChildItem): Record<string, unknown> | null {
     const key = item.metadata.key
     return key && typeof key === 'object' && !Array.isArray(key) ? key as Record<string, unknown> : null
+}
+
+// "1+ records" stays plural: more pages mean more than one.
+function recordCount({items, nextCursor}: PagedRecords): string {
+    if (nextCursor) return `${items.length}+ records`
+    return `${items.length} ${items.length === 1 ? 'record' : 'records'}`
 }
 
 function summarize(item: ChildItem): string {
