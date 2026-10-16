@@ -376,7 +376,7 @@ function KeyQueryForm({accessPaths, runtimeReachable, isRunning, onRun}: KeyQuer
                 </select>
             </div>
             <div className="field-row">
-                <label htmlFor={`${id}-pk`}>{keyLabel(path.partitionKey)}</label>
+                <label htmlFor={`${id}-pk`}>Partition key</label>
                 <input
                     id={`${id}-pk`}
                     className="input"
@@ -387,21 +387,21 @@ function KeyQueryForm({accessPaths, runtimeReachable, isRunning, onRun}: KeyQuer
             </div>
             {sortKey && (
                 <div className="field-row">
-                    <label htmlFor={`${id}-op`}>{keyLabel(sortKey)}</label>
+                    <label htmlFor={`${id}-op`}>Sort key</label>
                     <select
                         id={`${id}-op`}
                         className="input"
-                        aria-label={`${sortKey.name} condition`}
+                        aria-label="Sort key condition"
                         value={activeOperator}
                         onChange={(event) => setOperator(event.target.value as KeyConditionOperator | '')}
                     >
-                        <option value="">Any value</option>
+                        <option value="">Any {sortKey.name}</option>
                         {operators.map(({value, label}) => <option key={value} value={value}>{label}</option>)}
                     </select>
                     {activeOperator && (
                         <input
                             className="input"
-                            aria-label={activeOperator === 'between' ? `${sortKey.name} lower bound` : `${sortKey.name} value`}
+                            aria-label={activeOperator === 'between' ? 'Sort key lower bound' : 'Sort key value'}
                             value={sortValue}
                             placeholder={keyPlaceholder(sortKey)}
                             onChange={(event) => setSortValue(event.target.value)}
@@ -410,7 +410,7 @@ function KeyQueryForm({accessPaths, runtimeReachable, isRunning, onRun}: KeyQuer
                     {activeOperator === 'between' && (
                         <input
                             className="input"
-                            aria-label={`${sortKey.name} upper bound`}
+                            aria-label="Sort key upper bound"
                             value={sortTo}
                             placeholder={keyPlaceholder(sortKey)}
                             onChange={(event) => setSortTo(event.target.value)}
@@ -577,14 +577,11 @@ function dynamoAccessPaths(resource: CloudResource): DynamoAccessPath[] {
     })
 }
 
-function keyLabel({name, type}: DynamoKeyField): string {
-    return type ? `${name} (${type})` : name
-}
-
-function keyPlaceholder({type}: DynamoKeyField): string {
-    if (type === 'N') return 'Number'
-    if (type === 'B') return 'Base64'
-    return 'Value'
+// The visible labels say which key it is; the placeholder names the attribute.
+function keyPlaceholder({name, type}: DynamoKeyField): string {
+    if (type === 'N') return `${name} (number)`
+    if (type === 'B') return `${name} (base64)`
+    return type === 'S' ? `${name} (string)` : name
 }
 
 function dynamoModalDescription(keyFields: DynamoKeyField[]): string {

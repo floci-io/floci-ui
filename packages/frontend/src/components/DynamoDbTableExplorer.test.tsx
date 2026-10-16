@@ -308,7 +308,7 @@ describe('DynamoDbTableExplorer query mode', () => {
         const run = screen.getByRole('button', {name: 'Run query'})
 
         expect(run).toBeDisabled()
-        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-9')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'c-9')
         await user.click(run)
 
         expect(await screen.findByRole('cell', {name: '{"customerId":"c-9","orderId":"o-4"}'})).toBeInTheDocument()
@@ -316,18 +316,37 @@ describe('DynamoDbTableExplorer query mode', () => {
         expect(queryFlatItemsByKey).toHaveBeenCalledWith('aws', 'nosql', 'orders', {partitionKey: 'c-9'}, undefined, expect.any(AbortSignal))
     })
 
+    test('queries the table by partition key and a sort key condition', async () => {
+        queryFlatItemsByKey.mockResolvedValue(page([order({customerId: 'c-1', orderId: 'o-2'})]))
+        const user = await openQueryMode()
+
+        const partitionKey = screen.getByRole('textbox', {name: 'Partition key'})
+        expect(partitionKey).toHaveAttribute('placeholder', 'customerId (string)')
+        await user.type(partitionKey, 'c-1')
+        await user.selectOptions(screen.getByRole('combobox', {name: 'Sort key condition'}), 'beginsWith')
+        const sortKey = screen.getByRole('textbox', {name: 'Sort key value'})
+        expect(sortKey).toHaveAttribute('placeholder', 'orderId (string)')
+        await user.type(sortKey, 'o-2{Enter}')
+
+        expect(await screen.findByRole('cell', {name: '{"customerId":"c-1","orderId":"o-2"}'})).toBeInTheDocument()
+        expect(queryFlatItemsByKey).toHaveBeenCalledWith('aws', 'nosql', 'orders', {
+            partitionKey: 'c-1',
+            sortKey: {operator: 'beginsWith', value: 'o-2'},
+        }, undefined, expect.any(AbortSignal))
+    })
+
     test('queries an index with a between condition in descending order', async () => {
         queryFlatItemsByKey.mockResolvedValue(page([]))
         const user = await openQueryMode()
 
         await user.selectOptions(screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
-        await user.type(screen.getByRole('textbox', {name: 'status (S)'}), 'open')
-        const condition = screen.getByRole('combobox', {name: 'total condition'})
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'open')
+        const condition = screen.getByRole('combobox', {name: 'Sort key condition'})
         expect(within(condition).queryByRole('option', {name: 'Begins with'})).not.toBeInTheDocument()
         await user.selectOptions(condition, 'between')
-        await user.type(screen.getByRole('textbox', {name: 'total lower bound'}), '10')
+        await user.type(screen.getByRole('textbox', {name: 'Sort key lower bound'}), '10')
         expect(screen.getByRole('button', {name: 'Run query'})).toBeDisabled()
-        await user.type(screen.getByRole('textbox', {name: 'total upper bound'}), '50')
+        await user.type(screen.getByRole('textbox', {name: 'Sort key upper bound'}), '50')
         await user.selectOptions(screen.getByRole('combobox', {name: 'Order'}), 'desc')
         await user.click(screen.getByRole('button', {name: 'Run query'}))
 
@@ -346,8 +365,8 @@ describe('DynamoDbTableExplorer query mode', () => {
             .mockResolvedValueOnce(page([order({customerId: 'c-1', orderId: 'o-2'})]))
         const user = await openQueryMode()
 
-        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
-        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), '-edited')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'c-1{Enter}')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), '-edited')
         await user.click(await screen.findByRole('button', {name: 'Load more'}))
 
         expect(await screen.findByRole('cell', {name: '{"customerId":"c-1","orderId":"o-2"}'})).toBeInTheDocument()
@@ -357,7 +376,7 @@ describe('DynamoDbTableExplorer query mode', () => {
     test('reruns an identical query instead of serving the cached result', async () => {
         queryFlatItemsByKey.mockResolvedValue(page([]))
         const user = await openQueryMode()
-        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'c-1')
 
         await user.click(screen.getByRole('button', {name: 'Run query'}))
         await screen.findByText('No items match this key condition.')
@@ -370,7 +389,7 @@ describe('DynamoDbTableExplorer query mode', () => {
         queryFlatItemsByKey.mockRejectedValue(new Error('Key attribute total must be a number. (invalid_request)'))
         const user = await openQueryMode()
 
-        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'c-1{Enter}')
 
         expect(await screen.findByText('Key attribute total must be a number. (invalid_request)')).toBeInTheDocument()
     })
@@ -404,7 +423,7 @@ describe('DynamoDbTableExplorer query mode', () => {
         queryFlatItemsByKey.mockResolvedValue(page([order({customerId: 'c-1', orderId: 'o-1'})]))
         queryFlatItems.mockResolvedValue(page([]))
         const user = await openQueryMode()
-        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'c-1{Enter}')
         await screen.findByRole('cell', {name: '{"customerId":"c-1","orderId":"o-1"}'})
         queryFlatItemsByKey.mockResolvedValue(page([]))
 
@@ -430,7 +449,7 @@ describe('DynamoDbTableExplorer query mode', () => {
         await user.click(screen.getByRole('radio', {name: 'Query'}))
 
         await user.selectOptions(screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
-        await user.type(screen.getByRole('textbox', {name: 'status (S)'}), 'open{Enter}')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'open{Enter}')
         await user.click(await screen.findByRole('button', {name: '{"customerId":"c-1","orderId":"o-1"}'}))
 
         expect(screen.getByText('Attributes projected into by-status')).toBeInTheDocument()
@@ -440,7 +459,7 @@ describe('DynamoDbTableExplorer query mode', () => {
         queryFlatItemsByKey.mockResolvedValue(page([]))
         putFlatItem.mockResolvedValue(order({customerId: 'c-5', orderId: 'o-1'}))
         const user = await openQueryMode()
-        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'c-1{Enter}')
         await screen.findByText('No items match this key condition.')
 
         await user.click(screen.getByRole('button', {name: 'Add record'}))
@@ -454,7 +473,7 @@ describe('DynamoDbTableExplorer query mode', () => {
     test('returns to the scanned records', async () => {
         queryFlatItemsByKey.mockResolvedValue(page([]))
         const user = await openQueryMode()
-        await user.type(screen.getByRole('textbox', {name: 'customerId (S)'}), 'c-1{Enter}')
+        await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'c-1{Enter}')
         await screen.findByText('No items match this key condition.')
 
         await user.click(screen.getByRole('radio', {name: 'Scan'}))
