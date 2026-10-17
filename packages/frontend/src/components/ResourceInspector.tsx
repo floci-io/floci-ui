@@ -270,7 +270,16 @@ export function ResourceInspector({
             {resource.instanceClass && (
               <InspectorItem label="Class" value={resource.instanceClass} />
             )}
-            {versioning && <InspectorItem label="Versioning" value={versioning} />}
+            {versioning && (
+              <InspectorItem
+                label="Versioning"
+                value={
+                  resource.cloud === "aws" && versioning === "Unknown"
+                    ? "Unknown (could not be read)"
+                    : versioning
+                }
+              />
+            )}
             {versioningEnabled !== null && (
               <InspectorItem
                 label="Versioning Enabled"

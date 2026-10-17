@@ -118,6 +118,7 @@ export type ResourceActionName =
     | 'receiveMessages'
     | 'deleteMessage'
     | 'purgeQueue'
+    | 'emptyBucket'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
 export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'
 export type KubernetesActionName =
@@ -238,6 +239,15 @@ export interface StorageObjectDownload {
     body: BodyInit
     contentType: string
     contentLength: number | null
+}
+
+export interface EmptyBucketOptions {
+    signal?: AbortSignal
+}
+
+export interface EmptyBucketResult {
+    /** Object versions and delete markers permanently deleted by this call. */
+    deleted: number
 }
 
 export interface CosmosContainer {
@@ -584,6 +594,7 @@ export interface CloudServiceAdapter {
     receiveMessages?(id: string, maxMessages?: number): Promise<QueueMessage[]>
     deleteMessage?(id: string, receiptHandle: string): Promise<void>
     purgeQueue?(id: string): Promise<void>
+    emptyBucket?(id: string, options?: EmptyBucketOptions): Promise<EmptyBucketResult>
     // Lifecycle verbs. Optional because most categories have no notion of them;
     // an adapter that advertises one in `capabilities` must implement it, which
     // cloudProxy.test.ts enforces.

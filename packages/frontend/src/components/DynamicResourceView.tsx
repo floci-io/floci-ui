@@ -1,11 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw, Trash2, X } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCloudResource,
   clearEmailInbox,
   deleteCloudResource,
+  emptyStorageBucket,
   getCloudResource,
   getServiceSchema,
   listCloudResources,
@@ -36,6 +37,13 @@ import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { ModalOverlay } from "@/components/ModalOverlay";
+import {
+  storageObjectsKey,
+  storageObjectWriteKey,
+  storageTargetKey as targetKey,
+  writeLandsIn,
+  type StorageTarget,
+} from "@/lib/storageQueryKeys";
 
 const ComputePanel = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.ComputePanel));
 const LaunchInstanceForm = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.LaunchInstanceForm));
@@ -89,8 +97,16 @@ export function DynamicResourceView({
   const [isDeleteMulti, setIsDeleteMulti] = useState(false);
   const [selectedItems, setSelectedItems] = useState<CloudResource[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
-
+  // Kept with the account it was for, like the single-delete refusal below.
+  const [bulkDeleteError, setBulkDeleteError] = useState<
+    { accountId: string; message: string } | null
+  >(null);
+  // A refused bucket delete, kept with the account and bucket it was for.
+  const [bucketDeleteError, setBucketDeleteError] = useState<
+    { accountId: string; bucketId: string; message: string } | null
+  >(null);
+  // The bucket the open Empty bucket dialog was opened for, captured at that moment.
+  const [emptyConfirm, setEmptyConfirm] = useState<StorageTarget | null>(null);
 
   const handleDatabaseTabChange = (tab: "instances" | "snapshots") => {
     setDatabaseTab(tab);
@@ -138,10 +154,62 @@ export function DynamicResourceView({
       serviceAvailability === "available" &&
       cloudStatus?.runtime === "reachable",
   });
+  const storageTarget: StorageTarget | undefined =
+    service === "storage" && selectedForService
+      ? { accountId, cloud, bucketId: selectedForService.id }
+      : undefined;
+  const storageTargetKey = storageTarget ? targetKey(storageTarget) : "";
+  // Settlement callbacks compare against the target on screen now, not the one
+  // their closure saw when the request was sent.
+  const storageTargetKeyRef = useRef(storageTargetKey);
+  useEffect(() => {
+    storageTargetKeyRef.current = storageTargetKey;
+  }, [storageTargetKey]);
+
+  const emptyMut = useMutation({
+    mutationFn: (target: StorageTarget) =>
+      emptyStorageBucket(target.accountId, target.cloud, target.bucketId),
+    // Earlier batches may have been deleted even when the call fails, so every
+    // outcome refreshes the bucket it ran against.
+    onSettled: (_result, _error, target) => {
+      setEmptyConfirm(null);
+      void qc.invalidateQueries({ queryKey: storageObjectsKey(target) });
+      void qc.invalidateQueries({
+        queryKey: ["cloud-resource", target.accountId, target.cloud, "storage", target.bucketId],
+      });
+      void qc.invalidateQueries({
+        queryKey: ["cloud-resources", target.accountId, target.cloud, "storage"],
+      });
+    },
+    onSuccess: (result, target) => {
+      if (storageTargetKeyRef.current !== targetKey(target)) return;
+      setSelectedObject(undefined);
+      // A "not empty" refusal for this bucket no longer holds.
+      setBucketDeleteError((refusal) =>
+        refusal?.accountId === target.accountId && refusal.bucketId === target.bucketId ? null : refusal,
+      );
+      setSuccessToast(
+        `Emptied ${target.bucketId}: permanently deleted ${result.deleted} object version(s) and delete marker(s).`,
+      );
+    },
+  });
+  const emptyingKey =
+    emptyMut.isPending && emptyMut.variables ? targetKey(emptyMut.variables) : undefined;
+  // An upload, delete, copy or move already sent to this bucket could land
+  // after Empty bucket's final check, so Empty bucket waits for it to settle.
+  const objectWritesPending =
+    useIsMutating({
+      mutationKey: storageObjectWriteKey,
+      predicate: (mutation) =>
+        storageTarget !== undefined && writeLandsIn(mutation.state.variables, storageTarget),
+    }) > 0;
+
   const isAwsSageMaker = cloud === "aws" && service === "sagemaker";
   const canDeleteResource = isAwsSageMaker
     ? (resource: CloudResource) => resource.type !== "sagemaker-training-job"
-    : undefined;
+    : emptyingKey !== undefined
+      ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
+      : undefined;
   const sagemakerDashboardResourcesQuery = useQuery({
     queryKey: ["sagemaker-dashboard-resources", accountId, cloud, service],
     queryFn: ({ signal }) => listCloudResources(cloud, service, "", signal),
@@ -205,6 +273,18 @@ export function DynamicResourceView({
   const deleteMut = useMutation({
     mutationFn: (resource: CloudResource) =>
       deleteCloudResource(cloud, service, resource.id),
+    onMutate: () => {
+      setBucketDeleteError(null);
+      return { accountId };
+    },
+    onError: (error, resource, context) => {
+      if (resource.service !== "storage" || !context) return;
+      setBucketDeleteError({
+        accountId: context.accountId,
+        bucketId: resource.id,
+        message: `Could not delete ${resource.name || resource.id}: ${errorMessage(error)}`,
+      });
+    },
     onSuccess: (_, resource) => {
       if (selected?.id === resource.id) selectResource(undefined);
       setSelectedItems((prev) => prev.filter((item) => item.id !== resource.id));
@@ -240,7 +320,8 @@ export function DynamicResourceView({
         queryKey: ["cloud-resources", accountId, cloud, service],
       });
     },
-    onSuccess: ({ succeededIds, failedItems }) => {
+    onMutate: () => ({ accountId }),
+    onSuccess: ({ succeededIds, failedItems }, _items, context) => {
       setDeleteConfirm(false);
       setSelectedItems((prev) =>
         prev.filter((item) => !succeededIds.has(item.id)),
@@ -250,11 +331,18 @@ export function DynamicResourceView({
       }
 
       if (failedItems.length > 0) {
-        setBulkDeleteError(
-          `Failed to delete ${failedItems.length} of ${
+        // A bucket refusing deletion usually still holds versions, so each
+        // refused bucket is named with its reason (and its Empty bucket hint).
+        const reasons =
+          service === "storage"
+            ? failedItems.map(({ id, error }) => `\n${id}: ${errorMessage(error)}`).join("")
+            : "";
+        setBulkDeleteError({
+          accountId: context.accountId,
+          message: `Failed to delete ${failedItems.length} of ${
             succeededIds.size + failedItems.length
-          } selected resource(s).`,
-        );
+          } selected resource(s).${reasons}`,
+        });
       } else {
         setBulkDeleteError(null);
         setIsDeleteMulti(false);
@@ -362,6 +450,7 @@ export function DynamicResourceView({
     setClearConfirm(false);
     setDeleteConfirm(false);
     setBulkDeleteError(null);
+    setBucketDeleteError(null);
     setEditingResource(null);
     setUpdateError(null);
     setSearch("");
@@ -369,6 +458,15 @@ export function DynamicResourceView({
     setIsDeleteMulti(false);
     setSelectedItems([]);
   }, [accountId, cloud, service]);
+
+  // A confirmation belongs to the bucket it was opened for. Once the selected
+  // bucket, account or cloud changes it is stale, unless it is already running.
+  useEffect(() => {
+    if (emptyMut.isPending) return;
+    setEmptyConfirm((open) =>
+      open && targetKey(open) === storageTargetKey ? open : null,
+    );
+  }, [storageTargetKey, emptyMut.isPending]);
 
   useEffect(() => {
     if (selectedItems.length === 0 && deleteConfirm) {
@@ -479,6 +577,20 @@ export function DynamicResourceView({
   const canUseRuntime = runtimeReachable && adapterAvailable;
   const canCreateResource =
     canUseRuntime && capabilityEnabled(createCapability);
+  const emptyCapability =
+    service === "storage" ? capabilityFor(resourceCapabilities, "emptyBucket") : undefined;
+  const deletionPending = deleteMut.isPending || deleteMultipleMut.isPending;
+  const canEmptyBucket =
+    storageTarget !== undefined &&
+    canUseRuntime &&
+    capabilityEnabled(emptyCapability) &&
+    !emptyMut.isPending &&
+    !deletionPending &&
+    !objectWritesPending;
+  const showEmptyError =
+    emptyMut.isError &&
+    emptyMut.variables !== undefined &&
+    targetKey(emptyMut.variables) === storageTargetKey;
   const isAwsDatabase = cloud === "aws" && service === "database";
   const showDatabaseSnapshots = isAwsDatabase && databaseTab === "snapshots";
   const isAwsLogs = cloud === "aws" && service === "logs";
@@ -643,13 +755,33 @@ export function DynamicResourceView({
                       ? "Loading"
                       : "Refresh"}
                   </button>
+                  {emptyCapability && (
+                    <button
+                      className="button danger"
+                      type="button"
+                      disabled={!canEmptyBucket}
+                      title={
+                        !storageTarget
+                          ? "Select a bucket to empty it."
+                          : objectWritesPending
+                            ? "Waiting for object writes to this bucket to finish."
+                            : emptyCapability.reason
+                      }
+                      onClick={() => {
+                        if (storageTarget) setEmptyConfirm(storageTarget);
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      {emptyMut.isPending ? "Emptying" : "Empty bucket"}
+                    </button>
+                  )}
                   {canDelete && (
                     deleteConfirm ? (
                       <>
                         <button
                           className="button danger"
                           type="button"
-                          disabled={!canUseRuntime || deleteMultipleMut.isPending}
+                          disabled={!canUseRuntime || deleteMultipleMut.isPending || emptyMut.isPending}
                           onClick={() => deleteMultipleMut.mutate(selectedItems)}
                         >
                           <Trash2 size={14} />
@@ -673,7 +805,8 @@ export function DynamicResourceView({
                         disabled={
                           !canUseRuntime ||
                           resourcesQuery.isFetching ||
-                          deleteMultipleMut.isPending
+                          deleteMultipleMut.isPending ||
+                          emptyMut.isPending
                         }
                         onClick={() => {
                           if (!isDeleteMulti) {
@@ -704,9 +837,20 @@ export function DynamicResourceView({
                     : "Unable to clear the inbox."}
                 </p>
               )}
-              {bulkDeleteError && (
+              {bulkDeleteError?.accountId === accountId && (
+                <p className="error-text compact-text" style={{ margin: "0 12px 10px", whiteSpace: "pre-line" }}>
+                  {bulkDeleteError.message}
+                </p>
+              )}
+              {bucketDeleteError?.accountId === accountId && (
                 <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
-                  {bulkDeleteError}
+                  {bucketDeleteError.message}
+                </p>
+              )}
+              {showEmptyError && (
+                <p className="error-text compact-text" style={{ margin: "0 12px 10px", whiteSpace: "pre-line" }}>
+                  Empty bucket did not finish for {emptyMut.variables?.bucketId}. The bucket was kept;
+                  any versions deleted before the failure are gone. {errorMessage(emptyMut.error)}
                 </p>
               )}
               {canCreate && createOpen && (
@@ -760,7 +904,7 @@ export function DynamicResourceView({
                 schema,
                 resources,
                 selectedId: activeSelected?.id,
-                deletingId: deleteMut.variables?.id,
+                deletingId: deleteMut.isPending ? deleteMut.variables?.id : undefined,
                 cloudStatus,
                 statusLoading,
                 serviceAvailability,
@@ -814,6 +958,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
           selectedObjectKey={selectedObject?.key}
           onSelectObject={setSelectedObject}
+          writesBlocked={emptyingKey !== undefined && emptyingKey === storageTargetKey}
         />
       )}
       {service === "compute" && (
@@ -917,6 +1062,59 @@ export function DynamicResourceView({
           </div>
         </ModalOverlay>
       )}
+      {emptyConfirm && (
+        <ModalOverlay
+          onClose={() => {
+            if (!emptyMut.isPending) setEmptyConfirm(null);
+          }}
+        >
+          <div
+            className="create-table-modal"
+            style={{ width: 480, maxWidth: "90vw" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 style={{ margin: 0 }}>Empty bucket {emptyConfirm.bucketId}?</h2>
+            </div>
+            <p>
+              This permanently deletes every object, every object version and
+              every delete marker in <strong>{emptyConfirm.bucketId}</strong>{" "}
+              (account {emptyConfirm.accountId}). It cannot be undone. The
+              bucket itself is kept; delete it separately afterwards.
+            </p>
+            {emptyMut.isPending && (
+              <p className="muted">
+                Emptying. Closing the page does not stop deletions already sent.
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                className="button"
+                type="button"
+                disabled={emptyMut.isPending}
+                onClick={() => setEmptyConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="button danger"
+                type="button"
+                disabled={emptyMut.isPending || objectWritesPending}
+                onClick={() => {
+                  if (targetKey(emptyConfirm) !== storageTargetKey) {
+                    setEmptyConfirm(null);
+                    return;
+                  }
+                  emptyMut.mutate(emptyConfirm);
+                }}
+              >
+                <Trash2 size={14} />
+                {emptyMut.isPending ? "Emptying" : "Empty bucket"}
+              </button>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
       {successToast && (
         <div
           role="status"
@@ -939,6 +1137,10 @@ export function DynamicResourceView({
       )}
     </div>
   );
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
 }
 
 function TopbarServiceInfo({ onOpenInfo }: { onOpenInfo: () => void }) {

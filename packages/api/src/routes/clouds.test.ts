@@ -39,7 +39,8 @@ import type {
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {CloudProxyService} from '../service/CloudProxyService'
 import type {RuntimeProbe} from '../service/runtimeProbe'
-import {createCloudRoutes} from './clouds'
+import {DELETE_BATCH_TIMEOUT_MS} from '../adapter-aws/AwsStorageAdapter'
+import {createCloudRoutes, EMPTY_BUCKET_DEADLINE_MS, EMPTY_BUCKET_IDLE_TIMEOUT_SECONDS} from './clouds'
 
 function mockAdapter(cloud: CloudProvider, overrides: Partial<CloudServiceAdapter> = {}): CloudServiceAdapter {
     return {
@@ -1961,5 +1962,258 @@ describe('route guard error shape', () => {
         const res = await app.request('/api/clouds')
         expect(res.status).toBe(500)
         expect(await res.text()).toBe('Internal Server Error')
+    })
+})
+
+describe('empty bucket and object writes on the same bucket', () => {
+    const emptyUrl = '/api/clouds/aws/services/storage/resources/logs/empty'
+    const objectUrl = (bucket: string, key = 'a.txt') => `/api/clouds/aws/services/storage/resources/${bucket}/object?key=${key}`
+    const env = {server: {timeout: () => {}}}
+
+    function held() {
+        let release!: () => void
+        const done = new Promise<void>((resolve) => {
+            release = resolve
+        })
+        return {done, release}
+    }
+
+    function upload(app: Hono, bucket: string, signal?: AbortSignal) {
+        return app.request(new Request(`http://localhost${objectUrl(bucket)}`, {method: 'PUT', body: 'x', signal}), undefined, env)
+    }
+
+    test('Empty bucket is refused while a write the API started is still landing, even after its client gave up', async () => {
+        const write = held()
+        const started = held()
+        let emptied = 0
+        const app = appWithRoutes([mockAdapter('aws', {
+            putObject: () => {
+                started.release()
+                return write.done
+            },
+            emptyBucket: async () => {
+                emptied += 1
+                return {deleted: 0}
+            },
+        })])
+        const gaveUp = new AbortController()
+        const pending = upload(app, 'logs', gaveUp.signal)
+        await started.done
+        gaveUp.abort()
+
+        const refused = await app.request(emptyUrl, {method: 'POST'}, env)
+
+        expect(refused.status).toBe(409)
+        expect(await refused.json()).toMatchObject({code: 'resource_conflict', detail: expect.stringContaining('nothing was deleted')})
+        expect(emptied).toBe(0)
+
+        write.release()
+        await pending
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(200)
+        expect(emptied).toBe(1)
+    })
+
+    test('a write to another bucket does not hold Empty bucket', async () => {
+        const write = held()
+        const started = held()
+        const app = appWithRoutes([mockAdapter('aws', {
+            putObject: () => {
+                started.release()
+                return write.done
+            },
+            emptyBucket: async () => ({deleted: 0}),
+        })])
+        const pending = upload(app, 'assets')
+        await started.done
+
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(200)
+        write.release()
+        await pending
+    })
+
+    test('a failed write releases the bucket', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            putObject: async () => {
+                throw new RuntimeError('upload failed')
+            },
+            emptyBucket: async () => ({deleted: 0}),
+        })])
+
+        expect((await upload(app, 'logs')).status).toBe(502)
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(200)
+    })
+
+    test('a failed Empty bucket releases the bucket', async () => {
+        let runs = 0
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async () => {
+                runs += 1
+                if (runs === 1) throw new RuntimeError('Emptying bucket "logs" stopped before deleting anything: boom')
+                return {deleted: 0}
+            },
+            putObject: async () => {},
+        })])
+
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(502)
+        expect((await upload(app, 'logs')).status).toBe(200)
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(200)
+    })
+
+    test('uploads, deletes and copies into the bucket are refused while it is being emptied', async () => {
+        const empty = held()
+        const writes: string[] = []
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async () => {
+                await empty.done
+                return {deleted: 0}
+            },
+            putObject: async (bucket) => {
+                writes.push(`put:${bucket}`)
+            },
+            deleteObject: async (bucket) => {
+                writes.push(`delete:${bucket}`)
+            },
+            copyObject: async (bucket, _src, _dest, destBucket) => {
+                writes.push(`copy:${bucket}->${destBucket ?? bucket}`)
+            },
+        })])
+        const running = app.request(emptyUrl, {method: 'POST'}, env)
+        const copy = (from: string, destResourceId?: string) => app.request(`/api/clouds/aws/services/storage/resources/${from}/object/copy`, {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({srcKey: 'a.txt', destKey: 'b.txt', destResourceId}),
+        }, env)
+
+        expect((await upload(app, 'logs')).status).toBe(409)
+        expect((await app.request(objectUrl('logs'), {method: 'DELETE'}, env)).status).toBe(409)
+        expect((await copy('logs')).status).toBe(409)
+        expect((await copy('assets', 'logs')).status).toBe(409)
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(409)
+        // Writes elsewhere go ahead, including a copy out of the bucket being emptied.
+        expect((await upload(app, 'assets')).status).toBe(200)
+        expect((await copy('logs', 'assets')).status).toBe(200)
+        expect(writes).toEqual(['put:assets', 'copy:logs->assets'])
+
+        empty.release()
+        expect((await running).status).toBe(200)
+        expect((await upload(app, 'logs')).status).toBe(200)
+    })
+})
+
+describe('empty bucket route', () => {
+    const emptyUrl = '/api/clouds/aws/services/storage/resources/logs/empty'
+    const post = {method: 'POST'}
+
+    function serverBinding() {
+        const calls: Array<{request: Request; seconds: number}> = []
+        return {calls, env: {server: {timeout: (request: Request, seconds: number) => calls.push({request, seconds})}}}
+    }
+
+    test('extends the request timeout, passes a signal and returns the result', async () => {
+        const seen: Array<{id: string; signal?: AbortSignal}> = []
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async (id, options) => {
+                seen.push({id, signal: options?.signal})
+                return {deleted: 7}
+            },
+        })])
+        const binding = serverBinding()
+
+        const res = await app.request(emptyUrl, post, binding.env)
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({deleted: 7})
+        expect(binding.calls.map((call) => call.seconds)).toEqual([150])
+        expect(binding.calls[0].request.url).toEndWith(emptyUrl)
+        expect(seen).toHaveLength(1)
+        expect(seen[0].id).toBe('logs')
+        expect(seen[0].signal).toBeInstanceOf(AbortSignal)
+    })
+
+    test('a delete batch sent at the deadline still finishes inside the connection budget', () => {
+        expect(EMPTY_BUCKET_DEADLINE_MS + DELETE_BATCH_TIMEOUT_MS).toBeLessThan(EMPTY_BUCKET_IDLE_TIMEOUT_SECONDS * 1000)
+    })
+
+    test('a client disconnect reaches the adapter as an aborted signal', async () => {
+        let signal: AbortSignal | undefined
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async (_id, options) => {
+                signal = options?.signal
+                return {deleted: 0}
+            },
+        })])
+        const disconnected = new AbortController()
+        disconnected.abort()
+
+        await app.request(new Request(`http://localhost${emptyUrl}`, {...post, signal: disconnected.signal}), undefined, serverBinding().env)
+
+        expect(signal?.aborted).toBe(true)
+    })
+
+    test('a typed adapter failure keeps its status and detail', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async () => {
+                throw new RuntimeError('Emptying bucket "logs" stopped after deletion started: S3 refused to delete 1 of 1 entries')
+            },
+        })])
+
+        const res = await app.request(emptyUrl, post, serverBinding().env)
+
+        expect(res.status).toBe(502)
+        expect(await res.json()).toMatchObject({code: 'runtime_error', detail: expect.stringContaining('stopped after deletion started')})
+    })
+
+    test('a storage adapter without emptyBucket answers 501', async () => {
+        const res = await appWithRoutes().request('/api/clouds/azure/services/storage/resources/logs/empty', post, serverBinding().env)
+
+        expect(res.status).toBe(501)
+        expect(await res.json()).toMatchObject({code: 'operation_not_supported'})
+    })
+
+    test('other services and unknown clouds have no empty route', async () => {
+        const binding = serverBinding()
+        const app = appWithRoutes()
+
+        expect((await app.request('/api/clouds/aws/services/messaging/resources/orders/empty', post, binding.env)).status).toBe(404)
+        expect((await app.request('/api/clouds/mars/services/storage/resources/logs/empty', post, binding.env)).status).toBe(404)
+        expect(binding.calls).toEqual([])
+    })
+
+    test('refuses to start without the Bun server binding', async () => {
+        let called = false
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async () => {
+                called = true
+                return {deleted: 0}
+            },
+        })])
+
+        const res = await app.request(emptyUrl, post)
+
+        expect(res.status).toBe(500)
+        expect(called).toBe(false)
+    })
+
+    test('runs on the service for the account in the header, else the query', async () => {
+        const requested: Array<string | null | undefined> = []
+        const emptied: string[] = []
+        const accountService = (accountId?: string | null) => {
+            requested.push(accountId)
+            return new CloudProxyService(new CloudAdapterRegistry([mockAdapter('aws', {
+                emptyBucket: async (id) => {
+                    emptied.push(`${accountId}:${id}`)
+                    return {deleted: 1}
+                },
+            })]), stubProbes())
+        }
+        const app = new Hono()
+        app.route('/api/clouds', createCloudRoutes(undefined, accountService))
+        const {env} = serverBinding()
+
+        await app.request(`${emptyUrl}?account=222222222222`, {...post, headers: {'x-floci-account-id': '111111111111'}}, env)
+        await app.request(`${emptyUrl}?account=222222222222`, post, env)
+
+        expect(requested).toEqual(['111111111111', '222222222222'])
+        expect(emptied).toEqual(['111111111111:logs', '222222222222:logs'])
     })
 })

@@ -17,6 +17,8 @@ import type {
     CreateLambdaTriggerInput,
     CreateResourceInput,
     DeleteLambdaTriggerOptions,
+    EmptyBucketOptions,
+    EmptyBucketResult,
     AppConfigConfigurationProfile,
     AppConfigDeployment,
     AppConfigDeploymentStrategy,
@@ -55,7 +57,7 @@ import type {
     KeyQuery,
     PageQuery,
 } from '../cloud-spi/childCollections'
-import {NotSupportedError} from '../cloud-spi/errors'
+import {ConflictError, NotSupportedError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {SERVICE_CATALOG_ENTRIES, descriptionFor, displayNameFor, routeFor} from '../cloud-spi/serviceCatalog'
 import {toHttpError} from '../cloud-spi/errors'
@@ -73,6 +75,12 @@ export class CloudProxyService {
     private readonly runtimeCache = new Map<CloudProvider, {at: number; value: {runtime: RuntimeReachability; checkedAt: string; error: string | null}}>()
     private readonly serviceStatusCache = new Map<string, {at: number; value: CloudServiceStatus}>()
     private readonly probes: Record<CloudProvider, RuntimeProbe>
+    // Empty bucket's final check proves a bucket empty only if no object write
+    // this service started is still landing in it, so the two exclude each other
+    // per bucket. Held here, where the write runs, because a write outlives the
+    // browser's request timeout and other tabs share this service.
+    private readonly objectWrites = new Map<string, number>()
+    private readonly emptying = new Set<string>()
 
     /**
      * `probes` is injectable so tests can exercise status without reaching the
@@ -296,6 +304,37 @@ export class CloudProxyService {
         await adapter.purgeQueue(id)
     }
 
+    async emptyBucket(cloud: CloudProvider, id: string, options?: EmptyBucketOptions): Promise<EmptyBucketResult> {
+        const adapter = this.requireAdapter(cloud, 'storage')
+        if (!adapter.emptyBucket) throw new NotSupportedError(`${cloud}/storage emptyBucket is not supported`)
+        const emptyBucket = adapter.emptyBucket.bind(adapter)
+        const key = bucketKey(cloud, id)
+        if (this.emptying.has(key)) throw new ConflictError(`Empty bucket is already running on "${id}".`)
+        if (this.objectWrites.has(key)) {
+            throw new ConflictError(`Object writes to "${id}" are still running, so nothing was deleted. Run Empty bucket again once they finish.`)
+        }
+        this.emptying.add(key)
+        try {
+            return await emptyBucket(id, options)
+        } finally {
+            this.emptying.delete(key)
+        }
+    }
+
+    /** Runs an object write that lands in `bucket`, refused while that bucket is being emptied. */
+    private async objectWrite<T>(cloud: CloudProvider, bucket: string, write: () => Promise<T>): Promise<T> {
+        const key = bucketKey(cloud, bucket)
+        if (this.emptying.has(key)) throw new ConflictError(`Empty bucket is running on "${bucket}". Try again once it finishes.`)
+        this.objectWrites.set(key, (this.objectWrites.get(key) ?? 0) + 1)
+        try {
+            return await write()
+        } finally {
+            const left = (this.objectWrites.get(key) ?? 1) - 1
+            if (left > 0) this.objectWrites.set(key, left)
+            else this.objectWrites.delete(key)
+        }
+    }
+
     async listObjects(cloud: CloudProvider, service: CloudServiceType, resourceId: string, prefix?: string): Promise<StorageObjectList> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.listObjects) throw new NotSupportedError(`Object listing is not supported for ${cloud}/${service}`)
@@ -305,7 +344,8 @@ export class CloudProxyService {
     async putObject(cloud: CloudProvider, service: CloudServiceType, resourceId: string, key: string, body: Uint8Array, contentType: string): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.putObject) throw new NotSupportedError(`Object upload is not supported for ${cloud}/${service}`)
-        await adapter.putObject(resourceId, key, body, contentType)
+        const putObject = adapter.putObject.bind(adapter)
+        await this.objectWrite(cloud, resourceId, () => putObject(resourceId, key, body, contentType))
     }
 
     async getObject(cloud: CloudProvider, service: CloudServiceType, resourceId: string, key: string): Promise<StorageObjectDownload> {
@@ -317,13 +357,16 @@ export class CloudProxyService {
     async deleteObject(cloud: CloudProvider, service: CloudServiceType, resourceId: string, key: string): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.deleteObject) throw new NotSupportedError(`Object delete is not supported for ${cloud}/${service}`)
-        await adapter.deleteObject(resourceId, key)
+        const deleteObject = adapter.deleteObject.bind(adapter)
+        await this.objectWrite(cloud, resourceId, () => deleteObject(resourceId, key))
     }
 
     async copyObject(cloud: CloudProvider, service: CloudServiceType, srcResourceId: string, srcKey: string, destKey: string, destResourceId?: string): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.copyObject) throw new NotSupportedError(`Object copy is not supported for ${cloud}/${service}`)
-        await adapter.copyObject(srcResourceId, srcKey, destKey, destResourceId)
+        const copyObject = adapter.copyObject.bind(adapter)
+        // A copy writes only its destination; a move's source delete is its own deleteObject.
+        await this.objectWrite(cloud, destResourceId ?? srcResourceId, () => copyObject(srcResourceId, srcKey, destKey, destResourceId))
     }
 
     // Child collections. `requireDocuments`/`requireItems` reject the wrong
@@ -634,4 +677,8 @@ function unavailableReason(
 ): string | undefined {
     if (availability === 'available') return undefined
     return `No ${cloud.toUpperCase()} adapter is registered for ${displayName} yet.`
+}
+
+function bucketKey(cloud: CloudProvider, bucket: string): string {
+    return JSON.stringify([cloud, bucket])
 }

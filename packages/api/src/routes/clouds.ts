@@ -14,8 +14,10 @@ import {clampLimit, parseKeyQuery, type PageQuery} from '../cloud-spi/childColle
 import {CloudError, NotFoundError, toHttpError, ValidationError} from '../cloud-spi/errors'
 import {isServiceType} from '../cloud-spi/serviceCatalog'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
+import type {ApiBindings} from '../app'
 import {serviceForAccount} from '../cloudProxy'
 import {CloudProxyService} from '../service/CloudProxyService'
+import {withDeadline} from '../service/deadline'
 
 // Header (and query-param fallback for direct links such as object downloads)
 // used by the frontend to scope every request to an AWS account.
@@ -42,8 +44,20 @@ const MAX_PLAINTEXT_BASE64_LENGTH = 5_464
 const MAX_CIPHERTEXT_BASE64_LENGTH = 8_192
 /** Real StartQuery's own limit — matched here so the error surfaces before the runtime round-trip. */
 const MAX_QUERY_LOG_GROUPS = 50
+/**
+ * Emptying a bucket lists and deletes every version, so it can outlast Bun's
+ * 10-second idle default. The operation stops starting new requests at the
+ * deadline; a delete batch already sent gets up to 25 seconds more (the
+ * adapter's own bound), inside the connection budget, and the browser waits
+ * longer than both.
+ */
+export const EMPTY_BUCKET_DEADLINE_MS = 120_000
+export const EMPTY_BUCKET_IDLE_TIMEOUT_SECONDS = 150
 
-export function createCloudRoutes(injectedService?: CloudProxyService) {
+export function createCloudRoutes(
+    injectedService?: CloudProxyService,
+    accountService: (accountId?: string | null) => CloudProxyService = serviceForAccount,
+) {
     const app = new Hono()
 
     // Bad input and unknown targets throw typed errors like adapter failures do,
@@ -61,7 +75,7 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
     // Resolve the account-scoped service per request. An explicitly injected
     // service (used by tests) always wins and ignores the account header.
     const svc = (c: Context): CloudProxyService =>
-        injectedService ?? serviceForAccount(c.req.header(ACCOUNT_HEADER) ?? c.req.query('account'))
+        injectedService ?? accountService(c.req.header(ACCOUNT_HEADER) ?? c.req.query('account'))
 
     app.get('/', (c) => c.json(svc(c).clouds()))
 
@@ -128,6 +142,16 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
             const classes = await svc(c).listDatabaseOrderableInstanceClasses(cloud, c.req.query('engine'))
             return c.json(classes)
         })
+    })
+
+    // Literal storage route, registered ahead of the parameterized resource routes.
+    app.post('/:cloud/services/storage/resources/:id/empty', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
+
+        extendRequestTimeout(c, EMPTY_BUCKET_IDLE_TIMEOUT_SECONDS)
+        return withRuntime(c, () => withDeadline(EMPTY_BUCKET_DEADLINE_MS, c.req.raw.signal, async (signal) =>
+            c.json(await svc(c).emptyBucket(cloud, c.req.param('id'), {signal}))))
     })
 
     app.get('/:cloud/services/:service/resources', async (c) => {
@@ -1039,6 +1063,19 @@ function bodyPageQuery(body: PageBody): PageQuery {
         throw new ValidationError('limit must be a number.')
     }
     return {cursor: body.cursor || undefined, limit: clampLimit(typeof body.limit === 'number' ? String(body.limit) : undefined)}
+}
+
+/**
+ * Bun closes a connection that has sent nothing for its idle timeout, even while
+ * the handler is still awaiting, so a route that can run longer raises the limit
+ * for its own request. Without the server binding the route refuses to start.
+ */
+function extendRequestTimeout(c: Context, seconds: number): void {
+    const server = (c.env as ApiBindings | undefined)?.server
+    if (typeof server?.timeout !== 'function') {
+        throw new Error('The Bun server binding is missing; serve the API through createBunFetch.')
+    }
+    server.timeout(c.req.raw, seconds)
 }
 
 async function withRuntime(c: Context, handler: () => Promise<Response>): Promise<Response> {

@@ -82,7 +82,7 @@ docker run -p 4500:4500 -e FLOCI_ENDPOINT=http://host.docker.internal:4566 floci
 
 | Area | What you get |
 |---|---|
-| Storage | Object browser with prefixes, upload, download, copy, delete |
+| Storage | Object browser with prefixes, upload, download, copy, delete; Empty bucket for S3, including object versions and delete markers |
 | Databases | DynamoDB records with paged scans, key queries on the table or a secondary index, and a PartiQL editor; Cosmos DB and Azure SQL / PostgreSQL data explorers with a query editor; RDS update and snapshots |
 | Compute | EC2 launch, power actions, AMIs, tags, console output; EKS nodegroups and Fargate profiles; Lambda invoke with tailed logs |
 | Networking | VPC wizard, subnets, security groups, gateways, route tables, Elastic IPs |
@@ -226,6 +226,7 @@ and refresh a frontend route when troubleshooting the proxy.
 | Cloud shows `Not connected` | Check the runtime: `curl localhost:4566/_floci/health` (Azure `:4577/_floci/health`, GCP `:4588/_floci-gcp/health`, OCI `:4599/_floci-oci/health`), then `curl localhost:4501/api/clouds/<cloud>/status`. |
 | One service is unavailable | `curl "localhost:4501/api/clouds/<cloud>/status?services=all"`. `errorCode` tells you why: `operation_not_implemented` (the runtime lacks it), `runtime_unavailable` (unreachable), `operation_not_supported` (no adapter). |
 | AWS auth errors | Keep `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as `test`, matching the runtime. |
+| An S3 bucket looks empty but will not delete (`BucketNotEmpty`) | It still holds object versions or delete markers, which the object list does not show. Select it and use **Empty bucket**, then delete it. Empty bucket lists every version with `ListObjectVersions` before deleting any, deletes them by version ID with `DeleteObjects` (1,000 per request), then checks nothing is left. It holds only object keys and version IDs in memory, never object contents, and stops starting requests after 120 seconds, and a delete request that gets no answer within 25 seconds ends the run. Either reports `runtime_unavailable` even though the runtime is up; when the message says deletion had started, run Empty bucket again to continue. It is not atomic: a failure or timeout part way through can leave some versions deleted, and something writing to the bucket meanwhile makes it fail rather than report success. Uploads, deletes and copies the console still has running on that bucket refuse it with `resource_conflict` (409) before anything is deleted, and are themselves refused while it runs. |
 
 ## Contributing
 

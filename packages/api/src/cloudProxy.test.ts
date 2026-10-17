@@ -35,6 +35,7 @@ const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> =
     receiveMessages: 'receiveMessages',
     deleteMessage: 'deleteMessage',
     purgeQueue: 'purgeQueue',
+    emptyBucket: 'emptyBucket',
 }
 
 const METHOD_FOR_DATABASE_ACTION = {
