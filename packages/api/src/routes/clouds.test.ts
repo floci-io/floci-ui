@@ -2043,6 +2043,22 @@ describe('empty bucket and object writes on the same bucket', () => {
         expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(200)
     })
 
+    test('a failed Empty bucket releases the bucket', async () => {
+        let runs = 0
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async () => {
+                runs += 1
+                if (runs === 1) throw new RuntimeError('Emptying bucket "logs" stopped before deleting anything: boom')
+                return {deleted: 0}
+            },
+            putObject: async () => {},
+        })])
+
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(502)
+        expect((await upload(app, 'logs')).status).toBe(200)
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(200)
+    })
+
     test('uploads, deletes and copies into the bucket are refused while it is being emptied', async () => {
         const empty = held()
         const writes: string[] = []
