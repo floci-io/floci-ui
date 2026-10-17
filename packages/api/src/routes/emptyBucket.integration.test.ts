@@ -19,7 +19,8 @@ import {createCloudRoutes} from './clouds'
 const OPERATION_MS = 16_000
 const VITE_READY_MS = 20_000
 const VITE_CLOSE_MS = 5_000
-const EMPTY_PATH = '/api/clouds/aws/services/storage/resources/logs/empty'
+// One bucket per request: the API refuses a second Empty bucket on a bucket already being emptied.
+const emptyPath = (bucket: string) => `/api/clouds/aws/services/storage/resources/${bucket}/empty`
 
 const slowStorage: CloudServiceAdapter = {
     cloud: 'aws',
@@ -71,8 +72,8 @@ afterAll(async () => {
 describe('empty bucket over a real socket', () => {
     test('outlasts the 10-second idle default directly and through the Vite proxy', async () => {
         const [direct, proxied] = await Promise.all([
-            fetch(`http://127.0.0.1:${api?.port}${EMPTY_PATH}`, {method: 'POST'}),
-            fetch(`http://127.0.0.1:${vitePort}${EMPTY_PATH}`, {method: 'POST'}),
+            fetch(`http://127.0.0.1:${api?.port}${emptyPath('logs')}`, {method: 'POST'}),
+            fetch(`http://127.0.0.1:${vitePort}${emptyPath('assets')}`, {method: 'POST'}),
         ])
 
         expect(direct.status).toBe(200)
