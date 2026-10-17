@@ -87,7 +87,7 @@ docker run -p 4500:4500 -e FLOCI_ENDPOINT=http://host.docker.internal:4566 floci
 | Compute | EC2 launch, power actions, AMIs, tags, console output; EKS nodegroups and Fargate profiles; Lambda invoke with tailed logs |
 | Networking | VPC wizard, subnets, security groups, gateways, route tables, Elastic IPs |
 | Messaging | SQS send, receive and purge |
-| Workflows and logs | Step Functions execution history; CloudWatch Logs streams, events and Logs Insights |
+| Workflows and logs | Step Functions execution history; CloudWatch Logs streams, events and Logs Insights; GCP Cloud Logging entries with severity and time filters |
 | Security | Secrets (reveal on demand), KMS encrypt and decrypt, IAM users, roles and policies |
 | Email | SES mailbox with HTML, text and raw MIME preview |
 | Settings | Light, dark or system theme; account switcher |
@@ -127,7 +127,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Security | Secrets Manager | ✅ | ✅ | ✅ | ✅ |
 | Security | Key Management | ✅ | – | – | ✅ |
 | Security | Parameter Store | ✅ | – | – | – |
-| Observability | Logs | ✅ | – | – | – |
+| Observability | Logs | ✅ | – | 👁 | – |
 | Observability | CloudWatch | ✅ | – | – | – |
 
 ✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available

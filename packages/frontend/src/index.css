@@ -1090,6 +1090,11 @@ pre,
     overflow-x: auto;
 }
 
+.gcp-log-message {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
 .table th {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);

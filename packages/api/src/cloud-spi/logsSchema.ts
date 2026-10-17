@@ -60,3 +60,25 @@ export function awsLogsSchema(): ServiceSchema {
         ],
     }
 }
+
+export function gcpLogsSchema(): ServiceSchema {
+    return {
+        cloud: 'gcp',
+        service: 'logs',
+        displayName: 'Cloud Logging',
+        fields: [],
+        actions: ['list', 'inspect'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List logs', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect log', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+            itemActions: [
+                {name: 'list', label: 'Read log entries', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'query', label: 'Filter log entries', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+        filters: [{name: 'search', label: 'Log name', type: 'text', required: false}],
+        columns: [{name: 'name', label: 'Log'}],
+    }
+}
