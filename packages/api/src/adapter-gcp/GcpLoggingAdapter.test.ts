@@ -36,6 +36,27 @@ describe('GcpLoggingAdapter', () => {
         await expect(adapter().get(logName)).resolves.toBeNull()
     })
 
+    test('finds and searches logs returned on later pages', async () => {
+        const laterLog = 'projects/floci-local/logs/audit'
+        const paths: string[] = []
+        globalThis.fetch = (async (url: RequestInfo | URL) => {
+            paths.push(String(url))
+            const page = new URL(String(url)).searchParams.get('pageToken')
+            return new Response(JSON.stringify(page === 'page-2'
+                ? {logNames: [laterLog]}
+                : {logNames: [logName], nextPageToken: 'page-2'}))
+        }) as unknown as typeof fetch
+
+        expect((await adapter().list({search: 'audit'})).map((log) => log.id)).toEqual([laterLog])
+        expect((await adapter().get(laterLog))?.name).toBe('audit')
+        expect(paths).toEqual([
+            `${endpoint}/v2/projects/floci-local/logs`,
+            `${endpoint}/v2/projects/floci-local/logs?pageToken=page-2`,
+            `${endpoint}/v2/projects/floci-local/logs`,
+            `${endpoint}/v2/projects/floci-local/logs?pageToken=page-2`,
+        ])
+    })
+
     test('reads entries with the project and exact log filter, preserving pagination', async () => {
         const calls: Array<{url: string; body: Record<string, unknown>}> = []
         globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {

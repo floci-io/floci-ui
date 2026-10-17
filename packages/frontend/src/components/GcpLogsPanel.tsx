@@ -60,18 +60,20 @@ export function GcpLogsPanel({logName, runtimeReachable}: {logName: string; runt
             {entries.isLoading && <p className="muted">Loading entries…</p>}
             {entries.isSuccess && entries.data.items.length === 0 && <p className="muted">No log entries match these filters.</p>}
             {entries.isSuccess && entries.data.items.length > 0 && (
-                <table className="table">
-                    <thead><tr><th>Timestamp</th><th>Severity</th><th>Message</th></tr></thead>
-                    <tbody>
-                        {entries.data.items.map((entry, index) => (
-                            <tr key={`${entry.id}-${index}`}>
-                                <td>{formatDateTime(entry.timestamp) ?? '-'}</td>
-                                <td>{String(entry.body.severity ?? 'DEFAULT')}</td>
-                                <td className="mono">{String(entry.body.message ?? '')}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <div className="table-scroll">
+                    <table className="table">
+                        <thead><tr><th>Timestamp</th><th>Severity</th><th>Message</th></tr></thead>
+                        <tbody>
+                            {entries.data.items.map((entry, index) => (
+                                <tr key={`${entry.id}-${index}`}>
+                                    <td>{formatDateTime(entry.timestamp) ?? '-'}</td>
+                                    <td>{String(entry.body.severity ?? 'DEFAULT')}</td>
+                                    <td className="mono gcp-log-message">{String(entry.body.message ?? '')}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
             {entries.isSuccess && (
                 <div>

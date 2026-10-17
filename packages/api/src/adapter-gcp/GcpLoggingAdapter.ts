@@ -20,6 +20,11 @@ interface LogEntryPage {
     nextPageToken?: string
 }
 
+interface LogListPage {
+    logNames?: string[]
+    nextPageToken?: string
+}
+
 export class GcpLoggingAdapter implements CloudServiceAdapter {
     readonly cloud = 'gcp' as const
     readonly service = 'logs' as const
@@ -35,9 +40,16 @@ export class GcpLoggingAdapter implements CloudServiceAdapter {
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const path = `/v2/projects/${encodeURIComponent(this.client.project)}/logs`
-        const response = await this.client.json<{logNames?: string[]}>(path)
+        const logNames: string[] = []
+        let pageToken: string | undefined
+        do {
+            const pagePath = pageToken ? `${path}?pageToken=${encodeURIComponent(pageToken)}` : path
+            const response = await this.client.json<LogListPage>(pagePath)
+            logNames.push(...(response?.logNames ?? []))
+            pageToken = response?.nextPageToken || undefined
+        } while (pageToken)
         const search = query.search?.trim().toLowerCase()
-        return (response?.logNames ?? [])
+        return logNames
             .filter((name) => !search || displayName(name).toLowerCase().includes(search))
             .map(toResource)
     }
