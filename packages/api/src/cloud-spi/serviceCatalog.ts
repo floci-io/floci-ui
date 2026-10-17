@@ -259,7 +259,7 @@ export const SERVICE_CATALOG = {
     },
     configuration: {
         displayName: 'Configuration',
-        displayNameByCloud: {aws: 'AppConfig'},
+        displayNameByCloud: {aws: 'AppConfig', azure: 'App Configuration'},
         description: 'Manage and deploy application configuration.',
         iconKey: 'configuration',
         group: 'Provisioning',
