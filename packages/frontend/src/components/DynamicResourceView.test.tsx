@@ -4,12 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  copyStorageObject,
   deleteCloudResource,
+  deleteStorageObject,
   emptyStorageBucket,
   getCloudResource,
   getServiceSchema,
   listCloudResources,
   listStorageObjects,
+  uploadStorageObject,
 } from "@/api/cloudProxyClient";
 import { DynamicResourceView } from "@/components/DynamicResourceView";
 import { DEFAULT_ACCOUNT_ID, setAccountId } from "@/lib/accountStore";
@@ -559,5 +562,156 @@ describe("DynamicResourceView Empty bucket", () => {
 
     const message = await screen.findByText(/Failed to delete 1 of 2 selected resource/);
     expect(message).toHaveTextContent('logs: Bucket "logs" is not empty. Use Empty bucket to remove them.');
+  });
+});
+
+// Object actions the browser offers, so each kind of write can be started.
+const awsStorageWriteSchema: ServiceSchema = {
+  ...awsStorageSchema,
+  capabilities: {
+    ...awsStorageSchema.capabilities,
+    objectActions: [
+      { name: "list", label: "List objects", enabled: true, status: "available", runtimeRequired: true },
+      { name: "upload", label: "Upload object", enabled: true, status: "available", runtimeRequired: true },
+      { name: "delete", label: "Delete object", enabled: true, status: "available", runtimeRequired: true },
+      { name: "createFolder", label: "Create folder", enabled: true, status: "available", runtimeRequired: true },
+      { name: "copy", label: "Copy object", enabled: true, status: "available", runtimeRequired: true },
+    ],
+  },
+};
+
+const WAITING_FOR_WRITES = "Waiting for object writes to this bucket to finish.";
+
+describe("DynamicResourceView Empty bucket and object writes already sent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(ACCOUNT_A);
+    vi.mocked(getServiceSchema).mockResolvedValue(awsStorageWriteSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([storageBucket("logs"), storageBucket("assets")]);
+    vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) => storageBucket(id));
+    vi.mocked(listStorageObjects).mockResolvedValue({
+      prefix: "",
+      objects: [{ key: "a.txt", name: "a.txt", type: "object", size: 1, lastModified: null, metadata: {} }],
+    });
+    vi.mocked(copyStorageObject).mockResolvedValue(undefined);
+    vi.mocked(deleteStorageObject).mockResolvedValue(undefined);
+    vi.mocked(uploadStorageObject).mockResolvedValue(undefined);
+  });
+
+  async function openMoveOrCopy(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByTitle("Move / Copy a.txt"));
+    return screen.findByRole("dialog");
+  }
+
+  // Each write is held open by the call that lands in logs. Empty bucket on
+  // logs has to wait for it, then come back once it settles.
+  const writes: Array<{
+    name: string;
+    held: () => ReturnType<typeof vi.fn>;
+    start: (user: ReturnType<typeof userEvent.setup>) => Promise<void>;
+  }> = [
+    {
+      name: "an upload",
+      held: () => vi.mocked(uploadStorageObject),
+      start: async (user) => {
+        await user.upload(screen.getByLabelText("Choose file to upload"), new File(["x"], "new.txt"));
+      },
+    },
+    {
+      name: "a new folder",
+      held: () => vi.mocked(uploadStorageObject),
+      start: async (user) => {
+        await user.click(screen.getByRole("button", { name: "New folder" }));
+        await user.type(screen.getByPlaceholderText("new-folder/"), "docs");
+        await user.click(screen.getByRole("button", { name: "Create folder" }));
+      },
+    },
+    {
+      name: "an object delete",
+      held: () => vi.mocked(deleteStorageObject),
+      start: async (user) => {
+        await user.click(screen.getByTitle("Delete a.txt"));
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+      },
+    },
+    {
+      name: "a bulk object delete",
+      held: () => vi.mocked(deleteStorageObject),
+      start: async (user) => {
+        await user.click(screen.getByLabelText("Select a.txt"));
+        await user.click(screen.getByRole("button", { name: "Delete 1" }));
+      },
+    },
+    {
+      name: "a move whose copy is done and whose source delete is not",
+      held: () => vi.mocked(deleteStorageObject),
+      start: async (user) => {
+        const dialog = await openMoveOrCopy(user);
+        await user.clear(within(dialog).getByLabelText("Destination key"));
+        await user.type(within(dialog).getByLabelText("Destination key"), "moved.txt");
+        // The tab and the submit button are both named Move; the submit is last.
+        const moveButtons = within(dialog).getAllByRole("button", { name: "Move" });
+        await user.click(moveButtons[moveButtons.length - 1]);
+      },
+    },
+  ];
+
+  for (const write of writes) {
+    it(`waits for ${write.name} already sent to the bucket`, async () => {
+      const user = userEvent.setup();
+      const gate = deferred<void>();
+      write.held().mockReturnValue(gate.promise);
+      renderStorage();
+      await user.click(await screen.findByText("logs"));
+      await screen.findByText("a.txt");
+      expect(screen.getByRole("button", { name: "Empty bucket" })).toBeEnabled();
+
+      await write.start(user);
+
+      await waitFor(() => expect(screen.getByRole("button", { name: "Empty bucket" })).toBeDisabled());
+      expect(screen.getByRole("button", { name: "Empty bucket" })).toHaveAttribute("title", WAITING_FOR_WRITES);
+      await act(async () => gate.resolve());
+      await waitFor(() => expect(screen.getByRole("button", { name: "Empty bucket" })).toBeEnabled());
+      expect(emptyStorageBucket).not.toHaveBeenCalled();
+    });
+  }
+
+  it("waits for a copy into the bucket started from another bucket", async () => {
+    const user = userEvent.setup();
+    const gate = deferred<void>();
+    vi.mocked(copyStorageObject).mockReturnValue(gate.promise);
+    renderStorage();
+    await user.click(await screen.findByText("assets"));
+    await screen.findByText("a.txt");
+    const dialog = await openMoveOrCopy(user);
+    await user.click(within(dialog).getByRole("button", { name: "Copy" }));
+    await user.selectOptions(await within(dialog).findByLabelText("Destination bucket"), "logs");
+    const copyButtons = within(dialog).getAllByRole("button", { name: "Copy" });
+    await user.click(copyButtons[copyButtons.length - 1]);
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByText("logs"));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Empty bucket" })).toBeDisabled());
+    await act(async () => gate.resolve());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Empty bucket" })).toBeEnabled());
+  });
+
+  it("does not wait for a write to another bucket or another account", async () => {
+    const user = userEvent.setup();
+    const gate = deferred<void>();
+    vi.mocked(uploadStorageObject).mockReturnValue(gate.promise);
+    renderStorage();
+    await user.click(await screen.findByText("assets"));
+    await screen.findByText("a.txt");
+    await user.upload(screen.getByLabelText("Choose file to upload"), new File(["x"], "new.txt"));
+
+    await user.click(screen.getByText("logs"));
+    expect(await screen.findByRole("button", { name: "Empty bucket" })).toBeEnabled();
+
+    act(() => setAccountId(ACCOUNT_B));
+    await user.click(await screen.findByText("assets"));
+    expect(await screen.findByRole("button", { name: "Empty bucket" })).toBeEnabled();
+    await act(async () => gate.resolve());
   });
 });

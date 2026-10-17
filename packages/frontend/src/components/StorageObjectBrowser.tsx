@@ -16,7 +16,7 @@ import type {CloudResource, StorageObject} from '@/types/resource'
 import type {CapabilitySchema, ObjectActionName} from '@/types/schema'
 import {formatBytes, objectIconKind, objectPreviewKind} from '@/lib/format'
 import {useAccountId} from '@/lib/accountStore'
-import {storageObjectsKey, storageTargetKey, type StorageTarget} from '@/lib/storageQueryKeys'
+import {storageObjectsKey, storageObjectWriteKey, storageTargetKey, type StorageTarget} from '@/lib/storageQueryKeys'
 import {ImagePreviewModal} from '@/components/ImagePreviewModal'
 import {ObjectThumbnail} from '@/components/ObjectThumbnail'
 import {ModalOverlay} from './ModalOverlay'
@@ -116,6 +116,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     }, [query.data])
 
     const uploadMut = useMutation({
+        mutationKey: storageObjectWriteKey,
         mutationFn: async ({file, target}: {file: File; target: StorageTarget}) => {
             const key = `${uploadPrefix || prefix}${file.name}`
             await uploadStorageObject(target.accountId, target.cloud, target.bucketId, key, file)
@@ -124,6 +125,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     })
 
     const createFolderMut = useMutation({
+        mutationKey: storageObjectWriteKey,
         mutationFn: async ({name, target}: {name: string; target: StorageTarget}) => {
             const folderKey = `${prefix}${normalizeFolderName(name)}`
             await uploadStorageObject(target.accountId, target.cloud, target.bucketId, folderKey, new Blob([], {type: 'application/x-directory'}))
@@ -138,6 +140,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     })
 
     const deleteMut = useMutation({
+        mutationKey: storageObjectWriteKey,
         mutationFn: async ({object, target}: {object: StorageObject; target: StorageTarget}) => {
             await deleteStorageObject(target.accountId, target.cloud, target.bucketId, object.key)
         },
@@ -147,7 +150,16 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         },
     })
 
+    // A mutation rather than a bare promise so Empty bucket can see it pending.
+    // allSettled never rejects, so the caller reads every outcome.
+    const bulkDeleteMut = useMutation({
+        mutationKey: storageObjectWriteKey,
+        mutationFn: ({keys, target}: {keys: string[]; target: StorageTarget}) =>
+            Promise.allSettled(keys.map((key) => deleteStorageObject(target.accountId, target.cloud, target.bucketId, key))),
+    })
+
     const moveCopyMut = useMutation({
+        mutationKey: storageObjectWriteKey,
         mutationFn: async ({srcKey, destKey, destResourceId, mode, target}: {
             srcKey: string; destKey: string; destResourceId?: string; mode: 'move' | 'copy'; target: StorageTarget
         }) => {
@@ -184,7 +196,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         const keys = [...selectedKeys]
         setBulkDeleting(true)
         setBulkDeleteError(null)
-        const results = await Promise.allSettled(keys.map((key) => deleteStorageObject(bulkTarget.accountId, bulkTarget.cloud, bulkTarget.bucketId, key)))
+        const results = await bulkDeleteMut.mutateAsync({keys, target: bulkTarget})
         const deleted = new Set(keys.filter((_, index) => results[index].status === 'fulfilled'))
         const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
         if (isCurrent(bulkTarget)) {
