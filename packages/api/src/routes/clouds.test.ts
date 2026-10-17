@@ -1965,6 +1965,125 @@ describe('route guard error shape', () => {
     })
 })
 
+describe('empty bucket and object writes on the same bucket', () => {
+    const emptyUrl = '/api/clouds/aws/services/storage/resources/logs/empty'
+    const objectUrl = (bucket: string, key = 'a.txt') => `/api/clouds/aws/services/storage/resources/${bucket}/object?key=${key}`
+    const env = {server: {timeout: () => {}}}
+
+    function held() {
+        let release!: () => void
+        const done = new Promise<void>((resolve) => {
+            release = resolve
+        })
+        return {done, release}
+    }
+
+    function upload(app: Hono, bucket: string, signal?: AbortSignal) {
+        return app.request(new Request(`http://localhost${objectUrl(bucket)}`, {method: 'PUT', body: 'x', signal}), undefined, env)
+    }
+
+    test('Empty bucket is refused while a write the API started is still landing, even after its client gave up', async () => {
+        const write = held()
+        const started = held()
+        let emptied = 0
+        const app = appWithRoutes([mockAdapter('aws', {
+            putObject: () => {
+                started.release()
+                return write.done
+            },
+            emptyBucket: async () => {
+                emptied += 1
+                return {deleted: 0}
+            },
+        })])
+        const gaveUp = new AbortController()
+        const pending = upload(app, 'logs', gaveUp.signal)
+        await started.done
+        gaveUp.abort()
+
+        const refused = await app.request(emptyUrl, {method: 'POST'}, env)
+
+        expect(refused.status).toBe(409)
+        expect(await refused.json()).toMatchObject({code: 'resource_conflict', detail: expect.stringContaining('nothing was deleted')})
+        expect(emptied).toBe(0)
+
+        write.release()
+        await pending
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(200)
+        expect(emptied).toBe(1)
+    })
+
+    test('a write to another bucket does not hold Empty bucket', async () => {
+        const write = held()
+        const started = held()
+        const app = appWithRoutes([mockAdapter('aws', {
+            putObject: () => {
+                started.release()
+                return write.done
+            },
+            emptyBucket: async () => ({deleted: 0}),
+        })])
+        const pending = upload(app, 'assets')
+        await started.done
+
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(200)
+        write.release()
+        await pending
+    })
+
+    test('a failed write releases the bucket', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {
+            putObject: async () => {
+                throw new RuntimeError('upload failed')
+            },
+            emptyBucket: async () => ({deleted: 0}),
+        })])
+
+        expect((await upload(app, 'logs')).status).toBe(502)
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(200)
+    })
+
+    test('uploads, deletes and copies into the bucket are refused while it is being emptied', async () => {
+        const empty = held()
+        const writes: string[] = []
+        const app = appWithRoutes([mockAdapter('aws', {
+            emptyBucket: async () => {
+                await empty.done
+                return {deleted: 0}
+            },
+            putObject: async (bucket) => {
+                writes.push(`put:${bucket}`)
+            },
+            deleteObject: async (bucket) => {
+                writes.push(`delete:${bucket}`)
+            },
+            copyObject: async (bucket, _src, _dest, destBucket) => {
+                writes.push(`copy:${bucket}->${destBucket ?? bucket}`)
+            },
+        })])
+        const running = app.request(emptyUrl, {method: 'POST'}, env)
+        const copy = (from: string, destResourceId?: string) => app.request(`/api/clouds/aws/services/storage/resources/${from}/object/copy`, {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({srcKey: 'a.txt', destKey: 'b.txt', destResourceId}),
+        }, env)
+
+        expect((await upload(app, 'logs')).status).toBe(409)
+        expect((await app.request(objectUrl('logs'), {method: 'DELETE'}, env)).status).toBe(409)
+        expect((await copy('logs')).status).toBe(409)
+        expect((await copy('assets', 'logs')).status).toBe(409)
+        expect((await app.request(emptyUrl, {method: 'POST'}, env)).status).toBe(409)
+        // Writes elsewhere go ahead, including a copy out of the bucket being emptied.
+        expect((await upload(app, 'assets')).status).toBe(200)
+        expect((await copy('logs', 'assets')).status).toBe(200)
+        expect(writes).toEqual(['put:assets', 'copy:logs->assets'])
+
+        empty.release()
+        expect((await running).status).toBe(200)
+        expect((await upload(app, 'logs')).status).toBe(200)
+    })
+})
+
 describe('empty bucket route', () => {
     const emptyUrl = '/api/clouds/aws/services/storage/resources/logs/empty'
     const post = {method: 'POST'}
