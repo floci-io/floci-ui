@@ -275,7 +275,7 @@ export const SERVICE_CATALOG = {
     },
     logs: {
         displayName: 'Logs',
-        displayNameByCloud: {aws: 'CloudWatch Logs'},
+        displayNameByCloud: {aws: 'CloudWatch Logs', gcp: 'Cloud Logging'},
         description: 'Collect and inspect application logs.',
         iconKey: 'logs',
         group: 'Observability',

@@ -24,6 +24,7 @@ import {GcpCloudRunAdapter} from './adapter-gcp/GcpCloudRunAdapter'
 import {GcpPubSubAdapter} from './adapter-gcp/GcpPubSubAdapter'
 import {GcpSecretManagerAdapter} from './adapter-gcp/GcpSecretManagerAdapter'
 import {GcpSchedulerAdapter} from './adapter-gcp/GcpSchedulerAdapter'
+import {GcpLoggingAdapter} from './adapter-gcp/GcpLoggingAdapter'
 import {GcpFirestoreAdapter} from './adapter-gcp/GcpFirestoreAdapter'
 import {OciStorageAdapter} from './adapter-oci/OciStorageAdapter'
 import {OciIdentityAdapter} from './adapter-oci/OciIdentityAdapter'
@@ -119,6 +120,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new GcpPubSubAdapter(),
         new GcpSecretManagerAdapter(),
         new GcpSchedulerAdapter(),
+        new GcpLoggingAdapter(),
         new GcpFirestoreAdapter(),
         new OciStorageAdapter(),
         new OciIdentityAdapter(),

@@ -11,6 +11,7 @@ import { lazyPanel } from "@/lib/lazyPanel";
 
 const LogsExplorerPanel = lazyPanel(() => import("@/components/LogsExplorerPanel").then((m) => m.LogsExplorerPanel));
 const LogsQueryPanel = lazyPanel(() => import("@/components/LogsQueryPanel").then((m) => m.LogsQueryPanel));
+const GcpLogsPanel = lazyPanel(() => import("@/components/GcpLogsPanel").then((m) => m.GcpLogsPanel));
 const LambdaTriggerPanel = lazyPanel(() => import("@/components/LambdaTriggerPanel").then((m) => m.LambdaTriggerPanel));
 
 interface ResourceInspectorProps {
@@ -188,6 +189,7 @@ export function ResourceInspector({
   const isAwsDatabase = isDatabase && resource.cloud === "aws";
   const isK8sEngine = resource.service === "k8s" || resource.type === "cluster";
   const isLogGroup = resource.cloud === "aws" && (resource.service === "logs" || resource.type === "log-group");
+  const isGcpLog = resource.cloud === "gcp" && resource.service === "logs";
   const isSqsQueue =
     resource.cloud === "aws" &&
     (resource.service === "messaging" || resource.type === "queue" || resource.type === "fifo-queue");
@@ -526,6 +528,7 @@ export function ResourceInspector({
           <LogsExplorerPanel cloud={cloud} resource={resource} runtimeReachable={runtimeReachable ?? false} />
         </>
       )}
+      {isGcpLog && <GcpLogsPanel key={resource.id} logName={resource.id} runtimeReachable={runtimeReachable ?? false} />}
     </aside>
   );
 }
