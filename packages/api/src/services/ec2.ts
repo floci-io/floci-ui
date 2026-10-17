@@ -65,6 +65,10 @@ import {
     type Subnet,
     type Vpc,
 } from '@aws-sdk/client-ec2'
+import {
+    DescribeLoadBalancersCommand,
+    type ElasticLoadBalancingV2Client,
+} from '@aws-sdk/client-elastic-load-balancing-v2'
 import {awsClients} from '../aws'
 
 export type Ec2Tag = {
@@ -441,7 +445,10 @@ function isUnsupportedOperation(error: unknown) {
     return error instanceof Error && error.message.includes('is not supported')
 }
 
-export function createEc2Service(client: EC2Client = awsClients.ec2) {
+export function createEc2Service(
+    client: EC2Client = awsClients.ec2,
+    elbClient: ElasticLoadBalancingV2Client = awsClients.elbv2,
+) {
     return {
         async listInstances(): Promise<Ec2Instance[]> {
             const instances: Ec2Instance[] = []
@@ -752,6 +759,17 @@ export function createEc2Service(client: EC2Client = awsClients.ec2) {
         },
 
         async deleteVpc(vpcId: string): Promise<void> {
+            let marker: string | undefined
+            do {
+                const res = await elbClient.send(new DescribeLoadBalancersCommand(marker ? {Marker: marker} : {}))
+                const balancer = (res.LoadBalancers ?? []).find((item) => item.VpcId === vpcId)
+                if (balancer) {
+                    const name = balancer.LoadBalancerName ?? balancer.LoadBalancerArn ?? 'unknown'
+                    throw new Error(`Delete load balancer ${name} before deleting VPC ${vpcId}`)
+                }
+                marker = res.NextMarker || undefined
+            } while (marker)
+
             const vpcFilter = [{Name: 'vpc-id', Values: [vpcId]}]
 
             // 1. Delete non-default security groups

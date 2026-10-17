@@ -52,6 +52,7 @@ import {
     StopInstancesCommand,
     TerminateInstancesCommand,
 } from '@aws-sdk/client-ec2'
+import {DescribeLoadBalancersCommand, type ElasticLoadBalancingV2Client} from '@aws-sdk/client-elastic-load-balancing-v2'
 import {createEc2Service, isCidrWithinBlock} from './ec2'
 import type {SubnetGroup} from './ec2'
 
@@ -313,9 +314,46 @@ describe('ec2Service VPCs and subnets', () => {
     test('deleteVpc sends DeleteVpcCommand as final command', async () => {
         const sent: unknown[] = []
         const client: EC2Client = {send: async (cmd: unknown) => { sent.push(cmd); return {} }} as unknown as EC2Client
-        await createEc2Service(client).deleteVpc('vpc-1')
+        const elb = {send: async () => ({LoadBalancers: []})} as unknown as ElasticLoadBalancingV2Client
+        await createEc2Service(client, elb).deleteVpc('vpc-1')
         // deleteVpc first cleans up SGs, subnets, IGWs, RTBs then sends DeleteVpcCommand last
         expect(sent[sent.length - 1]).toBeInstanceOf(DeleteVpcCommand)
+    })
+
+    test('deleteVpc leaves resources untouched when a load balancer uses the VPC', async () => {
+        const ec2Commands: unknown[] = []
+        const client: EC2Client = {
+            send: async (command: unknown) => { ec2Commands.push(command); return {} },
+        } as unknown as EC2Client
+        const elb: ElasticLoadBalancingV2Client = {
+            send: async (command: unknown) => {
+                expect(command).toBeInstanceOf(DescribeLoadBalancersCommand)
+                return {LoadBalancers: [{LoadBalancerName: 'web', VpcId: 'vpc-1'}]}
+            },
+        } as unknown as ElasticLoadBalancingV2Client
+
+        await expect(createEc2Service(client, elb).deleteVpc('vpc-1'))
+            .rejects.toThrow('Delete load balancer web before deleting VPC vpc-1')
+        expect(ec2Commands).toHaveLength(0)
+    })
+
+    test('deleteVpc checks later load balancer pages before cleanup', async () => {
+        const ec2Commands: unknown[] = []
+        const client = {send: async (command: unknown) => { ec2Commands.push(command); return {} }} as unknown as EC2Client
+        const markers: (string | undefined)[] = []
+        const elb = {
+            send: async (command: DescribeLoadBalancersCommand) => {
+                markers.push(command.input.Marker)
+                return command.input.Marker
+                    ? {LoadBalancers: [{LoadBalancerName: 'nlb', VpcId: 'vpc-1'}]}
+                    : {LoadBalancers: [{LoadBalancerName: 'other', VpcId: 'vpc-2'}], NextMarker: 'second'}
+            },
+        } as unknown as ElasticLoadBalancingV2Client
+
+        await expect(createEc2Service(client, elb).deleteVpc('vpc-1'))
+            .rejects.toThrow('Delete load balancer nlb before deleting VPC vpc-1')
+        expect(markers).toEqual([undefined, 'second'])
+        expect(ec2Commands).toHaveLength(0)
     })
 
     test('listSubnets returns empty array when unsupported', async () => {

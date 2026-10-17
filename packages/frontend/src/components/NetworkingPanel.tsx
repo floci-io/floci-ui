@@ -1068,7 +1068,7 @@ function KpDetail({kp, onDelete}: {kp: Ec2KeyPair; onDelete: () => void}) {
 
 // ─── Detail: VPC ──────────────────────────────────────────────────────────────
 
-function VpcDetail({vpc, onDelete}: {vpc: Ec2Vpc; onDelete: () => void}) {
+function VpcDetail({vpc, onDelete, deleteError}: {vpc: Ec2Vpc; onDelete: () => void; deleteError?: string}) {
     const qc = useQueryClient()
 
     const attrsQuery = useQuery({
@@ -1095,6 +1095,7 @@ function VpcDetail({vpc, onDelete}: {vpc: Ec2Vpc; onDelete: () => void}) {
                 </div>
             </div>
             <div className="widget-body">
+                {deleteError && <p role="alert" style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{deleteError}</p>}
                 <MetaGrid rows={[
                     ['VPC ID', vpc.vpcId],
                     ['CIDR', vpc.cidrBlock],
@@ -1731,6 +1732,9 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
                             {selectedVpc && (
                                 <VpcDetail
                                     vpc={selectedVpc}
+                                    deleteError={delVpcMut.isError && delVpcMut.variables === selectedVpc.vpcId
+                                        ? (delVpcMut.error instanceof Error ? delVpcMut.error.message : 'Delete VPC failed')
+                                        : undefined}
                                     onDelete={() => setModal({
                                         type: 'confirm-delete',
                                         title: 'Delete VPC',
