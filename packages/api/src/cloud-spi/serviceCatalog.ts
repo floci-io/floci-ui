@@ -86,7 +86,7 @@ export const SERVICE_CATALOG = {
     },
     containers: {
         displayName: 'Containers',
-        displayNameByCloud: {aws: 'ECS', gcp: 'Cloud Run'},
+        displayNameByCloud: {aws: 'ECS', azure: 'Container Apps', gcp: 'Cloud Run'},
         description: 'Deploy and run containerized applications.',
         iconKey: 'containers',
         group: 'Compute',

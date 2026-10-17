@@ -121,7 +121,133 @@ export function awsContainersSchema(): ServiceSchema {
     }
 }
 
+/** Container app and managed environment names: lowercase letters, digits and hyphens, 2 to 32 chars. */
+export const CONTAINER_APP_NAME_PATTERN = '^[a-z][-a-z0-9]{0,30}[a-z0-9]$'
+export const CONTAINER_APP_NAME_MESSAGE =
+    'Start with a letter; 2 to 32 lowercase letters, digits and hyphens, ending with a letter or digit.'
+export const CONTAINER_APP_LOCATIONS = ['eastus', 'eastus2', 'westus', 'westus2', 'westeurope', 'northeurope'] as const
+export const CONTAINER_APP_INGRESS_MODES = ['none', 'external', 'internal'] as const
+
+const azureContainerColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'type', label: 'Kind', format: 'badge'},
+    {name: 'status', label: 'State', format: 'badge'},
+    {name: 'image', label: 'Image', path: 'metadata.image', format: 'code', emptyText: '—'},
+    {name: 'environment', label: 'Environment', path: 'metadata.environmentName', emptyText: '—'},
+    {name: 'region', label: 'Location'},
+    {name: 'resourceGroup', label: 'Resource Group', path: 'metadata.resourceGroup'},
+]
+
+const IS_APP = {field: 'resourceType', equals: 'containerApp'}
+
+export function azureContainersSchema(): ServiceSchema {
+    return {
+        cloud: 'azure',
+        service: 'containers',
+        displayName: 'Container Apps',
+        fields: [
+            {
+                name: 'resourceType',
+                label: 'Resource',
+                type: 'select',
+                required: true,
+                group: 'Required',
+                defaultValue: 'containerApp',
+                description: 'An app runs inside a managed environment, so create the environment first.',
+                options: [
+                    {label: 'Container app', value: 'containerApp'},
+                    {label: 'Managed environment', value: 'managedEnvironment'},
+                ],
+            },
+            {
+                name: 'name',
+                label: 'Name',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                validation: {
+                    pattern: CONTAINER_APP_NAME_PATTERN,
+                    minLength: 2,
+                    maxLength: 32,
+                    message: CONTAINER_APP_NAME_MESSAGE,
+                },
+            },
+            {
+                name: 'resourceGroup',
+                label: 'Resource Group',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                description: 'Must already exist. Every Azure resource lives in a resource group.',
+            },
+            {
+                name: 'environment',
+                label: 'Managed Environment',
+                type: 'text',
+                required: false,
+                requiredWhen: IS_APP,
+                visibleWhen: IS_APP,
+                group: 'Required',
+                description: 'Name of an existing managed environment in the same resource group.',
+            },
+            {
+                name: 'image',
+                label: 'Container Image',
+                type: 'text',
+                required: false,
+                requiredWhen: IS_APP,
+                visibleWhen: IS_APP,
+                span: true,
+                group: 'Required',
+                description: 'e.g. nginx:alpine',
+            },
+            {
+                name: 'ingress',
+                label: 'Ingress',
+                type: 'select',
+                required: false,
+                visibleWhen: IS_APP,
+                group: 'Optional',
+                defaultValue: 'none',
+                description: 'External is reachable from outside the environment, internal only from inside it.',
+                options: CONTAINER_APP_INGRESS_MODES.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'targetPort',
+                label: 'Ingress Target Port',
+                type: 'text',
+                required: false,
+                visibleWhen: IS_APP,
+                group: 'Optional',
+                description: 'The port the container listens on. Defaults to 80; ignored when ingress is none.',
+                validation: {pattern: '^[0-9]{1,5}$', message: 'Enter a port between 1 and 65535.'},
+            },
+            {
+                name: 'location',
+                label: 'Location',
+                type: 'select',
+                required: false,
+                group: 'Optional',
+                description: 'Defaults to eastus.',
+                options: CONTAINER_APP_LOCATIONS.map((value) => ({label: value, value})),
+            },
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List apps and environments', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+        filters: containerFilters,
+        columns: azureContainerColumns,
+    }
+}
+
 export function containersSchemaFor(cloud: CloudProvider): ServiceSchema | null {
     if (cloud === 'aws') return awsContainersSchema()
+    if (cloud === 'azure') return azureContainersSchema()
     return cloud === 'gcp' ? gcpContainersSchema() : null
 }
