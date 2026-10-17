@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw, Trash2, X } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCloudResource,
   clearEmailInbox,
@@ -37,7 +37,13 @@ import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { ModalOverlay } from "@/components/ModalOverlay";
-import { storageObjectsKey, storageTargetKey as targetKey, type StorageTarget } from "@/lib/storageQueryKeys";
+import {
+  storageObjectsKey,
+  storageObjectWriteKey,
+  storageTargetKey as targetKey,
+  writeLandsIn,
+  type StorageTarget,
+} from "@/lib/storageQueryKeys";
 
 const ComputePanel = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.ComputePanel));
 const LaunchInstanceForm = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.LaunchInstanceForm));
@@ -189,6 +195,14 @@ export function DynamicResourceView({
   });
   const emptyingKey =
     emptyMut.isPending && emptyMut.variables ? targetKey(emptyMut.variables) : undefined;
+  // An upload, delete, copy or move already sent to this bucket could land
+  // after Empty bucket's final check, so Empty bucket waits for it to settle.
+  const objectWritesPending =
+    useIsMutating({
+      mutationKey: storageObjectWriteKey,
+      predicate: (mutation) =>
+        storageTarget !== undefined && writeLandsIn(mutation.state.variables, storageTarget),
+    }) > 0;
 
   const isAwsSageMaker = cloud === "aws" && service === "sagemaker";
   const canDeleteResource = isAwsSageMaker
@@ -571,7 +585,8 @@ export function DynamicResourceView({
     canUseRuntime &&
     capabilityEnabled(emptyCapability) &&
     !emptyMut.isPending &&
-    !deletionPending;
+    !deletionPending &&
+    !objectWritesPending;
   const showEmptyError =
     emptyMut.isError &&
     emptyMut.variables !== undefined &&
@@ -746,9 +761,11 @@ export function DynamicResourceView({
                       type="button"
                       disabled={!canEmptyBucket}
                       title={
-                        storageTarget
-                          ? emptyCapability.reason
-                          : "Select a bucket to empty it."
+                        !storageTarget
+                          ? "Select a bucket to empty it."
+                          : objectWritesPending
+                            ? "Waiting for object writes to this bucket to finish."
+                            : emptyCapability.reason
                       }
                       onClick={() => {
                         if (storageTarget) setEmptyConfirm(storageTarget);
@@ -1082,7 +1099,7 @@ export function DynamicResourceView({
               <button
                 className="button danger"
                 type="button"
-                disabled={emptyMut.isPending}
+                disabled={emptyMut.isPending || objectWritesPending}
                 onClick={() => {
                   if (targetKey(emptyConfirm) !== storageTargetKey) {
                     setEmptyConfirm(null);

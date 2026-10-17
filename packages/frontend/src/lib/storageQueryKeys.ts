@@ -21,3 +21,22 @@ export function storageObjectsKey(target: StorageTarget, prefix?: string): unkno
 export function storageTargetKey(target: StorageTarget): string {
     return JSON.stringify([target.accountId, target.cloud, target.bucketId])
 }
+
+/**
+ * Mutation key every object write runs under. Empty bucket waits for these: a
+ * write still in flight when it starts could land after its final check.
+ */
+export const storageObjectWriteKey = ['storage-object-write']
+
+/**
+ * Whether an object write's variables put it in this bucket: the bucket it was
+ * started in (its upload, delete, or a move's source delete), or the
+ * destination of a copy or move, which stays in the same account.
+ */
+export function writeLandsIn(variables: unknown, bucket: StorageTarget): boolean {
+    const write = variables as {target?: StorageTarget; destResourceId?: string} | undefined
+    if (!write?.target) return false
+    const key = storageTargetKey(bucket)
+    if (storageTargetKey(write.target) === key) return true
+    return write.destResourceId !== undefined && storageTargetKey({...write.target, bucketId: write.destResourceId}) === key
+}
