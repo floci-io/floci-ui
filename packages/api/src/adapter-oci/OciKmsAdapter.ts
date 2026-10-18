@@ -18,6 +18,11 @@ import type {
     KmsEncryptInput,
     KmsEncryptionAlgorithm,
     KmsEncryptResult,
+    KmsSignInput,
+    KmsSigningAlgorithm,
+    KmsSignResult,
+    KmsVerifyInput,
+    KmsVerifyResult,
     ResourceQuery,
     ServiceSchema,
 } from '../cloud-spi/types'
@@ -73,6 +78,17 @@ interface OciDecryptedData {
     keyId?: string
     keyVersionId?: string
     encryptionAlgorithm?: string
+}
+
+interface OciSignedData {
+    signature?: string
+    keyId?: string
+    keyVersionId?: string
+    signingAlgorithm?: string
+}
+
+interface OciVerifiedData {
+    isSignatureValid?: boolean
 }
 
 type OciEncryptionAlgorithm = 'AES_256_GCM' | 'RSA_OAEP_SHA_1' | 'RSA_OAEP_SHA_256'
@@ -219,6 +235,83 @@ export class OciKmsAdapter implements CloudServiceAdapter {
             keyId: res.keyId ?? id,
             encryptionAlgorithm: responseAlgorithm(res.encryptionAlgorithm, input.encryptionAlgorithm),
         }
+    }
+
+    async rotate(id: string): Promise<CloudResource> {
+        const {key, vault} = await this.requireKey(id)
+        if (key.lifecycleState !== 'ENABLED') throw new ConflictError('Only an ENABLED key can be rotated')
+        const version = await this.client.json<{id?: string}>(
+            vaultPlanePath(vault?.managementEndpoint, `/keys/${encodeURIComponent(id)}/keyVersions`),
+            {method: 'POST', headers: JSON_HEADERS, body: '{}'},
+        )
+        if (!version?.id) throw new RuntimeError('OCI KMS did not return the new key version')
+        return this.keyResource({...key, currentKeyVersion: version.id}, vault?.displayName)
+    }
+
+    async sign(id: string, input: KmsSignInput): Promise<KmsSignResult> {
+        const {key, vault} = await this.requireKey(id)
+        validateSigningKey(key, input.signingAlgorithm)
+        const res = await this.client.json<OciSignedData>(vaultPlanePath(vault?.cryptoEndpoint, '/sign'), {
+            method: 'POST',
+            headers: JSON_HEADERS,
+            body: JSON.stringify({
+                keyId: id,
+                message: toBase64(input.message),
+                signingAlgorithm: input.signingAlgorithm,
+            }),
+        })
+        if (!res?.signature || !res.keyVersionId || res.signingAlgorithm !== input.signingAlgorithm) {
+            throw new RuntimeError('OCI KMS did not return a complete signature')
+        }
+        return {
+            signature: fromBase64(res.signature),
+            keyId: res.keyId ?? id,
+            keyVersionId: res.keyVersionId,
+            signingAlgorithm: input.signingAlgorithm,
+        }
+    }
+
+    async verify(id: string, input: KmsVerifyInput): Promise<KmsVerifyResult> {
+        const {key, vault} = await this.requireKey(id)
+        validateSigningKey(key, input.signingAlgorithm)
+        if (!input.keyVersionId.trim()) throw new ValidationError('keyVersionId must not be empty')
+        if (input.signature.byteLength === 0) throw new ValidationError('signatureBase64 must not be empty')
+        const res = await this.client.json<OciVerifiedData>(vaultPlanePath(vault?.cryptoEndpoint, '/verify'), {
+            method: 'POST',
+            headers: JSON_HEADERS,
+            body: JSON.stringify({
+                keyId: id,
+                keyVersionId: input.keyVersionId,
+                signature: toBase64(input.signature),
+                message: toBase64(input.message),
+                signingAlgorithm: input.signingAlgorithm,
+            }),
+        })
+        if (typeof res?.isSignatureValid !== 'boolean') throw new RuntimeError('OCI KMS did not return a verification result')
+        return {isSignatureValid: res.isSignatureValid}
+    }
+
+    async cancelDeletion(id: string): Promise<CloudResource> {
+        if (isVaultId(id)) {
+            const vault = await this.getVault(id)
+            if (!vault) throw new NotFoundError(`Vault ${id} was not found`)
+            assertPendingDeletion('Vault', id, vault)
+            await this.client.fetch(`${KMS_API}/vaults/${encodeURIComponent(id)}/actions/cancelDeletion`, {
+                method: 'POST', headers: JSON_HEADERS, body: '{}',
+            })
+            const updated = await this.getVault(id)
+            if (!updated) throw new RuntimeError('OCI KMS did not return the restored vault')
+            return this.vaultResource(updated)
+        }
+        const {key, vault} = await this.requireKey(id)
+        assertPendingDeletion('Key', id, key)
+        await this.client.fetch(
+            vaultPlanePath(vault?.managementEndpoint, `/keys/${encodeURIComponent(id)}/actions/cancelDeletion`),
+            {method: 'POST', headers: JSON_HEADERS, body: '{}'},
+        )
+        const updated = await this.findKey(id)
+        if (!updated) throw new RuntimeError('OCI KMS did not return the restored key')
+        return this.keyResource(updated.key, updated.vault?.displayName)
     }
 
     private async createVault(displayName: string, values: Record<string, unknown>): Promise<CloudResource> {
@@ -389,8 +482,8 @@ export class OciKmsAdapter implements CloudServiceAdapter {
 
     /**
      * `keyUsage`, `keySpec` and `enabled` are the console's shared crypto fields,
-     * which decide whether the encrypt/decrypt panel can act on the key. OCI has
-     * no key usage: AES and RSA keys encrypt, ECDSA keys only sign.
+     * which decide which crypto panel can act on the key. Floci-OCI encrypts
+     * with AES and signs with RSA or ECDSA.
      */
     private keyResource(key: OciKey, vaultName: string | undefined): CloudResource {
         const id = key.id ?? ''
@@ -418,7 +511,7 @@ export class OciKmsAdapter implements CloudServiceAdapter {
                 length: length ?? null,
                 curveId: key.keyShape?.curveId ?? null,
                 keyShapeLabel: keyShapeLabel(algorithm, length, key.keyShape?.curveId),
-                keyUsage: algorithm === 'ECDSA' ? 'SIGN_VERIFY' : algorithm ? 'ENCRYPT_DECRYPT' : undefined,
+                keyUsage: algorithm === 'RSA' || algorithm === 'ECDSA' ? 'SIGN_VERIFY' : algorithm === 'AES' ? 'ENCRYPT_DECRYPT' : undefined,
                 keySpec: keySpec(algorithm, length),
                 cryptoUnavailableReason: algorithm === 'RSA' ? FLOCI_OCI_NO_RSA_ENCRYPT : null,
                 encryptionContextSupported: false,
@@ -457,6 +550,21 @@ export function assertNotPendingDeletion(kind: string, id: string, resource: {li
     if (resource.lifecycleState !== 'PENDING_DELETION' && resource.lifecycleState !== 'SCHEDULING_DELETION') return
     const when = resource.timeOfDeletion ? ` for ${resource.timeOfDeletion}` : ''
     throw new ConflictError(`${kind} ${id} is already scheduled for deletion${when}`)
+}
+
+function assertPendingDeletion(kind: string, id: string, resource: {lifecycleState?: string}): void {
+    if (resource.lifecycleState === 'PENDING_DELETION' || resource.lifecycleState === 'SCHEDULING_DELETION') return
+    throw new ConflictError(`${kind} ${id} is not scheduled for deletion`)
+}
+
+function validateSigningKey(key: OciKey, algorithm: KmsSigningAlgorithm): void {
+    if (key.lifecycleState !== 'ENABLED') {
+        throw new ConflictError(`Key must be ENABLED; it is ${key.lifecycleState ?? 'in an unknown state'}`)
+    }
+    const shape = key.keyShape?.algorithm ?? key.algorithm
+    if (shape === 'RSA' && algorithm.startsWith('SHA_')) return
+    if (shape === 'ECDSA' && algorithm.startsWith('ECDSA_')) return
+    throw new ValidationError(`${shape ?? 'This'} keys cannot use ${algorithm} for signing`)
 }
 
 function validateCryptoKey(

@@ -3,6 +3,8 @@ import server from './index'
 
 const KMS_ENCRYPT_URL = 'http://localhost/api/clouds/aws/services/kms/resources/key-1/encrypt'
 const AZURE_KMS_DECRYPT_URL = 'http://localhost/api/clouds/azure/services/kms/resources/key-1/decrypt'
+const OCI_KMS_SIGN_URL = 'http://localhost/api/clouds/oci/services/kms/resources/key-1/sign'
+const OCI_KMS_VERIFY_URL = 'http://localhost/api/clouds/oci/services/kms/resources/key-1/verify'
 const KMS_SCHEMA_URL = 'http://localhost/api/clouds/aws/services/kms/schema'
 const TRUSTED_ORIGIN = 'http://localhost:4500'
 const UNTRUSTED_ORIGIN = 'https://example.invalid'
@@ -23,13 +25,28 @@ describe('credentialed route CORS', () => {
     })
 
     test('does not allow an untrusted or null KMS crypto origin', async () => {
-        for (const url of [KMS_ENCRYPT_URL, AZURE_KMS_DECRYPT_URL]) {
+        for (const url of [KMS_ENCRYPT_URL, AZURE_KMS_DECRYPT_URL, OCI_KMS_SIGN_URL, OCI_KMS_VERIFY_URL]) {
             for (const origin of [UNTRUSTED_ORIGIN, 'null']) {
                 const res = await server.fetch(new Request(url, {
                     method: 'OPTIONS',
                     headers: {origin, 'access-control-request-method': 'POST'},
                 }))
                 expect(res.headers.get('access-control-allow-origin')).toBeNull()
+            }
+        }
+    })
+
+    test('restricts OCI signing and verification on real requests', async () => {
+        for (const url of [OCI_KMS_SIGN_URL, OCI_KMS_VERIFY_URL]) {
+            for (const origin of [TRUSTED_ORIGIN, UNTRUSTED_ORIGIN]) {
+                const res = await server.fetch(new Request(url, {
+                    method: 'POST',
+                    headers: {origin, 'content-type': 'application/json'},
+                    body: JSON.stringify({}),
+                }))
+                expect(res.headers.get('access-control-allow-origin')).toBe(
+                    origin === TRUSTED_ORIGIN ? TRUSTED_ORIGIN : null,
+                )
             }
         }
     })

@@ -1778,6 +1778,21 @@ pre,
     padding: 10px 12px;
 }
 
+.oci-kms-actions {
+    display: grid;
+    justify-items: start;
+    gap: 8px;
+}
+
+.oci-kms-actions .drawer-tabs {
+    width: 100%;
+}
+
+.oci-kms-actions .input,
+.oci-kms-actions .json-editor {
+    width: min(100%, 720px);
+}
+
 .runtime-notice {
     min-height: 138px;
     display: grid;

@@ -24,6 +24,10 @@ export const apiEndpointKeys = {
       invoke: "clouds.services.resources.invoke",
       encrypt: "clouds.services.resources.encrypt",
       decrypt: "clouds.services.resources.decrypt",
+      rotate: "clouds.services.resources.rotate",
+      sign: "clouds.services.resources.sign",
+      verify: "clouds.services.resources.verify",
+      cancelDeletion: "clouds.services.resources.cancelDeletion",
       sendMessage: "clouds.services.resources.messages.send",
       receiveMessages: "clouds.services.resources.messages.receive",
       deleteMessage: "clouds.services.resources.messages.delete",
@@ -325,6 +329,38 @@ export const endpointRegistry: EndpointRegistry = new Map([
     apiEndpointKeys.clouds.resources.decrypt,
     {
       path: "/clouds/:cloud/services/kms/resources/:id/decrypt",
+      method: "POST",
+      telemetry: { service: "kms" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.rotate,
+    {
+      path: "/clouds/:cloud/services/kms/resources/:id/rotate",
+      method: "POST",
+      telemetry: { service: "kms" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.sign,
+    {
+      path: "/clouds/:cloud/services/kms/resources/:id/sign",
+      method: "POST",
+      telemetry: { service: "kms" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.verify,
+    {
+      path: "/clouds/:cloud/services/kms/resources/:id/verify",
+      method: "POST",
+      telemetry: { service: "kms" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.cancelDeletion,
+    {
+      path: "/clouds/:cloud/services/kms/resources/:id/cancel-deletion",
       method: "POST",
       telemetry: { service: "kms" },
     },

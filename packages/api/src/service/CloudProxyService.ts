@@ -32,6 +32,10 @@ import type {
     KmsDecryptResult,
     KmsEncryptInput,
     KmsEncryptResult,
+    KmsSignInput,
+    KmsSignResult,
+    KmsVerifyInput,
+    KmsVerifyResult,
     QueueMessage,
     ResourceQuery,
     SendQueueMessageResult,
@@ -259,6 +263,30 @@ export class CloudProxyService {
         const adapter = this.requireAdapter(cloud, 'kms')
         if (!adapter.decrypt) throw new NotSupportedError(`${cloud}/kms decrypt is not supported`)
         return adapter.decrypt(keyId, input)
+    }
+
+    async rotateKms(cloud: CloudProvider, keyId: string): Promise<CloudResource> {
+        const adapter = this.requireAdapter(cloud, 'kms')
+        if (!adapter.rotate) throw new NotSupportedError(`${cloud}/kms rotate is not supported`)
+        return adapter.rotate(keyId)
+    }
+
+    async signKms(cloud: CloudProvider, keyId: string, input: KmsSignInput): Promise<KmsSignResult> {
+        const adapter = this.requireAdapter(cloud, 'kms')
+        if (!adapter.sign) throw new NotSupportedError(`${cloud}/kms sign is not supported`)
+        return adapter.sign(keyId, input)
+    }
+
+    async verifyKms(cloud: CloudProvider, keyId: string, input: KmsVerifyInput): Promise<KmsVerifyResult> {
+        const adapter = this.requireAdapter(cloud, 'kms')
+        if (!adapter.verify) throw new NotSupportedError(`${cloud}/kms verify is not supported`)
+        return adapter.verify(keyId, input)
+    }
+
+    async cancelKmsDeletion(cloud: CloudProvider, id: string): Promise<CloudResource> {
+        const adapter = this.requireAdapter(cloud, 'kms')
+        if (!adapter.cancelDeletion) throw new NotSupportedError(`${cloud}/kms cancelDeletion is not supported`)
+        return adapter.cancelDeletion(id)
     }
 
     async invokeResource(

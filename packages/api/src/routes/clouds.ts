@@ -7,6 +7,7 @@ import type {
     CreateDatabaseSnapshotInput,
     CreateLambdaTriggerInput,
     KmsEncryptionAlgorithm,
+    KmsSigningAlgorithm,
     ServiceSchema,
     SqlConnectionInput,
 } from '../cloud-spi/types'
@@ -33,10 +34,28 @@ interface KmsDecryptRequest {
     encryptionContext?: unknown
 }
 
+interface KmsSignRequest {
+    messageBase64?: unknown
+    signingAlgorithm?: unknown
+}
+
+interface KmsVerifyRequest extends KmsSignRequest {
+    signatureBase64?: unknown
+    keyVersionId?: unknown
+}
+
 const KMS_ENCRYPTION_ALGORITHMS = new Set<KmsEncryptionAlgorithm>([
     'SYMMETRIC_DEFAULT',
     'RSAES_OAEP_SHA_1',
     'RSAES_OAEP_SHA_256',
+])
+const KMS_SIGNING_ALGORITHMS = new Set<KmsSigningAlgorithm>([
+    'SHA_256_RSA_PKCS1_V1_5',
+    'SHA_384_RSA_PKCS1_V1_5',
+    'SHA_512_RSA_PKCS1_V1_5',
+    'ECDSA_SHA_256',
+    'ECDSA_SHA_384',
+    'ECDSA_SHA_512',
 ])
 const MAX_PLAINTEXT_BASE64_LENGTH = 5_464
 const MAX_CIPHERTEXT_BASE64_LENGTH = 8_192
@@ -917,6 +936,51 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
+    app.post('/:cloud/services/kms/resources/:id/rotate', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
+        return withRuntime(c, async () => c.json(await svc(c).rotateKms(cloud, c.req.param('id'))))
+    })
+
+    app.post('/:cloud/services/kms/resources/:id/sign', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
+        return withSensitiveRuntime(c, async () => {
+            const body = await jsonBody<KmsSignRequest>(c)
+            const result = await svc(c).signKms(cloud, c.req.param('id'), {
+                message: decodeBase64(body.messageBase64, 'messageBase64', MAX_PLAINTEXT_BASE64_LENGTH),
+                signingAlgorithm: signingAlgorithm(body.signingAlgorithm),
+            })
+            return c.json({
+                signatureBase64: Buffer.from(result.signature).toString('base64'),
+                keyId: result.keyId,
+                keyVersionId: result.keyVersionId,
+                signingAlgorithm: result.signingAlgorithm,
+            })
+        })
+    })
+
+    app.post('/:cloud/services/kms/resources/:id/verify', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
+        return withSensitiveRuntime(c, async () => {
+            const body = await jsonBody<KmsVerifyRequest>(c)
+            const result = await svc(c).verifyKms(cloud, c.req.param('id'), {
+                message: decodeBase64(body.messageBase64, 'messageBase64', MAX_PLAINTEXT_BASE64_LENGTH),
+                signature: decodeBase64(body.signatureBase64, 'signatureBase64', MAX_CIPHERTEXT_BASE64_LENGTH),
+                keyVersionId: requiredKmsString(body.keyVersionId, 'keyVersionId'),
+                signingAlgorithm: signingAlgorithm(body.signingAlgorithm),
+            })
+            return c.json(result)
+        })
+    })
+
+    app.post('/:cloud/services/kms/resources/:id/cancel-deletion', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
+        return withRuntime(c, async () => c.json(await svc(c).cancelKmsDeletion(cloud, c.req.param('id'))))
+    })
+
     app.post('/:cloud/services/:service/resources', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
@@ -977,6 +1041,20 @@ function encryptionAlgorithm(value: unknown): KmsEncryptionAlgorithm {
         throw new ValidationError('encryptionAlgorithm must be a supported KMS encryption algorithm')
     }
     return value as KmsEncryptionAlgorithm
+}
+
+function signingAlgorithm(value: unknown): KmsSigningAlgorithm {
+    if (typeof value !== 'string' || !KMS_SIGNING_ALGORITHMS.has(value as KmsSigningAlgorithm)) {
+        throw new ValidationError('signingAlgorithm must be a supported KMS signing algorithm')
+    }
+    return value as KmsSigningAlgorithm
+}
+
+function requiredKmsString(value: unknown, field: string): string {
+    if (typeof value !== 'string' || !value.trim() || value.length > 512) {
+        throw new ValidationError(`${field} must be a non-empty string of at most 512 characters`)
+    }
+    return value.trim()
 }
 
 function encryptionContext(value: unknown): Record<string, string> | undefined {

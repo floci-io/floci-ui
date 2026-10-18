@@ -151,7 +151,7 @@ describe('OciKmsAdapter', () => {
                 return notFound()
             })
             const [, keyRow] = await adapter().list()
-            expect(keyRow?.metadata).toMatchObject({algorithm: 'RSA', keyShapeLabel: 'RSA', keyUsage: 'ENCRYPT_DECRYPT'})
+            expect(keyRow?.metadata).toMatchObject({algorithm: 'RSA', keyShapeLabel: 'RSA', keyUsage: 'SIGN_VERIFY'})
         })
 
         test('asks each distinct management plane once and deduplicates keys', async () => {
@@ -255,7 +255,7 @@ describe('OciKmsAdapter', () => {
                 vaultName: 'main',
                 keyShapeLabel: 'RSA-2048',
                 keySpec: 'RSA_2048',
-                keyUsage: 'ENCRYPT_DECRYPT',
+                keyUsage: 'SIGN_VERIFY',
                 currentKeyVersion: 'ocid1.keyversion.oc1.iad.v1',
             })
         })
@@ -408,6 +408,72 @@ describe('OciKmsAdapter', () => {
         test('reports a missing key as not found', async () => {
             runtime()
             await expect(adapter().delete('ocid1.key.oc1.iad.missing')).rejects.toBeInstanceOf(NotFoundError)
+        })
+    })
+
+    describe('key operations', () => {
+        test('rotates an enabled key and returns the created version without another mutable read', async () => {
+            const calls = stubFetch((url) => {
+                if (url.startsWith(`${BASE}/vaults?`)) return json([vault()])
+                if (url === `${BASE}/keys/${KEY_ID}`) return json(key({currentKeyVersion: 'version-1'}))
+                if (url === `${BASE}/keys/${KEY_ID}/keyVersions`) {
+                    return json({id: 'version-2'})
+                }
+                return notFound()
+            })
+            const result = await adapter().rotate(KEY_ID)
+            expect(result.metadata.currentKeyVersion).toBe('version-2')
+            expect(calls.find((call) => call.method === 'POST')).toEqual({
+                url: `${BASE}/keys/${KEY_ID}/keyVersions`, method: 'POST', body: {},
+            })
+            expect(calls.filter((call) => call.url === `${BASE}/keys/${KEY_ID}`)).toHaveLength(1)
+        })
+
+        test('signs and verifies RSA data on the crypto plane using the key version', async () => {
+            const calls = stubFetch((url) => {
+                if (url.startsWith(`${BASE}/vaults?`)) return json([vault()])
+                if (url === `${BASE}/keys/${KEY_ID}`) return json(key({keyShape: {algorithm: 'RSA', length: 256}}))
+                if (url === `${BASE}/sign`) return json({signature: 'AQID', keyVersionId: 'version-1', signingAlgorithm: 'SHA_256_RSA_PKCS1_V1_5'})
+                if (url === `${BASE}/verify`) return json({isSignatureValid: false})
+                return notFound()
+            })
+            const message = new TextEncoder().encode('hello')
+            const signingAlgorithm = 'SHA_256_RSA_PKCS1_V1_5'
+            const signed = await adapter().sign(KEY_ID, {message, signingAlgorithm})
+            expect(signed).toMatchObject({signature: new Uint8Array([1, 2, 3]), keyVersionId: 'version-1'})
+            expect(calls.find((call) => call.url === `${BASE}/sign`)?.body).toEqual({
+                keyId: KEY_ID, message: 'aGVsbG8=', signingAlgorithm,
+            })
+            const verified = await adapter().verify(KEY_ID, {message, signature: signed.signature, keyVersionId: signed.keyVersionId, signingAlgorithm})
+            expect(verified.isSignatureValid).toBe(false)
+            expect(calls.find((call) => call.url === `${BASE}/verify`)?.body).toEqual({
+                keyId: KEY_ID, keyVersionId: 'version-1', signature: 'AQID', message: 'aGVsbG8=', signingAlgorithm,
+            })
+        })
+
+        test('rejects signing with AES or an algorithm mismatched to the key shape', async () => {
+            const aesCalls = runtime()
+            await expect(adapter().sign(KEY_ID, {message: new Uint8Array([1]), signingAlgorithm: 'ECDSA_SHA_256'})).rejects.toBeInstanceOf(ValidationError)
+            expect(aesCalls.every((call) => call.method === 'GET')).toBe(true)
+            const ecdsaCalls = runtime({key: {keyShape: {algorithm: 'ECDSA', curveId: 'NIST_P256', length: 32}}})
+            await expect(adapter().sign(KEY_ID, {message: new Uint8Array([1]), signingAlgorithm: 'SHA_256_RSA_PKCS1_V1_5'})).rejects.toBeInstanceOf(ValidationError)
+            expect(ecdsaCalls.every((call) => call.method === 'GET')).toBe(true)
+        })
+
+        test('cancels a pending key deletion and reads the restored state', async () => {
+            let cancelled = false
+            const calls = stubFetch((url) => {
+                if (url.startsWith(`${BASE}/vaults?`)) return json([vault()])
+                if (url === `${BASE}/keys/${KEY_ID}`) return json(key({lifecycleState: cancelled ? 'ENABLED' : 'PENDING_DELETION'}))
+                if (url === `${BASE}/keys/${KEY_ID}/actions/cancelDeletion`) {
+                    cancelled = true
+                    return json({})
+                }
+                return notFound()
+            })
+            const restored = await adapter().cancelDeletion(KEY_ID)
+            expect(restored.status).toBe('ENABLED')
+            expect(calls.find((call) => call.method === 'POST')?.url).toBe(`${BASE}/keys/${KEY_ID}/actions/cancelDeletion`)
         })
     })
 

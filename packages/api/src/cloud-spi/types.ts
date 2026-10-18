@@ -109,6 +109,10 @@ export type ResourceActionName =
     | 'inspect'
     | 'encrypt'
     | 'decrypt'
+    | 'rotate'
+    | 'sign'
+    | 'verify'
+    | 'cancelDeletion'
     | 'invoke'
     | 'start'
     | 'stop'
@@ -527,6 +531,35 @@ export interface KmsDecryptResult {
     encryptionAlgorithm: KmsEncryptionAlgorithm
 }
 
+export type KmsSigningAlgorithm =
+    | 'SHA_256_RSA_PKCS1_V1_5'
+    | 'SHA_384_RSA_PKCS1_V1_5'
+    | 'SHA_512_RSA_PKCS1_V1_5'
+    | 'ECDSA_SHA_256'
+    | 'ECDSA_SHA_384'
+    | 'ECDSA_SHA_512'
+
+export interface KmsSignInput {
+    message: Uint8Array
+    signingAlgorithm: KmsSigningAlgorithm
+}
+
+export interface KmsSignResult {
+    signature: Uint8Array
+    keyId: string
+    keyVersionId: string
+    signingAlgorithm: KmsSigningAlgorithm
+}
+
+export interface KmsVerifyInput extends KmsSignInput {
+    signature: Uint8Array
+    keyVersionId: string
+}
+
+export interface KmsVerifyResult {
+    isSignatureValid: boolean
+}
+
 export interface QueueMessageAttribute {
     dataType: string
     value: string
@@ -580,6 +613,10 @@ export interface CloudServiceAdapter {
     invoke?(id: string, payload: string): Promise<ServerlessInvokeResult>
     encrypt?(id: string, input: KmsEncryptInput): Promise<KmsEncryptResult>
     decrypt?(id: string, input: KmsDecryptInput): Promise<KmsDecryptResult>
+    rotate?(id: string): Promise<CloudResource>
+    sign?(id: string, input: KmsSignInput): Promise<KmsSignResult>
+    verify?(id: string, input: KmsVerifyInput): Promise<KmsVerifyResult>
+    cancelDeletion?(id: string): Promise<CloudResource>
     sendMessage?(id: string, body: string, attributes?: Record<string, string>): Promise<SendQueueMessageResult>
     receiveMessages?(id: string, maxMessages?: number): Promise<QueueMessage[]>
     deleteMessage?(id: string, receiptHandle: string): Promise<void>

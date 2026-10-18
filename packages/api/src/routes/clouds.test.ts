@@ -14,7 +14,7 @@ import {awsMessagingSchema} from '../cloud-spi/messagingSchema'
 import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
-import {awsKmsSchema} from '../cloud-spi/kmsSchema'
+import {awsKmsSchema, ociKmsSchema} from '../cloud-spi/kmsSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
 import {awsAppConfigSchema} from '../cloud-spi/appConfigSchema'
@@ -860,6 +860,88 @@ describe('cloud schema routes', () => {
 })
 
 describe('KMS crypto routes', () => {
+    test('signs and verifies with no-store responses and binary-safe payloads', async () => {
+        let signedMessage: Uint8Array | undefined
+        let verifiedSignature: Uint8Array | undefined
+        const app = appWithRoutes([mockAdapter('oci', {
+            service: 'kms', schema: ociKmsSchema,
+            sign: async (id, input) => {
+                signedMessage = input.message
+                return {signature: new Uint8Array([1, 2, 3]), keyId: id, keyVersionId: 'version-1', signingAlgorithm: input.signingAlgorithm}
+            },
+            verify: async (_id, input) => {
+                verifiedSignature = input.signature
+                return {isSignatureValid: false}
+            },
+        })])
+        const route = '/api/clouds/oci/services/kms/resources/key-1'
+        const sign = await app.request(`${route}/sign`, {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({messageBase64: 'aGVsbG8=', signingAlgorithm: 'ECDSA_SHA_256'}),
+        })
+        expect(sign.status).toBe(200)
+        expect(sign.headers.get('cache-control')).toBe('no-store')
+        expect(new TextDecoder().decode(signedMessage)).toBe('hello')
+        expect(await sign.json()).toEqual({signatureBase64: 'AQID', keyId: 'key-1', keyVersionId: 'version-1', signingAlgorithm: 'ECDSA_SHA_256'})
+
+        const verify = await app.request(`${route}/verify`, {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({messageBase64: 'aGVsbG8=', signatureBase64: 'AQID', keyVersionId: 'version-1', signingAlgorithm: 'ECDSA_SHA_256'}),
+        })
+        expect(verify.status).toBe(200)
+        expect(verify.headers.get('cache-control')).toBe('no-store')
+        expect(verifiedSignature).toEqual(new Uint8Array([1, 2, 3]))
+        expect(await verify.json()).toEqual({isSignatureValid: false})
+    })
+
+    test('rejects malformed signature data before the adapter sees it', async () => {
+        let calls = 0
+        const app = appWithRoutes([mockAdapter('oci', {
+            service: 'kms', schema: ociKmsSchema,
+            verify: async () => { calls += 1; return {isSignatureValid: true} },
+        })])
+        const response = await app.request('/api/clouds/oci/services/kms/resources/key-1/verify', {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({messageBase64: 'AQ==', signatureBase64: 'not base64', keyVersionId: 'version-1', signingAlgorithm: 'ECDSA_SHA_256'}),
+        })
+        expect(response.status).toBe(400)
+        expect(response.headers.get('cache-control')).toBe('no-store')
+        expect(calls).toBe(0)
+    })
+
+    test('does not echo provider signing errors or the message', async () => {
+        const secret = 'private signing payload'
+        const app = appWithRoutes([mockAdapter('oci', {
+            service: 'kms', schema: ociKmsSchema,
+            sign: async () => {
+                throw Object.assign(new Error(secret), {name: 'ValidationException', $fault: 'client', $metadata: {httpStatusCode: 400}})
+            },
+        })])
+        const response = await app.request('/api/clouds/oci/services/kms/resources/key-1/sign', {
+            method: 'POST', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({messageBase64: Buffer.from(secret).toString('base64'), signingAlgorithm: 'ECDSA_SHA_256'}),
+        })
+        const text = await response.text()
+        expect(response.status).toBe(400)
+        expect(response.headers.get('cache-control')).toBe('no-store')
+        expect(text).not.toContain(secret)
+        expect(text).not.toContain(Buffer.from(secret).toString('base64'))
+    })
+
+    test('dispatches rotation and deletion cancellation to the selected key', async () => {
+        const called: string[] = []
+        const resource: CloudResource = {id: 'key-1', name: 'key-1', cloud: 'oci', service: 'kms', type: 'key', region: null, createdAt: null, metadata: {}}
+        const app = appWithRoutes([mockAdapter('oci', {
+            service: 'kms', schema: ociKmsSchema,
+            rotate: async (id) => { called.push(`rotate:${id}`); return resource },
+            cancelDeletion: async (id) => { called.push(`cancel:${id}`); return resource },
+        })])
+        const route = '/api/clouds/oci/services/kms/resources/key-1'
+        expect((await app.request(`${route}/rotate`, {method: 'POST'})).status).toBe(200)
+        expect((await app.request(`${route}/cancel-deletion`, {method: 'POST'})).status).toBe(200)
+        expect(called).toEqual(['rotate:key-1', 'cancel:key-1'])
+    })
+
     test('decodes plaintext and encodes the ciphertext response', async () => {
         let delegatedId = ''
         let delegatedPlaintext: Uint8Array | undefined

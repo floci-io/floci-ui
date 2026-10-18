@@ -45,6 +45,7 @@ const WorkflowExecutionsPanel = lazyPanel(() => import("@/components/WorkflowExe
 const DatabaseSnapshotsPanel = lazyPanel(() => import("@/components/DatabaseSnapshotsPanel").then((m) => m.DatabaseSnapshotsPanel));
 const AppConfigPanel = lazyPanel(() => import("@/components/AppConfigPanel").then((m) => m.AppConfigPanel));
 const KmsCryptoPanel = lazyPanel(() => import("@/components/KmsCryptoPanel").then((m) => m.KmsCryptoPanel));
+const OciKmsActionsPanel = lazyPanel(() => import("@/components/OciKmsActionsPanel").then((m) => m.OciKmsActionsPanel));
 const SqsMessagingPanel = lazyPanel(() => import("@/components/SqsMessagingPanel").then((m) => m.SqsMessagingPanel));
 const LogsQueryPanel = lazyPanel(() => import("@/components/LogsQueryPanel").then((m) => m.LogsQueryPanel));
 const SageMakerDashboardPanel = lazyPanel(() => import("@/components/SageMakerDashboardPanel").then((m) => m.SageMakerDashboardPanel));
@@ -844,11 +845,23 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-      {service === "kms" && (
+      {service === "kms" && !(cloud === "oci" && inspectedResource?.metadata.keyUsage === "SIGN_VERIFY") && (
         <KmsCryptoPanel
           cloud={cloud}
-          resource={activeSelected}
+          resource={inspectedResource}
           runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "kms" && cloud === "oci" && (
+        <OciKmsActionsPanel
+          resource={inspectedResource}
+          runtimeReachable={canUseRuntime}
+          onChanged={() => {
+            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            if (activeSelected) {
+              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
+            }
+          }}
         />
       )}
       {service === "messaging" && (cloud === "aws" || cloud === "oci") && (

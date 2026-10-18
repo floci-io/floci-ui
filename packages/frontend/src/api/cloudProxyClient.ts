@@ -212,6 +212,35 @@ export type KmsEncryptionAlgorithm =
   | "RSAES_OAEP_SHA_1"
   | "RSAES_OAEP_SHA_256";
 
+export type KmsSigningAlgorithm =
+  | "SHA_256_RSA_PKCS1_V1_5"
+  | "SHA_384_RSA_PKCS1_V1_5"
+  | "SHA_512_RSA_PKCS1_V1_5"
+  | "ECDSA_SHA_256"
+  | "ECDSA_SHA_384"
+  | "ECDSA_SHA_512";
+
+export interface KmsSignRequest {
+  messageBase64: string;
+  signingAlgorithm: KmsSigningAlgorithm;
+}
+
+export interface KmsSignResponse {
+  signatureBase64: string;
+  keyId: string;
+  keyVersionId: string;
+  signingAlgorithm: KmsSigningAlgorithm;
+}
+
+export interface KmsVerifyRequest extends KmsSignRequest {
+  signatureBase64: string;
+  keyVersionId: string;
+}
+
+export interface KmsVerifyResponse {
+  isSignatureValid: boolean;
+}
+
 export interface KmsEncryptRequest {
   plaintextBase64: string;
   encryptionAlgorithm: KmsEncryptionAlgorithm;
@@ -283,6 +312,52 @@ export async function decryptKmsResource(
     apiEndpointKeys.clouds.resources.decrypt,
     requestOptions(cloud, "kms", { signal, body }),
     { cloud, id },
+  );
+  return res.data;
+}
+
+export async function rotateKmsResource(cloud: CloudProvider, id: string, signal?: AbortSignal): Promise<CloudResource> {
+  const res = await apiClient.call<CloudResource>(
+    apiEndpointKeys.clouds.resources.rotate,
+    requestOptions(cloud, "kms", {signal}),
+    {cloud, id},
+  );
+  return res.data;
+}
+
+export async function signKmsResource(
+  cloud: CloudProvider,
+  id: string,
+  body: KmsSignRequest,
+  signal?: AbortSignal,
+): Promise<KmsSignResponse> {
+  const res = await apiClient.call<KmsSignResponse, KmsSignRequest>(
+    apiEndpointKeys.clouds.resources.sign,
+    requestOptions(cloud, "kms", {signal, body}),
+    {cloud, id},
+  );
+  return res.data;
+}
+
+export async function verifyKmsResource(
+  cloud: CloudProvider,
+  id: string,
+  body: KmsVerifyRequest,
+  signal?: AbortSignal,
+): Promise<KmsVerifyResponse> {
+  const res = await apiClient.call<KmsVerifyResponse, KmsVerifyRequest>(
+    apiEndpointKeys.clouds.resources.verify,
+    requestOptions(cloud, "kms", {signal, body}),
+    {cloud, id},
+  );
+  return res.data;
+}
+
+export async function cancelKmsDeletionResource(cloud: CloudProvider, id: string, signal?: AbortSignal): Promise<CloudResource> {
+  const res = await apiClient.call<CloudResource>(
+    apiEndpointKeys.clouds.resources.cancelDeletion,
+    requestOptions(cloud, "kms", {signal}),
+    {cloud, id},
   );
   return res.data;
 }
