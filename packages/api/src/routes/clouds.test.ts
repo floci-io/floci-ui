@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'bun:test'
 import {Hono} from 'hono'
-import {NotImplementedByRuntimeError, RuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
+import {httpStatusToCloudError, NotImplementedByRuntimeError, RuntimeError, RuntimeUnavailableError, ValidationError} from '../cloud-spi/errors'
 import type {
     ChildCollection,
     ChildItem,
@@ -909,23 +909,26 @@ describe('KMS crypto routes', () => {
         expect(calls).toBe(0)
     })
 
-    test('does not echo provider signing errors or the message', async () => {
+    test('does not echo OCI provider signing errors or the message', async () => {
         const secret = 'private signing payload'
-        const app = appWithRoutes([mockAdapter('oci', {
-            service: 'kms', schema: ociKmsSchema,
-            sign: async () => {
-                throw Object.assign(new Error(secret), {name: 'ValidationException', $fault: 'client', $metadata: {httpStatusCode: 400}})
-            },
-        })])
-        const response = await app.request('/api/clouds/oci/services/kms/resources/key-1/sign', {
-            method: 'POST', headers: {'content-type': 'application/json'},
-            body: JSON.stringify({messageBase64: Buffer.from(secret).toString('base64'), signingAlgorithm: 'ECDSA_SHA_256'}),
-        })
-        const text = await response.text()
-        expect(response.status).toBe(400)
-        expect(response.headers.get('cache-control')).toBe('no-store')
-        expect(text).not.toContain(secret)
-        expect(text).not.toContain(Buffer.from(secret).toString('base64'))
+        for (const status of [400, 503]) {
+            const app = appWithRoutes([mockAdapter('oci', {
+                service: 'kms', schema: ociKmsSchema,
+                sign: async () => {
+                    throw httpStatusToCloudError(status, `OCI runtime request failed: HTTP ${status} /20180608/sign - ${secret}`)
+                },
+            })])
+            const response = await app.request('/api/clouds/oci/services/kms/resources/key-1/sign', {
+                method: 'POST', headers: {'content-type': 'application/json'},
+                body: JSON.stringify({messageBase64: Buffer.from(secret).toString('base64'), signingAlgorithm: 'ECDSA_SHA_256'}),
+            })
+            const text = await response.text()
+            expect(response.status).toBe(status)
+            expect(response.headers.get('cache-control')).toBe('no-store')
+            expect(text).not.toContain(secret)
+            expect(text).not.toContain(Buffer.from(secret).toString('base64'))
+            expect(JSON.parse(text).detail).toBeUndefined()
+        }
     })
 
     test('dispatches rotation and deletion cancellation to the selected key', async () => {
