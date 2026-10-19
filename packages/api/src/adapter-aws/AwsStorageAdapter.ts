@@ -210,28 +210,35 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
     }
 
     /**
-     * The signal stops the request in flight, but the SDK waits out retry backoff
-     * without watching it, so the bound itself is a race against a timer.
+     * The SDK can wait through retry backoff after abort, so the bound also races
+     * the send. A regular timer keeps that race live when the send never settles.
      */
     private async sendDeleteBatch(bucket: string, batch: ObjectIdentifier[]) {
-        const batchSignal = AbortSignal.timeout(this.deleteBatchTimeoutMs)
-        const sent = this.s3.send(
-            new DeleteObjectsCommand({Bucket: bucket, Delete: {Objects: batch, Quiet: true}}),
-            {abortSignal: batchSignal},
-        )
-        // Once the race is lost, the send's own outcome no longer matters.
-        sent.catch(() => {})
+        const controller = new AbortController()
+        let timer: ReturnType<typeof setTimeout> | undefined
         const timedOut = new Promise<never>((_, reject) => {
-            batchSignal.addEventListener('abort', () => reject(batchSignal.reason), {once: true})
+            timer = setTimeout(() => {
+                const reason = new DOMException('Delete batch timed out', 'TimeoutError')
+                controller.abort(reason)
+                reject(reason)
+            }, this.deleteBatchTimeoutMs)
         })
         try {
+            const sent = this.s3.send(
+                new DeleteObjectsCommand({Bucket: bucket, Delete: {Objects: batch, Quiet: true}}),
+                {abortSignal: controller.signal},
+            )
+            // Once the race is lost, the send's own outcome no longer matters.
+            sent.catch(() => {})
             return await Promise.race([sent, timedOut])
         } catch (err) {
-            if (!batchSignal.aborted) throw err
+            if (!controller.signal.aborted) throw err
             throw new RuntimeUnavailableError(
                 `a delete batch got no response within ${this.deleteBatchTimeoutMs / 1000} seconds`,
                 {cause: err},
             )
+        } finally {
+            clearTimeout(timer)
         }
     }
 

@@ -1,4 +1,5 @@
 import {describe, expect, test} from 'bun:test'
+import {join} from 'node:path'
 import {
     DeleteBucketCommand,
     DeleteObjectsCommand,
@@ -534,6 +535,41 @@ describe('AwsStorageAdapter emptyBucket delete batch bound', () => {
         expect(error).toBeInstanceOf(RuntimeUnavailableError)
         expect((error as Error).message).toContain('stopped after deletion started')
         expect((error as Error).message).toContain('a delete batch got no response within 0.03 seconds')
+    })
+
+    test('an idle send that ignores abort still fails within the batch bound', async () => {
+        // Run in a separate process: a parent test timer would keep Bun's
+        // AbortSignal.timeout alive and mask the idle-loop failure.
+        const script = `
+            import {ListObjectVersionsCommand} from '@aws-sdk/client-s3'
+            import {AwsStorageAdapter} from './src/adapter-aws/AwsStorageAdapter.ts'
+            import {RuntimeUnavailableError} from './src/cloud-spi/errors.ts'
+
+            const client = {
+                send: (command) => command instanceof ListObjectVersionsCommand
+                    ? Promise.resolve({Versions: [{Key: 'a.txt', VersionId: 'v1'}], IsTruncated: false})
+                    : new Promise(() => {}),
+            }
+            const error = await new AwsStorageAdapter(client, 50).emptyBucket('versioned').catch((err) => err)
+            if (!(error instanceof RuntimeUnavailableError)) throw new Error('The batch did not time out')
+            console.log('batch bounded')
+        `
+        const child = Bun.spawn({cmd: [process.execPath, '-e', script], cwd: join(import.meta.dir, '../..'), stdout: 'pipe', stderr: 'pipe'})
+        let watchdog: ReturnType<typeof setTimeout> | undefined
+        try {
+            const result = await Promise.race([
+                child.exited,
+                new Promise<null>((resolve) => { watchdog = setTimeout(() => resolve(null), 5_000) }),
+            ])
+            expect(result).toBe(0)
+            expect(await new Response(child.stdout).text()).toContain('batch bounded')
+        } finally {
+            clearTimeout(watchdog)
+            if (child.exitCode === null) {
+                child.kill()
+                await child.exited
+            }
+        }
     })
 })
 
