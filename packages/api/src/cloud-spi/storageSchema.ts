@@ -69,7 +69,11 @@ export function awsStorageSchema(): ServiceSchema {
         ],
         actions: ['list', 'create', 'delete', 'inspect'],
         capabilities: {
-            resourceActions: storageResourceActions('Create bucket'),
+            resourceActions: [
+                ...storageResourceActions('Create bucket'),
+                // AWS only: other clouds have no versions or delete markers to remove.
+                {name: 'emptyBucket', label: 'Empty bucket', enabled: true, status: 'available', runtimeRequired: true},
+            ],
             objectActions: storageObjectActions,
         },
         filters: storageFilters,

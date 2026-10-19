@@ -257,6 +257,7 @@ export class OciKmsAdapter implements CloudServiceAdapter {
             body: JSON.stringify({
                 keyId: id,
                 message: toBase64(input.message),
+                messageType: 'RAW',
                 signingAlgorithm: input.signingAlgorithm,
             }),
         })
@@ -284,6 +285,7 @@ export class OciKmsAdapter implements CloudServiceAdapter {
                 keyVersionId: input.keyVersionId,
                 signature: toBase64(input.signature),
                 message: toBase64(input.message),
+                messageType: 'RAW',
                 signingAlgorithm: input.signingAlgorithm,
             }),
         })

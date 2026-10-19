@@ -582,3 +582,31 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
         expect(screen.getByText('Visible Messages')).toBeInTheDocument()
     })
 })
+
+describe('ResourceInspector bucket versioning', () => {
+    const bucket = (versioning: string): CloudResource => ({
+        id: 'logs',
+        name: 'logs',
+        cloud: 'aws',
+        service: 'storage',
+        type: 'bucket',
+        region: null,
+        createdAt: null,
+        metadata: {versioning},
+    })
+
+    for (const [state, shown] of [
+        ['Enabled', 'Enabled'],
+        ['Suspended', 'Suspended'],
+        ['Disabled', 'Disabled'],
+        ['Unknown', 'Unknown (could not be read)'],
+    ]) {
+        test(`shows ${state} versioning as ${shown}`, () => {
+            renderWithClient(<ResourceInspector resource={bucket(state)} cloud="aws" runtimeReachable serviceName="S3 Storage"/>)
+
+            const label = screen.getByText('Versioning')
+            expect(label.parentElement).toHaveTextContent(shown)
+            expect(screen.queryByText('Versioning Enabled')).not.toBeInTheDocument()
+        })
+    }
+})

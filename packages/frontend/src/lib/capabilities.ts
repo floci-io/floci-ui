@@ -34,6 +34,7 @@ const actionLabels: Record<CapabilityActionName, string> = {
     receiveMessages: 'Receive messages',
     deleteMessage: 'Delete message',
     purgeQueue: 'Purge queue',
+    emptyBucket: 'Empty bucket',
 }
 
 export function normalizeCapabilities<TAction extends CapabilityActionName>(capabilities: Array<CapabilityInput<TAction>> = []): Array<CapabilitySchema<TAction>> {

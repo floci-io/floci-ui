@@ -1,5 +1,5 @@
 import { EndpointRegistry, HttpClient } from "./HttpClient";
-import { ACCOUNT_HEADER, getAccountId } from "@/lib/accountStore";
+import { ACCOUNT_HEADER, getAccountId, isAccountId } from "@/lib/accountStore";
 
 export class AuthenticationRequiredError extends Error {
   constructor() {
@@ -41,6 +41,7 @@ export const apiEndpointKeys = {
         delete: "clouds.services.storage.objects.delete",
         copy: "clouds.services.storage.objects.copy",
       },
+      empty: "clouds.services.storage.empty",
     },
     nosql: {
       cosmos: {
@@ -460,6 +461,14 @@ export const endpointRegistry: EndpointRegistry = new Map([
     {
       path: "/clouds/:cloud/services/storage/resources/:id/object",
       method: "DELETE",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.storage.empty,
+    {
+      path: "/clouds/:cloud/services/storage/resources/:id/empty",
+      method: "POST",
       telemetry: { service: "cloud-proxy" },
     },
   ],
@@ -1047,9 +1056,16 @@ export function createApiClient(
 
   // Account scope — every request carries the active AWS account so Floci can
   // isolate resources per account (the API maps this header to its SDK creds).
+  // A caller that names an account explicitly keeps it, so a request confirmed
+  // against one account cannot run against another selected meanwhile.
   client.addRequestInterceptor((url, init) => {
-    const headers = (init.headers ?? {}) as Record<string, string>;
-    headers[ACCOUNT_HEADER] = getAccountId();
+    const headers = new Headers(init.headers);
+    const explicit = headers.get(ACCOUNT_HEADER);
+    if (explicit === null) {
+      headers.set(ACCOUNT_HEADER, getAccountId());
+    } else if (!isAccountId(explicit)) {
+      throw new Error("Invalid account ID override");
+    }
     init.headers = headers;
     return { url, init };
   });
@@ -1059,8 +1075,9 @@ export function createApiClient(
     client.addRequestInterceptor(async (url, init) => {
       const token = await getToken();
       if (token) {
-        (init.headers as Record<string, string>)["Authorization"] =
-          `Bearer ${token}`;
+        const headers = new Headers(init.headers);
+        headers.set("Authorization", `Bearer ${token}`);
+        init.headers = headers;
       }
       return { url, init };
     });

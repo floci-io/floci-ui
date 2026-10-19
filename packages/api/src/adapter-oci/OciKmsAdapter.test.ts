@@ -442,12 +442,12 @@ describe('OciKmsAdapter', () => {
             const signed = await adapter().sign(KEY_ID, {message, signingAlgorithm})
             expect(signed).toMatchObject({signature: new Uint8Array([1, 2, 3]), keyVersionId: 'version-1'})
             expect(calls.find((call) => call.url === `${BASE}/sign`)?.body).toEqual({
-                keyId: KEY_ID, message: 'aGVsbG8=', signingAlgorithm,
+                keyId: KEY_ID, message: 'aGVsbG8=', messageType: 'RAW', signingAlgorithm,
             })
             const verified = await adapter().verify(KEY_ID, {message, signature: signed.signature, keyVersionId: signed.keyVersionId, signingAlgorithm})
             expect(verified.isSignatureValid).toBe(false)
             expect(calls.find((call) => call.url === `${BASE}/verify`)?.body).toEqual({
-                keyId: KEY_ID, keyVersionId: 'version-1', signature: 'AQID', message: 'aGVsbG8=', signingAlgorithm,
+                keyId: KEY_ID, keyVersionId: 'version-1', signature: 'AQID', message: 'aGVsbG8=', messageType: 'RAW', signingAlgorithm,
             })
         })
 
