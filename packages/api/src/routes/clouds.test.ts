@@ -9,7 +9,7 @@ import type {
     ItemStoreAdapter,
 } from '../cloud-spi/childCollections'
 import {awsDatabaseSchema, azureDatabaseSchema} from '../cloud-spi/databaseSchema'
-import {awsLogsSchema} from '../cloud-spi/logsSchema'
+import {awsLogsSchema, gcpLogsSchema} from '../cloud-spi/logsSchema'
 import {awsMessagingSchema} from '../cloud-spi/messagingSchema'
 import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
@@ -595,6 +595,33 @@ describe('cloud schema routes', () => {
         expect(queryBody.count).toBe(1)
         expect(deleteRes.status).toBe(200)
         expect(deleted).toEqual([{databaseId: 'appdb', containerId: 'items', itemId: 'item-1', partitionKey: 'demo'}])
+    })
+
+    test('routes GCP log entry queries to the generic item query handler', async () => {
+        const logName = 'projects/floci-local/logs/app'
+        const entries: CollectionPage<ChildItem> = {items: [], nextCursor: null}
+        let received: unknown
+        const app = appWithRoutes([mockAdapter('gcp', {
+            service: 'logs',
+            schema: gcpLogsSchema,
+            items: {
+                listItems: async () => entries,
+                queryItems: async (resourceId, query, page) => {
+                    received = {resourceId, query, page}
+                    return entries
+                },
+            },
+        })])
+
+        const res = await app.request(`/api/clouds/gcp/services/logs/resources/${encodeURIComponent(logName)}/query`, {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({query: 'severity>=ERROR', cursor: 'next-page', limit: 25}),
+        })
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual(entries)
+        expect(received).toEqual({resourceId: logName, query: 'severity>=ERROR', page: {cursor: 'next-page', limit: 25}})
     })
 
     test('runs a Logs Insights query through the route', async () => {

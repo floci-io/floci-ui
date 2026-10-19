@@ -252,9 +252,10 @@ export function createCloudRoutes(injectedService?: CloudProxyService) {
         })
     })
 
-    app.post('/:cloud/services/logs/resources/:id/query', async (c) => {
+    app.post('/:cloud/services/logs/resources/:id/query', async (c, next) => {
         const cloud = c.req.param('cloud') as CloudProvider
         if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
+        if (cloud !== 'aws') return next()
 
         return withRuntime(c, async () => {
             const body = await c.req.json<{queryString?: unknown; startTime?: unknown; endTime?: unknown; limit?: unknown}>()
