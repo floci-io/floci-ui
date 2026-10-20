@@ -117,6 +117,7 @@ const NOT_FOUND_NAMES = new Set([
     'ExecutionDoesNotExist',
     'ClusterNotFoundException',
     'ServiceNotFoundException',
+    'RepositoryNotFoundException',
     'NoSuchDistribution',
     'NoSuchInvalidation',
     'LoadBalancerNotFound',

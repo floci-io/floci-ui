@@ -92,6 +92,14 @@ export const SERVICE_CATALOG = {
         group: 'Compute',
         order: 40,
     },
+    registry: {
+        displayName: 'Container Registry',
+        displayNameByCloud: {aws: 'ECR'},
+        description: 'Store and manage container images.',
+        iconKey: 'registry',
+        group: 'Compute',
+        order: 45,
+    },
     sagemaker: {
         displayName: 'SageMaker AI',
         description: 'Build and host machine learning models.',

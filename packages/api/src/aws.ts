@@ -22,6 +22,7 @@ import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-
 import { KinesisClient } from "@aws-sdk/client-kinesis";
 import { SageMakerClient } from "@aws-sdk/client-sagemaker";
 import { ECSClient } from "@aws-sdk/client-ecs";
+import { ECRClient } from "@aws-sdk/client-ecr";
 import { CloudFrontClient } from "@aws-sdk/client-cloudfront";
 import { Route53Client } from "@aws-sdk/client-route-53";
 
@@ -77,6 +78,7 @@ export type AwsClients = {
   kinesis: KinesisClient;
   sagemaker: SageMakerClient;
   ecs: ECSClient;
+  ecr: ECRClient;
   cloudfront: CloudFrontClient;
   route53: Route53Client;
 };
@@ -116,6 +118,7 @@ function buildClients(accountId: string): AwsClients {
     kinesis: new KinesisClient(base),
     sagemaker: new SageMakerClient(base),
     ecs: new ECSClient(base),
+    ecr: new ECRClient(base),
     cloudfront: new CloudFrontClient(base),
     route53: new Route53Client(base),
   };

@@ -191,3 +191,20 @@ describe('route 53 errors', () => {
         }
     })
 })
+
+/**
+ * ECR answers a missing repository with HTTP 400, which the status fallback would
+ * read as a validation error; the name table makes it a 404.
+ */
+describe('ecr errors', () => {
+    test('a missing repository is a 404', () => {
+        const mapped = mapAwsSdkError(sdkError('RepositoryNotFoundException', {$metadata: {httpStatusCode: 400}}))
+
+        expect(mapped?.status).toBe(404)
+        expect(mapped?.code).toBe('resource_not_found')
+    })
+
+    test('a repository that already exists is a 409', () => {
+        expect(mapAwsSdkError(sdkError('RepositoryAlreadyExistsException', {$metadata: {httpStatusCode: 400}}))?.status).toBe(409)
+    })
+})
