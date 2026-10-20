@@ -53,6 +53,7 @@ const WorkflowExecutionsPanel = lazyPanel(() => import("@/components/WorkflowExe
 const DatabaseSnapshotsPanel = lazyPanel(() => import("@/components/DatabaseSnapshotsPanel").then((m) => m.DatabaseSnapshotsPanel));
 const AppConfigPanel = lazyPanel(() => import("@/components/AppConfigPanel").then((m) => m.AppConfigPanel));
 const KmsCryptoPanel = lazyPanel(() => import("@/components/KmsCryptoPanel").then((m) => m.KmsCryptoPanel));
+const AzureKeyVaultPanel = lazyPanel(() => import("@/components/AzureKeyVaultPanel").then((m) => m.AzureKeyVaultPanel));
 const OciKmsActionsPanel = lazyPanel(() => import("@/components/OciKmsActionsPanel").then((m) => m.OciKmsActionsPanel));
 const SqsMessagingPanel = lazyPanel(() => import("@/components/SqsMessagingPanel").then((m) => m.SqsMessagingPanel));
 const LogsQueryPanel = lazyPanel(() => import("@/components/LogsQueryPanel").then((m) => m.LogsQueryPanel));
@@ -81,6 +82,7 @@ export function DynamicResourceView({
   const qc = useQueryClient();
   const accountId = useAccountId();
   const [search, setSearch] = useState("");
+  const [viewState, setViewState] = useState("active");
   const [databaseTab, setDatabaseTab] = useState<"instances" | "snapshots">("instances");
   const [logsTab, setLogsTab] = useState<"groups" | "insights">("groups");
   const [selection, setSelection] = useState<
@@ -123,19 +125,31 @@ export function DynamicResourceView({
     }
   };
 
-  const resourcesKey = useMemo(
-    () => ["cloud-resources", accountId, cloud, service, search],
-    [accountId, cloud, service, search],
-  );
-
   const schemaQuery = useQuery({
     queryKey: ["cloud-schema", cloud, service],
     queryFn: ({ signal }) => getServiceSchema(cloud, service, signal),
   });
 
+  // A schema that declares a `state` select (Key Vault: active or soft-deleted
+  // secrets) gets a view selector; every other service lists exactly as before.
+  const viewStateFilter = schemaQuery.data?.filters.find(
+    (filter) => filter.name === "state" && filter.type === "select",
+  );
+  const listFilters = viewStateFilter ? { state: viewState } : undefined;
+  const viewingDeleted = viewStateFilter !== undefined && viewState === "deleted";
+
+  useEffect(() => {
+    setViewState("active");
+  }, [accountId, cloud, service]);
+
+  const resourcesKey = useMemo(
+    () => ["cloud-resources", accountId, cloud, service, search, listFilters?.state ?? ""],
+    [accountId, cloud, service, search, listFilters?.state],
+  );
+
   const resourcesQuery = useQuery({
     queryKey: resourcesKey,
-    queryFn: ({ signal }) => listCloudResources(cloud, service, search, signal),
+    queryFn: ({ signal }) => listCloudResources(cloud, service, search, signal, listFilters),
     enabled:
       schemaQuery.isSuccess &&
       serviceAvailability === "available" &&
@@ -206,11 +220,13 @@ export function DynamicResourceView({
     }) > 0;
 
   const isAwsSageMaker = cloud === "aws" && service === "sagemaker";
-  const canDeleteResource = isAwsSageMaker
-    ? (resource: CloudResource) => resource.type !== "sagemaker-training-job"
-    : emptyingKey !== undefined
-      ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
-      : undefined;
+  const canDeleteResource = viewingDeleted
+    ? () => false
+    : isAwsSageMaker
+      ? (resource: CloudResource) => resource.type !== "sagemaker-training-job"
+      : emptyingKey !== undefined
+        ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
+        : undefined;
   const sagemakerDashboardResourcesQuery = useQuery({
     queryKey: ["sagemaker-dashboard-resources", accountId, cloud, service],
     queryFn: ({ signal }) => listCloudResources(cloud, service, "", signal),
@@ -681,6 +697,23 @@ export function DynamicResourceView({
                       placeholder="Filter resources"
                     />
                   </div>
+                  {viewStateFilter && (
+                    <select
+                      aria-label={viewStateFilter.label}
+                      className="input"
+                      value={viewState}
+                      onChange={(event) => {
+                        setViewState(event.target.value);
+                        selectResource(undefined);
+                        setIsDeleteMulti(false);
+                        setSelectedItems([]);
+                      }}
+                    >
+                      {viewStateFilter.options?.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  )}
                   {service === "email" && (
                     clearConfirm ? (
                       <>
@@ -776,7 +809,7 @@ export function DynamicResourceView({
                       {emptyMut.isPending ? "Emptying" : "Empty bucket"}
                     </button>
                   )}
-                  {canDelete && (
+                  {canDelete && !viewingDeleted && (
                     deleteConfirm ? (
                       <>
                         <button
@@ -915,7 +948,8 @@ export function DynamicResourceView({
                 isRetrying: resourcesQuery.isFetching,
                 onSelect: selectResource,
                 onEdit:
-                  schema.updateFields &&
+                  !viewingDeleted &&
+                    schema.updateFields &&
                     schema.updateFields.length > 0 &&
                     schema.actions.includes("update")
                     ? (resource) => {
@@ -1006,6 +1040,19 @@ export function DynamicResourceView({
             if (activeSelected) {
               void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
             }
+          }}
+        />
+      )}
+      {service === "secrets" && cloud === "azure" && (
+        <AzureKeyVaultPanel
+          resource={inspectedResource}
+          runtimeReachable={canUseRuntime}
+          onChanged={() => {
+            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            if (activeSelected) {
+              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
+            }
+            selectResource(undefined);
           }}
         />
       )}

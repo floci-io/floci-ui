@@ -30,6 +30,8 @@ const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> =
     sign: 'sign',
     verify: 'verify',
     cancelDeletion: 'cancelDeletion',
+    recover: 'recover',
+    purgeDeleted: 'purgeDeleted',
     invoke: 'invoke',
     start: 'start',
     stop: 'stop',

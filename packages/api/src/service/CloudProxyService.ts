@@ -297,6 +297,18 @@ export class CloudProxyService {
         return adapter.cancelDeletion(id)
     }
 
+    async recoverSecret(cloud: CloudProvider, id: string): Promise<CloudResource> {
+        const adapter = this.requireAdapter(cloud, 'secrets')
+        if (!adapter.recover) throw new NotSupportedError(`${cloud}/secrets recover is not supported`)
+        return adapter.recover(id)
+    }
+
+    async purgeDeletedSecret(cloud: CloudProvider, id: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'secrets')
+        if (!adapter.purgeDeleted) throw new NotSupportedError(`${cloud}/secrets purgeDeleted is not supported`)
+        await adapter.purgeDeleted(id)
+    }
+
     async invokeResource(
         cloud: CloudProvider,
         service: CloudServiceType,

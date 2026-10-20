@@ -119,10 +119,11 @@ export async function listCloudResources(
   service: CloudServiceType,
   search?: string,
   signal?: AbortSignal,
+  filters?: Record<string, string>,
 ): Promise<CloudResource[]> {
   const res = await apiClient.call<CloudResource[]>(
     apiEndpointKeys.clouds.resources.list,
-    requestOptions(cloud, service, { signal, params: { search } }),
+    requestOptions(cloud, service, { signal, params: { search, ...filters } }),
     { cloud, service },
   );
   return res.data;
@@ -363,6 +364,23 @@ export async function cancelKmsDeletionResource(cloud: CloudProvider, id: string
     {cloud, id},
   );
   return res.data;
+}
+
+export async function recoverSecretResource(cloud: CloudProvider, id: string, signal?: AbortSignal): Promise<CloudResource> {
+  const res = await apiClient.call<CloudResource>(
+    apiEndpointKeys.clouds.resources.recover,
+    requestOptions(cloud, "secrets", { signal }),
+    { cloud, id },
+  );
+  return res.data;
+}
+
+export async function purgeDeletedSecretResource(cloud: CloudProvider, id: string, signal?: AbortSignal): Promise<void> {
+  await apiClient.call(
+    apiEndpointKeys.clouds.resources.purgeDeleted,
+    requestOptions(cloud, "secrets", { signal }),
+    { cloud, id },
+  );
 }
 
 export interface QueueMessageAttribute {

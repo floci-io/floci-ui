@@ -87,10 +87,14 @@ export function createBunFetch(app: ReturnType<typeof createApiApp>) {
 function isSensitiveCredentialRoute(path: string): boolean {
   return (
     path.startsWith("/api/secretsmanager") ||
-    /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:encrypt|decrypt|sign|verify|rotate|cancel-deletion)$/.test(path)
+    /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:encrypt|decrypt|sign|verify|rotate|cancel-deletion)$/.test(path) ||
+    isKeyMutationRoute(path)
   );
 }
 
 function isKeyMutationRoute(path: string): boolean {
-  return /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:rotate|cancel-deletion)$/.test(path);
+  return (
+    /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:rotate|cancel-deletion)$/.test(path) ||
+    /^\/api\/clouds\/[^/]+\/services\/secrets\/resources\/[^/]+\/(?:recover|purge-deleted)$/.test(path)
+  );
 }

@@ -31,6 +31,8 @@ vi.mock("@/api/cloudProxyClient", () => ({
   getServiceSchema: vi.fn(),
   listCloudResources: vi.fn(),
   listStorageObjects: vi.fn(),
+  purgeDeletedSecretResource: vi.fn(),
+  recoverSecretResource: vi.fn(),
   storageObjectDownloadUrl: vi.fn(() => "#"),
   updateCloudResource: vi.fn(),
   uploadStorageObject: vi.fn(),
@@ -713,5 +715,102 @@ describe("DynamicResourceView Empty bucket and object writes already sent", () =
     await user.click(await screen.findByText("assets"));
     expect(await screen.findByRole("button", { name: "Empty bucket" })).toBeEnabled();
     await act(async () => gate.resolve());
+  });
+
+  describe("Key Vault deleted secrets view", () => {
+    const secretsSchema: ServiceSchema = {
+      cloud: "azure",
+      service: "secrets",
+      displayName: "Key Vault",
+      fields: [],
+      filters: [
+        { name: "search", label: "Search", type: "text", required: false },
+        {
+          name: "state",
+          label: "View",
+          type: "select",
+          required: false,
+          options: [
+            { label: "Active secrets", value: "active" },
+            { label: "Deleted secrets", value: "deleted" },
+          ],
+        },
+      ],
+      actions: ["list", "delete", "inspect"],
+      columns: [{ name: "name", label: "Secret Name" }, { name: "status", label: "Status" }],
+    };
+    const azureStatus: CloudStatus = { ...cloudStatus, cloud: "azure", endpoint: "http://localhost:4577" };
+    const activeSecret: CloudResource = {
+      id: "db-password", name: "db-password", cloud: "azure", service: "secrets", type: "secret",
+      region: null, createdAt: null, status: "enabled", metadata: {},
+    };
+    const deletedSecret: CloudResource = { ...activeSecret, id: "old-token", name: "old-token", status: "deleted" };
+
+    function renderSecrets() {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <DynamicResourceView
+            cloud="azure"
+            service="secrets"
+            serviceAvailability="available"
+            cloudStatus={azureStatus}
+            onOpenInfo={vi.fn()}
+          />
+        </QueryClientProvider>,
+      );
+    }
+
+    beforeEach(() => {
+      vi.mocked(getServiceSchema).mockResolvedValue(secretsSchema);
+      vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, _search, _signal, filters) =>
+        filters?.state === "deleted" ? [deletedSecret] : [activeSecret],
+      );
+      vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) =>
+        id === "old-token" ? deletedSecret : activeSecret,
+      );
+    });
+
+    it("lists active secrets first and switches to the deleted ones without offering delete", async () => {
+      const user = userEvent.setup();
+      renderSecrets();
+
+      expect(await screen.findByText("db-password")).toBeInTheDocument();
+      expect(listCloudResources).toHaveBeenLastCalledWith("azure", "secrets", "", expect.anything(), { state: "active" });
+      expect(screen.getByRole("button", { name: "Delete db-password" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Delete Multiple" })).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByLabelText("View"), "deleted");
+
+      expect(await screen.findByText("old-token")).toBeInTheDocument();
+      expect(listCloudResources).toHaveBeenLastCalledWith("azure", "secrets", "", expect.anything(), { state: "deleted" });
+      expect(screen.queryByRole("button", { name: "Delete old-token" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete Multiple" })).not.toBeInTheDocument();
+    });
+
+    it("offers recover and purge for a selected deleted secret", async () => {
+      const user = userEvent.setup();
+      renderSecrets();
+      await user.selectOptions(await screen.findByLabelText("View"), "deleted");
+      await user.click(await screen.findByText("old-token"));
+
+      expect(await screen.findByRole("button", { name: "Recover" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Purge" })).toBeEnabled();
+    });
+
+    it("does not render a view selector for a service that declares no state filter", async () => {
+      vi.mocked(getServiceSchema).mockResolvedValue(schema);
+      vi.mocked(listCloudResources).mockResolvedValue([summary]);
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <DynamicResourceView cloud="aws" service="cognito" serviceAvailability="available" cloudStatus={cloudStatus} onOpenInfo={vi.fn()} />
+        </QueryClientProvider>,
+      );
+
+      await screen.findByText("pool-a");
+      expect(screen.queryByLabelText("View")).not.toBeInTheDocument();
+      expect(listCloudResources).toHaveBeenLastCalledWith("aws", "cognito", "", expect.anything(), undefined);
+    });
   });
 });

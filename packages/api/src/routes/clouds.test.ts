@@ -15,6 +15,7 @@ import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
 import {awsKmsSchema, ociKmsSchema} from '../cloud-spi/kmsSchema'
+import {azureSecretsSchema} from '../cloud-spi/secretsSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
 import {awsAppConfigSchema} from '../cloud-spi/appConfigSchema'
@@ -971,6 +972,41 @@ describe('KMS crypto routes', () => {
         expect((await app.request(`${route}/rotate`, {method: 'POST'})).status).toBe(200)
         expect((await app.request(`${route}/cancel-deletion`, {method: 'POST'})).status).toBe(200)
         expect(called).toEqual(['rotate:key-1', 'cancel:key-1'])
+    })
+
+    test('dispatches secret recovery and purge to the selected deleted secret', async () => {
+        const called: string[] = []
+        const resource: CloudResource = {id: 'db-password', name: 'db-password', cloud: 'azure', service: 'secrets', type: 'secret', region: null, createdAt: null, metadata: {}}
+        const app = appWithRoutes([mockAdapter('azure', {
+            service: 'secrets', schema: azureSecretsSchema,
+            recover: async (id) => { called.push(`recover:${id}`); return resource },
+            purgeDeleted: async (id) => { called.push(`purge:${id}`) },
+        })])
+        const route = '/api/clouds/azure/services/secrets/resources/db-password'
+        const recovered = await app.request(`${route}/recover`, {method: 'POST'})
+        expect(recovered.status).toBe(200)
+        expect(await recovered.json()).toMatchObject({id: 'db-password'})
+        expect((await app.request(`${route}/purge-deleted`, {method: 'POST'})).status).toBe(200)
+        expect(called).toEqual(['recover:db-password', 'purge:db-password'])
+    })
+
+    test('reports secret recovery as unsupported when the adapter has no recover', async () => {
+        const app = appWithRoutes([mockAdapter('azure', {service: 'secrets', schema: azureSecretsSchema})])
+        const route = '/api/clouds/azure/services/secrets/resources/db-password'
+
+        expect((await app.request(`${route}/recover`, {method: 'POST'})).status).toBe(501)
+        expect((await app.request(`${route}/purge-deleted`, {method: 'POST'})).status).toBe(501)
+    })
+
+    test('passes the deleted view state to the secrets list', async () => {
+        let received: Record<string, string> | undefined
+        const app = appWithRoutes([mockAdapter('azure', {
+            service: 'secrets', schema: azureSecretsSchema,
+            list: async (query) => { received = query?.filters; return [] },
+        })])
+
+        expect((await app.request('/api/clouds/azure/services/secrets/resources?state=deleted')).status).toBe(200)
+        expect(received).toEqual({state: 'deleted'})
     })
 
     test('decodes plaintext and encodes the ciphertext response', async () => {

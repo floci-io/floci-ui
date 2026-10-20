@@ -113,6 +113,8 @@ export type ResourceActionName =
     | 'sign'
     | 'verify'
     | 'cancelDeletion'
+    | 'recover'
+    | 'purgeDeleted'
     | 'invoke'
     | 'start'
     | 'stop'
@@ -627,6 +629,10 @@ export interface CloudServiceAdapter {
     sign?(id: string, input: KmsSignInput): Promise<KmsSignResult>
     verify?(id: string, input: KmsVerifyInput): Promise<KmsVerifyResult>
     cancelDeletion?(id: string): Promise<CloudResource>
+    /** Brings a soft-deleted resource back; the secrets counterpart of cancelDeletion. */
+    recover?(id: string): Promise<CloudResource>
+    /** Permanently removes a soft-deleted resource. */
+    purgeDeleted?(id: string): Promise<void>
     sendMessage?(id: string, body: string, attributes?: Record<string, string>): Promise<SendQueueMessageResult>
     receiveMessages?(id: string, maxMessages?: number): Promise<QueueMessage[]>
     deleteMessage?(id: string, receiptHandle: string): Promise<void>

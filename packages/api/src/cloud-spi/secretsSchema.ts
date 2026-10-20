@@ -9,6 +9,25 @@ const secretsFilters: FieldSchema[] = [
     {name: 'search', label: 'Search', type: 'text', required: false},
 ]
 
+// Key Vault soft-deletes: the deleted namespace is a separate listing, so the view
+// state is a facet rather than a status column on the active list.
+export const AZURE_SECRET_STATES = ['active', 'deleted'] as const
+
+const azureSecretsFilters: FieldSchema[] = [
+    ...secretsFilters,
+    {
+        name: 'state',
+        label: 'View',
+        type: 'select',
+        required: false,
+        defaultValue: 'active',
+        options: [
+            {label: 'Active secrets', value: 'active'},
+            {label: 'Deleted secrets', value: 'deleted'},
+        ],
+    },
+]
+
 // The list endpoint returns base secret identifiers without a version, so a Version
 // column would be blank for every row. Versions are surfaced on inspect instead.
 const secretsColumns: TableColumnSchema[] = [
@@ -52,17 +71,50 @@ export function azureSecretsSchema(): ServiceSchema {
                 description: 'Optional content type, for example application/json.',
             },
         ],
-        actions: ['list', 'create', 'delete', 'inspect'],
+        actions: ['list', 'create', 'update', 'delete', 'inspect'],
         capabilities: {
             resourceActions: [
                 {name: 'list', label: 'List secrets', enabled: true, status: 'available', runtimeRequired: true},
                 {name: 'create', label: 'Create secret', enabled: true, status: 'available', runtimeRequired: true},
-                {name: 'delete', label: 'Delete secret', enabled: true, status: 'available', runtimeRequired: true},
-                {name: 'inspect', label: 'Inspect metadata', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'update', label: 'Update properties', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete secret (soft-delete)', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'recover', label: 'Recover deleted secret', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'purgeDeleted', label: 'Purge deleted secret', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect metadata and versions', enabled: true, status: 'available', runtimeRequired: true},
             ],
         },
-        filters: secretsFilters,
+        filters: azureSecretsFilters,
         columns: secretsColumns,
+        updateFields: [
+            {
+                name: 'contentType',
+                label: 'Content Type',
+                type: 'text',
+                required: false,
+                valuePath: 'metadata.contentType',
+                description: 'Changes the properties of the latest version. No new version is created.',
+            },
+            {
+                name: 'enabled',
+                label: 'Enabled',
+                type: 'select',
+                required: false,
+                valuePath: 'metadata.enabled',
+                description: 'A disabled secret cannot be read until it is enabled again.',
+                options: [
+                    {label: 'True', value: 'true'},
+                    {label: 'False', value: 'false'},
+                ],
+            },
+            {
+                name: 'version',
+                label: 'Version',
+                type: 'text',
+                required: false,
+                description: 'Optional version ID to update instead of the latest. Required to re-enable a disabled secret that has several versions.',
+                validation: {pattern: '^[0-9A-Fa-f]{1,64}$', message: 'Use the hexadecimal version ID listed in the inspector.'},
+            },
+        ],
     }
 }
 
