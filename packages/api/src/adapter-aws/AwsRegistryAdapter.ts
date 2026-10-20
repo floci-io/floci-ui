@@ -44,6 +44,8 @@ import type {
 const REPOSITORY_NAME = new RegExp(ECR_REPOSITORY_NAME_PATTERN)
 /** DescribeRepositories and DescribeImages both answer at most 1000 per request. */
 const DESCRIBE_MAX_RESULTS = 1000
+/** Images embedded in inspect; `imagesTruncated` marks a repository holding more. */
+const INSPECT_IMAGE_LIMIT = DEFAULT_PAGE_LIMIT
 /** An OCI digest, `<algorithm>:<encoded>`, the one id BatchDeleteImage removes a whole image by. */
 const IMAGE_DIGEST = /^[a-z0-9]+(?:[+._-][a-z0-9]+)*:[A-Za-z0-9=_-]+$/
 const UNTAGGED = '<untagged>'
@@ -102,7 +104,7 @@ export class AwsRegistryAdapter implements CloudServiceAdapter {
         const [repositoryPolicyText, lifecyclePolicyText, images] = await Promise.all([
             this.repositoryPolicy(id),
             this.lifecyclePolicy(id),
-            this.allImages(id),
+            this.firstImages(id),
         ])
         const resource = toResource(repository)
         return {
@@ -111,8 +113,9 @@ export class AwsRegistryAdapter implements CloudServiceAdapter {
                 ...resource.metadata,
                 repositoryPolicyText,
                 lifecyclePolicyText,
-                images: images ?? [],
+                images: images?.images ?? [],
                 ...(images ? {} : {imagesUnavailable: true}),
+                ...(images?.more ? {imagesTruncated: true} : {}),
             },
         }
     }
@@ -169,22 +172,14 @@ export class AwsRegistryAdapter implements CloudServiceAdapter {
     }
 
     /**
-     * Every image, so the inspector can show them. Null means the read failed,
-     * which keeps "no images" and "could not list images" distinguishable.
+     * The first page of images, so opening a large repository stays cheap; the
+     * images API pages through the rest. Null means the read failed, which keeps
+     * "no images" and "could not list images" distinguishable.
      */
-    private async allImages(name: string): Promise<Array<Record<string, unknown>> | null> {
+    private async firstImages(name: string): Promise<{images: Array<Record<string, unknown>>, more: boolean} | null> {
         try {
-            const images: Array<Record<string, unknown>> = []
-            const seenCursors = new Set<string>()
-            let cursor: string | undefined
-
-            do {
-                const page = await this.items.listItems(name, {cursor, limit: DESCRIBE_MAX_RESULTS})
-                images.push(...page.items.map((item) => item.body))
-                cursor = followToken(page.nextCursor ?? undefined, seenCursors, 'DescribeImages')
-            } while (cursor)
-
-            return images
+            const page = await this.items.listItems(name, {limit: INSPECT_IMAGE_LIMIT})
+            return {images: page.items.map((item) => item.body), more: page.nextCursor !== null}
         } catch {
             return null
         }

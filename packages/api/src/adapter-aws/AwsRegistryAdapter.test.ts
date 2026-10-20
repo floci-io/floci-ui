@@ -254,7 +254,7 @@ describe('AwsRegistryAdapter inspect', () => {
         expect(resource?.metadata).toMatchObject({images: [], imagesUnavailable: true})
     })
 
-    test('reads every image page for the inspector', async () => {
+    test('inspect embeds only the first image page and flags a truncated list', async () => {
         const tokens: Array<string | undefined> = []
         const adapter = createAdapter(async (command) => {
             if (command instanceof DescribeRepositoriesCommand) return {repositories: [repository('web')]}
@@ -262,21 +262,33 @@ describe('AwsRegistryAdapter inspect', () => {
             if (command instanceof GetLifecyclePolicyCommand) throw sdkError('LifecyclePolicyNotFoundException')
             if (command instanceof DescribeImagesCommand) {
                 tokens.push(command.input.nextToken)
-                expect(command.input.maxResults).toBe(1000)
-                return command.input.nextToken
-                    ? {imageDetails: [image(DIGEST_B, [])]}
-                    : {imageDetails: [image(DIGEST_A, ['v1'])], nextToken: 'images-2'}
+                expect(command.input.maxResults).toBe(100)
+                return {imageDetails: [image(DIGEST_A, ['v1'])], nextToken: 'images-2'}
             }
             throw new Error(`Unexpected command: ${command?.constructor?.name}`)
         })
 
         const resource = await adapter.get('web')
 
-        expect(tokens).toEqual([undefined, 'images-2'])
+        expect(tokens).toEqual([undefined])
         expect((resource?.metadata.images as Array<{imageDigest: string}>).map((entry) => entry.imageDigest)).toEqual([
             DIGEST_A,
-            DIGEST_B,
         ])
+        expect(resource?.metadata.imagesTruncated).toBe(true)
+    })
+
+    test('inspect omits imagesTruncated when the first page is the last', async () => {
+        const adapter = createAdapter(async (command) => {
+            if (command instanceof DescribeRepositoriesCommand) return {repositories: [repository('web')]}
+            if (command instanceof GetRepositoryPolicyCommand) throw sdkError('RepositoryPolicyNotFoundException')
+            if (command instanceof GetLifecyclePolicyCommand) throw sdkError('LifecyclePolicyNotFoundException')
+            if (command instanceof DescribeImagesCommand) return {imageDetails: [image(DIGEST_A, ['v1'])]}
+            throw new Error(`Unexpected command: ${command?.constructor?.name}`)
+        })
+
+        const resource = await adapter.get('web')
+
+        expect(resource?.metadata).not.toHaveProperty('imagesTruncated')
     })
 
     test('a missing repository is null and skips the policy and image reads', async () => {
