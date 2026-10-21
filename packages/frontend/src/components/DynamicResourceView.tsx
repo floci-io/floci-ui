@@ -1043,16 +1043,16 @@ export function DynamicResourceView({
           }}
         />
       )}
-      {service === "secrets" && cloud === "azure" && (
+      {(service === "secrets" || service === "kms") && cloud === "azure" && (
         <AzureKeyVaultPanel
           resource={inspectedResource}
           runtimeReachable={canUseRuntime}
-          onChanged={() => {
+          onChanged={(change) => {
             void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
             if (activeSelected) {
               void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
             }
-            selectResource(undefined);
+            if (change === "removed") selectResource(undefined);
           }}
         />
       )}

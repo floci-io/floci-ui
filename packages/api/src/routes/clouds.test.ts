@@ -14,7 +14,7 @@ import {awsMessagingSchema} from '../cloud-spi/messagingSchema'
 import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
-import {awsKmsSchema, ociKmsSchema} from '../cloud-spi/kmsSchema'
+import {awsKmsSchema, azureKmsSchema, ociKmsSchema} from '../cloud-spi/kmsSchema'
 import {azureSecretsSchema} from '../cloud-spi/secretsSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
@@ -988,6 +988,30 @@ describe('KMS crypto routes', () => {
         expect(await recovered.json()).toMatchObject({id: 'db-password'})
         expect((await app.request(`${route}/purge-deleted`, {method: 'POST'})).status).toBe(200)
         expect(called).toEqual(['recover:db-password', 'purge:db-password'])
+    })
+
+    test('dispatches key recovery and purge to the selected deleted key', async () => {
+        const called: string[] = []
+        const resource: CloudResource = {id: 'app-key', name: 'app-key', cloud: 'azure', service: 'kms', type: 'key', region: null, createdAt: null, metadata: {}}
+        const app = appWithRoutes([mockAdapter('azure', {
+            service: 'kms', schema: azureKmsSchema,
+            recover: async (id) => { called.push(`recover:${id}`); return resource },
+            purgeDeleted: async (id) => { called.push(`purge:${id}`) },
+        })])
+        const route = '/api/clouds/azure/services/kms/resources/app-key'
+        const recovered = await app.request(`${route}/recover`, {method: 'POST'})
+        expect(recovered.status).toBe(200)
+        expect(await recovered.json()).toMatchObject({id: 'app-key'})
+        expect((await app.request(`${route}/purge-deleted`, {method: 'POST'})).status).toBe(200)
+        expect(called).toEqual(['recover:app-key', 'purge:app-key'])
+    })
+
+    test('reports key recovery as unsupported when the adapter has no recover', async () => {
+        const app = appWithRoutes([mockAdapter('azure', {service: 'kms', schema: azureKmsSchema})])
+        const route = '/api/clouds/azure/services/kms/resources/app-key'
+
+        expect((await app.request(`${route}/recover`, {method: 'POST'})).status).toBe(501)
+        expect((await app.request(`${route}/purge-deleted`, {method: 'POST'})).status).toBe(501)
     })
 
     test('reports secret recovery as unsupported when the adapter has no recover', async () => {

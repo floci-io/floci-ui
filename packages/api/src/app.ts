@@ -94,7 +94,7 @@ function isSensitiveCredentialRoute(path: string): boolean {
 
 function isKeyMutationRoute(path: string): boolean {
   return (
-    /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:rotate|cancel-deletion)$/.test(path) ||
+    /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:rotate|cancel-deletion|recover|purge-deleted)$/.test(path) ||
     /^\/api\/clouds\/[^/]+\/services\/secrets\/resources\/[^/]+\/(?:recover|purge-deleted)$/.test(path)
   );
 }

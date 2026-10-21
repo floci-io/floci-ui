@@ -1,3 +1,4 @@
+import {SECRET_NAME_PATTERN} from './secretsSchema'
 import type {CloudProvider, FieldSchema, ServiceSchema, TableColumnSchema} from './types'
 
 /**
@@ -247,4 +248,97 @@ export function kmsSchemaFor(cloud: CloudProvider): ServiceSchema | null {
     if (cloud === 'aws') return awsKmsSchema()
     if (cloud === 'oci') return ociKmsSchema()
     return null
+}
+
+/**
+ * Key Vault key shapes offered on create: the key type, its size in bits for RSA
+ * and oct, and the curve for EC. Floci-AZ also accepts RSA 1024, which Key Vault
+ * refuses, so this table, not the runtime, is the authority.
+ */
+export const AZURE_KEY_SHAPES = {
+    RSA_2048: {kty: 'RSA', keySize: 2048},
+    RSA_3072: {kty: 'RSA', keySize: 3072},
+    RSA_4096: {kty: 'RSA', keySize: 4096},
+    EC_P256: {kty: 'EC', curve: 'P-256'},
+    EC_P384: {kty: 'EC', curve: 'P-384'},
+    EC_P521: {kty: 'EC', curve: 'P-521'},
+    AES_128: {kty: 'oct', keySize: 128},
+    AES_192: {kty: 'oct', keySize: 192},
+    AES_256: {kty: 'oct', keySize: 256},
+} as const satisfies Record<string, {kty: 'RSA' | 'EC' | 'oct'; keySize?: number; curve?: string}>
+
+export type AzureKeyShapeName = keyof typeof AZURE_KEY_SHAPES
+
+export const AZURE_KEY_NAME_PATTERN = SECRET_NAME_PATTERN
+export const AZURE_KEY_NAME_MESSAGE = 'Use a valid Key Vault key name: 1-127 letters, numbers, or hyphens.'
+
+// Key Vault soft-deletes keys the same way as secrets, so the deleted namespace is a view facet.
+export const AZURE_KEY_STATES = ['active', 'deleted'] as const
+
+// The list endpoint returns identifiers and attributes only, so the key type and size are shown on inspect.
+const azureKmsColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Key Name'},
+    {name: 'status', label: 'State', format: 'badge'},
+    {name: 'createdAt', label: 'Created', format: 'datetime'},
+]
+
+export function azureKmsSchema(): ServiceSchema {
+    return {
+        cloud: 'azure',
+        service: 'kms',
+        displayName: 'Key Vault Keys',
+        fields: [
+            {
+                name: 'keyName',
+                label: 'Key Name',
+                type: 'text',
+                required: true,
+                description: 'Unique Key Vault key name.',
+                validation: {
+                    minLength: 1,
+                    maxLength: 127,
+                    pattern: AZURE_KEY_NAME_PATTERN,
+                    message: AZURE_KEY_NAME_MESSAGE,
+                },
+            },
+            {
+                name: 'keyShape',
+                label: 'Key Shape',
+                type: 'select',
+                required: false,
+                defaultValue: 'RSA_2048',
+                description: 'RSA and AES keys encrypt and decrypt; EC keys are for signing.',
+                options: Object.keys(AZURE_KEY_SHAPES).map((value) => ({label: value.replace('_', ' '), value})),
+            },
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List keys', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create key', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete key (soft-delete)', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'recover', label: 'Recover deleted key', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'purgeDeleted', label: 'Purge deleted key', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect key and versions', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'rotate', label: 'Rotate key', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'encrypt', label: 'Encrypt plaintext', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'decrypt', label: 'Decrypt ciphertext', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+        filters: [
+            ...kmsFilters,
+            {
+                name: 'state',
+                label: 'View',
+                type: 'select',
+                required: false,
+                defaultValue: 'active',
+                options: [
+                    {label: 'Active keys', value: 'active'},
+                    {label: 'Deleted keys', value: 'deleted'},
+                ],
+            },
+        ],
+        columns: azureKmsColumns,
+    }
 }

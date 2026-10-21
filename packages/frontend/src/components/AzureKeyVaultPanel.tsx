@@ -1,6 +1,12 @@
 import {useEffect, useRef, useState} from "react";
-import {History, Loader2} from "lucide-react";
-import {purgeDeletedSecretResource, recoverSecretResource} from "@/api/cloudProxyClient";
+import {History, Loader2, RefreshCw} from "lucide-react";
+import {
+  purgeDeletedKmsResource,
+  purgeDeletedSecretResource,
+  recoverKmsResource,
+  recoverSecretResource,
+  rotateKmsResource,
+} from "@/api/cloudProxyClient";
 import {useAccountId} from "@/lib/accountStore";
 import {formatDateTime} from "@/lib/format";
 import type {CloudResource} from "@/types/resource";
@@ -8,15 +14,18 @@ import type {CloudResource} from "@/types/resource";
 interface AzureKeyVaultPanelProps {
   resource?: CloudResource;
   runtimeReachable: boolean;
-  /** Called after recover or purge, when the secret has left the deleted list. */
-  onChanged: () => void;
+  /**
+   * Called after a change. "removed" means the item has left the list it was selected in
+   * (recover or purge); "updated" means it is still there with new content (rotate).
+   */
+  onChanged: (change: "removed" | "updated") => void;
 }
 
 interface SecretVersion {
   version: string;
   enabled: boolean;
   createdAt: string | null;
-  contentType: string | null;
+  contentType?: string | null;
   current: boolean | null;
 }
 
@@ -39,12 +48,14 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
     };
   }, [accountId, resource?.id]);
 
-  if (!resource || resource.cloud !== "azure" || resource.service !== "secrets") return null;
+  if (!resource || resource.cloud !== "azure" || (resource.service !== "secrets" && resource.service !== "kms")) return null;
 
+  const isKey = resource.service === "kms";
+  const noun = isKey ? "key" : "secret";
   const deleted = resource.status === "deleted";
   const versions = secretVersions(resource.metadata.versions);
 
-  const run = async (operation: "recover" | "purge") => {
+  const run = async (operation: "recover" | "purge" | "rotate") => {
     if (pending || !runtimeReachable) return;
     activeRequest.current?.abort();
     const controller = new AbortController();
@@ -52,9 +63,11 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
     setPending(true);
     setError(null);
     try {
-      if (operation === "recover") await recoverSecretResource("azure", resource.id, controller.signal);
-      else await purgeDeletedSecretResource("azure", resource.id, controller.signal);
-      onChanged();
+      if (operation === "rotate") await rotateKmsResource("azure", resource.id, controller.signal);
+      else if (operation === "recover") {
+        await (isKey ? recoverKmsResource : recoverSecretResource)("azure", resource.id, controller.signal);
+      } else await (isKey ? purgeDeletedKmsResource : purgeDeletedSecretResource)("azure", resource.id, controller.signal);
+      onChanged(operation === "rotate" ? "updated" : "removed");
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Key Vault operation failed.");
     } finally {
@@ -71,9 +84,16 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">Key Vault</p>
-          <h2><History size={15}/> {deleted ? "Deleted secret" : "Secret versions"}</h2>
-          <p className="muted compact-text">Secret values are never shown in the console.</p>
+          <h2><History size={15}/> {deleted ? `Deleted ${noun}` : `${isKey ? "Key" : "Secret"} versions`}</h2>
+          <p className="muted compact-text">
+            {isKey ? "Key material is never shown in the console." : "Secret values are never shown in the console."}
+          </p>
         </div>
+        {isKey && !deleted && (
+          <button className="button" type="button" disabled={!runtimeReachable || pending || resource.status !== "enabled"} onClick={() => void run("rotate")}>
+            {pending ? <Loader2 size={13} className="spin"/> : <RefreshCw size={13}/>} Rotate key
+          </button>
+        )}
       </div>
       {deleted ? (
         <div className="resource-create-inline">
@@ -101,7 +121,7 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
           )}
         </div>
       ) : versions.length === 0 ? (
-        <p className="muted compact-text">No versions returned for this secret.</p>
+        <p className="muted compact-text">No versions returned for this {noun}.</p>
       ) : (
         <div className="table-scroll">
           <table className="table resource-table">
@@ -110,7 +130,7 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
                 <th>Version</th>
                 <th>Status</th>
                 <th>Created</th>
-                <th>Content type</th>
+                {!isKey && <th>Content type</th>}
               </tr>
             </thead>
             <tbody>
@@ -122,7 +142,7 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
                   </td>
                   <td>{version.enabled ? "enabled" : "disabled"}</td>
                   <td>{formatDateTime(version.createdAt) ?? "-"}</td>
-                  <td>{version.contentType ?? "-"}</td>
+                  {!isKey && <td>{version.contentType ?? "-"}</td>}
                 </tr>
               ))}
             </tbody>
