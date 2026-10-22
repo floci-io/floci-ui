@@ -232,6 +232,14 @@ export const SERVICE_CATALOG = {
         group: 'Security',
         order: 20,
     },
+    certificates: {
+        displayName: 'Certificates',
+        displayNameByCloud: {azure: 'Key Vault Certificates'},
+        description: 'Issue and manage certificates.',
+        iconKey: 'kms',
+        group: 'Security',
+        order: 25,
+    },
     parameters: {
         displayName: 'Parameter Store',
         description: 'Store configuration values for applications.',

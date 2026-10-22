@@ -1,8 +1,10 @@
 import {useEffect, useRef, useState} from "react";
 import {History, Loader2, RefreshCw} from "lucide-react";
 import {
+  purgeDeletedCertificateResource,
   purgeDeletedKmsResource,
   purgeDeletedSecretResource,
+  recoverCertificateResource,
   recoverKmsResource,
   recoverSecretResource,
   rotateKmsResource,
@@ -20,6 +22,23 @@ interface AzureKeyVaultPanelProps {
    */
   onChanged: (change: "removed" | "updated") => void;
 }
+
+type KeyVaultOperation = (cloud: "azure", id: string, signal?: AbortSignal) => Promise<unknown>;
+
+const KEY_VAULT_KINDS: Record<string, {noun: string; label: string; notice: string; recover: KeyVaultOperation; purge: KeyVaultOperation}> = {
+  secrets: {
+    noun: "secret", label: "Secret", notice: "Secret values are never shown in the console.",
+    recover: recoverSecretResource, purge: purgeDeletedSecretResource,
+  },
+  kms: {
+    noun: "key", label: "Key", notice: "Key material is never shown in the console.",
+    recover: recoverKmsResource, purge: purgeDeletedKmsResource,
+  },
+  certificates: {
+    noun: "certificate", label: "Certificate", notice: "Private keys are never shown in the console.",
+    recover: recoverCertificateResource, purge: purgeDeletedCertificateResource,
+  },
+};
 
 interface SecretVersion {
   version: string;
@@ -48,10 +67,12 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
     };
   }, [accountId, resource?.id]);
 
-  if (!resource || resource.cloud !== "azure" || (resource.service !== "secrets" && resource.service !== "kms")) return null;
+  if (!resource || resource.cloud !== "azure" || !(resource.service in KEY_VAULT_KINDS)) return null;
 
+  const kind = KEY_VAULT_KINDS[resource.service];
   const isKey = resource.service === "kms";
-  const noun = isKey ? "key" : "secret";
+  const isSecret = resource.service === "secrets";
+  const noun = kind.noun;
   const deleted = resource.status === "deleted";
   const versions = secretVersions(resource.metadata.versions);
 
@@ -65,8 +86,8 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
     try {
       if (operation === "rotate") await rotateKmsResource("azure", resource.id, controller.signal);
       else if (operation === "recover") {
-        await (isKey ? recoverKmsResource : recoverSecretResource)("azure", resource.id, controller.signal);
-      } else await (isKey ? purgeDeletedKmsResource : purgeDeletedSecretResource)("azure", resource.id, controller.signal);
+        await kind.recover("azure", resource.id, controller.signal);
+      } else await kind.purge("azure", resource.id, controller.signal);
       onChanged(operation === "rotate" ? "updated" : "removed");
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Key Vault operation failed.");
@@ -84,10 +105,8 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">Key Vault</p>
-          <h2><History size={15}/> {deleted ? `Deleted ${noun}` : `${isKey ? "Key" : "Secret"} versions`}</h2>
-          <p className="muted compact-text">
-            {isKey ? "Key material is never shown in the console." : "Secret values are never shown in the console."}
-          </p>
+          <h2><History size={15}/> {deleted ? `Deleted ${noun}` : `${kind.label} versions`}</h2>
+          <p className="muted compact-text">{kind.notice}</p>
         </div>
         {isKey && !deleted && (
           <button className="button" type="button" disabled={!runtimeReachable || pending || resource.status !== "enabled"} onClick={() => void run("rotate")}>
@@ -130,7 +149,7 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
                 <th>Version</th>
                 <th>Status</th>
                 <th>Created</th>
-                {!isKey && <th>Content type</th>}
+                {isSecret && <th>Content type</th>}
               </tr>
             </thead>
             <tbody>
@@ -142,7 +161,7 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
                   </td>
                   <td>{version.enabled ? "enabled" : "disabled"}</td>
                   <td>{formatDateTime(version.createdAt) ?? "-"}</td>
-                  {!isKey && <td>{version.contentType ?? "-"}</td>}
+                  {isSecret && <td>{version.contentType ?? "-"}</td>}
                 </tr>
               ))}
             </tbody>

@@ -126,6 +126,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Security | Cognito | ✅ | – | – | – |
 | Security | Secrets Manager | ✅ | ✅ | ✅ | ✅ |
 | Security | Key Management | ✅ | ✅ | – | ✅ |
+| Security | Certificates | – | ✅ | – | – |
 | Security | Parameter Store | ✅ | – | – | – |
 | Observability | Logs | ✅ | – | 👁 | – |
 | Observability | CloudWatch | ✅ | – | – | – |

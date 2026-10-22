@@ -321,6 +321,18 @@ export class CloudProxyService {
         await adapter.purgeDeleted(id)
     }
 
+    async recoverCertificate(cloud: CloudProvider, id: string): Promise<CloudResource> {
+        const adapter = this.requireAdapter(cloud, 'certificates')
+        if (!adapter.recover) throw new NotSupportedError(`${cloud}/certificates recover is not supported`)
+        return adapter.recover(id)
+    }
+
+    async purgeDeletedCertificate(cloud: CloudProvider, id: string): Promise<void> {
+        const adapter = this.requireAdapter(cloud, 'certificates')
+        if (!adapter.purgeDeleted) throw new NotSupportedError(`${cloud}/certificates purgeDeleted is not supported`)
+        await adapter.purgeDeleted(id)
+    }
+
     async invokeResource(
         cloud: CloudProvider,
         service: CloudServiceType,

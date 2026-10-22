@@ -1043,7 +1043,7 @@ export function DynamicResourceView({
           }}
         />
       )}
-      {(service === "secrets" || service === "kms") && cloud === "azure" && (
+      {(service === "secrets" || service === "kms" || service === "certificates") && cloud === "azure" && (
         <AzureKeyVaultPanel
           resource={inspectedResource}
           runtimeReachable={canUseRuntime}

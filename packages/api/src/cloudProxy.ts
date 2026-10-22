@@ -42,6 +42,7 @@ import {CloudProxyService} from './service/CloudProxyService'
 import {AzureServerlessAdapter} from './adapter-azure/AzureServerlessAdapter'
 import {AzureAppConfigAdapter} from './adapter-azure/AzureAppConfigAdapter'
 import {AzureKeyVaultAdapter} from './adapter-azure/AzureKeyVaultAdapter'
+import {AzureKeyVaultCertificatesAdapter} from './adapter-azure/AzureKeyVaultCertificatesAdapter'
 import {AzureKeyVaultKeysAdapter} from './adapter-azure/AzureKeyVaultKeysAdapter'
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
 import {AwsParameterStoreAdapter} from './adapter-aws/AwsParameterStoreAdapter'
@@ -140,6 +141,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AzureServerlessAdapter(),
         new AzureKeyVaultAdapter(),
         new AzureKeyVaultKeysAdapter(),
+        new AzureKeyVaultCertificatesAdapter(),
         new AzureAppConfigAdapter(),
     ])
 }

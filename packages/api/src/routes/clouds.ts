@@ -1036,6 +1036,21 @@ export function createCloudRoutes(
         })
     })
 
+    app.post('/:cloud/services/certificates/resources/:id/recover', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
+        return withRuntime(c, async () => c.json(await svc(c).recoverCertificate(cloud, c.req.param('id'))))
+    })
+
+    app.post('/:cloud/services/certificates/resources/:id/purge-deleted', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
+        return withRuntime(c, async () => {
+            await svc(c).purgeDeletedCertificate(cloud, c.req.param('id'))
+            return c.json({ok: true})
+        })
+    })
+
     app.post('/:cloud/services/:service/resources', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType

@@ -32,6 +32,8 @@ export const apiEndpointKeys = {
       purgeDeleted: "clouds.services.resources.purgeDeleted",
       recoverKms: "clouds.services.resources.recoverKms",
       purgeDeletedKms: "clouds.services.resources.purgeDeletedKms",
+      recoverCertificate: "clouds.services.resources.recoverCertificate",
+      purgeDeletedCertificate: "clouds.services.resources.purgeDeletedCertificate",
       sendMessage: "clouds.services.resources.messages.send",
       receiveMessages: "clouds.services.resources.messages.receive",
       deleteMessage: "clouds.services.resources.messages.delete",
@@ -400,6 +402,22 @@ export const endpointRegistry: EndpointRegistry = new Map([
       path: "/clouds/:cloud/services/kms/resources/:id/purge-deleted",
       method: "POST",
       telemetry: { service: "kms" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.recoverCertificate,
+    {
+      path: "/clouds/:cloud/services/certificates/resources/:id/recover",
+      method: "POST",
+      telemetry: { service: "certificates" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.purgeDeletedCertificate,
+    {
+      path: "/clouds/:cloud/services/certificates/resources/:id/purge-deleted",
+      method: "POST",
+      telemetry: { service: "certificates" },
     },
   ],
   [

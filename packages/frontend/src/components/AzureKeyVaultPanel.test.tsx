@@ -2,8 +2,10 @@ import {render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, describe, expect, test, vi} from "vitest";
 import {
+  purgeDeletedCertificateResource,
   purgeDeletedKmsResource,
   purgeDeletedSecretResource,
+  recoverCertificateResource,
   recoverKmsResource,
   recoverSecretResource,
   rotateKmsResource,
@@ -18,6 +20,8 @@ vi.mock("@/api/cloudProxyClient", () => ({
   recoverKmsResource: vi.fn(),
   purgeDeletedKmsResource: vi.fn(),
   rotateKmsResource: vi.fn(),
+  recoverCertificateResource: vi.fn(),
+  purgeDeletedCertificateResource: vi.fn(),
 }));
 
 const activeSecret: CloudResource = {
@@ -62,6 +66,26 @@ const activeKey: CloudResource = {
 
 const deletedKey: CloudResource = {
   ...activeKey,
+  status: "deleted",
+  metadata: {deletedAt: "2026-05-20T20:01:40.000Z", scheduledPurgeAt: "2026-05-27T20:01:40.000Z"},
+};
+
+const activeCertificate: CloudResource = {
+  id: "app-tls",
+  name: "app-tls",
+  cloud: "azure",
+  service: "certificates",
+  type: "certificate",
+  region: null,
+  createdAt: null,
+  status: "enabled",
+  metadata: {
+    versions: [{version: "bbb222", enabled: true, createdAt: "2026-05-20T20:01:40.000Z", current: true}],
+  },
+};
+
+const deletedCertificate: CloudResource = {
+  ...activeCertificate,
   status: "deleted",
   metadata: {deletedAt: "2026-05-20T20:01:40.000Z", scheduledPurgeAt: "2026-05-27T20:01:40.000Z"},
 };
@@ -189,5 +213,34 @@ describe("AzureKeyVaultPanel", () => {
     expect(purgeDeletedKmsResource).toHaveBeenCalledWith("azure", "app-key", expect.any(AbortSignal));
     expect(recoverSecretResource).not.toHaveBeenCalled();
     expect(purgeDeletedSecretResource).not.toHaveBeenCalled();
+  });
+
+  test("lists certificate versions with no rotate or content type", () => {
+    render(<AzureKeyVaultPanel resource={activeCertificate} runtimeReachable={true} onChanged={vi.fn()}/>);
+
+    expect(screen.getByText("Certificate versions")).toBeInTheDocument();
+    expect(screen.getByText("Private keys are never shown in the console.")).toBeInTheDocument();
+    expect(screen.getByText("bbb222")).toBeInTheDocument();
+    expect(screen.queryByText("Content type")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Rotate key"})).not.toBeInTheDocument();
+  });
+
+  test("recovers and purges a deleted certificate through the certificate endpoints only", async () => {
+    const user = userEvent.setup();
+    const onChanged = vi.fn();
+    vi.mocked(recoverCertificateResource).mockResolvedValue(activeCertificate);
+    vi.mocked(purgeDeletedCertificateResource).mockResolvedValue(undefined);
+    render(<AzureKeyVaultPanel resource={deletedCertificate} runtimeReachable={true} onChanged={onChanged}/>);
+
+    expect(screen.getByText("Deleted certificate")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: "Recover"}));
+    expect(recoverCertificateResource).toHaveBeenCalledWith("azure", "app-tls", expect.any(AbortSignal));
+    expect(onChanged).toHaveBeenCalledWith("removed");
+
+    await user.click(screen.getByRole("button", {name: "Purge"}));
+    await user.click(screen.getByRole("button", {name: "Confirm purge"}));
+    expect(purgeDeletedCertificateResource).toHaveBeenCalledWith("azure", "app-tls", expect.any(AbortSignal));
+    expect(recoverKmsResource).not.toHaveBeenCalled();
+    expect(recoverSecretResource).not.toHaveBeenCalled();
   });
 });

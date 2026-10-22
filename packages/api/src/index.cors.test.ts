@@ -13,6 +13,8 @@ const AZURE_KEY_RECOVER_URL = 'http://localhost/api/clouds/azure/services/kms/re
 const AZURE_KEY_PURGE_URL = 'http://localhost/api/clouds/azure/services/kms/resources/app-key/purge-deleted'
 const AZURE_SECRET_RECOVER_URL = 'http://localhost/api/clouds/azure/services/secrets/resources/db-password/recover'
 const AZURE_SECRET_PURGE_URL = 'http://localhost/api/clouds/azure/services/secrets/resources/db-password/purge-deleted'
+const AZURE_CERTIFICATE_RECOVER_URL = 'http://localhost/api/clouds/azure/services/certificates/resources/app-tls/recover'
+const AZURE_CERTIFICATE_PURGE_URL = 'http://localhost/api/clouds/azure/services/certificates/resources/app-tls/purge-deleted'
 const KMS_SCHEMA_URL = 'http://localhost/api/clouds/aws/services/kms/schema'
 const TRUSTED_ORIGIN = 'http://localhost:4500'
 const UNTRUSTED_ORIGIN = 'https://example.invalid'
@@ -86,9 +88,17 @@ describe('credentialed route CORS', () => {
             mutations += 1
             return c.json({ok: true})
         })
+        routes.post('/:cloud/services/certificates/resources/:id/recover', (c) => {
+            mutations += 1
+            return c.json({ok: true})
+        })
+        routes.post('/:cloud/services/certificates/resources/:id/purge-deleted', (c) => {
+            mutations += 1
+            return c.json({ok: true})
+        })
         const app = createApiApp(routes)
 
-        for (const url of [OCI_KMS_ROTATE_URL, OCI_KMS_CANCEL_URL, AZURE_KEY_RECOVER_URL, AZURE_KEY_PURGE_URL, AZURE_SECRET_RECOVER_URL, AZURE_SECRET_PURGE_URL]) {
+        for (const url of [OCI_KMS_ROTATE_URL, OCI_KMS_CANCEL_URL, AZURE_KEY_RECOVER_URL, AZURE_KEY_PURGE_URL, AZURE_SECRET_RECOVER_URL, AZURE_SECRET_PURGE_URL, AZURE_CERTIFICATE_RECOVER_URL, AZURE_CERTIFICATE_PURGE_URL]) {
             const preflight = await app.fetch(new Request(url, {
                 method: 'OPTIONS',
                 headers: {origin: UNTRUSTED_ORIGIN, 'access-control-request-method': 'POST'},
@@ -105,7 +115,7 @@ describe('credentialed route CORS', () => {
             const sameOrigin = await app.fetch(new Request(url, {method: 'POST', headers: {origin: 'http://localhost'}}))
             expect(sameOrigin.status).toBe(200)
         }
-        expect(mutations).toBe(12)
+        expect(mutations).toBe(16)
     })
 
     test('applies the allow-list to a real KMS crypto request', async () => {

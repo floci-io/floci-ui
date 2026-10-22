@@ -33,6 +33,8 @@ vi.mock("@/api/cloudProxyClient", () => ({
   listStorageObjects: vi.fn(),
   purgeDeletedSecretResource: vi.fn(),
   purgeDeletedKmsResource: vi.fn(),
+  recoverCertificateResource: vi.fn(),
+  purgeDeletedCertificateResource: vi.fn(),
   recoverKmsResource: vi.fn(),
   recoverSecretResource: vi.fn(),
   storageObjectDownloadUrl: vi.fn(() => "#"),

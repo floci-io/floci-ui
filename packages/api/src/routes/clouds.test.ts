@@ -15,6 +15,7 @@ import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
 import {awsKmsSchema, azureKmsSchema, ociKmsSchema} from '../cloud-spi/kmsSchema'
+import {azureCertificatesSchema} from '../cloud-spi/certificatesSchema'
 import {azureSecretsSchema} from '../cloud-spi/secretsSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
@@ -1004,6 +1005,30 @@ describe('KMS crypto routes', () => {
         expect(await recovered.json()).toMatchObject({id: 'app-key'})
         expect((await app.request(`${route}/purge-deleted`, {method: 'POST'})).status).toBe(200)
         expect(called).toEqual(['recover:app-key', 'purge:app-key'])
+    })
+
+    test('dispatches certificate recovery and purge to the selected deleted certificate', async () => {
+        const called: string[] = []
+        const resource: CloudResource = {id: 'app-tls', name: 'app-tls', cloud: 'azure', service: 'certificates', type: 'certificate', region: null, createdAt: null, metadata: {}}
+        const app = appWithRoutes([mockAdapter('azure', {
+            service: 'certificates', schema: azureCertificatesSchema,
+            recover: async (id) => { called.push(`recover:${id}`); return resource },
+            purgeDeleted: async (id) => { called.push(`purge:${id}`) },
+        })])
+        const route = '/api/clouds/azure/services/certificates/resources/app-tls'
+        const recovered = await app.request(`${route}/recover`, {method: 'POST'})
+        expect(recovered.status).toBe(200)
+        expect(await recovered.json()).toMatchObject({id: 'app-tls'})
+        expect((await app.request(`${route}/purge-deleted`, {method: 'POST'})).status).toBe(200)
+        expect(called).toEqual(['recover:app-tls', 'purge:app-tls'])
+    })
+
+    test('reports certificate recovery as unsupported when the adapter has no recover', async () => {
+        const app = appWithRoutes([mockAdapter('azure', {service: 'certificates', schema: azureCertificatesSchema})])
+        const route = '/api/clouds/azure/services/certificates/resources/app-tls'
+
+        expect((await app.request(`${route}/recover`, {method: 'POST'})).status).toBe(501)
+        expect((await app.request(`${route}/purge-deleted`, {method: 'POST'})).status).toBe(501)
     })
 
     test('reports key recovery as unsupported when the adapter has no recover', async () => {
