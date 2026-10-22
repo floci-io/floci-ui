@@ -32,6 +32,22 @@ describe('AzureKeyVaultCertificatesAdapter', () => {
         expect(calls.every((call) => call.options.includeStorageApiVersion === false)).toBe(true)
     })
 
+    test('lists and inspects certificates named like the collections', async () => {
+        const adapter = new AzureKeyVaultCertificatesAdapter(testClient({
+            [`${BASE}/certificates?${V}`]: {value: [listedCertificate('certificates')]},
+            [`${BASE}/certificates/certificates?${V}`]: certificateBundle('certificates', 'bbb', 1779307260),
+            [`${BASE}/certificates/certificates/versions?${V}`]: {value: [listedCertificate('certificates', 'bbb', 1779307260)]},
+            [`${BASE}/deletedcertificates?${V}`]: {value: [{...listedCertificate('deletedcertificates'), recoveryId: 'x'}]},
+        }))
+
+        const [active] = await adapter.list({})
+        const [deleted] = await adapter.list({filters: {state: 'deleted'}})
+        const inspected = await adapter.get('certificates')
+
+        expect([active.id, deleted.id, inspected?.id]).toEqual(['certificates', 'deletedcertificates', 'certificates'])
+        expect(inspected?.version).toBe('bbb')
+    })
+
     test('lists deleted certificates from the deleted namespace and rejects an unknown state', async () => {
         const calls: RecordedCall[] = []
         const adapter = new AzureKeyVaultCertificatesAdapter(testClient({

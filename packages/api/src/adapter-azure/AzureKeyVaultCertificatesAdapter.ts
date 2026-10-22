@@ -315,10 +315,8 @@ function certificateState(value: string | undefined): CertificateState {
 
 function parseCertificateId(id?: string): {name: string; version: string | null} {
     if (!id) return {name: '', version: null}
-    const parts = id.split('/').filter(Boolean)
-    const index = Math.max(parts.lastIndexOf('certificates'), parts.lastIndexOf('deletedcertificates'))
-    const name = parts[index + 1]
-    const version = parts[index + 2]
+    // Ids are <host>/certificates/<name>/<version>; read by position because a certificate may be named "certificates".
+    const [, name, version] = (id.includes('://') ? new URL(id).pathname : id).split('/').filter(Boolean)
     return {
         name: name ? decodeURIComponent(name) : '',
         version: version ? decodeURIComponent(version) : null,
