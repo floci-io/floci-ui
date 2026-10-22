@@ -136,6 +136,8 @@ describe('AzureKeyVaultCertificatesAdapter', () => {
             {certificateName: 'bad name'},
             {certificateName: 'ok', keyShape: 'RSA_1024'},
             {certificateName: 'ok', contentType: 'JKS'},
+            {certificateName: 'ok', keyShape: 'toString'},
+            {certificateName: 'ok', contentType: 'constructor'},
             {certificateName: 'ok', validityMonths: '5'},
         ]) {
             await expect(adapter.create({values})).rejects.toBeInstanceOf(ValidationError)

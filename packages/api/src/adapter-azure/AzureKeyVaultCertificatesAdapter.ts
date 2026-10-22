@@ -104,10 +104,10 @@ export class AzureKeyVaultCertificatesAdapter implements CloudServiceAdapter {
 
         if (!name) throw new ValidationError('certificateName is required')
         if (!new RegExp(AZURE_CERTIFICATE_NAME_PATTERN).test(name)) throw new ValidationError(AZURE_CERTIFICATE_NAME_MESSAGE)
-        if (!(shapeName in AZURE_CERTIFICATE_SHAPES)) {
+        if (!Object.hasOwn(AZURE_CERTIFICATE_SHAPES, shapeName)) {
             throw new ValidationError(`keyShape must be one of: ${Object.keys(AZURE_CERTIFICATE_SHAPES).join(', ')}`)
         }
-        if (!(contentTypeName in AZURE_CERTIFICATE_CONTENT_TYPES)) {
+        if (!Object.hasOwn(AZURE_CERTIFICATE_CONTENT_TYPES, contentTypeName)) {
             throw new ValidationError(`contentType must be one of: ${Object.keys(AZURE_CERTIFICATE_CONTENT_TYPES).join(', ')}`)
         }
         if (!(AZURE_CERTIFICATE_VALIDITY_MONTHS as readonly number[]).includes(months)) {
