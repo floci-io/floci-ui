@@ -429,10 +429,8 @@ function keyState(value: string | undefined): KeyState {
 
 function parseKeyId(id?: string): {name: string; version: string | null} {
     if (!id) return {name: '', version: null}
-    const parts = id.split('/').filter(Boolean)
-    const keysIndex = parts.lastIndexOf('keys')
-    const name = parts[keysIndex + 1]
-    const version = parts[keysIndex + 2]
+    // Ids are <host>/keys/<name>/<version>; read by position because a key may be named "keys".
+    const [, name, version] = (id.includes('://') ? new URL(id).pathname : id).split('/').filter(Boolean)
     return {
         name: name ? decodeURIComponent(name) : '',
         version: version ? decodeURIComponent(version) : null,

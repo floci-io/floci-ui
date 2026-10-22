@@ -31,6 +31,21 @@ describe('AzureKeyVaultKeysAdapter', () => {
         expect(calls.every((call) => call.options.includeStorageApiVersion === false)).toBe(true)
     })
 
+    test('lists and inspects a key whose name equals the collection name', async () => {
+        const adapter = new AzureKeyVaultKeysAdapter(testClient({
+            [`${BASE}/keys?${V}`]: {value: [listedKey('keys')]},
+            [`${BASE}/keys/keys?${V}`]: keyBundle('keys', 'v1', {kty: 'RSA', key_size: 2048}),
+            [`${BASE}/keys/keys/versions?${V}`]: {value: [listedKey('keys', 'v1')]},
+        }))
+
+        const [listed] = await adapter.list({})
+        const inspected = await adapter.get('keys')
+
+        expect(listed.id).toBe('keys')
+        expect(inspected?.id).toBe('keys')
+        expect(inspected?.version).toBe('v1')
+    })
+
     test('lists deleted keys from the deleted namespace and rejects an unknown state', async () => {
         const calls: RecordedCall[] = []
         const adapter = new AzureKeyVaultKeysAdapter(testClient({
