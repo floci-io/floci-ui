@@ -130,6 +130,7 @@ describe('AzureKeyVaultKeysAdapter', () => {
         await expect(adapter.create({values: {}})).rejects.toBeInstanceOf(ValidationError)
         await expect(adapter.create({values: {keyName: 'bad_name'}})).rejects.toBeInstanceOf(ValidationError)
         await expect(adapter.create({values: {keyName: 'k', keyShape: 'RSA_1024'}})).rejects.toBeInstanceOf(ValidationError)
+        await expect(adapter.create({values: {keyName: 'k', keyShape: 'toString'}})).rejects.toBeInstanceOf(ValidationError)
         expect(calls).toHaveLength(0)
     })
 
@@ -204,6 +205,45 @@ describe('AzureKeyVaultKeysAdapter', () => {
             value: Buffer.from('xyz').toString('base64url'),
             tag: tag.toString('base64url'),
         })
+    })
+
+    test('decrypts ciphertext from an older version after the key was rotated', async () => {
+        const calls: RecordedCall[] = []
+        const plain = Buffer.from(PLAINTEXT).toString('base64url')
+        const adapter = new AzureKeyVaultKeysAdapter(testClient({
+            [`${BASE}/keys/app-rsa?${V}`]: keyBundle('app-rsa', 'v3', {kty: 'RSA', key_size: 2048}),
+            [`${BASE}/keys/app-rsa/decrypt?${V}`]: status(400, {error: {code: 'BadParameter'}}),
+            [`${BASE}/keys/app-rsa/versions?${V}`]: {
+                value: [
+                    {...listedKey('app-rsa', 'v1'), attributes: attributes(1779307200)},
+                    {...listedKey('app-rsa', 'v3'), attributes: attributes(1779307400)},
+                    {...listedKey('app-rsa', 'v2'), attributes: attributes(1779307300)},
+                ],
+            },
+            [`${BASE}/keys/app-rsa/v2/decrypt?${V}`]: status(400, {error: {code: 'BadParameter'}}),
+            [`${BASE}/keys/app-rsa/v1/decrypt?${V}`]: {value: plain},
+        }, calls))
+
+        const decrypted = await adapter.decrypt('app-rsa', {ciphertextBlob: Buffer.from('cipher'), encryptionAlgorithm: 'RSAES_OAEP_SHA_1'})
+
+        expect(Buffer.from(decrypted.plaintext).toString()).toBe('hello world')
+        expect(calls.filter((call) => call.path.includes('/decrypt?')).map((call) => call.path)).toEqual([
+            `${BASE}/keys/app-rsa/decrypt?${V}`,
+            `${BASE}/keys/app-rsa/v2/decrypt?${V}`,
+            `${BASE}/keys/app-rsa/v1/decrypt?${V}`,
+        ])
+    })
+
+    test('keeps the first decrypt error when no version can decrypt the ciphertext', async () => {
+        const adapter = new AzureKeyVaultKeysAdapter(testClient({
+            [`${BASE}/keys/app-rsa?${V}`]: keyBundle('app-rsa', 'v2', {kty: 'RSA', key_size: 2048}),
+            [`${BASE}/keys/app-rsa/decrypt?${V}`]: status(400, {error: {code: 'BadParameter'}}),
+            [`${BASE}/keys/app-rsa/versions?${V}`]: {value: [listedKey('app-rsa', 'v1'), listedKey('app-rsa', 'v2')]},
+            [`${BASE}/keys/app-rsa/v1/decrypt?${V}`]: status(400, {error: {code: 'BadParameter'}}),
+        }))
+
+        await expect(adapter.decrypt('app-rsa', {ciphertextBlob: Buffer.from('nope'), encryptionAlgorithm: 'RSAES_OAEP_SHA_1'}))
+            .rejects.toBeInstanceOf(ValidationError)
     })
 
     test('refuses a crypto request the key cannot satisfy before calling the runtime', async () => {

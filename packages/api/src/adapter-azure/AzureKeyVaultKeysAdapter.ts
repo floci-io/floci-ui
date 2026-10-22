@@ -110,7 +110,7 @@ export class AzureKeyVaultKeysAdapter implements CloudServiceAdapter {
 
         if (!keyName) throw new ValidationError('keyName is required')
         if (!new RegExp(AZURE_KEY_NAME_PATTERN).test(keyName)) throw new ValidationError(AZURE_KEY_NAME_MESSAGE)
-        if (!(shapeName in AZURE_KEY_SHAPES)) {
+        if (!Object.hasOwn(AZURE_KEY_SHAPES, shapeName)) {
             throw new ValidationError(`keyShape must be one of: ${Object.keys(AZURE_KEY_SHAPES).join(', ')}`)
         }
         const shape: {kty: string; keySize?: number; curve?: string} = AZURE_KEY_SHAPES[shapeName as AzureKeyShapeName]
@@ -201,13 +201,47 @@ export class AzureKeyVaultKeysAdapter implements CloudServiceAdapter {
             body.value = toBase64Url(input.ciphertextBlob)
         }
 
-        const res = await this.keyVaultJson<KeyVaultCryptoResult>(
-            `/keys/${encodeURIComponent(id)}/decrypt?api-version=${API_VERSION}`,
-            {method: 'POST', body: JSON.stringify(body)},
-        )
+        const res = await this.decryptWithFallback(id, key, body)
         if (typeof res?.value !== 'string') throw new RuntimeError('Azure Key Vault did not return plaintext')
 
         return {plaintext: fromBase64Url(res.value), keyId: id, encryptionAlgorithm: input.encryptionAlgorithm}
+    }
+
+    // The ciphertext does not say which version produced it, so after a rotation try the
+    // current version first and then the older ones, newest first, until one decrypts.
+    private async decryptWithFallback(
+        id: string,
+        key: KeyVaultKeyBundle,
+        body: Record<string, string>,
+    ): Promise<KeyVaultCryptoResult | null> {
+        const decryptAt = (version?: string) => this.keyVaultJson<KeyVaultCryptoResult>(
+            `/keys/${encodeURIComponent(id)}${version ? `/${encodeURIComponent(version)}` : ''}/decrypt?api-version=${API_VERSION}`,
+            {method: 'POST', body: JSON.stringify(body)},
+        )
+
+        try {
+            return await decryptAt()
+        } catch (err) {
+            if (!(err instanceof ValidationError)) throw err
+
+            const current = parseKeyId(key.kid).version
+            const records = await this.listAll(`/keys/${encodeURIComponent(id)}/versions?api-version=${API_VERSION}`)
+            const older = sortVersions(records.map((record) => ({
+                version: parseKeyId(record.kid).version,
+                createdAt: epochDate(record.attributes?.created),
+            })))
+                .map((entry) => entry.version)
+                .filter((version): version is string => !!version && version !== current)
+
+            for (const version of older) {
+                try {
+                    return await decryptAt(version)
+                } catch (fallbackErr) {
+                    if (!(fallbackErr instanceof ValidationError)) throw fallbackErr
+                }
+            }
+            throw err
+        }
     }
 
     private async requireCryptoKey(
