@@ -103,7 +103,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 
 | Group | Service | AWS | Azure | GCP | OCI |
 |---|---|:-:|:-:|:-:|:-:|
-| Compute | Compute | ✅ | ✅ | – | – |
+| Compute | Compute | ✅ | ✅ | ✅ | – |
 | Compute | k8s Engine | 👁 | 👁 | ✅ | ✅ |
 | Compute | Serverless | ✅ | ✅ | ✅ | ✅ |
 | Compute | Containers | ✅ | ✅ | ✅ | – |

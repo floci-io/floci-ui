@@ -40,13 +40,13 @@ const listXml = `<?xml version="1.0" encoding="utf-8"?>
 </EnumerationResults>`
 
 describe('AzureQueueAdapter', () => {
-    test('registers Queue Storage separately from Azure Service Bus', () => {
+    test('registers Queue Storage separately from Azure Service Bus', async () => {
         const registry = createCloudAdapterRegistry()
         const proxy = createCloudProxyService()
 
         expect(registry.get('azure', 'queue')).toBeInstanceOf(AzureQueueAdapter)
         expect(registry.get('azure', 'messaging')?.schema().displayName).toBe('Service Bus')
-        expect(proxy.services('azure').find((service) => service.service === 'queue')).toMatchObject({
+        expect((await proxy.services('azure')).find((service) => service.service === 'queue')).toMatchObject({
             availability: 'available', route: 'queue', displayName: 'Queue Storage',
         })
         expect(proxy.schema('azure', 'queue')?.actions).toEqual(['list', 'create', 'inspect', 'delete'])
