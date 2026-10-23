@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, test} from 'bun:test'
 import {GcpNetworkingAdapter} from './GcpNetworkingAdapter'
 import {GcpRestRuntimeClient} from '../gcp'
-import {ConflictError, NotFoundError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 
 const originalFetch = globalThis.fetch
 const ENDPOINT = 'http://localhost:4588'
@@ -124,6 +124,24 @@ describe('GcpNetworkingAdapter', () => {
         const resources = await adapter().list()
         expect(resources.map((r) => r.name)).toEqual(['net-a', 'net-b'])
         expect(calls.some((c) => c.url.endsWith('/global/networks?pageToken=t2'))).toBe(true)
+    })
+
+    test('fails instead of returning a partial list when the page limit is reached', async () => {
+        stubFetch({
+            'GET /global/networks': {items: [network], nextPageToken: 'more'},
+            'GET /aggregated/subnetworks': {},
+            'GET /global/firewalls': {},
+        })
+        await expect(adapter().list()).rejects.toBeInstanceOf(RuntimeError)
+    })
+
+    test('fails instead of returning partial subnetworks when the page limit is reached', async () => {
+        stubFetch({
+            'GET /global/networks': {},
+            'GET /aggregated/subnetworks': {items: {}, nextPageToken: 'more'},
+            'GET /global/firewalls': {},
+        })
+        await expect(adapter().list()).rejects.toBeInstanceOf(RuntimeError)
     })
 
     test('filters by search term and by kind facet', async () => {

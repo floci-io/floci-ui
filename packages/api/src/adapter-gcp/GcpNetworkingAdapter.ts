@@ -1,4 +1,4 @@
-import {ValidationError} from '../cloud-spi/errors'
+import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     CIDR_PATTERN,
     GCP_NETWORK_KINDS,
@@ -191,9 +191,9 @@ export class GcpNetworkingAdapter implements CloudServiceAdapter {
             )
             for (const scope of Object.values(body?.items ?? {})) subnets.push(...(scope.subnetworks ?? []))
             pageToken = body?.nextPageToken
-            if (!pageToken) break
+            if (!pageToken) return subnets.map(subnetworkResource)
         }
-        return subnets.map(subnetworkResource)
+        throw pageLimitError('subnetworks')
     }
 
     private async pages<T>(path: string): Promise<T[]> {
@@ -203,9 +203,9 @@ export class GcpNetworkingAdapter implements CloudServiceAdapter {
             const body = await this.client.json<ComputeList<T>>(`${path}${tokenQuery(pageToken)}`)
             items.push(...(body?.items ?? []))
             pageToken = body?.nextPageToken
-            if (!pageToken) break
+            if (!pageToken) return items
         }
-        return items
+        throw pageLimitError(path)
     }
 
     private async post(path: string, body: unknown): Promise<void> {
@@ -379,6 +379,10 @@ function filterBySearch(resources: CloudResource[], search?: string): CloudResou
     return resources.filter(
         (resource) => resource.name.toLowerCase().includes(normalized) || resource.type.includes(normalized),
     )
+}
+
+function pageLimitError(what: string): RuntimeError {
+    return new RuntimeError(`${what} still has more pages after ${MAX_PAGES}; refusing to show a partial list`)
 }
 
 function tokenQuery(pageToken: string | undefined): string {
