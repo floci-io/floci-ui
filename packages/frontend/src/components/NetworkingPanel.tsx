@@ -1585,7 +1585,9 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
                     <p style={{fontSize: 12, color: 'var(--text-2)'}}>
                         {cloud === 'azure'
                             ? 'Virtual networks are managed in the table above. Subnets, security groups, gateways and route tables are AWS-only today.'
-                            : `Networking management coming soon for ${cloud.toUpperCase()}.`}
+                            : cloud === 'gcp'
+                              ? 'VPC networks, subnetworks and firewall rules are managed in the table above. The emulator stores and validates them but forwards no traffic.'
+                              : `Networking management coming soon for ${cloud.toUpperCase()}.`}
                     </p>
                 </div>
             </div>

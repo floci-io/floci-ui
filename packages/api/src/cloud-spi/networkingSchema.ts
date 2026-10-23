@@ -161,3 +161,173 @@ export function awsNetworkingSchema(): ServiceSchema {
         },
     }
 }
+
+export const GCP_NETWORK_KINDS = ['network', 'subnetwork', 'firewall'] as const
+export type GcpNetworkKind = (typeof GCP_NETWORK_KINDS)[number]
+
+/** Compute Engine resource names: RFC1035, 1-63 characters, lower case. */
+export const GCP_RESOURCE_NAME_PATTERN = '^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$'
+
+const IS_SUBNETWORK = {field: 'kind', equals: 'subnetwork'}
+const IS_FIREWALL = {field: 'kind', equals: 'firewall'}
+
+const gcpNetworkingFilters: FieldSchema[] = [
+    ...networkingFilters,
+    {
+        name: 'kind',
+        label: 'Kind',
+        type: 'select',
+        required: false,
+        options: GCP_NETWORK_KINDS.map((value) => ({label: value, value})),
+    },
+]
+
+/**
+ * One category, three Compute Engine resource kinds: VPC networks, regional
+ * subnetworks and firewall rules. The form switches fields on `kind`; the
+ * runtime stores and validates the rules but forwards no traffic.
+ */
+export function gcpNetworkingSchema(): ServiceSchema {
+    return {
+        cloud: 'gcp',
+        service: 'networking',
+        displayName: 'VPC Networks',
+        fields: [
+            {
+                name: 'kind',
+                label: 'Resource',
+                type: 'select',
+                required: true,
+                group: 'Required',
+                defaultValue: 'network',
+                options: [
+                    {label: 'VPC network', value: 'network'},
+                    {label: 'Subnetwork', value: 'subnetwork'},
+                    {label: 'Firewall rule', value: 'firewall'},
+                ],
+            },
+            {
+                name: 'name',
+                label: 'Name',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                validation: {
+                    pattern: GCP_RESOURCE_NAME_PATTERN,
+                    maxLength: 63,
+                    message: 'Lower case letters, digits and hyphens, starting with a letter, up to 63 characters.',
+                },
+            },
+            {
+                name: 'subnetNetwork',
+                label: 'Network',
+                type: 'text',
+                required: false,
+                requiredWhen: IS_SUBNETWORK,
+                visibleWhen: IS_SUBNETWORK,
+                group: 'Required',
+                description: 'Name of an existing custom-mode VPC network.',
+            },
+            {
+                name: 'region',
+                label: 'Region',
+                type: 'text',
+                required: false,
+                visibleWhen: IS_SUBNETWORK,
+                group: 'Optional',
+                defaultValue: 'us-central1',
+            },
+            {
+                name: 'ipCidrRange',
+                label: 'IP range (CIDR)',
+                type: 'text',
+                required: false,
+                requiredWhen: IS_SUBNETWORK,
+                visibleWhen: IS_SUBNETWORK,
+                group: 'Required',
+                description: 'e.g. 10.0.0.0/24. Ranges in a network cannot overlap.',
+                validation: {pattern: CIDR_PATTERN, message: 'Use an IPv4 CIDR such as 10.0.0.0/24.'},
+            },
+            {
+                name: 'firewallNetwork',
+                label: 'Network',
+                type: 'text',
+                required: false,
+                requiredWhen: IS_FIREWALL,
+                visibleWhen: IS_FIREWALL,
+                group: 'Required',
+                description: 'Name of an existing VPC network. Rules are stored and validated; no traffic is forwarded.',
+            },
+            {
+                name: 'direction',
+                label: 'Direction',
+                type: 'select',
+                required: false,
+                visibleWhen: IS_FIREWALL,
+                group: 'Optional',
+                defaultValue: 'INGRESS',
+                options: [
+                    {label: 'Ingress', value: 'INGRESS'},
+                    {label: 'Egress', value: 'EGRESS'},
+                ],
+            },
+            {
+                name: 'ranges',
+                label: 'IP ranges',
+                type: 'text',
+                required: false,
+                requiredWhen: IS_FIREWALL,
+                visibleWhen: IS_FIREWALL,
+                group: 'Required',
+                description: 'Comma separated CIDRs: sources for ingress, destinations for egress.',
+            },
+            {
+                name: 'protocol',
+                label: 'Protocol',
+                type: 'select',
+                required: false,
+                visibleWhen: IS_FIREWALL,
+                group: 'Optional',
+                defaultValue: 'tcp',
+                options: ['tcp', 'udp', 'icmp', 'all'].map((value) => ({label: value, value})),
+            },
+            {
+                name: 'ports',
+                label: 'Ports',
+                type: 'text',
+                required: false,
+                visibleWhen: IS_FIREWALL,
+                group: 'Optional',
+                description: 'Comma separated ports or ranges, e.g. 22,80-90. Leave empty for all ports.',
+            },
+            {
+                name: 'priority',
+                label: 'Priority',
+                type: 'text',
+                required: false,
+                visibleWhen: IS_FIREWALL,
+                group: 'Optional',
+                defaultValue: '1000',
+                description: '0-65535, lower wins.',
+                validation: {pattern: '^\\d{1,5}$', message: 'A whole number from 0 to 65535.'},
+            },
+        ],
+        actions: ['list', 'inspect', 'create', 'delete'],
+        filters: gcpNetworkingFilters,
+        columns: [
+            {name: 'name', label: 'Name'},
+            {name: 'type', label: 'Kind', format: 'badge'},
+            {name: 'network', label: 'Network', path: 'metadata.network'},
+            {name: 'version', label: 'IP range', path: 'metadata.ipCidrRange', format: 'code'},
+            {name: 'region', label: 'Region'},
+        ],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'Networks', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+    }
+}

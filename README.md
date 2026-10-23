@@ -113,7 +113,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Storage | Table Storage | – | ✅ | – | – |
 | Databases | Database | ✅ | ✅ | ✅ | – |
 | Databases | NoSQL | ✅ | ✅ | ✅ | – |
-| Networking | Networking | 👁 | ✅ | – | – |
+| Networking | Networking | 👁 | ✅ | ✅ | – |
 | Networking | Load Balancing | ✅ | – | – | – |
 | Networking | CDN | ✅ | – | – | – |
 | Networking | DNS | ✅ | – | – | – |
