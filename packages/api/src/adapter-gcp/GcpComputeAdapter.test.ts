@@ -297,26 +297,31 @@ describe('GcpComputeAdapter', () => {
     })
 
     test('follows nextPageToken across aggregated pages before filtering', async () => {
+        const noDisks = () => json({items: {}})
         const calls = stubFetch((url) =>
-            url.includes('pageToken=tok%201')
-                ? json({items: {'zones/us-central1-b': {instances: [gceInstance('web-2')]}}, nextPageToken: 'tok 2'})
-                : url.includes('pageToken=tok%202')
-                  ? json({items: {'zones/us-central1-c': {instances: [gceInstance('web-3')]}}})
-                  : json({items: {'zones/us-central1-a': {instances: [gceInstance('web-1')]}}, nextPageToken: 'tok 1'}),
+            url.includes('/aggregated/disks')
+                ? noDisks()
+                : url.includes('pageToken=tok%201')
+                  ? json({items: {'zones/us-central1-b': {instances: [gceInstance('web-2')]}}, nextPageToken: 'tok 2'})
+                  : url.includes('pageToken=tok%202')
+                    ? json({items: {'zones/us-central1-c': {instances: [gceInstance('web-3')]}}})
+                    : json({items: {'zones/us-central1-a': {instances: [gceInstance('web-1')]}}, nextPageToken: 'tok 1'}),
         )
 
-        const all = await adapter().list({filters: {kind: 'instance'}})
+        const all = await adapter().list()
         expect(all.map((resource) => resource.name)).toEqual(['web-1', 'web-2', 'web-3'])
-        expect(calls.map((call) => call.url.split('?')[1] ?? '')).toEqual(['', 'pageToken=tok%201', 'pageToken=tok%202'])
+        expect(
+            calls.filter((call) => call.url.includes('/aggregated/instances')).map((call) => call.url.split('?')[1] ?? ''),
+        ).toEqual(['', 'pageToken=tok%201', 'pageToken=tok%202'])
 
         stubFetch((url) =>
-            url.includes('pageToken=')
-                ? json({items: {'zones/us-central1-b': {instances: [gceInstance('needle')]}}})
-                : json({items: {'zones/us-central1-a': {instances: [gceInstance('web-1')]}}, nextPageToken: 'next'}),
+            url.includes('/aggregated/disks')
+                ? noDisks()
+                : url.includes('pageToken=')
+                  ? json({items: {'zones/us-central1-b': {instances: [gceInstance('needle')]}}})
+                  : json({items: {'zones/us-central1-a': {instances: [gceInstance('web-1')]}}, nextPageToken: 'next'}),
         )
-        expect(
-            (await adapter().list({search: 'needle', filters: {kind: 'instance'}})).map((resource) => resource.name),
-        ).toEqual(['needle'])
+        expect((await adapter().list({search: 'needle'})).map((resource) => resource.name)).toEqual(['needle'])
     })
 
     describe('disks', () => {
@@ -353,14 +358,6 @@ describe('GcpComputeAdapter', () => {
                 `${ENDPOINT}${PROJECT_PATH}/aggregated/instances`,
                 `${ENDPOINT}${PROJECT_PATH}/aggregated/disks`,
             ])
-        })
-
-        test('the kind filter reads only the requested collection', async () => {
-            const calls = stubFetch(() => json({items: {'zones/us-central1-a': {disks: [gceDisk('d1')]}}}))
-
-            const disks = await adapter().list({filters: {kind: 'disk'}})
-            expect(disks.map((resource) => resource.name)).toEqual(['d1'])
-            expect(calls).toHaveLength(1)
         })
 
         test('inspects a disk by its prefixed id and answers null for a missing one', async () => {

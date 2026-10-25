@@ -141,10 +141,9 @@ export class GcpComputeAdapter implements CloudServiceAdapter {
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const kind = query.filters?.kind
         const [instances, disks] = await Promise.all([
-            kind === 'disk' ? [] : this.aggregated<GceInstance>('instances'),
-            kind === 'instance' ? [] : this.aggregated<GceDisk>('disks'),
+            this.aggregated<GceInstance>('instances'),
+            this.aggregated<GceDisk>('disks'),
         ])
 
         return filterBySearch([...instances.map(toResource), ...disks.map(diskToResource)], query.search)
