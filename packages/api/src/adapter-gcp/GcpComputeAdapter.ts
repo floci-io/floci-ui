@@ -1,4 +1,4 @@
-import {ConflictError, NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, NotSupportedError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     GCP_COMPUTE_ZONES,
     GCP_INSTANCE_NAME_PATTERN,
@@ -41,6 +41,8 @@ const HEALTH_PATH = '/_floci-gcp/health'
 const HEALTH_TTL_MS = 5_000
 const HEALTH_TIMEOUT_MS = 2_000
 const DEFAULT_NETWORK = 'default'
+/** A disk and an instance can share a name, so disk ids carry their kind. */
+const DISK_ID_PREFIX = 'disk:'
 /** The auto-mode subnet ranges real GCP assigns to each region's `default` subnet. */
 const DEFAULT_SUBNET_RANGES: Record<string, string> = {
     'us-central1': '10.128.0.0/20',
@@ -67,12 +69,24 @@ interface GceInstance {
     networkInterfaces?: GceNetworkInterface[]
 }
 
+interface GceDisk {
+    id?: string
+    name?: string
+    zone?: string
+    status?: string
+    sizeGb?: string
+    type?: string
+    creationTimestamp?: string
+    users?: string[]
+    labels?: Record<string, string>
+}
+
 interface GceInstanceList {
     items?: GceInstance[]
 }
 
-interface GceAggregatedList {
-    items?: Record<string, {instances?: GceInstance[]}>
+interface GceAggregatedList<T = GceInstance> {
+    items?: Record<string, {instances?: T[]; disks?: T[]}>
     nextPageToken?: string
 }
 
@@ -127,22 +141,40 @@ export class GcpComputeAdapter implements CloudServiceAdapter {
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const instances: GceInstance[] = []
+        const [instances, disks] = await Promise.all([
+            this.aggregated<GceInstance>('instances'),
+            this.aggregated<GceDisk>('disks'),
+        ])
+
+        return filterBySearch([...instances.map(toResource), ...disks.map(diskToResource)], query.search)
+    }
+
+    private async aggregated<T>(collection: 'instances' | 'disks'): Promise<T[]> {
+        const items: T[] = []
         let pageToken: string | undefined
 
         do {
-            const path = `${this.projectPath()}/aggregated/instances`
-            const body = await this.client.json<GceAggregatedList>(
+            const path = `${this.projectPath()}/aggregated/${collection}`
+            const body = await this.client.json<GceAggregatedList<T>>(
                 pageToken ? `${path}?pageToken=${encodeURIComponent(pageToken)}` : path,
             )
-            instances.push(...Object.values(body?.items ?? {}).flatMap((scope) => scope.instances ?? []))
+            items.push(...Object.values(body?.items ?? {}).flatMap((scope) => scope[collection] ?? []))
             pageToken = body?.nextPageToken
         } while (pageToken)
 
-        return filterBySearch(instances.map(toResource), query.search)
+        return items
     }
 
     async get(id: string): Promise<CloudResource | null> {
+        if (id.startsWith(DISK_ID_PREFIX)) {
+            const {zone, name} = parseId(id.slice(DISK_ID_PREFIX.length))
+            const disk = await this.client.json<GceDisk>(
+                `${this.zonePath(zone)}/disks/${encodeURIComponent(name)}`,
+                {method: 'GET'},
+                {emptyOnNotFound: true},
+            )
+            return disk ? diskToResource(disk) : null
+        }
         const {zone, name} = parseId(id)
         const instance = await this.client.json<GceInstance>(
             this.instancePath(zone, name),
@@ -192,6 +224,7 @@ export class GcpComputeAdapter implements CloudServiceAdapter {
     }
 
     async delete(id: string): Promise<void> {
+        if (id.startsWith(DISK_ID_PREFIX)) throw new NotSupportedError('Disks are read-only in the console; delete the instance to remove its boot disk')
         const {zone, name} = parseId(id)
         await this.client.fetch(this.instancePath(zone, name), {method: 'DELETE'}, {emptyOnNotFound: true})
     }
@@ -356,6 +389,31 @@ function toResource(instance: GceInstance): CloudResource {
             })),
             tags: instance.tags?.items,
             labels: instance.labels,
+        },
+    }
+}
+
+function diskToResource(disk: GceDisk): CloudResource {
+    const name = disk.name ?? ''
+    const zone = lastSegment(disk.zone)
+
+    return {
+        id: `${DISK_ID_PREFIX}${zone ? `${zone}/${name}` : name}`,
+        name,
+        cloud: 'gcp',
+        service: 'compute',
+        type: 'disk',
+        region: zone || null,
+        createdAt: disk.creationTimestamp ?? null,
+        status: disk.status ?? null,
+        instanceClass: disk.sizeGb ? `${disk.sizeGb} GB ${lastSegment(disk.type)}`.trim() : null,
+        metadata: {
+            provider: 'gcp',
+            diskId: disk.id,
+            sizeGb: disk.sizeGb,
+            diskType: lastSegment(disk.type) || undefined,
+            attachedTo: disk.users?.map(lastSegment),
+            labels: disk.labels,
         },
     }
 }

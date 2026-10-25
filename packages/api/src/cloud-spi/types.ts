@@ -190,6 +190,8 @@ export interface ServiceSchema {
     filters: FieldSchema[]
     columns: TableColumnSchema[]
     updateFields?: FieldSchema[]
+    /** A standing caveat shown above the list, for what the local runtime emulates but does not do. */
+    notice?: string
 }
 
 export type KnownResourceType =

@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, test} from 'bun:test'
 import {GcpComputeAdapter} from './GcpComputeAdapter'
 import {GcpRestRuntimeClient} from '../gcp'
-import {NotFoundError, RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {NotFoundError, NotSupportedError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 
 const originalFetch = globalThis.fetch
 const ENDPOINT = 'http://localhost:4588'
@@ -313,24 +313,82 @@ describe('GcpComputeAdapter', () => {
     })
 
     test('follows nextPageToken across aggregated pages before filtering', async () => {
+        const noDisks = () => json({items: {}})
         const calls = stubFetch((url) =>
-            url.includes('pageToken=tok%201')
-                ? json({items: {'zones/us-central1-b': {instances: [gceInstance('web-2')]}}, nextPageToken: 'tok 2'})
-                : url.includes('pageToken=tok%202')
-                  ? json({items: {'zones/us-central1-c': {instances: [gceInstance('web-3')]}}})
-                  : json({items: {'zones/us-central1-a': {instances: [gceInstance('web-1')]}}, nextPageToken: 'tok 1'}),
+            url.includes('/aggregated/disks')
+                ? noDisks()
+                : url.includes('pageToken=tok%201')
+                  ? json({items: {'zones/us-central1-b': {instances: [gceInstance('web-2')]}}, nextPageToken: 'tok 2'})
+                  : url.includes('pageToken=tok%202')
+                    ? json({items: {'zones/us-central1-c': {instances: [gceInstance('web-3')]}}})
+                    : json({items: {'zones/us-central1-a': {instances: [gceInstance('web-1')]}}, nextPageToken: 'tok 1'}),
         )
 
         const all = await adapter().list()
         expect(all.map((resource) => resource.name)).toEqual(['web-1', 'web-2', 'web-3'])
-        expect(calls.map((call) => call.url.split('?')[1] ?? '')).toEqual(['', 'pageToken=tok%201', 'pageToken=tok%202'])
+        expect(
+            calls.filter((call) => call.url.includes('/aggregated/instances')).map((call) => call.url.split('?')[1] ?? ''),
+        ).toEqual(['', 'pageToken=tok%201', 'pageToken=tok%202'])
 
         stubFetch((url) =>
-            url.includes('pageToken=')
-                ? json({items: {'zones/us-central1-b': {instances: [gceInstance('needle')]}}})
-                : json({items: {'zones/us-central1-a': {instances: [gceInstance('web-1')]}}, nextPageToken: 'next'}),
+            url.includes('/aggregated/disks')
+                ? noDisks()
+                : url.includes('pageToken=')
+                  ? json({items: {'zones/us-central1-b': {instances: [gceInstance('needle')]}}})
+                  : json({items: {'zones/us-central1-a': {instances: [gceInstance('web-1')]}}, nextPageToken: 'next'}),
         )
         expect((await adapter().list({search: 'needle'})).map((resource) => resource.name)).toEqual(['needle'])
+    })
+
+    describe('disks', () => {
+        /** Shape captured from the floci-gcp nightly image. */
+        function gceDisk(name: string) {
+            return {
+                kind: 'compute#disk',
+                id: '1001',
+                name,
+                sizeGb: '10',
+                status: 'READY',
+                zone: `${SELF}/zones/us-central1-a`,
+                type: `${SELF}/zones/us-central1-a/diskTypes/pd-standard`,
+                creationTimestamp: '2026-10-24T02:37:03.447545385Z',
+                users: [`${SELF}/zones/us-central1-a/instances/vm1`],
+            }
+        }
+
+        test('lists instances and disks together, each tagged with its kind', async () => {
+            const calls = stubFetch((url) =>
+                url.endsWith('/aggregated/disks')
+                    ? json({items: {'zones/us-central1-a': {disks: [gceDisk('d1')]}}})
+                    : json({items: {'zones/us-central1-a': {instances: [gceInstance('vm1')]}}}),
+            )
+
+            const all = await adapter().list()
+            expect(all.map((resource) => [resource.type, resource.id])).toEqual([
+                ['instance', 'us-central1-a/vm1'],
+                ['disk', 'disk:us-central1-a/d1'],
+            ])
+            expect(all[1]).toMatchObject({status: 'READY', instanceClass: '10 GB pd-standard', region: 'us-central1-a'})
+            expect(all[1].metadata?.attachedTo).toEqual(['vm1'])
+            expect(calls.map((call) => call.url)).toEqual([
+                `${ENDPOINT}${PROJECT_PATH}/aggregated/instances`,
+                `${ENDPOINT}${PROJECT_PATH}/aggregated/disks`,
+            ])
+        })
+
+        test('inspects a disk by its prefixed id and answers null for a missing one', async () => {
+            stubFetch(() => json(gceDisk('d1')))
+            expect((await adapter().get('disk:us-central1-a/d1'))?.type).toBe('disk')
+
+            stubFetch(() => json({error: {code: 404, message: 'not found'}}, 404))
+            expect(await adapter().get('disk:us-central1-a/ghost')).toBeNull()
+        })
+
+        test('refuses to delete a disk', async () => {
+            const calls = stubFetch(() => json({}))
+            await expect(adapter().delete('disk:us-central1-a/d1')).rejects.toBeInstanceOf(NotSupportedError)
+            expect(calls).toHaveLength(0)
+        })
     })
 
     describe('runtime availability', () => {

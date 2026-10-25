@@ -304,6 +304,52 @@ async function openEmptyDialog(user: ReturnType<typeof userEvent.setup>, bucket 
   return screen.findByRole("dialog");
 }
 
+describe("DynamicResourceView GCP compute", () => {
+  const gcpSchema: ServiceSchema = {
+    cloud: "gcp",
+    service: "compute",
+    displayName: "Google Compute Engine",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect", "delete"],
+    columns: [{ name: "name", label: "Name" }],
+    notice: "Instances are records and run no guest operating system.",
+  };
+  const gcpCloudStatus: CloudStatus = { ...cloudStatus, cloud: "gcp" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(gcpSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([
+      { ...summary, id: "z/vm1", name: "vm1", cloud: "gcp", service: "compute", type: "instance" },
+      { ...summary, id: "disk:z/d1", name: "d1", cloud: "gcp", service: "compute", type: "disk" },
+    ]);
+  });
+
+  it("shows the schema notice and offers delete for instances but not disks", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="gcp"
+          service="compute"
+          serviceAvailability="available"
+          cloudStatus={gcpCloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("Instances are records and run no guest operating system.")).toBeInTheDocument();
+    const instanceRow = (await screen.findByText("vm1")).closest("tr")!;
+    const diskRow = (await screen.findByText("d1")).closest("tr")!;
+    expect(within(instanceRow).queryByRole("button", { name: /delete/i })).not.toBeNull();
+    expect(within(diskRow).queryByRole("button", { name: /delete/i })).toBeNull();
+  });
+});
+
 describe("DynamicResourceView Empty bucket", () => {
   beforeEach(() => {
     vi.clearAllMocks();
