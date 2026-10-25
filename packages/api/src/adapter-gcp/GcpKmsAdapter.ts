@@ -5,6 +5,7 @@ import {
     GCP_KMS_RESOURCE_TYPES,
     gcpKmsSchema,
 } from '../cloud-spi/kmsSchema'
+import {mapWithLimit} from '../concurrency'
 import {gcp, type GcpRuntimeClient} from '../gcp'
 import type {
     CloudResource,
@@ -45,6 +46,7 @@ const JSON_HEADERS = {'content-type': 'application/json'}
 const ID_PATTERN = new RegExp(GCP_KMS_ID_PATTERN)
 /** Bound on `nextPageToken` hops, so a runtime that never stops paging cannot hang a request. */
 const MAX_PAGES = 100
+const LIST_CONCURRENCY = 8
 
 interface GcpKeyRing {
     name?: string
@@ -107,12 +109,10 @@ export class GcpKmsAdapter implements CloudServiceAdapter {
     /** A failure on any ring fails the whole list: a partial list would read as missing keys. */
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const rings = await this.pages<GcpKeyRing, GcpKeyRingList>(this.ringsPath(), (page) => page.keyRings)
-        const keysByRing = await Promise.all(
-            rings.map((ring) =>
-                this.pages<GcpCryptoKey, GcpCryptoKeyList>(
-                    `${this.ringsPath()}/${encodeURIComponent(leaf(ring.name))}/cryptoKeys`,
-                    (page) => page.cryptoKeys,
-                ),
+        const keysByRing = await mapWithLimit(rings, LIST_CONCURRENCY, (ring) =>
+            this.pages<GcpCryptoKey, GcpCryptoKeyList>(
+                `${this.ringsPath()}/${encodeURIComponent(leaf(ring.name))}/cryptoKeys`,
+                (page) => page.cryptoKeys,
             ),
         )
         return filterBySearch(
