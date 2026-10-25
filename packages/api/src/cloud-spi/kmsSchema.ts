@@ -246,6 +246,7 @@ export function ociKmsSchema(): ServiceSchema {
 
 export function kmsSchemaFor(cloud: CloudProvider): ServiceSchema | null {
     if (cloud === 'aws') return awsKmsSchema()
+    if (cloud === 'gcp') return gcpKmsSchema()
     if (cloud === 'oci') return ociKmsSchema()
     return null
 }
@@ -340,5 +341,81 @@ export function azureKmsSchema(): ServiceSchema {
             },
         ],
         columns: azureKmsColumns,
+    }
+}
+
+export const GCP_KMS_RESOURCE_TYPES = ['key', 'keyRing'] as const
+
+/** Cloud KMS ids for key rings and crypto keys: 1-63 letters, numbers, hyphens or underscores. */
+export const GCP_KMS_ID_PATTERN = '^[A-Za-z0-9_-]{1,63}$'
+export const GCP_KMS_ID_MESSAGE = 'Use 1-63 letters, numbers, hyphens, or underscores.'
+
+/**
+ * Key rings and their keys share one table, told apart by `Kind`, for the same
+ * reason as OCI Vault: a key cannot exist without a ring, and the encrypt and
+ * decrypt panel acts on the selected resource.
+ */
+const gcpKmsColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'kind', label: 'Kind', path: 'type', format: 'badge'},
+    {name: 'status', label: 'Primary Version', format: 'badge', emptyText: '—'},
+    {name: 'keyRing', label: 'Key Ring', path: 'metadata.keyRing', emptyText: '—'},
+    {name: 'purpose', label: 'Purpose', path: 'metadata.purpose', emptyText: '—'},
+    {name: 'algorithm', label: 'Algorithm', path: 'metadata.algorithm', emptyText: '—'},
+    {name: 'createdAt', label: 'Created', format: 'datetime'},
+]
+
+/**
+ * Cloud KMS has no delete for a key ring or a crypto key, only for a key
+ * version, so `delete` is not advertised.
+ */
+export function gcpKmsSchema(): ServiceSchema {
+    return {
+        cloud: 'gcp',
+        service: 'kms',
+        displayName: 'Cloud KMS',
+        fields: [
+            {
+                name: 'resourceType',
+                label: 'Resource Type',
+                type: 'select',
+                required: true,
+                defaultValue: 'key',
+                description: 'A key lives in a key ring, so create a key ring first.',
+                options: [
+                    {label: 'Symmetric key', value: 'key'},
+                    {label: 'Key ring', value: 'keyRing'},
+                ],
+            },
+            {
+                name: 'name',
+                label: 'Name',
+                type: 'text',
+                required: true,
+                validation: {minLength: 1, maxLength: 63, pattern: GCP_KMS_ID_PATTERN, message: GCP_KMS_ID_MESSAGE},
+            },
+            {
+                name: 'keyRing',
+                label: 'Key Ring',
+                type: 'text',
+                required: false,
+                requiredWhen: {field: 'resourceType', equals: 'key'},
+                visibleWhen: {field: 'resourceType', equals: 'key'},
+                description: 'Name of an existing key ring in this location.',
+                validation: {minLength: 1, maxLength: 63, pattern: GCP_KMS_ID_PATTERN, message: GCP_KMS_ID_MESSAGE},
+            },
+        ],
+        actions: ['list', 'create', 'inspect'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List key rings and keys', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create key ring or key', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect key ring or key', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'encrypt', label: 'Encrypt plaintext', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'decrypt', label: 'Decrypt ciphertext', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+        filters: kmsFilters,
+        columns: gcpKmsColumns,
     }
 }
