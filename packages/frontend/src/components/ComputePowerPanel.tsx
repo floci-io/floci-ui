@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {Loader2, Power} from "lucide-react";
 import {powerComputeResource, type ComputePowerAction} from "@/api/cloudProxyClient";
 import {capabilityEnabled, capabilityFor} from "@/lib/capabilities";
@@ -25,8 +25,10 @@ function isRunning(resource: CloudResource): boolean {
 export function ComputePowerPanel({resource, capabilities, onChanged}: ComputePowerPanelProps) {
   const [pending, setPending] = useState<ComputePowerAction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const currentId = useRef(resource?.id);
 
   useEffect(() => {
+    currentId.current = resource?.id;
     setPending(null);
     setError(null);
   }, [resource?.id]);
@@ -35,19 +37,23 @@ export function ComputePowerPanel({resource, capabilities, onChanged}: ComputePo
     .filter((entry) => entry.capability);
   if (!resource || resource.type !== "instance" || offered.length === 0) return null;
 
+  const stateKnown = resource.status != null;
   const running = isRunning(resource);
-  const appliesNow = (action: ComputePowerAction) => (action === "start" ? !running : running);
+  // An unknown state (Azure could not read the power state) is not evidence the VM is stopped.
+  const appliesNow = (action: ComputePowerAction) => !stateKnown || (action === "start" ? !running : running);
 
   const run = async (action: ComputePowerAction) => {
+    const id = resource.id;
+    const stale = () => currentId.current !== id;
     setPending(action);
     setError(null);
     try {
-      await powerComputeResource(resource.cloud, resource.id, action);
+      await powerComputeResource(resource.cloud, id, action);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!stale()) setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setPending(null);
+      if (!stale()) setPending(null);
     }
   };
 

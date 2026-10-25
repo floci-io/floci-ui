@@ -59,6 +59,14 @@ describe("ComputePowerPanel", () => {
     expect(screen.getByRole("button", {name: "Reset"})).toBeDisabled();
   });
 
+  it("keeps every verb enabled while the power state is unknown", () => {
+    render(<ComputePowerPanel resource={{...instance("RUNNING"), status: null}} capabilities={capabilities} onChanged={vi.fn()}/>);
+
+    expect(screen.getByRole("button", {name: "Start"})).toBeEnabled();
+    expect(screen.getByRole("button", {name: "Stop"})).toBeEnabled();
+    expect(screen.getByRole("button", {name: "Reset"})).toBeEnabled();
+  });
+
   it("keeps a capability that is not available disabled, with its reason", () => {
     const unavailable = {...available("start", "Start"), enabled: false, status: "blocked" as const, reason: "Runtime is down"};
     render(<ComputePowerPanel resource={instance("TERMINATED")} capabilities={[unavailable]} onChanged={vi.fn()}/>);
@@ -76,6 +84,22 @@ describe("ComputePowerPanel", () => {
     await user.click(screen.getByRole("button", {name: "Stop"}));
 
     expect(await screen.findByText("Instance was not found")).toBeInTheDocument();
+  });
+
+  it("ignores a request that settles after switching to another instance", async () => {
+    let reject: (reason: Error) => void = () => {};
+    vi.mocked(powerComputeResource).mockReturnValue(new Promise((_, no) => { reject = no; }));
+    const user = userEvent.setup();
+    const other = {...instance("RUNNING"), id: "us-central1-a/vm2", name: "vm2"};
+    const {rerender} = render(<ComputePowerPanel resource={instance("RUNNING")} capabilities={capabilities} onChanged={vi.fn()}/>);
+
+    await user.click(screen.getByRole("button", {name: "Stop"}));
+    rerender(<ComputePowerPanel resource={other} capabilities={capabilities} onChanged={vi.fn()}/>);
+    reject(new Error("vm1 failed"));
+
+    await waitFor(() => expect(powerComputeResource).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("vm1 failed")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Stop"})).toBeEnabled();
   });
 
   it("renders nothing for a disk or when no power verb is advertised", () => {
