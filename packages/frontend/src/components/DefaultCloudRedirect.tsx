@@ -2,6 +2,7 @@ import type {ReactNode} from 'react'
 import {Navigate, useParams} from 'react-router-dom'
 import {isCloudProvider} from '@/lib/cloudProvider'
 import {useAllowedCloud, useDefaultCloud} from '@/lib/useDefaultCloud'
+import type {CloudProvider} from '@/types/cloud'
 
 /**
  * Sends the browser to the default cloud's Console Home, or its Cloud Explorer.
@@ -19,10 +20,12 @@ export function DefaultCloudRedirect({to}: {to: 'console' | 'cloud-explorer'}) {
 /**
  * Renders a `:cloud` page only for a cloud the console serves. A console an
  * emulator started serves that emulator's cloud alone, so a link or bookmark to
- * another cloud goes to the default cloud's Console Home instead.
+ * another cloud goes to the default cloud's Console Home instead. A page that
+ * belongs to one cloud and has no `:cloud` segment names it in `cloud`.
  */
-export function ScopedCloudRoute({children}: {children: ReactNode}) {
-    const {cloud} = useParams()
+export function ScopedCloudRoute({children, cloud: pageCloud}: {children: ReactNode; cloud?: CloudProvider}) {
+    const params = useParams()
+    const cloud = pageCloud ?? params.cloud
     const allowed = useAllowedCloud(isCloudProvider(cloud) ? cloud : 'aws')
     if (isCloudProvider(cloud) && !allowed) {
         return <DefaultCloudRedirect to="console"/>

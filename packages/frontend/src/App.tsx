@@ -36,7 +36,7 @@ export default function App() {
                     <Route path="/cloud-explorer" element={<DefaultCloudRedirect to="cloud-explorer"/>}/>
                     <Route path="/cloud-explorer/:cloud/:service" element={<ScopedCloudRoute><CloudExplorerPage/></ScopedCloudRoute>}/>
                     <Route path="/cloud-explorer/:cloud/:service/:resourceId/data" element={<ScopedCloudRoute><DatabaseDataPage/></ScopedCloudRoute>}/>
-                    <Route path="/secretsmanager" element={<SecretsManagerPage/>}/>
+                    <Route path="/secretsmanager" element={<ScopedCloudRoute cloud="aws"><SecretsManagerPage/></ScopedCloudRoute>}/>
                     <Route path="/console/:cloud/settings" element={<LegacySettingsRedirect/>}/>
                     <Route path="/settings" element={<SettingsPage/>}/>
                     <Route path="*" element={<DefaultCloudRedirect to="console"/>}/>

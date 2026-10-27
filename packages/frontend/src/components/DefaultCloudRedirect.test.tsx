@@ -37,6 +37,7 @@ function renderAt(path: string) {
                 <Route path="/cloud-explorer" element={<DefaultCloudRedirect to="cloud-explorer"/>}/>
                 <Route path="/console/:cloud" element={<ScopedCloudRoute><Destination/></ScopedCloudRoute>}/>
                 <Route path="/cloud-explorer/:cloud/:service" element={<ScopedCloudRoute><Destination/></ScopedCloudRoute>}/>
+                <Route path="/secretsmanager" element={<ScopedCloudRoute cloud="aws"><Destination/></ScopedCloudRoute>}/>
             </Routes>
         </MemoryRouter>,
     )
@@ -90,6 +91,25 @@ describe('ScopedCloudRoute', () => {
         renderAt('/cloud-explorer/gcp/storage')
 
         expect(screen.getByText('At /console/azure')).toBeInTheDocument()
+    })
+
+    it('sends an AWS-only page to the scoped cloud when AWS is not served', () => {
+        clouds.data = scoped('azure')
+        renderAt('/secretsmanager')
+
+        expect(screen.getByText('At /console/azure')).toBeInTheDocument()
+    })
+
+    it('keeps an AWS-only page for a console scoped to AWS', () => {
+        clouds.data = scoped('aws')
+        renderAt('/secretsmanager')
+        expect(screen.getByText('At /secretsmanager')).toBeInTheDocument()
+    })
+
+    it('keeps an AWS-only page when the console is standalone', () => {
+        clouds.data = list('aws')
+        renderAt('/secretsmanager')
+        expect(screen.getByText('At /secretsmanager')).toBeInTheDocument()
     })
 
     it('keeps the scoped cloud where it is', () => {

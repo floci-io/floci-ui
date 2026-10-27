@@ -24,7 +24,8 @@ let warnedUnknown = false
 export function resolveScopedCloud(env: Record<string, string | undefined> = process.env): CloudProvider | null {
     const value = env.FLOCI_CLOUD?.trim().toLowerCase()
     if (!value) return null
-    const cloud = FLOCI_CLOUD_IDS[value]
+    // An own-key lookup: `FLOCI_CLOUD=constructor` must not resolve to Object's inherited constructor.
+    const cloud = Object.prototype.hasOwnProperty.call(FLOCI_CLOUD_IDS, value) ? FLOCI_CLOUD_IDS[value] : undefined
     if (!cloud && !warnedUnknown) {
         warnedUnknown = true
         console.warn(`Ignoring FLOCI_CLOUD=${value}: expected aws, az, gcp or oci. Serving every cloud.`)

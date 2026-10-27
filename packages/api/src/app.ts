@@ -6,6 +6,9 @@ import eks from "./routes/eks";
 import ec2 from "./routes/ec2";
 import secretsmanager from "./routes/secretsmanager";
 import clouds from "./routes/clouds";
+import { NotFoundError, toHttpError } from "./cloud-spi/errors";
+import type { CloudProvider } from "./cloud-spi/types";
+import { resolveScopedCloud } from "./service/defaultCloud";
 
 /** The part of Bun's `Server` a route may use to extend its own request's idle timeout. */
 export interface RequestTimeoutServer {
@@ -16,7 +19,10 @@ export interface ApiBindings {
   server?: RequestTimeoutServer;
 }
 
-export function createApiApp(cloudRoutes: Hono = clouds) {
+export function createApiApp(
+  cloudRoutes: Hono = clouds,
+  scope: CloudProvider | null = resolveScopedCloud(),
+) {
   const app = new Hono<{ Bindings: ApiBindings }>();
 
   // Secrets Manager and KMS routes handle sensitive values with server-side
@@ -63,6 +69,18 @@ export function createApiApp(cloudRoutes: Hono = clouds) {
   );
   app.use("*", logger());
 
+  // EKS, EC2 and Secrets Manager predate /api/clouds and are AWS only, so a console
+  // scoped to another cloud does not serve them either.
+  if (scope !== null && scope !== "aws") {
+    app.use("*", async (c, next) => {
+      if (isAwsOnlyRoute(c.req.path)) {
+        const { status, body } = toHttpError(new NotFoundError("Unknown cloud"));
+        return c.json(body, status);
+      }
+      await next();
+    });
+  }
+
   app.route("/api/eks", eks);
   app.route("/api/ec2", ec2);
   app.route("/api/secretsmanager", secretsmanager);
@@ -82,6 +100,10 @@ export function createApiApp(cloudRoutes: Hono = clouds) {
 export function createBunFetch(app: ReturnType<typeof createApiApp>) {
   return (request: Request, server?: RequestTimeoutServer) =>
     app.fetch(request, { server });
+}
+
+function isAwsOnlyRoute(path: string): boolean {
+  return /^\/api\/(?:eks|ec2|secretsmanager)(?:\/|$)/.test(path);
 }
 
 function isSensitiveCredentialRoute(path: string): boolean {

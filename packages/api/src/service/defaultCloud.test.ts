@@ -3,6 +3,7 @@ import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {createCloudRoutes} from '../routes/clouds'
 import {CloudProxyService} from './CloudProxyService'
 import {resolveDefaultCloud, resolveScopedCloud} from './defaultCloud'
+import {createApiApp} from '../app'
 
 function service(scope: 'aws' | 'azure' | 'gcp' | 'oci' | null) {
     return new CloudProxyService(new CloudAdapterRegistry([]), undefined, scope)
@@ -17,6 +18,12 @@ describe('resolveScopedCloud', () => {
 
     it('ignores a value no emulator uses rather than locking the console', () => {
         expect(resolveScopedCloud({FLOCI_CLOUD: 'ibm'})).toBeNull()
+    })
+
+    it('does not read a value off the prototype of its id table', () => {
+        for (const value of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+            expect(resolveScopedCloud({FLOCI_CLOUD: value})).toBeNull()
+        }
     })
 
     it('maps the emulator id az to the azure cloud', () => {
@@ -69,5 +76,25 @@ describe('cloud routes', () => {
 
         expect((await app.request('/aws/services')).status).toBe(200)
         expect((await app.request('/oci/services')).status).toBe(200)
+    })
+})
+
+describe('the AWS-only routes', () => {
+    const cloudRoutes = createCloudRoutes(service('azure'))
+
+    it('are not served by a console scoped to another cloud', async () => {
+        const app = createApiApp(cloudRoutes, 'azure')
+        for (const path of ['/api/secretsmanager/secrets', '/api/ec2/instances', '/api/eks/clusters', '/api/eks']) {
+            const res = await app.fetch(new Request(`http://localhost${path}`))
+            expect(res.status).toBe(404)
+            expect(await res.json()).toMatchObject({code: 'resource_not_found'})
+        }
+    })
+
+    it('stay with a console scoped to AWS or a standalone one', async () => {
+        for (const scope of ['aws', null] as const) {
+            const res = await createApiApp(cloudRoutes, scope).fetch(new Request('http://localhost/api/eks/nope/nope/nope'))
+            expect(await res.text()).not.toContain('Unknown cloud')
+        }
     })
 })
