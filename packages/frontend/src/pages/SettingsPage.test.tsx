@@ -4,18 +4,20 @@ import userEvent from '@testing-library/user-event'
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {DEFAULT_ACCOUNT_ID, setAccountId} from '@/lib/accountStore'
-import type {CloudProvider} from '@/types/cloud'
+import type {CloudDescriptor, CloudProvider} from '@/types/cloud'
 import {SettingsPage} from './SettingsPage'
 
+const ALL_CLOUDS: CloudDescriptor[] = [
+    {id: 'aws', displayName: 'AWS', availability: 'available'},
+    {id: 'azure', displayName: 'Azure', availability: 'available'},
+    {id: 'gcp', displayName: 'GCP', availability: 'available'},
+    {id: 'oci', displayName: 'OCI', availability: 'available'},
+]
+
+const clouds = vi.hoisted(() => ({data: [] as CloudDescriptor[]}))
+
 vi.mock('@/api/queries/cloudQueries', () => ({
-    useCloudsQuery: () => ({
-        data: [
-            {id: 'aws', displayName: 'AWS', availability: 'available'},
-            {id: 'azure', displayName: 'Azure', availability: 'available'},
-            {id: 'gcp', displayName: 'GCP', availability: 'available'},
-            {id: 'oci', displayName: 'OCI', availability: 'available'},
-        ],
-    }),
+    useCloudsQuery: () => clouds,
 }))
 
 function SelectedDestination() {
@@ -23,7 +25,10 @@ function SelectedDestination() {
     return <div>Selected {pathname}</div>
 }
 
-beforeEach(() => sessionStorage.clear())
+beforeEach(() => {
+    sessionStorage.clear()
+    clouds.data = ALL_CLOUDS
+})
 
 function renderSettings(initialEntry: string | {pathname: string; state: {cloud: CloudProvider; fromCloudExplorer?: boolean}}) {
     setAccountId(DEFAULT_ACCOUNT_ID)
@@ -87,5 +92,16 @@ describe('SettingsPage', () => {
         await user.click(screen.getByRole('option', {name: 'AWS'}))
 
         expect(screen.getByText('Selected /console/aws')).toBeInTheDocument()
+    })
+
+    it('offers only the scoped cloud when an emulator started the console', async () => {
+        const user = userEvent.setup()
+        clouds.data = [{id: 'azure', displayName: 'Azure', availability: 'available', default: true}]
+        sessionStorage.setItem('floci-last-cloud', 'oci')
+        renderSettings('/settings')
+
+        await user.click(screen.getByRole('button', {name: 'Switch cloud, currently Azure'}))
+
+        expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Azure'])
     })
 })

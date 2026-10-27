@@ -43,6 +43,8 @@ export interface CloudDescriptor {
     id: CloudProvider
     displayName: string
     availability: CloudAvailability
+    /** The cloud the console opens on. Absent from servers that predate it. */
+    default?: boolean
 }
 
 /** Everything the nav needs to render a service, supplied by the server. */

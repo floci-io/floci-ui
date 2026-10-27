@@ -68,6 +68,7 @@ import {SERVICE_CATALOG_ENTRIES, descriptionFor, displayNameFor, routeFor} from 
 import {toHttpError} from '../cloud-spi/errors'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
 import {endpointFor, runtimeProbes, type RuntimeProbe} from './runtimeProbe'
+import {resolveScopedCloud} from './defaultCloud'
 
 /**
  * Status probes are real network calls and the console polls them on a short
@@ -95,17 +96,31 @@ export class CloudProxyService {
     constructor(
         private readonly registry: CloudAdapterRegistry,
         probes: Record<CloudProvider, RuntimeProbe> = runtimeProbes,
+        private readonly scope: CloudProvider | null = resolveScopedCloud(),
     ) {
         this.probes = probes
     }
 
     clouds(): CloudDescriptor[] {
-        return [
+        const clouds: Omit<CloudDescriptor, 'default'>[] = [
             {id: 'aws', displayName: 'AWS', availability: 'available'},
             {id: 'azure', displayName: 'Azure', availability: 'available'},
             {id: 'gcp', displayName: 'GCP', availability: 'available'},
             {id: 'oci', displayName: 'OCI', availability: 'available'},
         ]
+        const defaultCloud = this.scope ?? 'aws'
+        return clouds
+            .filter((cloud) => this.allows(cloud.id))
+            .map((cloud) => ({...cloud, default: cloud.id === defaultCloud}))
+    }
+
+    /** The one cloud this console serves when an emulator started it, else null. */
+    scopedCloud(): CloudProvider | null {
+        return this.scope
+    }
+
+    private allows(cloud: CloudProvider): boolean {
+        return this.scope === null || this.scope === cloud
     }
 
     /**

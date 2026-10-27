@@ -186,6 +186,7 @@ Set in `packages/api/.env` (defaults shown).
 
 | Variable | Default |
 |---|---|
+| `FLOCI_CLOUD` | unset: a standalone console that serves every cloud and opens on AWS. An emulator that starts the console sets its own cloud (`aws`, `az`, `gcp` or `oci`), and the console then serves that cloud alone |
 | `FLOCI_ENDPOINT` | `http://localhost:4566` |
 | `FLOCI_AZURE_ENDPOINT` | `http://localhost:4577` |
 | `FLOCI_GCP_ENDPOINT` | `http://localhost:4588` |

@@ -20,6 +20,7 @@ import type {ApiBindings} from '../app'
 import {serviceForAccount} from '../cloudProxy'
 import {CloudProxyService} from '../service/CloudProxyService'
 import {withDeadline} from '../service/deadline'
+import {resolveScopedCloud} from '../service/defaultCloud'
 
 // Header (and query-param fallback for direct links such as object downloads)
 // used by the frontend to scope every request to an AWS account.
@@ -96,6 +97,16 @@ export function createCloudRoutes(
     // service (used by tests) always wins and ignores the account header.
     const svc = (c: Context): CloudProxyService =>
         injectedService ?? accountService(c.req.header(ACCOUNT_HEADER) ?? c.req.query('account'))
+
+    // A console an emulator started serves only that emulator's cloud; the
+    // others have nothing behind them, so they are unknown here. The scope is
+    // the process's, not an account's, so it is read once rather than per request.
+    const scope = injectedService ? injectedService.scopedCloud() : resolveScopedCloud()
+    app.use('/:cloud/*', async (c, next) => {
+        const cloud = c.req.param('cloud')
+        if (scope !== null && isCloudProvider(cloud) && cloud !== scope) throw new NotFoundError('Unknown cloud')
+        await next()
+    })
 
     app.get('/', (c) => c.json(svc(c).clouds()))
 

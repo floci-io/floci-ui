@@ -18,6 +18,8 @@ export interface CloudDescriptor {
     id: CloudProvider
     displayName: string
     availability: CloudAvailability
+    /** The cloud the console opens on: the one FLOCI_CLOUD names, else AWS. */
+    default: boolean
 }
 
 /**
