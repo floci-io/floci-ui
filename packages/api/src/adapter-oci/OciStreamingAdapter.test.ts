@@ -200,3 +200,102 @@ describe('OciStreamingAdapter', () => {
         expect(url.searchParams.get('limit')).toBe('1')
     })
 })
+
+describe('OciStreamingAdapter messages', () => {
+    const b64 = (text: string) => Buffer.from(text, 'utf8').toString('base64')
+
+    test('advertises put and read as available capabilities', () => {
+        const names = adapter().schema().capabilities?.resourceActions?.map((capability) => capability.name)
+        expect(names).toContain('putMessages')
+        expect(names).toContain('readMessages')
+    })
+
+    test('puts a keyed message base64 encoded and returns where it landed', async () => {
+        const calls = stubFetch(() =>
+            json({failures: 0, entries: [{partition: '1', offset: 0, timestamp: '2026-10-27T15:49:22Z'}]}),
+        )
+
+        const result = await adapter().putMessages(STREAM_ID, [{key: 'k1', value: 'hello'}, {value: 'no key'}])
+
+        expect(calls[0]?.url).toBe(`${STREAMS}/${STREAM_ID}/messages`)
+        expect(calls[0]?.init?.method).toBe('POST')
+        expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+            messages: [{key: b64('k1'), value: b64('hello')}, {key: null, value: b64('no key')}],
+        })
+        expect(result).toEqual({failures: 0, entries: [{partition: '1', offset: 0, timestamp: '2026-10-27T15:49:22Z'}]})
+    })
+
+    test('raises a rejected entry instead of reporting it as sent', async () => {
+        stubFetch(() =>
+            json({failures: 1, entries: [{error: 'InvalidParameter', errorMessage: 'value must be base64-encoded'}]}),
+        )
+        await expect(adapter().putMessages(STREAM_ID, [{value: 'x'}])).rejects.toBeInstanceOf(ValidationError)
+    })
+
+    test('reports a missing stream when putting or reading', async () => {
+        stubFetch(() => json({code: 'NotAuthorizedOrNotFound', message: 'nope'}, {status: 404}))
+        await expect(adapter().putMessages(STREAM_ID, [{value: 'x'}])).rejects.toBeInstanceOf(NotFoundError)
+        await expect(adapter().readMessages(STREAM_ID, {partition: '0', cursorType: 'LATEST'})).rejects.toBeInstanceOf(NotFoundError)
+    })
+
+    test('reads from a cursor created for the chosen type and decodes key and value', async () => {
+        const calls = stubFetch((url) =>
+            url.endsWith('/cursors')
+                ? json({value: 'cursor-1'})
+                : new Response(
+                    JSON.stringify([
+                        {stream: 'orders', partition: '1', key: b64('k1'), value: b64('hello 314'), offset: 0, timestamp: 't1'},
+                        {stream: 'orders', partition: '1', key: null, value: b64('no key'), offset: 1, timestamp: 't2'},
+                    ]),
+                    {status: 200, headers: {'opc-next-cursor': 'cursor-2'}},
+                ),
+        )
+
+        const result = await adapter().readMessages(STREAM_ID, {partition: '1', cursorType: 'AT_OFFSET', offset: 0, limit: 5})
+
+        expect(calls[0]?.url).toBe(`${STREAMS}/${STREAM_ID}/cursors`)
+        expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({partition: '1', type: 'AT_OFFSET', offset: 0})
+        const read = new URL(calls[1]!.url)
+        expect(read.pathname).toBe(`/20180418/streams/${STREAM_ID}/messages`)
+        expect(read.searchParams.get('cursor')).toBe('cursor-1')
+        expect(read.searchParams.get('limit')).toBe('5')
+        expect(result.nextCursor).toBe('cursor-2')
+        expect(result.messages).toEqual([
+            {partition: '1', offset: 0, timestamp: 't1', key: 'k1', value: 'hello 314', valueEncoding: 'utf8'},
+            {partition: '1', offset: 1, timestamp: 't2', key: null, value: 'no key', valueEncoding: 'utf8'},
+        ])
+    })
+
+    test('sends the time for an AT_TIME cursor', async () => {
+        const calls = stubFetch((url) => (url.endsWith('/cursors') ? json({value: 'c'}) : json([])))
+        await adapter().readMessages(STREAM_ID, {partition: '0', cursorType: 'AT_TIME', time: '2020-01-01T00:00:00Z'})
+        expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+            partition: '0',
+            type: 'AT_TIME',
+            time: '2020-01-01T00:00:00Z',
+        })
+    })
+
+    test('continues from a previous next cursor without creating another', async () => {
+        const calls = stubFetch(() => json([]))
+        const result = await adapter().readMessages(STREAM_ID, {partition: '0', cursorType: 'LATEST', cursor: 'cursor-2'})
+
+        expect(calls).toHaveLength(1)
+        expect(new URL(calls[0]!.url).searchParams.get('cursor')).toBe('cursor-2')
+        expect(result).toEqual({messages: [], nextCursor: undefined})
+    })
+
+    test('keeps a payload that is not UTF-8 as base64 instead of corrupting it', async () => {
+        const binary = Buffer.from([0xff, 0xfe, 0x00]).toString('base64')
+        stubFetch((url) => (url.endsWith('/cursors') ? json({value: 'c'}) : json([{partition: '0', value: binary, offset: 0}])))
+
+        const result = await adapter().readMessages(STREAM_ID, {partition: '0', cursorType: 'TRIM_HORIZON'})
+
+        expect(result.messages[0]).toMatchObject({value: binary, valueEncoding: 'base64'})
+    })
+
+    test('passes the runtime rejection of a bad partition through as a typed error', async () => {
+        stubFetch(() => json({code: 'InvalidParameter', message: 'partition out of range: 9'}, {status: 400}))
+        await expect(adapter().readMessages(STREAM_ID, {partition: '9', cursorType: 'LATEST'})).rejects.toBeInstanceOf(ValidationError)
+    })
+})

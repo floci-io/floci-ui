@@ -34,6 +34,8 @@ const actionLabels: Record<CapabilityActionName, string> = {
     receiveMessages: 'Receive messages',
     deleteMessage: 'Delete message',
     purgeQueue: 'Purge queue',
+    putMessages: 'Put messages',
+    readMessages: 'Read messages',
     emptyBucket: 'Empty bucket',
 }
 

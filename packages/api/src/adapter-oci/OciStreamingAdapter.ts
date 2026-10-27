@@ -1,12 +1,17 @@
-import {ValidationError} from '../cloud-spi/errors'
+import {NotFoundError, ValidationError} from '../cloud-spi/errors'
 import {ociStreamingSchema} from '../cloud-spi/kinesisSchema'
 import {oci, type OciRuntimeClient} from '../oci'
 import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
+    PutStreamMessageInput,
+    PutStreamMessagesResult,
+    ReadStreamMessagesInput,
+    ReadStreamMessagesResult,
     ResourceQuery,
     ServiceSchema,
+    StreamMessage,
 } from '../cloud-spi/types'
 
 const API_VERSION = '/20180418'
@@ -30,6 +35,15 @@ interface OciStream {
     timeCreated?: string
     messagesEndpoint?: string
     freeformTags?: Record<string, string>
+}
+
+/** `GetMessages` entry; `key` and `value` are base64 on the wire. */
+interface OciStreamMessage {
+    partition?: string
+    key?: string | null
+    value?: string
+    offset?: number
+    timestamp?: string
 }
 
 /** OCI Streaming through the provider-neutral Streams category. */
@@ -93,6 +107,66 @@ export class OciStreamingAdapter implements CloudServiceAdapter {
         await this.client.fetch(streamPath(id), {method: 'DELETE'}, {emptyOnNotFound: true})
     }
 
+    /**
+     * PutMessages answers 200 even when an entry is rejected (`failures` > 0),
+     * so a rejected entry is raised rather than reported as a sent message.
+     */
+    async putMessages(id: string, messages: PutStreamMessageInput[]): Promise<PutStreamMessagesResult> {
+        const res = await this.client.fetch(`${streamPath(id)}/messages`, {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({
+                messages: messages.map((message) => ({
+                    key: message.key ? toBase64(message.key) : null,
+                    value: toBase64(message.value),
+                })),
+            }),
+        }, {emptyOnNotFound: true})
+        if (!res) throw new NotFoundError(`Stream ${id} does not exist`)
+
+        const result = (await res.json()) as PutStreamMessagesResult
+        const rejected = result.entries?.find((entry) => entry.error)
+        if (rejected) throw new ValidationError(rejected.errorMessage ?? rejected.error ?? 'The message was rejected')
+        return {failures: result.failures ?? 0, entries: result.entries ?? []}
+    }
+
+    /**
+     * Reads one partition: CreateCursor for the chosen position (or the
+     * `opc-next-cursor` of a previous read), then GetMessages. Cursors are
+     * opaque, so the next one is handed back untouched.
+     */
+    async readMessages(id: string, input: ReadStreamMessagesInput): Promise<ReadStreamMessagesResult> {
+        const cursor = input.cursor ?? (await this.createCursor(id, input))
+        const qs = new URLSearchParams({cursor})
+        if (input.limit !== undefined) qs.set('limit', String(input.limit))
+
+        const res = await this.client.fetch(`${streamPath(id)}/messages?${qs}`, {method: 'GET'}, {emptyOnNotFound: true})
+        if (!res) throw new NotFoundError(`Stream ${id} does not exist`)
+
+        const entries = ((await res.json()) as OciStreamMessage[]) ?? []
+        return {
+            messages: entries.map(toStreamMessage),
+            nextCursor: res.headers.get('opc-next-cursor') ?? undefined,
+        }
+    }
+
+    private async createCursor(id: string, input: ReadStreamMessagesInput): Promise<string> {
+        const body: Record<string, unknown> = {partition: input.partition, type: input.cursorType}
+        if (input.offset !== undefined) body.offset = input.offset
+        if (input.time !== undefined) body.time = input.time
+
+        const res = await this.client.fetch(`${streamPath(id)}/cursors`, {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify(body),
+        }, {emptyOnNotFound: true})
+        if (!res) throw new NotFoundError(`Stream ${id} does not exist`)
+
+        const cursor = ((await res.json()) as {value?: string}).value
+        if (!cursor) throw new ValidationError('The runtime returned no cursor')
+        return cursor
+    }
+
     async health(): Promise<void> {
         const qs = new URLSearchParams({compartmentId: this.client.tenancyId, limit: '1'})
         await this.client.fetch(`${STREAMS_PATH}?${qs}`)
@@ -122,6 +196,32 @@ export class OciStreamingAdapter implements CloudServiceAdapter {
                 freeformTags: stream.freeformTags,
             },
         }
+    }
+}
+
+function toBase64(text: string): string {
+    return Buffer.from(text, 'utf8').toString('base64')
+}
+
+const utf8 = new TextDecoder('utf-8', {fatal: true})
+
+function toStreamMessage(entry: OciStreamMessage): StreamMessage {
+    const raw = Buffer.from(entry.value ?? '', 'base64')
+    let value: string
+    let valueEncoding: StreamMessage['valueEncoding'] = 'utf8'
+    try {
+        value = utf8.decode(raw)
+    } catch {
+        value = raw.toString('base64')
+        valueEncoding = 'base64'
+    }
+    return {
+        partition: entry.partition ?? '',
+        offset: entry.offset ?? 0,
+        timestamp: entry.timestamp ?? '',
+        key: entry.key ? Buffer.from(entry.key, 'base64').toString('utf8') : null,
+        value,
+        valueEncoding,
     }
 }
 

@@ -130,6 +130,8 @@ export type ResourceActionName =
     | 'receiveMessages'
     | 'deleteMessage'
     | 'purgeQueue'
+    | 'putMessages'
+    | 'readMessages'
     | 'emptyBucket'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
 export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'
@@ -599,6 +601,55 @@ export interface SendQueueMessageResult {
     messageId: string
     md5OfMessageBody?: string
 }
+
+/** Cursor positions a partitioned log can start a read from. */
+export type StreamCursorType = 'TRIM_HORIZON' | 'LATEST' | 'AT_OFFSET' | 'AFTER_OFFSET' | 'AT_TIME'
+
+export interface PutStreamMessageInput {
+    /** Optional partition key: messages with the same key land on the same partition. */
+    key?: string
+    value: string
+}
+
+export interface PutStreamMessageEntry {
+    partition?: string
+    offset?: number
+    timestamp?: string
+    error?: string
+    errorMessage?: string
+}
+
+export interface PutStreamMessagesResult {
+    failures: number
+    entries: PutStreamMessageEntry[]
+}
+
+export interface ReadStreamMessagesInput {
+    partition: string
+    cursorType: StreamCursorType
+    /** Required for AT_OFFSET and AFTER_OFFSET. */
+    offset?: number
+    /** Required for AT_TIME, an RFC 3339 timestamp. */
+    time?: string
+    limit?: number
+    /** An `opc-next-cursor` from a previous read; takes the place of the cursor type. */
+    cursor?: string
+}
+
+export interface StreamMessage {
+    partition: string
+    offset: number
+    timestamp: string
+    key: string | null
+    /** Text when the payload is UTF-8, otherwise the base64 payload (see `valueEncoding`). */
+    value: string
+    valueEncoding: 'utf8' | 'base64'
+}
+
+export interface ReadStreamMessagesResult {
+    messages: StreamMessage[]
+    nextCursor?: string
+}
 /**
  * Lets a registered adapter correct its own advertised availability.
  *
@@ -652,6 +703,8 @@ export interface CloudServiceAdapter {
     receiveMessages?(id: string, maxMessages?: number): Promise<QueueMessage[]>
     deleteMessage?(id: string, receiptHandle: string): Promise<void>
     purgeQueue?(id: string): Promise<void>
+    putMessages?(id: string, messages: PutStreamMessageInput[]): Promise<PutStreamMessagesResult>
+    readMessages?(id: string, input: ReadStreamMessagesInput): Promise<ReadStreamMessagesResult>
     emptyBucket?(id: string, options?: EmptyBucketOptions): Promise<EmptyBucketResult>
     // Lifecycle verbs. Optional because most categories have no notion of them;
     // an adapter that advertises one in `capabilities` must implement it, which

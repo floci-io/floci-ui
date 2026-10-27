@@ -8,8 +8,11 @@ import type {
     CreateLambdaTriggerInput,
     KmsEncryptionAlgorithm,
     KmsSigningAlgorithm,
+    PutStreamMessageInput,
+    ReadStreamMessagesInput,
     ServiceSchema,
     SqlConnectionInput,
+    StreamCursorType,
 } from '../cloud-spi/types'
 import {COMPUTE_POWER_ACTIONS} from '../cloud-spi/types'
 import {clampLimit, parseKeyQuery, type PageQuery} from '../cloud-spi/childCollections'
@@ -908,6 +911,33 @@ export function createCloudRoutes(
         })
     })
 
+    app.post('/:cloud/services/:service/resources/:id/stream-messages', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) {
+            throw new NotFoundError('Unknown cloud or service')
+        }
+
+        return withRuntime(c, async () => {
+            const body = await jsonBody<{messages?: unknown}>(c)
+            const messages = parseStreamMessages(body.messages)
+            return c.json(await svc(c).putStreamMessages(cloud, serviceType, c.req.param('id'), messages))
+        })
+    })
+
+    app.get('/:cloud/services/:service/resources/:id/stream-messages', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) {
+            throw new NotFoundError('Unknown cloud or service')
+        }
+
+        const input = parseStreamReadQuery(c.req.query())
+        return withRuntime(c, async () => {
+            return c.json(await svc(c).readStreamMessages(cloud, serviceType, c.req.param('id'), input))
+        })
+    })
+
     app.delete('/:cloud/services/:service/resources/:id/messages', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
@@ -1116,6 +1146,58 @@ export function createCloudRoutes(
 
 function isCloudProvider(value: string): value is CloudProvider {
     return value === 'aws' || value === 'azure' || value === 'gcp' || value === 'oci'
+}
+
+const STREAM_CURSOR_TYPES: readonly StreamCursorType[] = ['TRIM_HORIZON', 'LATEST', 'AT_OFFSET', 'AFTER_OFFSET', 'AT_TIME']
+const STREAM_READ_LIMIT_MAX = 100
+const STREAM_PUT_MAX = 100
+
+function parseStreamMessages(value: unknown): PutStreamMessageInput[] {
+    if (!Array.isArray(value) || value.length === 0) throw new ValidationError('messages must contain at least one entry')
+    if (value.length > STREAM_PUT_MAX) throw new ValidationError(`messages must contain at most ${STREAM_PUT_MAX} entries`)
+    return value.map((entry) => {
+        const message = entry as {key?: unknown; value?: unknown} | null
+        if (!message || typeof message !== 'object' || typeof message.value !== 'string' || message.value.length === 0) {
+            throw new ValidationError('each message needs a non-empty value')
+        }
+        if (message.key !== undefined && message.key !== null && typeof message.key !== 'string') {
+            throw new ValidationError('message key must be a string')
+        }
+        const key = typeof message.key === 'string' && message.key.length > 0 ? message.key : undefined
+        return {key, value: message.value}
+    })
+}
+
+function parseStreamReadQuery(query: Record<string, string>): ReadStreamMessagesInput {
+    const partition = query.partition ?? ''
+    if (!/^\d+$/.test(partition)) throw new ValidationError('partition must be a whole number')
+
+    const cursorType = (query.cursorType || 'TRIM_HORIZON') as StreamCursorType
+    if (!STREAM_CURSOR_TYPES.includes(cursorType)) {
+        throw new ValidationError(`cursorType must be one of ${STREAM_CURSOR_TYPES.join(', ')}`)
+    }
+
+    const input: ReadStreamMessagesInput = {partition, cursorType}
+    if (cursorType === 'AT_OFFSET' || cursorType === 'AFTER_OFFSET') {
+        const offset = Number(query.offset)
+        if (query.offset === undefined || query.offset === '' || !Number.isSafeInteger(offset) || offset < 0) {
+            throw new ValidationError('offset must be a whole number of 0 or more')
+        }
+        input.offset = offset
+    }
+    if (cursorType === 'AT_TIME') {
+        if (!query.time || Number.isNaN(Date.parse(query.time))) throw new ValidationError('time must be an RFC 3339 timestamp')
+        input.time = query.time
+    }
+    if (query.limit !== undefined && query.limit !== '') {
+        const limit = Number(query.limit)
+        if (!Number.isInteger(limit) || limit < 1 || limit > STREAM_READ_LIMIT_MAX) {
+            throw new ValidationError(`limit must be an integer between 1 and ${STREAM_READ_LIMIT_MAX}`)
+        }
+        input.limit = limit
+    }
+    if (query.cursor) input.cursor = query.cursor
+    return input
 }
 
 async function jsonBody<T>(c: Context): Promise<T> {

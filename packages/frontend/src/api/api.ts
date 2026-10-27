@@ -39,6 +39,8 @@ export const apiEndpointKeys = {
       receiveMessages: "clouds.services.resources.messages.receive",
       deleteMessage: "clouds.services.resources.messages.delete",
       purgeQueue: "clouds.services.resources.purge",
+      putStreamMessages: "clouds.services.resources.streamMessages.put",
+      readStreamMessages: "clouds.services.resources.streamMessages.read",
     },
     storage: {
       objects: {
@@ -441,6 +443,22 @@ export const endpointRegistry: EndpointRegistry = new Map([
     apiEndpointKeys.clouds.resources.receiveMessages,
     {
       path: "/clouds/:cloud/services/:service/resources/:id/messages",
+      method: "GET",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.putStreamMessages,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/stream-messages",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.readStreamMessages,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/stream-messages",
       method: "GET",
       telemetry: { service: "cloud-proxy" },
     },

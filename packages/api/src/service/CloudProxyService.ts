@@ -39,7 +39,11 @@ import type {
     KmsSignResult,
     KmsVerifyInput,
     KmsVerifyResult,
+    PutStreamMessageInput,
+    PutStreamMessagesResult,
     QueueMessage,
+    ReadStreamMessagesInput,
+    ReadStreamMessagesResult,
     ResourceQuery,
     SendQueueMessageResult,
     ServerlessInvokeResult,
@@ -381,6 +385,18 @@ export class CloudProxyService {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.receiveMessages) throw new NotSupportedError(`${cloud}/${service} receiveMessages is not supported`)
         return adapter.receiveMessages(id, maxMessages)
+    }
+
+    async putStreamMessages(cloud: CloudProvider, service: CloudServiceType, id: string, messages: PutStreamMessageInput[]): Promise<PutStreamMessagesResult> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.putMessages) throw new NotSupportedError(`${cloud}/${service} putMessages is not supported`)
+        return adapter.putMessages(id, messages)
+    }
+
+    async readStreamMessages(cloud: CloudProvider, service: CloudServiceType, id: string, input: ReadStreamMessagesInput): Promise<ReadStreamMessagesResult> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.readMessages) throw new NotSupportedError(`${cloud}/${service} readMessages is not supported`)
+        return adapter.readMessages(id, input)
     }
 
     async deleteQueueMessage(cloud: CloudProvider, service: CloudServiceType, id: string, receiptHandle: string): Promise<void> {

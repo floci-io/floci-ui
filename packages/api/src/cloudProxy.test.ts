@@ -41,6 +41,8 @@ const METHOD_FOR_ACTION: Record<ResourceActionName, keyof CloudServiceAdapter> =
     receiveMessages: 'receiveMessages',
     deleteMessage: 'deleteMessage',
     purgeQueue: 'purgeQueue',
+    putMessages: 'putMessages',
+    readMessages: 'readMessages',
     emptyBucket: 'emptyBucket',
 }
 

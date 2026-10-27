@@ -21,6 +21,8 @@ export type ResourceActionName =
     | 'receiveMessages'
     | 'deleteMessage'
     | 'purgeQueue'
+    | 'putMessages'
+    | 'readMessages'
     | 'emptyBucket'
 export type ObjectActionName = 'list' | 'upload' | 'download' | 'delete' | 'createFolder' | 'copy'
 export type DatabaseActionName = 'listSnapshots' | 'createSnapshot'

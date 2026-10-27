@@ -57,6 +57,7 @@ const KmsCryptoPanel = lazyPanel(() => import("@/components/KmsCryptoPanel").the
 const AzureKeyVaultPanel = lazyPanel(() => import("@/components/AzureKeyVaultPanel").then((m) => m.AzureKeyVaultPanel));
 const OciKmsActionsPanel = lazyPanel(() => import("@/components/OciKmsActionsPanel").then((m) => m.OciKmsActionsPanel));
 const SqsMessagingPanel = lazyPanel(() => import("@/components/SqsMessagingPanel").then((m) => m.SqsMessagingPanel));
+const StreamMessagesPanel = lazyPanel(() => import("@/components/StreamMessagesPanel").then((m) => m.StreamMessagesPanel));
 const LogsQueryPanel = lazyPanel(() => import("@/components/LogsQueryPanel").then((m) => m.LogsQueryPanel));
 const SageMakerDashboardPanel = lazyPanel(() => import("@/components/SageMakerDashboardPanel").then((m) => m.SageMakerDashboardPanel));
 
@@ -1083,6 +1084,13 @@ export function DynamicResourceView({
               void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
             }
           }}
+        />
+      )}
+      {service === "streams" && cloud === "oci" && (
+        <StreamMessagesPanel
+          cloud={cloud}
+          resource={activeSelected}
+          runtimeReachable={canUseRuntime}
         />
       )}
       {service === "workflows" && cloud === "aws" && (

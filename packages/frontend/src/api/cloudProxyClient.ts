@@ -483,6 +483,72 @@ export async function receiveQueueMessages(
   return res.data.messages;
 }
 
+export type StreamCursorType = "TRIM_HORIZON" | "LATEST" | "AT_OFFSET" | "AFTER_OFFSET" | "AT_TIME";
+
+export interface PutStreamMessageEntry {
+  partition?: string;
+  offset?: number;
+  timestamp?: string;
+}
+
+export interface PutStreamMessagesResult {
+  failures: number;
+  entries: PutStreamMessageEntry[];
+}
+
+export interface ReadStreamMessagesInput {
+  partition: string;
+  cursorType: StreamCursorType;
+  offset?: number;
+  time?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface StreamMessage {
+  partition: string;
+  offset: number;
+  timestamp: string;
+  key: string | null;
+  value: string;
+  valueEncoding: "utf8" | "base64";
+}
+
+export interface ReadStreamMessagesResult {
+  messages: StreamMessage[];
+  nextCursor?: string;
+}
+
+export async function putStreamMessages(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  messages: Array<{ key?: string; value: string }>,
+  signal?: AbortSignal,
+): Promise<PutStreamMessagesResult> {
+  const res = await apiClient.call<PutStreamMessagesResult, { messages: Array<{ key?: string; value: string }> }>(
+    apiEndpointKeys.clouds.resources.putStreamMessages,
+    requestOptions(cloud, service, { signal, body: { messages } }),
+    { cloud, service, id },
+  );
+  return res.data;
+}
+
+export async function readStreamMessages(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  input: ReadStreamMessagesInput,
+  signal?: AbortSignal,
+): Promise<ReadStreamMessagesResult> {
+  const res = await apiClient.call<ReadStreamMessagesResult>(
+    apiEndpointKeys.clouds.resources.readStreamMessages,
+    requestOptions(cloud, service, { signal, params: { ...input } }),
+    { cloud, service, id },
+  );
+  return res.data;
+}
+
 export async function deleteQueueMessage(
   cloud: CloudProvider,
   service: CloudServiceType,

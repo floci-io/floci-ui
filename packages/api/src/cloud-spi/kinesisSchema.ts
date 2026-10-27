@@ -20,6 +20,12 @@ const streamActions: CapabilitySchema<ResourceActionName>[] = [
     {name: 'delete', label: 'Delete stream', enabled: true, status: 'available', runtimeRequired: true},
 ]
 
+const ociStreamActions: CapabilitySchema<ResourceActionName>[] = [
+    ...streamActions,
+    {name: 'putMessages', label: 'Put messages', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'readMessages', label: 'Read messages', enabled: true, status: 'available', runtimeRequired: true},
+]
+
 export function awsKinesisSchema(): ServiceSchema {
     return {
         cloud: 'aws',
@@ -123,7 +129,7 @@ export function ociStreamingSchema(): ServiceSchema {
             },
         ],
         actions: ['list', 'create', 'inspect', 'delete'],
-        capabilities: {resourceActions: streamActions},
+        capabilities: {resourceActions: ociStreamActions},
         filters: streamFilters,
         columns: ociStreamColumns,
     }

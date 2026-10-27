@@ -11,6 +11,7 @@ import type {
 import {awsDatabaseSchema, azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import {awsLogsSchema, gcpLogsSchema} from '../cloud-spi/logsSchema'
 import {awsMessagingSchema} from '../cloud-spi/messagingSchema'
+import {awsKinesisSchema, ociStreamingSchema} from '../cloud-spi/kinesisSchema'
 import {azureNoSqlSchema} from '../cloud-spi/noSqlSchema'
 import {awsDynamoDbSchema} from '../cloud-spi/dynamodbSchema'
 import {awsEksSchema} from '../cloud-spi/eksSchema'
@@ -2148,6 +2149,97 @@ describe('queue message routes', () => {
             expect(await res.json()).toMatchObject({error: 'attributes must be an object of string values'})
         })
     }
+})
+
+describe('stream message routes', () => {
+    const url = '/api/clouds/oci/services/streams/resources/orders/stream-messages'
+
+    function streamApp(overrides: Partial<CloudServiceAdapter> = {}) {
+        return appWithRoutes([mockAdapter('oci', {
+            service: 'streams',
+            schema: ociStreamingSchema,
+            putMessages: async () => ({failures: 0, entries: [{partition: '0', offset: 0}]}),
+            readMessages: async () => ({messages: [], nextCursor: 'c2'}),
+            ...overrides,
+        })])
+    }
+
+    test('put forwards the messages and returns where they landed', async () => {
+        let delegated: unknown
+        const res = await streamApp({
+            putMessages: async (_id, messages) => {
+                delegated = messages
+                return {failures: 0, entries: [{partition: '1', offset: 4}]}
+            },
+        }).request(url, {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({messages: [{key: 'k1', value: 'hello'}, {key: '', value: 'two'}]}),
+        })
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({failures: 0, entries: [{partition: '1', offset: 4}]})
+        expect(delegated).toEqual([{key: 'k1', value: 'hello'}, {key: undefined, value: 'two'}])
+    })
+
+    for (const messages of [undefined, [], [{value: ''}], [{key: 5, value: 'x'}], ['x']]) {
+        test(`put rejects messages ${JSON.stringify(messages)} with 400`, async () => {
+            const res = await streamApp().request(url, {
+                method: 'POST',
+                headers: {'content-type': 'application/json'},
+                body: JSON.stringify({messages}),
+            })
+            expect(res.status).toBe(400)
+        })
+    }
+
+    test('read passes the cursor choice through and returns the next cursor', async () => {
+        let delegated: unknown
+        const res = await streamApp({
+            readMessages: async (_id, input) => {
+                delegated = input
+                return {messages: [], nextCursor: 'c2'}
+            },
+        }).request(`${url}?partition=1&cursorType=AT_OFFSET&offset=3&limit=5`)
+
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({messages: [], nextCursor: 'c2'})
+        expect(delegated).toEqual({partition: '1', cursorType: 'AT_OFFSET', offset: 3, limit: 5})
+    })
+
+    test('read defaults to TRIM_HORIZON', async () => {
+        let delegated: unknown
+        await streamApp({
+            readMessages: async (_id, input) => {
+                delegated = input
+                return {messages: []}
+            },
+        }).request(`${url}?partition=0`)
+        expect(delegated).toEqual({partition: '0', cursorType: 'TRIM_HORIZON'})
+    })
+
+    for (const query of [
+        '',
+        'partition=x',
+        'partition=0&cursorType=NOPE',
+        'partition=0&cursorType=AT_OFFSET',
+        'partition=0&cursorType=AFTER_OFFSET&offset=-1',
+        'partition=0&cursorType=AT_TIME&time=yesterday',
+        'partition=0&limit=0',
+        'partition=0&limit=101',
+        'partition=0&limit=1.5',
+    ]) {
+        test(`read rejects ?${query} with 400`, async () => {
+            const res = await streamApp().request(`${url}?${query}`)
+            expect(res.status).toBe(400)
+        })
+    }
+
+    test('a service whose adapter has no stream support answers 501 instead of a 500', async () => {
+        const app = appWithRoutes([mockAdapter('aws', {service: 'streams', schema: awsKinesisSchema})])
+        const res = await app.request('/api/clouds/aws/services/streams/resources/orders/stream-messages?partition=0')
+        expect(res.status).toBe(501)
+    })
 })
 
 describe('route guard error shape', () => {
