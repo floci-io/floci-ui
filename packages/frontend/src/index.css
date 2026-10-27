@@ -387,7 +387,10 @@ pre,
 }
 
 .brand p {
+    width: 100%;
+    max-width: 150px;
     margin: 0;
+    text-align: center;
     font-size: 11px;
     color: var(--text-2);
 }

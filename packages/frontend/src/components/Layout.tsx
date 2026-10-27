@@ -181,7 +181,7 @@ export function Layout() {
                     <div className="brand">
                         <img className="brand-logo" src={isDark ? flociWhite : flociBlack} alt="Floci"/>
                         <img className="brand-mark" src={isDark ? flociMarkWhite : flociMarkBlack} alt="" aria-hidden="true"/>
-                        <p>Local Cloud</p>
+                        <p>Any Cloud. Locally.</p>
                     </div>
 
                     <nav className="nav" aria-label="Console">
