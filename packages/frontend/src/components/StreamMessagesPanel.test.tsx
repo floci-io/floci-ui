@@ -1,7 +1,7 @@
-import {render, screen} from "@testing-library/react";
+import {act, render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, describe, expect, test, vi} from "vitest";
-import {putStreamMessages, readStreamMessages} from "@/api/cloudProxyClient";
+import {putStreamMessages, readStreamMessages, type PutStreamMessageEntry} from "@/api/cloudProxyClient";
 import {StreamMessagesPanel} from "@/components/StreamMessagesPanel";
 import {DEFAULT_ACCOUNT_ID, setAccountId} from "@/lib/accountStore";
 import type {CloudResource} from "@/types/resource";
@@ -88,6 +88,39 @@ describe("StreamMessagesPanel", () => {
       expect.objectContaining({cursor: "c2"}),
       expect.any(AbortSignal),
     );
+  });
+
+  test("drops the saved cursor when the partition changes", async () => {
+    vi.mocked(readStreamMessages).mockResolvedValue({messages: [], nextCursor: "c-p0"});
+    const user = userEvent.setup();
+
+    render(<StreamMessagesPanel cloud="oci" resource={stream} runtimeReachable={true}/>);
+
+    await user.click(screen.getByRole("button", {name: "Read"}));
+    await user.click(screen.getByRole("button", {name: "Read messages"}));
+    expect(await screen.findByRole("button", {name: "Read next"})).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Partition"), "1");
+
+    expect(screen.queryByRole("button", {name: "Read next"})).not.toBeInTheDocument();
+    expect(screen.getByText(/Nothing read yet/)).toBeInTheDocument();
+  });
+
+  test("ignores a put that finishes after another stream is selected", async () => {
+    let finish!: (value: {failures: number; entries: PutStreamMessageEntry[]}) => void;
+    vi.mocked(putStreamMessages).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    const user = userEvent.setup();
+
+    const {rerender} = render(<StreamMessagesPanel cloud="oci" resource={stream} runtimeReachable={true}/>);
+    await user.type(screen.getByLabelText("Message value"), "old");
+    await user.click(screen.getByRole("button", {name: "Put message"}));
+
+    rerender(<StreamMessagesPanel cloud="oci" resource={{...stream, id: "ocid1.stream.oc1.iad.bbbb"}} runtimeReachable={true}/>);
+    await user.type(screen.getByLabelText("Message value"), "draft");
+    await act(async () => finish({failures: 0, entries: [{partition: "0", offset: 9}]}));
+
+    expect(screen.getByLabelText("Message value")).toHaveValue("draft");
+    expect(screen.queryByText(/at offset/)).not.toBeInTheDocument();
   });
 
   test("says so when a partition has no messages", async () => {

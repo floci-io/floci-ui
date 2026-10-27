@@ -53,10 +53,12 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
   const [readError, setReadError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const activeRequest = useRef<AbortController | null>(null);
+  const activePut = useRef<object | null>(null);
 
   useEffect(() => {
     activeRequest.current?.abort();
     activeRequest.current = null;
+    activePut.current = null;
     setTab("put");
     setKey("");
     setValue("");
@@ -98,15 +100,30 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
     setPutError(null);
     setPutEntry(null);
     setPutting(true);
+    const request = {};
+    activePut.current = request;
     try {
       const result = await putStreamMessages(cloud, "streams", resource.id, [{key: key || undefined, value}]);
+      if (activePut.current !== request) return;
       setPutEntry(result.entries[0] ?? {});
       setValue("");
     } catch (error) {
+      if (activePut.current !== request) return;
       setPutError(error instanceof Error ? error.message : "Failed to put the message.");
     } finally {
-      setPutting(false);
+      if (activePut.current === request) {
+        activePut.current = null;
+        setPutting(false);
+      }
     }
+  };
+
+  const changeReadPosition = (apply: () => void) => {
+    apply();
+    setNextCursor(undefined);
+    setMessages([]);
+    setHasRead(false);
+    setReadError(null);
   };
 
   const read = async (continueFrom?: string) => {
@@ -244,7 +261,7 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
                   className="button"
                   value={partition}
                   disabled={!canUseStream || reading}
-                  onChange={(event) => setPartition(event.target.value)}
+                  onChange={(event) => changeReadPosition(() => setPartition(event.target.value))}
                 >
                   {partitions.map((id) => <option key={id} value={id}>{id}</option>)}
                 </select>
@@ -256,7 +273,7 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
                   className="button"
                   value={cursorType}
                   disabled={!canUseStream || reading}
-                  onChange={(event) => setCursorType(event.target.value as StreamCursorType)}
+                  onChange={(event) => changeReadPosition(() => setCursorType(event.target.value as StreamCursorType))}
                 >
                   {CURSOR_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
                 </select>
@@ -271,7 +288,7 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
                     className="button"
                     value={offset}
                     disabled={!canUseStream || reading}
-                    onChange={(event) => setOffset(event.target.value)}
+                    onChange={(event) => changeReadPosition(() => setOffset(event.target.value))}
                     style={{width: 96, cursor: "text", padding: "4px 8px", minHeight: 32}}
                   />
                 </div>
@@ -285,7 +302,7 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
                     className="button"
                     value={time}
                     disabled={!canUseStream || reading}
-                    onChange={(event) => setTime(event.target.value)}
+                    onChange={(event) => changeReadPosition(() => setTime(event.target.value))}
                     style={{cursor: "text", padding: "4px 8px", minHeight: 32}}
                   />
                 </div>
