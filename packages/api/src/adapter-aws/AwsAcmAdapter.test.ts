@@ -99,6 +99,12 @@ describe('AwsAcmAdapter', () => {
         expect(adapter.schema().actions).toEqual(['list', 'create', 'delete', 'inspect'])
     })
 
+    test('requires the source, because the form offers an empty option that would hide every field', () => {
+        const source = new AwsAcmAdapter(runtimeStub().client).schema().fields.find((field) => field.name === 'source')
+
+        expect(source?.required).toBe(true)
+    })
+
     describe('list', () => {
         test('returns the empty list when the account has no certificates', async () => {
             const {client} = runtimeStub({list: {CertificateSummaryList: []}})

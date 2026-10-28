@@ -166,7 +166,7 @@ export function awsCertificatesSchema(): ServiceSchema {
                 name: 'source',
                 label: 'Source',
                 type: 'select',
-                required: false,
+                required: true,
                 defaultValue: 'REQUEST',
                 description: 'Request a new certificate, or import one you already hold with its private key.',
                 options: [
