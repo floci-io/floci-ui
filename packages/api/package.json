@@ -10,6 +10,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@aws-sdk/client-acm": "3.1140.0",
     "@aws-sdk/client-api-gateway": "^3.1140.0",
     "@aws-sdk/client-appconfig": "^3.1140.0",
     "@aws-sdk/client-cloudformation": "^3.1140.0",

@@ -6,6 +6,7 @@ import { RDSClient } from "@aws-sdk/client-rds";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { CloudWatchLogsClient } from "@aws-sdk/client-cloudwatch-logs";
 import { SSMClient } from "@aws-sdk/client-ssm";
+import { ACMClient } from "@aws-sdk/client-acm";
 import { KMSClient } from "@aws-sdk/client-kms";
 import { SFNClient } from "@aws-sdk/client-sfn";
 import { ElasticLoadBalancingV2Client } from "@aws-sdk/client-elastic-load-balancing-v2";
@@ -69,6 +70,7 @@ export type AwsClients = {
   cloudwatch: CloudWatchClient;
   ssm: SSMClient;
   kms: KMSClient;
+  acm: ACMClient;
   sfn: SFNClient;
   elbv2: ElasticLoadBalancingV2Client;
   eventbridge: EventBridgeClient;
@@ -112,6 +114,7 @@ function buildClients(accountId: string): AwsClients {
     cloudwatch: new CloudWatchClient(base),
     ssm: new SSMClient(base),
     kms: new KMSClient(base),
+    acm: new ACMClient(base),
     sfn: new SFNClient(base),
     elbv2: new ElasticLoadBalancingV2Client(base),
     eventbridge: new EventBridgeClient(base),

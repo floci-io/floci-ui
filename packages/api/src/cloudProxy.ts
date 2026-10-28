@@ -50,6 +50,7 @@ import {AzureKeyVaultCertificatesAdapter} from './adapter-azure/AzureKeyVaultCer
 import {AzureKeyVaultKeysAdapter} from './adapter-azure/AzureKeyVaultKeysAdapter'
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
 import {AwsParameterStoreAdapter} from './adapter-aws/AwsParameterStoreAdapter'
+import {AwsAcmAdapter} from './adapter-aws/AwsAcmAdapter'
 import {AwsKmsAdapter} from './adapter-aws/AwsKmsAdapter'
 import {AwsStepFunctionsAdapter} from './adapter-aws/AwsStepFunctionsAdapter'
 import {AwsLoadBalancingAdapter} from './adapter-aws/AwsLoadBalancingAdapter'
@@ -97,6 +98,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsLogsAdapter(clients.logs),
         new AwsParameterStoreAdapter(clients.ssm),
         new AwsKmsAdapter(clients.kms),
+        new AwsAcmAdapter(clients.acm),
         new AwsStepFunctionsAdapter(clients.sfn),
         new AwsLoadBalancingAdapter(clients.elbv2),
         new AwsEventBridgeAdapter(clients.eventbridge),
