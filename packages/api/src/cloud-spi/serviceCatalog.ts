@@ -247,7 +247,7 @@ export const SERVICE_CATALOG = {
     },
     certificates: {
         displayName: 'Certificates',
-        displayNameByCloud: {azure: 'Key Vault Certificates'},
+        displayNameByCloud: {aws: 'ACM', azure: 'Key Vault Certificates'},
         description: 'Issue and manage certificates.',
         iconKey: 'kms',
         group: 'Security',

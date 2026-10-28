@@ -126,3 +126,130 @@ export function azureCertificatesSchema(): ServiceSchema {
         columns: azureCertificateColumns,
     }
 }
+
+export const ACM_SOURCES = ['REQUEST', 'IMPORT'] as const
+export type AcmSource = (typeof ACM_SOURCES)[number]
+
+// Floci-core issues these shapes with real keys; ACM's RSA_1024 is not offered.
+export const ACM_KEY_ALGORITHMS = [
+    'RSA_2048',
+    'RSA_3072',
+    'RSA_4096',
+    'EC_prime256v1',
+    'EC_secp384r1',
+    'EC_secp521r1',
+] as const
+
+export const ACM_VALIDATION_METHODS = ['DNS', 'EMAIL'] as const
+
+// ACM caps a domain name at 253 characters and a certificate at 100 names.
+export const ACM_DOMAIN_NAME_MAX_LENGTH = 253
+export const ACM_MAX_SUBJECT_ALTERNATIVE_NAMES = 99
+
+// The list summary already carries every column, so only inspect needs DescribeCertificate.
+const awsCertificateColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Domain'},
+    {name: 'status', label: 'Status', format: 'badge'},
+    {name: 'type', label: 'Type', path: 'metadata.type'},
+    {name: 'keyAlgorithm', label: 'Key Algorithm', path: 'metadata.keyAlgorithm'},
+    {name: 'notAfter', label: 'Expires', path: 'metadata.notAfter', format: 'datetime'},
+    {name: 'createdAt', label: 'Created', format: 'datetime'},
+]
+
+export function awsCertificatesSchema(): ServiceSchema {
+    return {
+        cloud: 'aws',
+        service: 'certificates',
+        displayName: 'AWS Certificate Manager',
+        fields: [
+            {
+                name: 'source',
+                label: 'Source',
+                type: 'select',
+                required: true,
+                defaultValue: 'REQUEST',
+                description: 'Request a new certificate, or import one you already hold with its private key.',
+                options: [
+                    {label: 'Request a certificate', value: 'REQUEST'},
+                    {label: 'Import a certificate', value: 'IMPORT'},
+                ],
+            },
+            {
+                name: 'domainName',
+                label: 'Domain name',
+                type: 'text',
+                required: false,
+                requiredWhen: {field: 'source', equals: 'REQUEST'},
+                visibleWhen: {field: 'source', equals: 'REQUEST'},
+                description: 'Fully qualified name, for example app.example.com or *.example.com.',
+                validation: {minLength: 1, maxLength: ACM_DOMAIN_NAME_MAX_LENGTH},
+            },
+            {
+                name: 'subjectAlternativeNames',
+                label: 'Additional names',
+                type: 'text',
+                required: false,
+                visibleWhen: {field: 'source', equals: 'REQUEST'},
+                description: 'Subject alternative names, separated by commas.',
+            },
+            {
+                name: 'validationMethod',
+                label: 'Validation method',
+                type: 'select',
+                required: false,
+                defaultValue: 'DNS',
+                visibleWhen: {field: 'source', equals: 'REQUEST'},
+                options: ACM_VALIDATION_METHODS.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'keyAlgorithm',
+                label: 'Key algorithm',
+                type: 'select',
+                required: false,
+                defaultValue: 'RSA_2048',
+                visibleWhen: {field: 'source', equals: 'REQUEST'},
+                options: ACM_KEY_ALGORITHMS.map((value) => ({label: value.replace('_', ' '), value})),
+            },
+            {
+                name: 'certificate',
+                label: 'Certificate body',
+                type: 'textarea',
+                required: false,
+                requiredWhen: {field: 'source', equals: 'IMPORT'},
+                visibleWhen: {field: 'source', equals: 'IMPORT'},
+                description: 'PEM-encoded certificate.',
+                span: true,
+            },
+            {
+                name: 'privateKey',
+                label: 'Private key',
+                type: 'textarea',
+                required: false,
+                requiredWhen: {field: 'source', equals: 'IMPORT'},
+                visibleWhen: {field: 'source', equals: 'IMPORT'},
+                description: 'PEM-encoded, unencrypted private key.',
+                span: true,
+            },
+            {
+                name: 'certificateChain',
+                label: 'Certificate chain',
+                type: 'textarea',
+                required: false,
+                visibleWhen: {field: 'source', equals: 'IMPORT'},
+                description: 'Optional PEM-encoded intermediate certificates.',
+                span: true,
+            },
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List certificates', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Request or import certificate', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete certificate', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect certificate', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+        filters: [{name: 'search', label: 'Search', type: 'text', required: false}],
+        columns: awsCertificateColumns,
+    }
+}
