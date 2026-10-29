@@ -125,6 +125,12 @@ export const SERVICE_CATALOG = {
         description: 'Serverless distributed SQL clusters that sign in with IAM.',
         iconKey: 'database', group: 'Databases', order: 15,
     },
+    cache: {
+        displayName: 'Cache',
+        displayNameByCloud: {aws: 'ElastiCache'},
+        description: 'Run in-memory caches and replication groups.',
+        iconKey: 'database', group: 'Databases', order: 18,
+    },
     nosql: {
         displayName: 'NoSQL',
         // Both labels are declared even though each arrives with its own adapter,
