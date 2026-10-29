@@ -51,6 +51,7 @@ import {AzureKeyVaultKeysAdapter} from './adapter-azure/AzureKeyVaultKeysAdapter
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
 import {AwsParameterStoreAdapter} from './adapter-aws/AwsParameterStoreAdapter'
 import {AwsAcmAdapter} from './adapter-aws/AwsAcmAdapter'
+import {AwsElastiCacheAdapter} from './adapter-aws/AwsElastiCacheAdapter'
 import {AwsKmsAdapter} from './adapter-aws/AwsKmsAdapter'
 import {AwsStepFunctionsAdapter} from './adapter-aws/AwsStepFunctionsAdapter'
 import {AwsLoadBalancingAdapter} from './adapter-aws/AwsLoadBalancingAdapter'
@@ -93,6 +94,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsEksAdapter(createEksService(clients.eks)),
         new AwsDatabaseAdapter(createRdsService(clients.rds), clients.rds),
         new AwsDsqlAdapter(clients.dsql, clients.sts),
+        new AwsElastiCacheAdapter(clients.elasticache),
         new AwsComputeAdapter(ec2Service),
         new AwsNetworkingAdapter(ec2Service),
         new AwsServerlessAdapter(clients.lambda, clients.s3, clients.dynamodb, clients.sqs, clients.kinesis),

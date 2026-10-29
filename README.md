@@ -113,6 +113,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Storage | Table Storage | – | ✅ | – | – |
 | Databases | Database | ✅ | ✅ | ✅ | – |
 | Databases | Aurora DSQL | ✅ | – | – | – |
+| Databases | Cache | ✅ | – | – | – |
 | Databases | NoSQL | ✅ | ✅ | ✅ | – |
 | Networking | Networking | 👁 | ✅ | ✅ | – |
 | Networking | Load Balancing | ✅ | – | – | – |
