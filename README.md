@@ -125,7 +125,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Integration | Streams | ✅ | ✅ | – | ✅ |
 | Integration | Events | ✅ | – | – | – |
 | Integration | Email | 👁 | – | – | – |
-| Integration | Cloud Scheduler | – | – | ✅ | – |
+| Integration | Scheduler | ✅ | – | ✅ | – |
 | Integration | Workflows | ✅ | – | – | – |
 | Provisioning | Infrastructure as Code | ✅ | – | – | – |
 | Provisioning | Configuration | ✅ | ✅ | – | – |
@@ -139,6 +139,8 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Observability | CloudWatch | ✅ | – | – | – |
 
 ✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available
+
+AWS EventBridge Scheduler list, inspect, create, and delete are verified with SDK-mocked adapter tests. Live Floci runtime integration has not been exercised.
 
 Known runtime gaps (the adapter is ready, the emulator is not):
 

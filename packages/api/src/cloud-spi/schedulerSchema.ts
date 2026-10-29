@@ -90,7 +90,83 @@ export function gcpSchedulerSchema(): ServiceSchema {
     }
 }
 
+export function awsSchedulerSchema(): ServiceSchema {
+    return {
+        cloud: 'aws',
+        service: 'scheduler',
+        displayName: 'EventBridge Scheduler',
+        fields: [
+            {
+                name: 'name',
+                label: 'Schedule Name',
+                type: 'text',
+                required: true,
+                description: 'Unique name within the schedule group.',
+                validation: {
+                    pattern: '^[A-Za-z0-9._-]{1,64}$',
+                    minLength: 1,
+                    maxLength: 64,
+                    message: 'Use 1-64 letters, numbers, periods, hyphens, or underscores.',
+                },
+            },
+            {
+                name: 'groupName',
+                label: 'Schedule Group',
+                type: 'text',
+                required: false,
+                defaultValue: 'default',
+                description: 'Existing EventBridge Scheduler group. Defaults to default.',
+            },
+            {
+                name: 'scheduleExpression',
+                label: 'Schedule Expression',
+                type: 'text',
+                required: true,
+                description: 'A rate(), cron(), or at() expression.',
+            },
+            {
+                name: 'scheduleExpressionTimezone',
+                label: 'Time Zone',
+                type: 'text',
+                required: false,
+                description: 'IANA time zone for cron expressions.',
+            },
+            {
+                name: 'targetArn',
+                label: 'Target ARN',
+                type: 'text',
+                required: true,
+                description: 'ARN invoked when the schedule fires.',
+            },
+            {
+                name: 'roleArn',
+                label: 'Execution Role ARN',
+                type: 'text',
+                required: true,
+                description: 'IAM role assumed by Scheduler for the target.',
+            },
+            {
+                name: 'state',
+                label: 'State',
+                type: 'select',
+                required: false,
+                defaultValue: 'ENABLED',
+                options: [
+                    {label: 'Enabled', value: 'ENABLED'},
+                    {label: 'Disabled', value: 'DISABLED'},
+                ],
+            },
+            {name: 'description', label: 'Description', type: 'text', required: false},
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {resourceActions: schedulerResourceActions},
+        filters: schedulerFilters,
+        columns: schedulerColumns.map(column => column.name === 'target' ? {...column, label: 'Target ARN'} : column),
+    }
+}
+
 export function schedulerSchemaFor(cloud: CloudProvider): ServiceSchema | null {
+    if (cloud === 'aws') return awsSchedulerSchema()
     if (cloud === 'gcp') return gcpSchedulerSchema()
     return null
 }

@@ -287,8 +287,8 @@ export const SERVICE_CATALOG = {
         order: 20,
     },
     scheduler: {
-        displayName: 'Cloud Scheduler',
-        displayNameByCloud: {gcp: 'Cloud Scheduler'},
+        displayName: 'Scheduler',
+        displayNameByCloud: {aws: 'EventBridge Scheduler', gcp: 'Cloud Scheduler'},
         description: 'Run jobs on a schedule.',
         iconKey: 'scheduler',
         group: 'Integration',

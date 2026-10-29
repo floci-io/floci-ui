@@ -27,6 +27,7 @@ import { ECSClient } from "@aws-sdk/client-ecs";
 import { ECRClient } from "@aws-sdk/client-ecr";
 import { CloudFrontClient } from "@aws-sdk/client-cloudfront";
 import { Route53Client } from "@aws-sdk/client-route-53";
+import { SchedulerClient } from "@aws-sdk/client-scheduler";
 import { STSClient } from "@aws-sdk/client-sts";
 
 // Same default as runtimeProbe and the SES adapter. Without one, the SDK would
@@ -88,6 +89,7 @@ export type AwsClients = {
   ecr: ECRClient;
   cloudfront: CloudFrontClient;
   route53: Route53Client;
+  scheduler: SchedulerClient;
   dsql: DSQLClient;
   sts: STSClient;
 };
@@ -132,6 +134,7 @@ function buildClients(accountId: string): AwsClients {
     ecr: new ECRClient(base),
     cloudfront: new CloudFrontClient(base),
     route53: new Route53Client(base),
+    scheduler: new SchedulerClient(base),
     dsql: new DSQLClient(base),
     sts: new STSClient(base),
   };
@@ -173,3 +176,4 @@ export const apiGateway = awsClients.apiGateway;
 export const cloudformation = awsClients.cloudformation;
 export const cognito = awsClients.cognito;
 export const kinesis = awsClients.kinesis;
+export const scheduler = awsClients.scheduler;

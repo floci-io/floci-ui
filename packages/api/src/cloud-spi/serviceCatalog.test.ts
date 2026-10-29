@@ -75,6 +75,15 @@ describe('SERVICE_CATALOG', () => {
         expect(displayNameFor(streams, 'oci')).toBe('Streaming')
     })
 
+    test('labels AWS Scheduler on the neutral scheduler category', () => {
+        const scheduler = catalogEntry('scheduler')!
+
+        expect(scheduler.group).toBe('Integration')
+        expect(scheduler.displayName).toBe('Scheduler')
+        expect(displayNameFor(scheduler, 'aws')).toBe('EventBridge Scheduler')
+        expect(displayNameFor(scheduler, 'gcp')).toBe('Cloud Scheduler')
+    })
+
     test('places CloudWatch after Logs in Observability', () => {
         const cloudwatch = catalogEntry('cloudwatch')!
         expect(cloudwatch.group).toBe('Observability')

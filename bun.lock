@@ -32,6 +32,7 @@
         "@aws-sdk/client-route-53": "3.1146.0",
         "@aws-sdk/client-s3": "^3.1141.0",
         "@aws-sdk/client-sagemaker": "^3.1140.0",
+        "@aws-sdk/client-scheduler": "3.1146.0",
         "@aws-sdk/client-secrets-manager": "^3.1140.0",
         "@aws-sdk/client-sfn": "^3.1140.0",
         "@aws-sdk/client-sns": "3.1141.0",
@@ -153,6 +154,8 @@
     "@aws-sdk/client-s3": ["@aws-sdk/client-s3@3.1146.0", "", { "dependencies": { "@aws-sdk/checksums": "^3.1001.1", "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/middleware-sdk-s3": "^3.972.77", "@aws-sdk/signature-v4-multi-region": "^3.996.47", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-WY0YCBzxc4muFfY6UbGpA+oib0nGT/Px2aEPGYX7pp1la2OmDLChnK81mu8H7LdYvwGU1pLAsLIa/qgad0Wd7g=="],
 
     "@aws-sdk/client-sagemaker": ["@aws-sdk/client-sagemaker@3.1146.0", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-BbsDqDQ6w/NAVG2bBf0ypYpbJYTu4rB613GPU+DQU7DYA5eDC0ygqk5o9pk91hjedhWbtxELtoeNIJxs7AYaNw=="],
+
+    "@aws-sdk/client-scheduler": ["@aws-sdk/client-scheduler@3.1146.0", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-/KcEsYx9RR40bHley1cukoYW5o+sPV0g3IQg1i+Pr1HypGh0yj2XCQnWvDJldr4F9Rmsu5sCsmOq5h4z9n5b2A=="],
 
     "@aws-sdk/client-secrets-manager": ["@aws-sdk/client-secrets-manager@3.1146.0", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-xNEA3vhaWUO7d2PQcKepyHwlTJAIPF8bJako7XK5kQOVekMHrS10RaoXONot8y9/CDRHYsqoAWP37er5+Wsc4w=="],
 

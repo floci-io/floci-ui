@@ -82,6 +82,9 @@ importers:
       '@aws-sdk/client-sagemaker':
         specifier: ^3.1140.0
         version: 3.1146.0
+      '@aws-sdk/client-scheduler':
+        specifier: 3.1146.0
+        version: 3.1146.0
       '@aws-sdk/client-secrets-manager':
         specifier: ^3.1140.0
         version: 3.1146.0
@@ -355,6 +358,10 @@ packages:
 
   '@aws-sdk/client-sagemaker@3.1146.0':
     resolution: {integrity: sha512-BbsDqDQ6w/NAVG2bBf0ypYpbJYTu4rB613GPU+DQU7DYA5eDC0ygqk5o9pk91hjedhWbtxELtoeNIJxs7AYaNw==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-scheduler@3.1146.0':
+    resolution: {integrity: sha512-/KcEsYx9RR40bHley1cukoYW5o+sPV0g3IQg1i+Pr1HypGh0yj2XCQnWvDJldr4F9Rmsu5sCsmOq5h4z9n5b2A==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-secrets-manager@3.1146.0':
@@ -3095,6 +3102,17 @@ snapshots:
       '@aws-sdk/credential-provider-node': 3.972.84
       '@aws-sdk/types': 3.974.6
       '@smithy/core': 3.35.0
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.12.1
+      '@smithy/types': 4.19.0
+      tslib: 2.8.1
+
+  '@aws-sdk/client-scheduler@3.1146.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.1
+      '@aws-sdk/credential-provider-node': 3.972.85
+      '@aws-sdk/types': 3.974.6
+      '@smithy/core': 3.35.1
       '@smithy/fetch-http-handler': 5.8.0
       '@smithy/node-http-handler': 4.12.1
       '@smithy/types': 4.19.0
