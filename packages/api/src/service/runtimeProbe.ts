@@ -1,8 +1,9 @@
-import {RuntimeUnavailableError} from '../cloud-spi/errors'
 import type {CloudProvider} from '../cloud-spi/types'
-import {azure, azureEndpoint} from '../azure'
+import {azureEndpoint} from '../azure'
 import {gcp, gcpEndpoint} from '../gcp'
 import {oci, ociEndpoint} from '../oci'
+import {cloudEndpoint} from './endpoints'
+import {probeFlociHealth} from './flociHealth'
 
 /**
  * Liveness probes per runtime.
@@ -17,10 +18,8 @@ export type RuntimeProbe = () => Promise<void>
 export const runtimeProbes: Record<CloudProvider, RuntimeProbe> = {
     // Every runtime exposes a health endpoint, but under its own path: core and
     // Floci-AZ use /_floci/health, Floci-GCP and Floci-OCI use /_floci-<cloud>/health.
-    aws: () => probeHttp(`${awsEndpoint()}/_floci/health`, 'Floci core'),
-    azure: async () => {
-        await azure.fetch('/_floci/health', {method: 'GET'})
-    },
+    aws: () => probeFlociHealth({endpoint: awsEndpoint(), path: '/_floci/health', label: 'Floci core', rejectClientErrors: false}),
+    azure: () => probeFlociHealth({endpoint: azureEndpoint(), path: '/_floci/health', label: 'Floci-AZ', rejectClientErrors: true}),
     gcp: () => gcp.health(),
     oci: () => oci.health(),
 }
@@ -34,17 +33,5 @@ export function endpointFor(cloud: CloudProvider): string | null {
 }
 
 export function awsEndpoint(): string {
-    return process.env.FLOCI_ENDPOINT ?? 'http://localhost:4566'
-}
-
-async function probeHttp(endpoint: string, label: string): Promise<void> {
-    let res: Response
-    try {
-        res = await globalThis.fetch(endpoint, {method: 'GET'})
-    } catch (error) {
-        throw new RuntimeUnavailableError(`Cannot reach ${label} at ${endpoint}`, {cause: error})
-    }
-    if (res.status >= 500) {
-        throw new RuntimeUnavailableError(`${label} at ${endpoint} returned HTTP ${res.status}`)
-    }
+    return cloudEndpoint('aws')
 }

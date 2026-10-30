@@ -1,4 +1,4 @@
-import {azure, type AzureRuntimeClient} from '../azure'
+import {azure, azureLocationIn, type AzureRuntimeClient} from '../azure'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     AZURE_LOCATIONS,
@@ -124,7 +124,7 @@ export class AzureComputeAdapter implements CloudServiceAdapter {
             Object.keys(AZURE_VM_IMAGES) as Array<keyof typeof AZURE_VM_IMAGES>,
             'image',
         )
-        const location = optionalOneOf(input.values.location, AZURE_LOCATIONS, 'location') ?? 'eastus'
+        const location = optionalOneOf(input.values.location, AZURE_LOCATIONS, 'location') ?? azureLocationIn(AZURE_LOCATIONS)
         const adminUsername = optionalString(input.values.adminUsername, 'adminUsername') ?? 'azureuser'
 
         const resourceGroup = await this.resolveResourceGroup(requestedGroup)

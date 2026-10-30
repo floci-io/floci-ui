@@ -1,5 +1,6 @@
 import {
     azure,
+    azureLocation,
     azureResourceGroup,
     type AzureRuntimeClient,
     azureSubscriptionId,
@@ -83,7 +84,7 @@ export class AzurePostgresAdapter implements CloudServiceAdapter {
     ) {}
 
     schema(): ServiceSchema {
-        return azureDatabaseSchema()
+        return azureDatabaseSchema(azureLocation())
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
@@ -99,7 +100,7 @@ export class AzurePostgresAdapter implements CloudServiceAdapter {
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
         const serverName = stringValue(input.values.serverName)
-        const location = stringValue(input.values.location) || 'eastus'
+        const location = stringValue(input.values.location) || azureLocation()
         const administratorLogin = stringValue(input.values.administratorLogin)
         const administratorLoginPassword = stringValue(input.values.administratorLoginPassword)
 

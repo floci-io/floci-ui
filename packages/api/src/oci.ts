@@ -1,4 +1,6 @@
 import {RuntimeUnavailableError, httpStatusToCloudError} from './cloud-spi/errors'
+import {cloudEndpoint} from './service/endpoints'
+import {probeFlociHealth} from './service/flociHealth'
 
 /** Floci-OCI's health endpoint; like Floci-GCP it does not answer `/_floci/health`. */
 const OCI_HEALTH_PATH = '/_floci-oci/health'
@@ -102,25 +104,13 @@ export class OciRestRuntimeClient implements OciRuntimeClient {
     }
 
     async health(): Promise<void> {
-        const url = `${this.endpoint}${OCI_HEALTH_PATH}`
-        let res: Response
-        try {
-            res = await globalThis.fetch(url, {method: 'GET'})
-        } catch (error) {
-            throw new RuntimeUnavailableError(
-                `Cannot reach Floci-OCI at ${this.endpoint}: ${errorMessage(error)}`,
-                {cause: error},
-            )
-        }
-        // Any non-2xx counts: a 404 here means the endpoint is not Floci-OCI.
-        if (!res.ok) {
-            throw new RuntimeUnavailableError(`Floci-OCI at ${this.endpoint} returned HTTP ${res.status}`)
-        }
+        // A 4xx counts too: a 404 here means the endpoint is not Floci-OCI.
+        await probeFlociHealth({endpoint: this.endpoint, path: OCI_HEALTH_PATH, label: 'Floci-OCI', rejectClientErrors: true})
     }
 }
 
 export function ociEndpoint(): string {
-    return process.env.FLOCI_OCI_ENDPOINT ?? 'http://localhost:4599'
+    return cloudEndpoint('oci')
 }
 
 /** Floci-OCI's built-in default tenancy, which is also the root compartment. */

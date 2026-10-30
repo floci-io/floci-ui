@@ -84,7 +84,7 @@ export function azureNetworkingSchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Optional',
-                description: 'Defaults to eastus.',
+                description: "Defaults to the emulator's location, eastus unless it sets another.",
                 options: AZURE_VNET_LOCATIONS.map((value) => ({label: value, value})),
             },
             {

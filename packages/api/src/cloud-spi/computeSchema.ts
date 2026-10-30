@@ -165,7 +165,7 @@ export function azureComputeSchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Optional',
-                description: "The VM's own location. Defaults to eastus.",
+                description: "The VM's own location. Defaults to the emulator's location, eastus unless it sets another.",
                 options: AZURE_LOCATIONS.map((value) => ({label: value, value})),
             },
             {

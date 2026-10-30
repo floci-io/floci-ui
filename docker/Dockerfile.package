@@ -20,4 +20,11 @@ COPY public/ ./public/
 ENV PORT=4500
 EXPOSE 4500
 
+# Floci Console Contract v2: emulators that start this console as a sidecar read these.
+LABEL io.floci.console.contract="2" \
+      io.floci.console.name="Floci UI" \
+      io.floci.console.port="4500" \
+      io.floci.console.health-path="/api/health" \
+      io.floci.console.clouds="aws,az,gcp,oci"
+
 CMD ["./server"]

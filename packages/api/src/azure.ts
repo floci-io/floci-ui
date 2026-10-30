@@ -1,4 +1,6 @@
 import {RuntimeUnavailableError, httpStatusToCloudError} from './cloud-spi/errors'
+import {cloudEndpoint} from './service/endpoints'
+import {manifestDefault} from './service/emulatorManifest'
 
 export interface AzureRuntimeFetchOptions {
     emptyOnNotFound?: boolean
@@ -16,8 +18,13 @@ export interface AzureRuntimeClient {
 export class AzureRestRuntimeClient implements AzureRuntimeClient {
     constructor(
         readonly endpoint: string = azureEndpoint(),
-        readonly accountName: string = azureAccountName(),
+        private readonly configuredAccountName?: string,
     ) {}
+
+    /** Read per call, so a storage account the emulator's manifest declares after startup still applies. */
+    get accountName(): string {
+        return this.configuredAccountName ?? azureAccountName()
+    }
 
     async fetch(path: string, init: RequestInit, options: AzureRuntimeFetchOptions = {}): Promise<Response | null> {
         let res: Response
@@ -52,15 +59,28 @@ export class AzureRestRuntimeClient implements AzureRuntimeClient {
 }
 
 export function azureEndpoint(): string {
-    return process.env.FLOCI_AZURE_ENDPOINT ?? process.env.FLOCI_AZ_ENDPOINT ?? 'http://localhost:4577'
+    return cloudEndpoint('azure')
 }
 
 export function azureAccountName(): string {
-    return process.env.FLOCI_AZURE_ACCOUNT_NAME ?? 'devstoreaccount1'
+    return process.env.FLOCI_AZURE_ACCOUNT_NAME ?? manifestDefault('azure', 'storage_account') ?? 'devstoreaccount1'
 }
 
 export function azureSubscriptionId(): string {
-    return process.env.FLOCI_AZURE_SUBSCRIPTION_ID ?? '00000000-0000-0000-0000-000000000000'
+    return process.env.FLOCI_AZURE_SUBSCRIPTION_ID
+        ?? manifestDefault('azure', 'subscription_id')
+        ?? '00000000-0000-0000-0000-000000000000'
+}
+
+/** The location new resources default to: FLOCI_AZURE_LOCATION, else the emulator's, else eastus. */
+export function azureLocation(): string {
+    return process.env.FLOCI_AZURE_LOCATION?.trim() || manifestDefault('azure', 'location') || 'eastus'
+}
+
+/** azureLocation() when it is one of `allowed`, else eastus, so a configured location never yields an invalid default. */
+export function azureLocationIn<T extends string>(allowed: readonly T[]): T {
+    const location = azureLocation()
+    return (allowed as readonly string[]).includes(location) ? location as T : 'eastus' as T
 }
 
 export function azureResourceGroup(): string {
