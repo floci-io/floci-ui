@@ -88,3 +88,91 @@ export function awsRegistrySchema(): ServiceSchema {
         columns: ecrColumns,
     }
 }
+
+/** Real ACR names: 5 to 50 alphanumerics. The local runtime accepts anything, so the check lives here. */
+export const ACR_NAME_PATTERN = '^[a-zA-Z0-9]{5,50}$'
+export const ACR_NAME_MESSAGE = 'Use 5 to 50 letters and digits, with no hyphens or other separators.'
+export const ACR_SKUS = ['Basic', 'Standard', 'Premium'] as const
+export const ACR_LOCATIONS = ['eastus', 'eastus2', 'westus', 'westus2', 'westeurope', 'northeurope'] as const
+
+/** The admin credentials are deliberately absent: the console never lists them. */
+const azureRegistryColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Registry'},
+    {name: 'loginServer', label: 'Login Server', path: 'metadata.loginServer', format: 'code', emptyText: '-'},
+    {name: 'sku', label: 'SKU', path: 'metadata.sku', format: 'badge', emptyText: '-'},
+    {name: 'status', label: 'State', format: 'badge'},
+    {name: 'adminUserEnabled', label: 'Admin User', path: 'metadata.adminUserEnabled', format: 'boolean', emptyText: '-'},
+    {name: 'region', label: 'Location'},
+    {name: 'createdAt', label: 'Created', format: 'datetime'},
+    {name: 'resourceGroup', label: 'Resource Group', path: 'metadata.resourceGroup'},
+]
+
+export function azureRegistrySchema(): ServiceSchema {
+    return {
+        cloud: 'azure',
+        service: 'registry',
+        displayName: 'Container Registry',
+        fields: [
+            {
+                name: 'name',
+                label: 'Registry Name',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                description: 'Globally unique. The name is checked for availability before the registry is created.',
+                validation: {pattern: ACR_NAME_PATTERN, minLength: 5, maxLength: 50, message: ACR_NAME_MESSAGE},
+            },
+            {
+                name: 'resourceGroup',
+                label: 'Resource Group',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                description: 'Must already exist. Every Azure resource lives in a resource group.',
+            },
+            {
+                name: 'sku',
+                label: 'SKU',
+                type: 'select',
+                required: false,
+                group: 'Optional',
+                defaultValue: 'Basic',
+                description: 'The local runtime accepts every tier and treats them alike.',
+                options: ACR_SKUS.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'location',
+                label: 'Location',
+                type: 'select',
+                required: false,
+                group: 'Optional',
+                description: 'Defaults to eastus.',
+                options: ACR_LOCATIONS.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'adminUserEnabled',
+                label: 'Admin User',
+                type: 'select',
+                required: false,
+                group: 'Optional',
+                defaultValue: 'false',
+                description: 'Issues admin credentials on the runtime. They are never shown in the console.',
+                options: [
+                    {label: 'Disabled', value: 'false'},
+                    {label: 'Enabled', value: 'true'},
+                ],
+            },
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List registries', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create registry', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete registry', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect registry', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+        filters: registryFilters,
+        columns: azureRegistryColumns,
+    }
+}

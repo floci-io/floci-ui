@@ -94,7 +94,7 @@ export const SERVICE_CATALOG = {
     },
     registry: {
         displayName: 'Container Registry',
-        displayNameByCloud: {aws: 'ECR'},
+        displayNameByCloud: {aws: 'ECR', azure: 'Container Registry'},
         description: 'Store and manage container images.',
         iconKey: 'registry',
         group: 'Compute',
