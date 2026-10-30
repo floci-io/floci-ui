@@ -1,4 +1,4 @@
-import {azure, type AzureRuntimeClient} from '../azure'
+import {azure, azureLocationIn, type AzureRuntimeClient} from '../azure'
 import {ConflictError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     AZURE_VNET_LOCATIONS,
@@ -140,7 +140,7 @@ export class AzureNetworkingAdapter implements CloudServiceAdapter {
         }
         const requestedGroup = requiredString(input.values.resourceGroup, 'resourceGroup')
         const addressPrefix = requiredCidr(input.values.addressPrefix, 'addressPrefix')
-        const location = optionalOneOf(input.values.location, AZURE_VNET_LOCATIONS, 'location') ?? 'eastus'
+        const location = optionalOneOf(input.values.location, AZURE_VNET_LOCATIONS, 'location') ?? azureLocationIn(AZURE_VNET_LOCATIONS)
         const subnet = optionalSubnet(input.values, addressPrefix)
 
         const resourceGroup = await this.resolveResourceGroup(requestedGroup)

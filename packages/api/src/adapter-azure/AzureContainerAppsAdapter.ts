@@ -1,4 +1,4 @@
-import {azure, type AzureRuntimeClient} from '../azure'
+import {azure, azureLocationIn, type AzureRuntimeClient} from '../azure'
 import {
     CONTAINER_APP_INGRESS_MODES,
     CONTAINER_APP_LOCATIONS,
@@ -171,7 +171,7 @@ export class AzureContainerAppsAdapter implements CloudServiceAdapter {
         if (!new RegExp(CONTAINER_APP_NAME_PATTERN).test(name)) {
             throw new ValidationError(`name is invalid. ${CONTAINER_APP_NAME_MESSAGE}`)
         }
-        const location = optionalOneOf(input.values.location, CONTAINER_APP_LOCATIONS, 'location') ?? 'eastus'
+        const location = optionalOneOf(input.values.location, CONTAINER_APP_LOCATIONS, 'location') ?? azureLocationIn(CONTAINER_APP_LOCATIONS)
         const resourceGroup = await this.resolveResourceGroup(requiredString(input.values.resourceGroup, 'resourceGroup'))
 
         if (resourceType === 'managedEnvironment') {

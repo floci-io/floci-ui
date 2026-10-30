@@ -228,7 +228,7 @@ export function azureContainersSchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Optional',
-                description: 'Defaults to eastus.',
+                description: "Defaults to the emulator's location, eastus unless it sets another.",
                 options: CONTAINER_APP_LOCATIONS.map((value) => ({label: value, value})),
             },
         ],

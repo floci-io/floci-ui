@@ -24,13 +24,19 @@ let warnedUnknown = false
 export function resolveScopedCloud(env: Record<string, string | undefined> = process.env): CloudProvider | null {
     const value = env.FLOCI_CLOUD?.trim().toLowerCase()
     if (!value) return null
-    // An own-key lookup: `FLOCI_CLOUD=constructor` must not resolve to Object's inherited constructor.
-    const cloud = Object.prototype.hasOwnProperty.call(FLOCI_CLOUD_IDS, value) ? FLOCI_CLOUD_IDS[value] : undefined
+    const cloud = cloudForEmulatorId(value)
     if (!cloud && !warnedUnknown) {
         warnedUnknown = true
         console.warn(`Ignoring FLOCI_CLOUD=${value}: expected aws, az, gcp or oci. Serving every cloud.`)
     }
     return cloud ?? null
+}
+
+/** The console's cloud for an emulator id (`az` is `azure`), or null for an id no emulator uses. */
+export function cloudForEmulatorId(id: string): CloudProvider | null {
+    const value = id.trim().toLowerCase()
+    // An own-key lookup: `constructor` must not resolve to Object's inherited constructor.
+    return Object.prototype.hasOwnProperty.call(FLOCI_CLOUD_IDS, value) ? FLOCI_CLOUD_IDS[value] : null
 }
 
 /** The cloud the console opens on: the scoped cloud, else AWS. */

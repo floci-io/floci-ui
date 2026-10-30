@@ -197,7 +197,7 @@ export function awsDatabaseSchema(): ServiceSchema {
     }
 }
 
-export function azureDatabaseSchema(): ServiceSchema {
+export function azureDatabaseSchema(defaultLocation = 'eastus'): ServiceSchema {
     return {
         cloud: 'azure',
         service: 'database',
@@ -231,7 +231,7 @@ export function azureDatabaseSchema(): ServiceSchema {
                 label: 'Location',
                 type: 'text',
                 required: true,
-                defaultValue: 'eastus',
+                defaultValue: defaultLocation,
             },
             {
                 name: 'administratorLogin',

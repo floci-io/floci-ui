@@ -190,11 +190,14 @@ Set in `packages/api/.env` (defaults shown).
 | Variable | Default |
 |---|---|
 | `FLOCI_CLOUD` | unset: a standalone console that serves every cloud and opens on AWS. An emulator that starts the console sets its own cloud (`aws`, `az`, `gcp` or `oci`), and the console then serves that cloud alone |
-| `FLOCI_ENDPOINT` | `http://localhost:4566` |
+| `FLOCI_ENDPOINT` | `http://localhost:4566`. The endpoint of the emulator named by `FLOCI_CLOUD`, or the AWS endpoint when `FLOCI_CLOUD` is unset. A cloud's own variable below wins over it |
+| `AWS_ENDPOINT_URL` | unset; the AWS endpoint when `FLOCI_ENDPOINT` does not name it |
 | `FLOCI_AZURE_ENDPOINT` | `http://localhost:4577` |
 | `FLOCI_GCP_ENDPOINT` | `http://localhost:4588` |
 | `FLOCI_OCI_ENDPOINT` | `http://localhost:4599` |
 | `FLOCI_AZURE_ACCOUNT_NAME` / `_SUBSCRIPTION_ID` / `_RESOURCE_GROUP` | `devstoreaccount1` / `00000000-0000-0000-0000-000000000000` / `floci-local` |
+| `FLOCI_AZURE_LOCATION` | `eastus`: the location new Azure resources default to |
+| `FLOCI_INFO_URL` | unset. The emulator's `/_floci/info` manifest; the console takes the defaults it declares (Azure storage account, subscription, location) for any variable left unset |
 | `FLOCI_GCP_PROJECT` / `_LOCATION` | `floci-local` / `us-central1` |
 | `FLOCI_OCI_REGION` | `us-ashburn-1` |
 | `FLOCI_OCI_TENANCY_ID` | Floci-OCI's built-in tenancy |
@@ -205,6 +208,14 @@ Set in `packages/api/.env` (defaults shown).
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4500` |
 
 `CORS_ALLOWED_ORIGINS` is a comma separated allow-list. It gates Secrets Manager and KMS encrypt, decrypt, sign, verify, rotate, and cancel-deletion routes. The bodyless key mutation routes also reject untrusted browser origins on the request itself. The console reaches the API same-origin and does not need an allow-list entry.
+
+### Started by an emulator
+
+An emulator can start the console as its sidecar (floci-az does, at `/_floci/ui`) under the Floci
+Console Contract v2: it sets `FLOCI_CLOUD`, `FLOCI_ENDPOINT` and `FLOCI_INFO_URL` plus its cloud's own
+variables, and polls `GET /api/health` until the console reports `{"status": "ok"}`. Scoped to a cloud,
+`ok` means that emulator answered, even when its own health reports a service problem; a standalone
+console always reports `ok`. The image declares the contract with `io.floci.console.*` labels.
 
 ### Remote hosts and reverse proxies
 

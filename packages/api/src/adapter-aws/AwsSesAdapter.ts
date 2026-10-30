@@ -1,6 +1,7 @@
 import {httpStatusToCloudError, NotSupportedError, RuntimeError, RuntimeUnavailableError} from '../cloud-spi/errors'
 import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
 import type {CloudResource, CloudServiceAdapter, CreateResourceInput, ResourceQuery, ServiceSchema} from '../cloud-spi/types'
+import {cloudEndpoint} from '../service/endpoints'
 import PostalMime, {type Address, type Email} from 'postal-mime'
 
 interface FlociSesMessage {
@@ -38,7 +39,7 @@ export class AwsSesAdapter implements CloudServiceAdapter {
     readonly service = 'email' as const
 
     constructor(
-        private readonly endpoint = process.env.FLOCI_ENDPOINT ?? 'http://localhost:4566',
+        private readonly endpoint = cloudEndpoint('aws'),
         private readonly fetcher: FetchLike = globalThis.fetch,
     ) {}
 

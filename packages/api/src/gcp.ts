@@ -1,4 +1,6 @@
 import {RuntimeUnavailableError, httpStatusToCloudError} from './cloud-spi/errors'
+import {cloudEndpoint} from './service/endpoints'
+import {probeFlociHealth} from './service/flociHealth'
 
 /** Floci-GCP's health endpoint; deliberately not the `/_floci/health` core uses. */
 const GCP_HEALTH_PATH = '/_floci-gcp/health'
@@ -70,24 +72,13 @@ export class GcpRestRuntimeClient implements GcpRuntimeClient {
      * core uses — `/` and `/_floci/health` both 404 on this runtime.
      */
     async health(): Promise<void> {
-        const url = `${this.endpoint}${GCP_HEALTH_PATH}`
-        let res: Response
-        try {
-            res = await globalThis.fetch(url, {method: 'GET'})
-        } catch (error) {
-            throw new RuntimeUnavailableError(
-                `Cannot reach Floci-GCP at ${this.endpoint}: ${errorMessage(error)}`,
-                {cause: error},
-            )
-        }
-        if (res.status >= 500) {
-            throw new RuntimeUnavailableError(`Floci-GCP at ${this.endpoint} returned HTTP ${res.status}`)
-        }
+        // Any non-5xx counts: an older runtime without this exact path still proves the process is up.
+        await probeFlociHealth({endpoint: this.endpoint, path: GCP_HEALTH_PATH, label: 'Floci-GCP', rejectClientErrors: false})
     }
 }
 
 export function gcpEndpoint(): string {
-    return process.env.FLOCI_GCP_ENDPOINT ?? process.env.FLOCI_GP_ENDPOINT ?? 'http://localhost:4588'
+    return cloudEndpoint('gcp')
 }
 
 export function gcpProject(): string {

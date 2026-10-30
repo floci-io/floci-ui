@@ -1,3 +1,4 @@
+import {azureLocation} from '../azure'
 import {azureDatabaseSchema} from '../cloud-spi/databaseSchema'
 import type {
     CloudResource,
@@ -33,7 +34,7 @@ export class AzureDatabaseAdapter implements CloudServiceAdapter {
     ) {}
 
     schema(): ServiceSchema {
-        return azureDatabaseSchema()
+        return azureDatabaseSchema(azureLocation())
     }
 
     // The two engines are independent resource groups. A deployment that runs only one of

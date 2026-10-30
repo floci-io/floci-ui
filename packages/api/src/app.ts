@@ -6,6 +6,7 @@ import eks from "./routes/eks";
 import ec2 from "./routes/ec2";
 import secretsmanager from "./routes/secretsmanager";
 import clouds from "./routes/clouds";
+import { createHealthRoutes } from "./routes/health";
 import { NotFoundError, toHttpError } from "./cloud-spi/errors";
 import type { CloudProvider } from "./cloud-spi/types";
 import { resolveScopedCloud } from "./service/defaultCloud";
@@ -22,6 +23,7 @@ export interface ApiBindings {
 export function createApiApp(
   cloudRoutes: Hono = clouds,
   scope: CloudProvider | null = resolveScopedCloud(),
+  healthRoutes: Hono = createHealthRoutes(undefined, scope),
 ) {
   const app = new Hono<{ Bindings: ApiBindings }>();
 
@@ -85,6 +87,8 @@ export function createApiApp(
   app.route("/api/ec2", ec2);
   app.route("/api/secretsmanager", secretsmanager);
   app.route("/api/clouds", cloudRoutes);
+  // Console Contract v2: what an emulator that starts this console polls.
+  app.route("/api/health", healthRoutes);
 
   // Serve static frontend files when public/ directory is present (production)
   app.use("*", serveStatic({ root: "./public" }));
