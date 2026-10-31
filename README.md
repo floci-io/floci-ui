@@ -128,7 +128,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Integration | Email | 👁 | – | – | – |
 | Integration | Scheduler | ✅ | – | ✅ | – |
 | Integration | Workflows | ✅ | – | – | – |
-| Provisioning | Infrastructure as Code | ✅ | – | – | – |
+| Provisioning | Infrastructure as Code | ✅ | 👁 | – | – |
 | Provisioning | Configuration | ✅ | ✅ | – | – |
 | Security | Identity | ✅ | ✅ | – | ✅ |
 | Security | Cognito | ✅ | – | – | – |
