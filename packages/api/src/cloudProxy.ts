@@ -46,6 +46,7 @@ import {AwsCloudWatchAdapter} from './adapter-aws/AwsCloudWatchAdapter'
 import {CloudProxyService} from './service/CloudProxyService'
 import {AzureServerlessAdapter} from './adapter-azure/AzureServerlessAdapter'
 import {AzureAppConfigAdapter} from './adapter-azure/AzureAppConfigAdapter'
+import {AzureDeploymentsAdapter} from './adapter-azure/AzureDeploymentsAdapter'
 import {AzureKeyVaultAdapter} from './adapter-azure/AzureKeyVaultAdapter'
 import {AzureKeyVaultCertificatesAdapter} from './adapter-azure/AzureKeyVaultCertificatesAdapter'
 import {AzureKeyVaultKeysAdapter} from './adapter-azure/AzureKeyVaultKeysAdapter'
@@ -161,6 +162,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AzureKeyVaultKeysAdapter(),
         new AzureKeyVaultCertificatesAdapter(),
         new AzureAppConfigAdapter(),
+        new AzureDeploymentsAdapter(),
     ])
 }
 

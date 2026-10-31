@@ -278,7 +278,7 @@ export const SERVICE_CATALOG = {
     },
     iac: {
         displayName: 'Infrastructure as Code',
-        displayNameByCloud: {aws: 'CloudFormation'},
+        displayNameByCloud: {aws: 'CloudFormation', azure: 'ARM Deployments'},
         description: 'Provision resources from infrastructure templates.',
         iconKey: 'iac',
         group: 'Provisioning',
