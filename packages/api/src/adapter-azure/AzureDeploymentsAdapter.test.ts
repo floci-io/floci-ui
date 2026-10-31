@@ -170,6 +170,39 @@ describe('AzureDeploymentsAdapter', () => {
         })
     })
 
+    test('inspect keeps nested error details at every level', async () => {
+        runtimeStub({
+            deployments: {
+                rg1: [deployment('bad', 'rg1', {
+                    provisioningState: 'Failed',
+                    error: {
+                        code: 'DeploymentFailed',
+                        message: 'At least one failed',
+                        details: [{
+                            code: 'ResourceDeploymentFailure',
+                            message: 'storage failed',
+                            target: '/a',
+                            details: [{code: 'AccountNameInvalid', message: 'bad name', target: '/b'}],
+                        }],
+                    },
+                })],
+            },
+        })
+
+        const resource = await adapter().get('rg1/bad')
+
+        expect(resource?.metadata.error).toEqual({
+            code: 'DeploymentFailed',
+            message: 'At least one failed',
+            details: [{
+                code: 'ResourceDeploymentFailure',
+                message: 'storage failed',
+                target: '/a',
+                details: [{code: 'AccountNameInvalid', message: 'bad name', target: '/b'}],
+            }],
+        })
+    })
+
     test('never copies the value of a secure parameter or output', async () => {
         runtimeStub({
             deployments: {

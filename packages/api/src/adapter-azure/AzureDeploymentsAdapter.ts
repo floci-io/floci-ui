@@ -210,7 +210,8 @@ function toError(error: ArmError): Record<string, unknown> {
     return {
         code: error.code,
         message: error.message,
-        details: (error.details ?? []).map((detail) => ({code: detail.code, message: detail.message, target: detail.target})),
+        target: error.target,
+        ...(error.details?.length ? {details: error.details.map(toError)} : {}),
     }
 }
 
