@@ -303,3 +303,141 @@ export function azureIdentitySchema(): ServiceSchema {
         columns: azureIdentityColumns,
     }
 }
+
+/**
+ * GCP IAM holds two kinds of resource here, scoped to the configured project:
+ * its service accounts and its custom roles.
+ */
+export const GCP_IDENTITY_KINDS = ['serviceAccounts', 'roles'] as const
+export type GcpIdentityKind = (typeof GCP_IDENTITY_KINDS)[number]
+
+export const GCP_IDENTITY_KIND_SINGULAR = {serviceAccounts: 'serviceAccount', roles: 'role'} as const
+
+/** 6 to 30 characters: a lowercase letter first, then lowercase letters, digits and hyphens, not ending in a hyphen. */
+export const GCP_ACCOUNT_ID_PATTERN = '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
+export const GCP_ACCOUNT_ID_MESSAGE =
+    '6 to 30 characters: lowercase letters, digits and hyphens, starting with a letter and not ending in a hyphen.'
+export const GCP_ROLE_ID_PATTERN = '^[A-Za-z0-9_.]{3,64}$'
+export const GCP_ROLE_ID_MESSAGE = '3 to 64 letters, digits, periods and underscores.'
+export const GCP_ACCOUNT_DISPLAY_NAME_MAX_LENGTH = 100
+export const GCP_ACCOUNT_DESCRIPTION_MAX_LENGTH = 256
+export const GCP_ROLE_STAGES = ['ALPHA', 'BETA', 'GA', 'DEPRECATED', 'DISABLED', 'EAP'] as const
+
+const gcpIdentityColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'type', label: 'Kind', format: 'badge'},
+    {name: 'status', label: 'State', format: 'badge'},
+    {name: 'displayName', label: 'Display Name', path: 'metadata.displayName', emptyText: '-'},
+    {name: 'email', label: 'Email', path: 'metadata.email', emptyText: '-'},
+    {name: 'createdAt', label: 'Created', format: 'datetime'},
+]
+
+/** `kind` is API-only today, for the same reason as the AWS IAM facet above. */
+const gcpIdentityFilters: FieldSchema[] = [
+    {name: 'search', label: 'Search', type: 'text', required: false},
+    {
+        name: 'kind',
+        label: 'Kind',
+        type: 'select',
+        required: false,
+        description: 'Leave unset to list service accounts and custom roles together.',
+        options: GCP_IDENTITY_KINDS.map((value) => ({label: value, value})),
+    },
+]
+
+const gcpIdentityResourceActions: CapabilitySchema<ResourceActionName>[] = [
+    {name: 'list', label: 'List service accounts and custom roles', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'create', label: 'Create', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'delete', label: 'Delete', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'inspect', label: 'Inspect', enabled: true, status: 'available', runtimeRequired: true},
+]
+
+export function gcpIdentitySchema(): ServiceSchema {
+    return {
+        cloud: 'gcp',
+        service: 'identity',
+        displayName: 'Cloud IAM',
+        fields: [
+            {
+                name: 'kind',
+                label: 'Kind',
+                type: 'select',
+                required: true,
+                group: 'Required',
+                defaultValue: 'serviceAccounts',
+                options: GCP_IDENTITY_KINDS.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'accountId',
+                label: 'Service Account ID',
+                type: 'text',
+                required: false,
+                requiredWhen: {field: 'kind', equals: 'serviceAccounts'},
+                visibleWhen: {field: 'kind', equals: 'serviceAccounts'},
+                group: 'Required',
+                description: 'Becomes the email prefix. It cannot be changed later.',
+                validation: {pattern: GCP_ACCOUNT_ID_PATTERN, minLength: 6, maxLength: 30, message: GCP_ACCOUNT_ID_MESSAGE},
+            },
+            {
+                name: 'displayName',
+                label: 'Display Name',
+                type: 'text',
+                required: false,
+                visibleWhen: {field: 'kind', equals: 'serviceAccounts'},
+                validation: {maxLength: GCP_ACCOUNT_DISPLAY_NAME_MAX_LENGTH},
+            },
+            {
+                name: 'roleId',
+                label: 'Role ID',
+                type: 'text',
+                required: false,
+                requiredWhen: {field: 'kind', equals: 'roles'},
+                visibleWhen: {field: 'kind', equals: 'roles'},
+                group: 'Required',
+                description: 'A deleted role keeps its ID reserved, so it cannot be created again.',
+                validation: {pattern: GCP_ROLE_ID_PATTERN, minLength: 3, maxLength: 64, message: GCP_ROLE_ID_MESSAGE},
+            },
+            {
+                name: 'title',
+                label: 'Title',
+                type: 'text',
+                required: false,
+                requiredWhen: {field: 'kind', equals: 'roles'},
+                visibleWhen: {field: 'kind', equals: 'roles'},
+                group: 'Required',
+                validation: {minLength: 1, maxLength: 100},
+            },
+            {
+                name: 'description',
+                label: 'Description',
+                type: 'text',
+                required: false,
+                validation: {maxLength: GCP_ACCOUNT_DESCRIPTION_MAX_LENGTH},
+            },
+            {
+                name: 'includedPermissions',
+                label: 'Permissions',
+                type: 'textarea',
+                required: false,
+                visibleWhen: {field: 'kind', equals: 'roles'},
+                span: true,
+                group: 'Roles only',
+                description: 'One permission per line, for example: storage.buckets.get',
+            },
+            {
+                name: 'stage',
+                label: 'Launch Stage',
+                type: 'select',
+                required: false,
+                visibleWhen: {field: 'kind', equals: 'roles'},
+                group: 'Roles only',
+                defaultValue: 'GA',
+                options: GCP_ROLE_STAGES.map((value) => ({label: value, value})),
+            },
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {resourceActions: gcpIdentityResourceActions},
+        filters: gcpIdentityFilters,
+        columns: gcpIdentityColumns,
+    }
+}
