@@ -293,7 +293,7 @@ export function azureIdentitySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Optional',
-                description: "Defaults to the emulator's location, eastus unless it sets another.",
+                description: "Defaults to the console's configured location, eastus unless it sets another.",
                 options: AZURE_IDENTITY_LOCATIONS.map((value) => ({label: value, value})),
             },
         ],

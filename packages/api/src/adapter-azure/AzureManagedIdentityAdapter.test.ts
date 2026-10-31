@@ -57,7 +57,7 @@ function credential(name = 'github') {
 /** Routes each request to what the runtime answers for it, recording what was sent. */
 function runtimeStub(options: {identities?: unknown[]; credentials?: unknown[]; groups?: string[]} = {}) {
     const calls: Call[] = []
-    const identities = options.identities ?? [identity()]
+    const identities = [...(options.identities ?? [identity()])]
     const credentials = options.credentials ?? [credential()]
     const groups = options.groups ?? ['rg-id']
 
@@ -69,7 +69,12 @@ function runtimeStub(options: {identities?: unknown[]; credentials?: unknown[]; 
 
         if (path === '/subscriptions') return json({value: [{subscriptionId: SUB}]})
         if (path.includes('/resourceGroups?')) return json({value: groups.map((name) => ({name}))})
-        if (method === 'PUT') return json({}, 201)
+        if (method === 'PUT') {
+            const name = path.split('/userAssignedIdentities/')[1].split('?')[0]
+            const saved = {...identity(name), location: (JSON.parse(String(init?.body)) as {location: string}).location}
+            identities.push(saved)
+            return json(saved, 201)
+        }
         if (method === 'DELETE') return new Response(null, {status: 204})
         if (path.includes('/providers/Microsoft.ManagedIdentity/userAssignedIdentities?')) return json({value: identities})
         const found = identities.find((item) => path.includes(`/userAssignedIdentities/${(item as {name: string}).name}`))
@@ -138,7 +143,7 @@ describe('AzureManagedIdentityAdapter list and get', () => {
 
 describe('AzureManagedIdentityAdapter create and delete', () => {
     test('creates through a PUT and reads it back', async () => {
-        const calls = runtimeStub()
+        const calls = runtimeStub({identities: []})
         const created = await adapter().create({values: {name: 'app-identity', resourceGroup: 'RG-ID', location: 'westus'}})
 
         const put = calls.find((call) => call.method === 'PUT')
@@ -147,12 +152,21 @@ describe('AzureManagedIdentityAdapter create and delete', () => {
         )
         expect(put?.body).toEqual({location: 'westus'})
         expect(created.id).toBe('rg-id/app-identity')
+        expect(created.region).toBe('westus')
     })
 
-    test('omits location when none is given so the runtime default applies', async () => {
-        const calls = runtimeStub()
-        await adapter().create({values: {name: 'app-identity', resourceGroup: 'rg-id'}})
-        expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({})
+    test('falls back to the console location when none is given', async () => {
+        const original = process.env.FLOCI_AZURE_LOCATION
+        process.env.FLOCI_AZURE_LOCATION = 'westus'
+        try {
+            const calls = runtimeStub({identities: []})
+            const created = await adapter().create({values: {name: 'app-identity', resourceGroup: 'rg-id'}})
+            expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({location: 'westus'})
+            expect(created.region).toBe('westus')
+        } finally {
+            if (original === undefined) delete process.env.FLOCI_AZURE_LOCATION
+            else process.env.FLOCI_AZURE_LOCATION = original
+        }
     })
 
     test('rejects an invalid name, location and missing fields', async () => {

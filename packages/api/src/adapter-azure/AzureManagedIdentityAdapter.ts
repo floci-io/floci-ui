@@ -1,4 +1,4 @@
-import {azure, type AzureRuntimeClient} from '../azure'
+import {azure, azureLocationIn, type AzureRuntimeClient} from '../azure'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {AZURE_IDENTITY_LOCATIONS, AZURE_IDENTITY_NAME_MESSAGE, AZURE_IDENTITY_NAME_PATTERN, azureIdentitySchema} from '../cloud-spi/iamSchema'
 import type {
@@ -85,14 +85,14 @@ export class AzureManagedIdentityAdapter implements CloudServiceAdapter {
         if (!new RegExp(AZURE_IDENTITY_NAME_PATTERN).test(name)) {
             throw new ValidationError(`name is invalid. ${AZURE_IDENTITY_NAME_MESSAGE}`)
         }
-        const location = optionalLocation(input.values.location)
+        const location = optionalLocation(input.values.location) ?? azureLocationIn(AZURE_IDENTITY_LOCATIONS)
         const resourceGroup = await this.resolveResourceGroup(requiredString(input.values.resourceGroup, 'resourceGroup'))
 
         const path = await this.identityPath(resourceGroup, name)
         await this.json(`${path}?api-version=${API_VERSION}`, {
             method: 'PUT',
             headers: {'content-type': 'application/json'},
-            body: JSON.stringify(location ? {location} : {}),
+            body: JSON.stringify({location}),
         })
 
         const created = await this.get(`${resourceGroup}/${name}`)
