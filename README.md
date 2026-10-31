@@ -130,7 +130,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Integration | Workflows | ✅ | – | – | – |
 | Provisioning | Infrastructure as Code | ✅ | 👁 | – | – |
 | Provisioning | Configuration | ✅ | ✅ | – | – |
-| Security | Identity | ✅ | – | – | ✅ |
+| Security | Identity | ✅ | ✅ | – | ✅ |
 | Security | Cognito | ✅ | – | – | – |
 | Security | Secrets Manager | ✅ | ✅ | ✅ | ✅ |
 | Security | Key Management | ✅ | ✅ | 👁 | ✅ |
