@@ -184,7 +184,7 @@ describe('GcpManagedKafkaAdapter', () => {
             json({response: cluster('k1'), done: true, name: 'projects/floci-local/locations/us-central1/operations/op1'}),
         )
 
-        const created = await adapter().create({values: {resourceType: 'cluster', name: 'k1'}})
+        const created = await adapter().create({values: {resourceType: 'cluster', clusterName: 'k1'}})
 
         expect(calls).toEqual([{path: `${CLUSTERS}?clusterId=k1`, method: 'POST', body: {}}])
         expect(created).toMatchObject({id: 'k1', type: 'cluster', status: 'ACTIVE'})
@@ -196,7 +196,7 @@ describe('GcpManagedKafkaAdapter', () => {
             return json(cluster('k1'))
         })
 
-        const created = await adapter().create({values: {resourceType: 'cluster', name: 'k1'}})
+        const created = await adapter().create({values: {resourceType: 'cluster', clusterName: 'k1'}})
 
         expect(created.id).toBe('k1')
         expect(calls.map((call) => call.method)).toEqual(['POST', 'GET'])
@@ -206,7 +206,7 @@ describe('GcpManagedKafkaAdapter', () => {
         const calls = stubFetch(() => json(topic('orders', 'k1')))
 
         const created = await adapter().create({
-            values: {resourceType: 'topic', cluster: 'k1', name: 'orders', partitionCount: '3', replicationFactor: ''},
+            values: {resourceType: 'topic', cluster: 'k1', topicName: 'orders', partitionCount: '3', replicationFactor: ''},
         })
 
         expect(calls).toEqual([{path: `${CLUSTERS}/k1/topics?topicId=orders`, method: 'POST', body: {partitionCount: 3}}])
@@ -217,17 +217,17 @@ describe('GcpManagedKafkaAdapter', () => {
         const calls = stubFetch(() => json({}))
         const create = (values: Record<string, unknown>) => adapter().create({values})
 
-        await expect(create({resourceType: 'broker', name: 'x'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(create({resourceType: 'cluster', name: 'BAD_ID'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(create({resourceType: 'cluster', name: '1abc'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(create({resourceType: 'cluster', name: 'a'.repeat(64)})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'broker', topicName: 'x'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'cluster', clusterName: 'BAD_ID'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'cluster', clusterName: '1abc'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'cluster', clusterName: 'a'.repeat(64)})).rejects.toBeInstanceOf(ValidationError)
         await expect(create({resourceType: 'cluster'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(create({resourceType: 'topic', name: 'orders'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(create({resourceType: 'topic', cluster: 'k1', name: 'Bad Name'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(create({resourceType: 'topic', cluster: 'k1', name: '..'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(create({resourceType: 'topic', cluster: 'k1', name: 'a/b'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(create({resourceType: 'topic', cluster: 'k1', name: 'ok', partitionCount: '0'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(create({resourceType: 'topic', cluster: 'k1', name: 'ok', replicationFactor: '1.5'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'topic', topicName: 'orders'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'topic', cluster: 'k1', topicName: 'Bad Name'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'topic', cluster: 'k1', topicName: '..'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'topic', cluster: 'k1', topicName: 'a/b'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'topic', cluster: 'k1', topicName: 'ok', partitionCount: '0'})).rejects.toBeInstanceOf(ValidationError)
+        await expect(create({resourceType: 'topic', cluster: 'k1', topicName: 'ok', replicationFactor: '1.5'})).rejects.toBeInstanceOf(ValidationError)
         expect(calls).toEqual([])
     })
 
@@ -239,10 +239,10 @@ describe('GcpManagedKafkaAdapter', () => {
         )
 
         await expect(
-            adapter().create({values: {resourceType: 'topic', cluster: 'k1', name: 'orders'}}),
+            adapter().create({values: {resourceType: 'topic', cluster: 'k1', topicName: 'orders'}}),
         ).rejects.toBeInstanceOf(ConflictError)
         await expect(
-            adapter().create({values: {resourceType: 'topic', cluster: 'nope', name: 'orders'}}),
+            adapter().create({values: {resourceType: 'topic', cluster: 'nope', topicName: 'orders'}}),
         ).rejects.toBeInstanceOf(NotFoundError)
     })
 

@@ -126,7 +126,7 @@ export class GcpManagedKafkaAdapter implements CloudServiceAdapter {
         const resourceType = oneOf(input.values.resourceType, GCP_KAFKA_RESOURCE_TYPES, 'resourceType')
 
         if (resourceType === 'cluster') {
-            const clusterId = clusterIdOf(input.values.name, 'name')
+            const clusterId = clusterIdOf(input.values.clusterName, 'clusterName')
             const result = await this.client.json<GcpOperationEnvelope<KafkaCluster> | KafkaCluster>(
                 `${this.clustersPath()}?clusterId=${encodeURIComponent(clusterId)}`,
                 {method: 'POST', headers: JSON_HEADERS, body: '{}'},
@@ -140,7 +140,7 @@ export class GcpManagedKafkaAdapter implements CloudServiceAdapter {
         }
 
         const cluster = clusterIdOf(input.values.cluster, 'cluster')
-        const topicId = topicIdOf(input.values.name, 'name')
+        const topicId = topicIdOf(input.values.topicName, 'topicName')
         const body: Record<string, number> = {}
         const partitionCount = positiveInteger(input.values.partitionCount, 'partitionCount')
         const replicationFactor = positiveInteger(input.values.replicationFactor, 'replicationFactor')
