@@ -123,7 +123,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Integration | API Gateway | ✅ | – | – | – |
 | Integration | SNS | ✅ | – | – | – |
 | Integration | Queue Storage | – | ✅ | – | – |
-| Integration | Streams | ✅ | ✅ | – | ✅ |
+| Integration | Streams | ✅ | ✅ | ✅ | ✅ |
 | Integration | Events | ✅ | – | – | – |
 | Integration | Email | 👁 | – | – | – |
 | Integration | Scheduler | ✅ | – | ✅ | – |

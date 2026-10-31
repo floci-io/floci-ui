@@ -134,3 +134,102 @@ export function ociStreamingSchema(): ServiceSchema {
         columns: ociStreamColumns,
     }
 }
+
+export const GCP_KAFKA_RESOURCE_TYPES = ['cluster', 'topic'] as const
+
+/** Managed Kafka cluster ids: 1-63 lowercase letters, numbers or hyphens, starting with a letter. */
+export const GCP_KAFKA_CLUSTER_ID_PATTERN = '^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$'
+export const GCP_KAFKA_CLUSTER_ID_MESSAGE =
+    'Use 1-63 lowercase letters, numbers, or hyphens, starting with a letter and not ending in a hyphen.'
+
+/** Kafka topic names: 1-249 letters, numbers, dots, underscores or hyphens. */
+export const GCP_KAFKA_TOPIC_ID_PATTERN = '^[A-Za-z0-9._-]{1,249}$'
+export const GCP_KAFKA_TOPIC_ID_MESSAGE = 'Use 1-249 letters, numbers, dots, underscores, or hyphens.'
+
+/**
+ * Clusters and their topics share one table, told apart by `Kind`: a topic cannot
+ * exist without a cluster, and the cluster column ties each topic to its parent.
+ */
+const gcpKafkaColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'kind', label: 'Kind', path: 'type', format: 'badge'},
+    {name: 'status', label: 'State', format: 'badge', emptyText: '—'},
+    {name: 'cluster', label: 'Cluster', path: 'metadata.cluster', emptyText: '—'},
+    {name: 'bootstrapAddress', label: 'Bootstrap Address', path: 'metadata.bootstrapAddress', format: 'code', emptyText: '—'},
+    {name: 'partitions', label: 'Partitions', path: 'metadata.partitionCount', emptyText: '—'},
+    {name: 'createdAt', label: 'Created', format: 'datetime'},
+]
+
+/**
+ * Produce and consume stay out, in line with the open decision on cursor based
+ * streams. Cluster capacity and network are not offered: the local runtime fixes
+ * them and rejects a create body that sets them.
+ */
+export function gcpManagedKafkaSchema(): ServiceSchema {
+    return {
+        cloud: 'gcp',
+        service: 'streams',
+        displayName: 'Managed Kafka',
+        fields: [
+            {
+                name: 'resourceType',
+                label: 'Resource Type',
+                type: 'select',
+                required: true,
+                defaultValue: 'topic',
+                description: 'A topic lives in a cluster, so create a cluster first.',
+                options: [
+                    {label: 'Topic', value: 'topic'},
+                    {label: 'Cluster', value: 'cluster'},
+                ],
+            },
+            {
+                name: 'name',
+                label: 'Name',
+                type: 'text',
+                required: true,
+                description: 'Cluster ids are lowercase; topic names also allow capitals, dots and underscores.',
+                validation: {minLength: 1, maxLength: 249, pattern: GCP_KAFKA_TOPIC_ID_PATTERN, message: GCP_KAFKA_TOPIC_ID_MESSAGE},
+            },
+            {
+                name: 'cluster',
+                label: 'Cluster',
+                type: 'text',
+                required: false,
+                requiredWhen: {field: 'resourceType', equals: 'topic'},
+                visibleWhen: {field: 'resourceType', equals: 'topic'},
+                description: 'Id of an existing cluster in this location.',
+                validation: {minLength: 1, maxLength: 63, pattern: GCP_KAFKA_CLUSTER_ID_PATTERN, message: GCP_KAFKA_CLUSTER_ID_MESSAGE},
+            },
+            {
+                name: 'partitionCount',
+                label: 'Partitions',
+                type: 'text',
+                required: false,
+                visibleWhen: {field: 'resourceType', equals: 'topic'},
+                description: 'Defaults to 1.',
+                validation: {pattern: '^[1-9][0-9]*$', message: 'Partitions must be a positive whole number.'},
+            },
+            {
+                name: 'replicationFactor',
+                label: 'Replication Factor',
+                type: 'text',
+                required: false,
+                visibleWhen: {field: 'resourceType', equals: 'topic'},
+                description: 'Defaults to 1.',
+                validation: {pattern: '^[1-9][0-9]*$', message: 'Replication factor must be a positive whole number.'},
+            },
+        ],
+        actions: ['list', 'create', 'inspect', 'delete'],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List clusters and topics', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create cluster or topic', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect cluster or topic', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete cluster or topic', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+        filters: streamFilters,
+        columns: gcpKafkaColumns,
+    }
+}
