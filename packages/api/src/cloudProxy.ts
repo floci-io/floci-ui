@@ -49,6 +49,7 @@ import {AzureAppConfigAdapter} from './adapter-azure/AzureAppConfigAdapter'
 import {AzureKeyVaultAdapter} from './adapter-azure/AzureKeyVaultAdapter'
 import {AzureKeyVaultCertificatesAdapter} from './adapter-azure/AzureKeyVaultCertificatesAdapter'
 import {AzureKeyVaultKeysAdapter} from './adapter-azure/AzureKeyVaultKeysAdapter'
+import {AzureManagedIdentityAdapter} from './adapter-azure/AzureManagedIdentityAdapter'
 import {AwsServerlessAdapter} from './adapter-aws/AwsServerlessAdapter'
 import {AwsParameterStoreAdapter} from './adapter-aws/AwsParameterStoreAdapter'
 import {AwsAcmAdapter} from './adapter-aws/AwsAcmAdapter'
@@ -161,6 +162,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AzureKeyVaultKeysAdapter(),
         new AzureKeyVaultCertificatesAdapter(),
         new AzureAppConfigAdapter(),
+        new AzureManagedIdentityAdapter(),
     ])
 }
 

@@ -236,3 +236,70 @@ export function ociIdentitySchema(): ServiceSchema {
         columns: ociIdentityColumns,
     }
 }
+
+/** Azure's naming rules for a user assigned identity: 3 to 128 letters, digits, hyphens and underscores. */
+export const AZURE_IDENTITY_NAME_PATTERN = '^[A-Za-z0-9][A-Za-z0-9_\\-]{2,127}$'
+export const AZURE_IDENTITY_NAME_MESSAGE =
+    '3 to 128 letters, digits, hyphens and underscores, starting with a letter or digit.'
+export const AZURE_IDENTITY_LOCATIONS = ['eastus', 'eastus2', 'westus', 'westus2', 'westeurope', 'northeurope'] as const
+
+const azureIdentityColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'resourceGroup', label: 'Resource Group', path: 'metadata.resourceGroup'},
+    {name: 'region', label: 'Location'},
+    {name: 'clientId', label: 'Client ID', path: 'metadata.clientId', format: 'code'},
+    {name: 'principalId', label: 'Principal ID', path: 'metadata.principalId', format: 'code'},
+]
+
+const azureIdentityFilters: FieldSchema[] = [{name: 'search', label: 'Search', type: 'text', required: false}]
+
+const azureIdentityResourceActions: CapabilitySchema<ResourceActionName>[] = [
+    {name: 'list', label: 'List managed identities', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'create', label: 'Create', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'delete', label: 'Delete', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'inspect', label: 'Inspect', enabled: true, status: 'available', runtimeRequired: true},
+]
+
+export function azureIdentitySchema(): ServiceSchema {
+    return {
+        cloud: 'azure',
+        service: 'identity',
+        displayName: 'Managed Identity',
+        fields: [
+            {
+                name: 'name',
+                label: 'Name',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                validation: {
+                    pattern: AZURE_IDENTITY_NAME_PATTERN,
+                    minLength: 3,
+                    maxLength: 128,
+                    message: AZURE_IDENTITY_NAME_MESSAGE,
+                },
+            },
+            {
+                name: 'resourceGroup',
+                label: 'Resource Group',
+                type: 'text',
+                required: true,
+                group: 'Required',
+                description: 'The resource group must already exist.',
+            },
+            {
+                name: 'location',
+                label: 'Location',
+                type: 'select',
+                required: false,
+                group: 'Optional',
+                description: "Defaults to the emulator's location, eastus unless it sets another.",
+                options: AZURE_IDENTITY_LOCATIONS.map((value) => ({label: value, value})),
+            },
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        capabilities: {resourceActions: azureIdentityResourceActions},
+        filters: azureIdentityFilters,
+        columns: azureIdentityColumns,
+    }
+}
