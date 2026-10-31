@@ -32,6 +32,7 @@ import {GcpLoggingAdapter} from './adapter-gcp/GcpLoggingAdapter'
 import {GcpFirestoreAdapter} from './adapter-gcp/GcpFirestoreAdapter'
 import {GcpNetworkingAdapter} from './adapter-gcp/GcpNetworkingAdapter'
 import {GcpKmsAdapter} from './adapter-gcp/GcpKmsAdapter'
+import {GcpManagedKafkaAdapter} from './adapter-gcp/GcpManagedKafkaAdapter'
 import {GcpIdentityAdapter} from './adapter-gcp/GcpIdentityAdapter'
 import {OciStorageAdapter} from './adapter-oci/OciStorageAdapter'
 import {OciIdentityAdapter} from './adapter-oci/OciIdentityAdapter'
@@ -148,6 +149,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new GcpFirestoreAdapter(),
         new GcpNetworkingAdapter(),
         new GcpKmsAdapter(),
+        new GcpManagedKafkaAdapter(),
         new GcpIdentityAdapter(),
         new OciStorageAdapter(),
         new OciIdentityAdapter(),
