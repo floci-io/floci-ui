@@ -262,6 +262,21 @@ describe('GcpIdentityAdapter', () => {
         expect(calls.some((call) => call.key.startsWith('DELETE'))).toBe(false)
     })
 
+    test('a role deleted by a concurrent request counts as deleted, a refused one still fails', async () => {
+        let reads = 0
+        runtimeStub({
+            [`GET ${ROLES}/raced`]: () => json(++reads === 1 ? role('raced') : role('raced', {deleted: true})),
+            [`DELETE ${ROLES}/raced`]: () => json({error: {code: 400, message: 'already deleted'}}, 400),
+        })
+        await adapter().delete('raced')
+
+        runtimeStub({
+            [`GET ${ROLES}/stuck`]: () => json(role('stuck')),
+            [`DELETE ${ROLES}/stuck`]: () => json({error: {code: 400, message: 'refused'}}, 400),
+        })
+        await expect(adapter().delete('stuck')).rejects.toBeInstanceOf(ValidationError)
+    })
+
     test('never requests service account keys and never copies key material', async () => {
         const calls = runtimeStub({
             [`GET ${ACCOUNTS}`]: () => json({accounts: [account('build-bot', {privateKeyData: 'c2VjcmV0', keys: [{privateKeyData: 'c2VjcmV0'}]})]}),

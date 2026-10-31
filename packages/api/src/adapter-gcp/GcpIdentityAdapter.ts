@@ -126,12 +126,19 @@ export class GcpIdentityAdapter implements CloudServiceAdapter {
     /**
      * Idempotent like the storage adapter: a resource that is already gone is not
      * an error. The runtime answers deleting a soft-deleted role with a 400, so a
-     * role is read first and left alone when it is already deleted.
+     * role is read first and left alone when it is already deleted. A concurrent
+     * delete can still win the race, so a refused role delete is read again and a
+     * role that is now gone counts as deleted.
      */
     async delete(id: string): Promise<void> {
         const kind = kindOf(id)
         if (kind === 'roles' && !(await this.get(id))) return
-        await this.client.fetch(this.itemPath(kind, id), {method: 'DELETE'}, {emptyOnNotFound: true})
+        try {
+            await this.client.fetch(this.itemPath(kind, id), {method: 'DELETE'}, {emptyOnNotFound: true})
+        } catch (error) {
+            if (kind === 'roles' && error instanceof ValidationError && !(await this.get(id))) return
+            throw error
+        }
     }
 
     private async createAccount(values: Record<string, unknown>): Promise<CloudResource> {
