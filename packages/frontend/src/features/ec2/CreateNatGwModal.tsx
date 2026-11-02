@@ -1,9 +1,13 @@
 import { useState } from 'react'
-import { Waypoints } from 'lucide-react'
+import {Icon, Waypoints} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import { useCreateNatGatewayMutation } from '@/api/aws/ec2.mutations'
 import { useEc2SubnetsQuery, useEc2ElasticIpsQuery } from '@/api/aws/ec2.queries'
 import type { Ec2NatGateway } from '@/api/aws/ec2.api'
 import { ModalOverlay } from '@/components/ModalOverlay'
+import {RadioGroup, RadioGroupOption} from '@/components/sodium/ui/radio-group'
 
 type Props = {
   onClose: () => void
@@ -47,16 +51,15 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="create-table-modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Waypoints size={14} /> Create NAT Gateway
+      <div className="create-table-modal w-130" onClick={(e) => e.stopPropagation()}>
+        <h2 className="flex items-center gap-1.5">
+          <Icon icon={Waypoints} size={14} /> Create NAT Gateway
         </h2>
 
         <div className="modal-section">
           <div className="field-row">
-            <label>Name <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional)</span></label>
-            <input aria-label="Name"
-              className="input"
+            <label>Name <span className="text-text-3 type-caption">(optional)</span></label>
+            <Input aria-label="Name"
               placeholder="my-nat-gateway"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -64,85 +67,69 @@ export function CreateNatGwModal({ onClose, onCreated }: Props) {
           </div>
 
           <div className="field-row">
-            <label>Subnet <span style={{ color: 'var(--status-error)' }}>*</span></label>
-            <select aria-label="Subnet"
-              className="input"
+            <label>Subnet <span className="text-fail-text">*</span></label>
+            <OptionSelect aria-label="Subnet"
               value={subnetId}
-              onChange={(e) => { setSubnetId(e.target.value); setErr('') }}
+              onValueChange={(value) => { setSubnetId(value); setErr('') }}
             >
-              <option value="">— select subnet —</option>
+              <option value="">, select subnet, </option>
               {subnets.map((s) => (
                 <option key={s.subnetId} value={s.subnetId}>
-                  {s.subnetId} — {s.cidrBlock} ({s.availabilityZone})
+                  {s.subnetId} , {s.cidrBlock} ({s.availabilityZone})
                 </option>
               ))}
-            </select>
+            </OptionSelect>
           </div>
         </div>
 
         <div className="modal-section">
           <p className="modal-section-title">Elastic IP</p>
 
-          <div className="field-row" style={{ alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="eipSource"
-                checked={eipSource === 'auto'}
-                onChange={() => { setEipSource('auto'); setAllocationId('') }}
-              />
-              Allocate new EIP automatically
-            </label>
-          </div>
-
-          <div className="field-row" style={{ alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="eipSource"
-                checked={eipSource === 'existing'}
-                onChange={() => setEipSource('existing')}
-              />
-              Use existing EIP
-            </label>
-          </div>
+          <RadioGroup
+            aria-label="Elastic IP source"
+            value={eipSource}
+            onValueChange={(next) => {
+              if (next === 'auto') { setEipSource('auto'); setAllocationId('') } else setEipSource('existing')
+            }}
+          >
+            <RadioGroupOption value="auto" label="Allocate new EIP automatically"/>
+            <RadioGroupOption value="existing" label="Use existing EIP"/>
+          </RadioGroup>
 
           {eipSource === 'existing' && (
-            <div className="field-row" style={{ marginTop: 4 }}>
+            <div className="field-row mt-1">
               <label>Allocation</label>
               {eipsQuery.isLoading ? (
-                <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</p>
+                <p className="type-caption text-text-3">Loading…</p>
               ) : freeEips.length === 0 ? (
-                <p style={{ fontSize: 12, color: 'var(--status-error)' }}>No unattached EIPs. Allocate one first.</p>
+                <p className="type-caption text-fail-text">No unattached EIPs. Allocate one first.</p>
               ) : (
-                <select aria-label="Elastic IP"
-                  className="input"
+                <OptionSelect aria-label="Elastic IP"
                   value={allocationId}
-                  onChange={(e) => { setAllocationId(e.target.value); setErr('') }}
+                  onValueChange={(value) => { setAllocationId(value); setErr('') }}
                 >
-                  <option value="">— select EIP —</option>
+                  <option value="">, select EIP, </option>
                   {freeEips.map((e) => (
                     <option key={e.allocationId} value={e.allocationId}>
                       {e.publicIp} ({e.allocationId})
                     </option>
                   ))}
-                </select>
+                </OptionSelect>
               )}
             </div>
           )}
 
-          {err && <p style={{ color: 'var(--status-error)', fontSize: 12, marginTop: 6 }}>{err}</p>}
+          {err && <p className="text-fail-text type-caption mt-1.5">{err}</p>}
         </div>
 
         <div className="modal-footer">
-          <button className="button" onClick={onClose}>Cancel</button>
-          <button
-            className="button primary"
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
             disabled={!subnetId || mutation.isPending}
             onClick={() => void handleCreate()}
           >
             {mutation.isPending ? 'Creating… (this may take ~15s)' : 'Create NAT Gateway'}
-          </button>
+          </Button>
         </div>
       </div>
     </ModalOverlay>

@@ -1,20 +1,9 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Activity,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Database,
-  HardDrive,
-  Loader2,
-  MessageSquare,
-  Plus,
-  RefreshCw,
-  Trash2,
-  X,
-  Zap,
-} from "lucide-react";
+import {Icon, Activity, CheckSquared as Check, ChevronDown, ChevronUp, DatabaseSquared as Database, HardDrive, Loader2, MessageSquare, PlusSquared as Plus, RefreshCwSquared as RefreshCw, Trash2, XSquared as X, ZapSquared as Zap} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import {
   createLambdaTrigger,
   deleteLambdaTrigger,
@@ -23,6 +12,8 @@ import {
 } from "@/api/cloudProxyClient";
 import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource, CreateLambdaTriggerInput, LambdaTrigger } from "@/types/resource";
+import {Checkbox} from '@/components/sodium/ui/checkbox'
+import {Hint} from '@/components/Hint'
 
 interface LambdaTriggerPanelProps {
   cloud: CloudProvider;
@@ -246,194 +237,127 @@ export function LambdaTriggerPanel({
   const triggers = triggersQuery.data ?? [];
 
   return (
-    <section className="inspector-section" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "14px", marginBottom: "14px" }}>
+    <section className="inspector-section border-b border-line pb-3.5 mb-3.5">
       <div
-        className="inspector-section-header"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "8px",
-          marginBottom: "10px",
-          minWidth: 0,
-        }}
+        className="inspector-section-header flex items-center justify-between gap-2 mb-2.5 min-w-0"
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-          <Zap size={15} style={{ color: "var(--accent)", flexShrink: 0 }} />
-          <p className="metric-label" style={{ margin: 0, fontWeight: 600, whiteSpace: "nowrap" }}>
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon icon={Zap} className="text-accent-text shrink-0"  />
+          <p className="metric-label m-0 whitespace-nowrap">
             Triggers ({triggers.length})
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-          <button
-            className="button compact"
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Hint label="Refresh triggers"><Button variant="secondary" size="sm"
+            className="shrink-0 inline-flex items-center justify-center"
             type="button"
-            title="Refresh triggers"
             disabled={triggersQuery.isFetching}
             onClick={() => triggersQuery.refetch()}
-            style={{
-              flexShrink: 0,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
           >
-            <RefreshCw size={12} className={triggersQuery.isFetching ? "spin" : ""} />
-          </button>
-          <button
-            className="button success compact"
+            <Icon icon={RefreshCw} size={14} className={triggersQuery.isFetching ? "spin" : ""} />
+          </Button></Hint>
+          <Button variant="secondary" size="sm"
+            className="success shrink-0 whitespace-nowrap inline-flex items-center gap-1.5"
             type="button"
-            style={{
-              flexShrink: 0,
-              whiteSpace: "nowrap",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "5px",
-            }}
             onClick={() => {
               setIsRegisterOpen((prev) => !prev);
               setFormError(null);
             }}
           >
-            <Plus size={13} style={{ flexShrink: 0 }} />
+            <Icon icon={Plus} className="shrink-0" size={14} />
             <span>{isRegisterOpen ? "Close Trigger Form" : "Register Trigger"}</span>
-            {isRegisterOpen ? <ChevronUp size={12} style={{ flexShrink: 0 }} /> : <ChevronDown size={12} style={{ flexShrink: 0 }} />}
-          </button>
+            {isRegisterOpen ? <Icon icon={ChevronUp} className="shrink-0" size={14} /> : <Icon icon={ChevronDown} className="shrink-0" size={14} />}
+          </Button>
           {onClose && (
-            <button
-              className="button compact"
+            <Hint label="Close trigger panel"><Button variant="secondary" size="sm"
+              className="ml-1 shrink-0 inline-flex items-center justify-center"
               type="button"
-              title="Close trigger panel"
               onClick={onClose}
-              style={{
-                marginLeft: "4px",
-                flexShrink: 0,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
             >
-              <X size={13} />
-            </button>
+              <Icon icon={X} size={14} />
+            </Button></Hint>
           )}
         </div>
       </div>
 
       {/* Registration Form */}
       {isRegisterOpen && (
-        <form
+        <form className="p-3 mb-3.5 flex flex-col gap-2.5 bg-well border border-line"
           onSubmit={handleRegisterSubmit}
-          style={{
-            background: "var(--raised)",
-            border: "1px solid var(--border)",
-            borderRadius: "6px",
-            padding: "12px",
-            marginBottom: "14px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-          }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "8px",
-              minWidth: 0,
-            }}
+          <div className="flex items-center justify-between gap-2 min-w-0"
           >
-            <span
+            <span className="type-caption text-text-1 overflow-hidden text-ellipsis whitespace-nowrap min-w-0"
               title={`Add Trigger to ${resource.name}`}
-              style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "var(--text)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                minWidth: 0,
-              }}
             >
               Add Trigger to {resource.name}
             </span>
-            <span className="badge neutral compact" style={{ flexShrink: 0 }}>
+            <span className="badge neutral compact shrink-0">
               AWS
             </span>
           </div>
 
           {/* Trigger Source Type Selector */}
           <div>
-            <label className="metric-label" style={{ display: "block", marginBottom: "4px" }}>
+            <label className="metric-label block mb-1">
               Trigger Source
             </label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "6px" }}>
-              <button
-                type="button"
-                className={`button compact ${selectedType === "s3" ? "primary" : ""}`}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", minWidth: 0, padding: "0 4px" }}
+            <div className="grid gap-1.5 grid-cols-4">
+              <Button size="sm" variant={selectedType === "s3" ? 'primary' : 'secondary'}
+                type="button" className="flex items-center justify-center gap-1 min-w-0"
                 onClick={() => setSelectedType("s3")}
               >
-                <HardDrive size={13} style={{ flexShrink: 0 }} />
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>S3</span>
-              </button>
-              <button
-                type="button"
-                className={`button compact ${selectedType === "dynamodb" ? "primary" : ""}`}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", minWidth: 0, padding: "0 4px" }}
+                <Icon icon={HardDrive} className="shrink-0" size={14} />
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap">S3</span>
+              </Button>
+              <Button size="sm" variant={selectedType === "dynamodb" ? 'primary' : 'secondary'}
+                type="button" className="flex items-center justify-center gap-1 min-w-0"
                 onClick={() => setSelectedType("dynamodb")}
               >
-                <Database size={13} style={{ flexShrink: 0 }} />
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>DynamoDB</span>
-              </button>
-              <button
-                type="button"
-                className={`button compact ${selectedType === "sqs" ? "primary" : ""}`}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", minWidth: 0, padding: "0 4px" }}
+                <Icon icon={Database} className="shrink-0" size={14} />
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap">DynamoDB</span>
+              </Button>
+              <Button size="sm" variant={selectedType === "sqs" ? 'primary' : 'secondary'}
+                type="button" className="flex items-center justify-center gap-1 min-w-0"
                 onClick={() => setSelectedType("sqs")}
               >
-                <MessageSquare size={13} style={{ flexShrink: 0 }} />
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>SQS</span>
-              </button>
-              <button
-                type="button"
-                className={`button compact ${selectedType === "kinesis" ? "primary" : ""}`}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", minWidth: 0, padding: "0 4px" }}
+                <Icon icon={MessageSquare} className="shrink-0" size={14} />
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap">SQS</span>
+              </Button>
+              <Button size="sm" variant={selectedType === "kinesis" ? 'primary' : 'secondary'}
+                type="button" className="flex items-center justify-center gap-1 min-w-0"
                 onClick={() => setSelectedType("kinesis")}
               >
-                <Activity size={13} style={{ flexShrink: 0 }} />
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Kinesis</span>
-              </button>
+                <Icon icon={Activity} className="shrink-0" size={14} />
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap">Kinesis</span>
+              </Button>
             </div>
           </div>
 
           {/* S3 Options */}
           {selectedType === "s3" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div className="flex flex-col gap-2">
               <div>
-                <label className="metric-label" htmlFor="trigger-s3-bucket" style={{ display: "block", marginBottom: "3px" }}>
+                <label className="metric-label block mb-1" htmlFor="trigger-s3-bucket">
                   S3 Bucket *
                 </label>
                 {storageBucketsQuery.data && storageBucketsQuery.data.length > 0 ? (
-                  <select
-                    id="trigger-s3-bucket"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0, textOverflow: "ellipsis", overflow: "hidden" }}
+                  <OptionSelect
+                    id="trigger-s3-bucket" className="w-full min-w-0"
                     value={s3Bucket}
-                    onChange={(e) => setS3Bucket(e.target.value)}
+                    onValueChange={(value) => setS3Bucket(value)}
                   >
                     <option value="">Select an S3 bucket</option>
                     {storageBucketsQuery.data.map((b) => (
-                      <option key={b.id} value={b.name} title={b.name} style={{ width: "100%" }}>
+                      <option className="w-full" key={b.id} value={b.name} title={b.name}>
                         {formatOptionLabel(b.name)}
                       </option>
                     ))}
-                  </select>
+                  </OptionSelect>
                 ) : (
-                  <input
+                  <Input
                     id="trigger-s3-bucket"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
+                    className="w-full min-w-0"
                     placeholder="e.g. my-s3-bucket"
                     value={s3Bucket}
                     onChange={(e) => setS3Bucket(e.target.value)}
@@ -442,26 +366,17 @@ export function LambdaTriggerPanel({
               </div>
 
               <div>
-                <label className="metric-label" style={{ display: "block", marginBottom: "4px" }}>
+                <label className="metric-label block mb-1">
                   Event Types *
                 </label>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "120px", overflowY: "auto" }}>
+                <div className="flex flex-col gap-1 max-h-30 overflow-y-auto">
                   {S3_EVENT_OPTIONS.map((opt) => (
-                    <label
+                    <label className="flex items-center gap-1.5 type-caption text-text-1 cursor-pointer"
                       key={opt.value}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        fontSize: "12px",
-                        color: "var(--text)",
-                        cursor: "pointer",
-                      }}
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={s3Events.includes(opt.value)}
-                        onChange={() => handleToggleS3Event(opt.value)}
+                        onCheckedChange={() => handleToggleS3Event(opt.value)}
                       />
                       <span>{opt.label}</span>
                     </label>
@@ -469,28 +384,26 @@ export function LambdaTriggerPanel({
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
-                <div style={{ minWidth: 0 }}>
-                  <label className="metric-label" htmlFor="trigger-s3-prefix" style={{ display: "block", marginBottom: "3px" }}>
+              <div className="grid gap-2 grid-cols-2">
+                <div className="min-w-0">
+                  <label className="metric-label block mb-1" htmlFor="trigger-s3-prefix">
                     Prefix Filter (Optional)
                   </label>
-                  <input
+                  <Input
                     id="trigger-s3-prefix"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
+                    className="w-full min-w-0"
                     placeholder="e.g. uploads/ or images/"
                     value={s3Prefix}
                     onChange={(e) => setS3Prefix(e.target.value)}
                   />
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <label className="metric-label" htmlFor="trigger-s3-suffix" style={{ display: "block", marginBottom: "3px" }}>
+                <div className="min-w-0">
+                  <label className="metric-label block mb-1" htmlFor="trigger-s3-suffix">
                     Suffix Filter (Optional)
                   </label>
-                  <input
+                  <Input
                     id="trigger-s3-suffix"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
+                    className="w-full min-w-0"
                     placeholder="e.g. .jpg or .json"
                     value={s3Suffix}
                     onChange={(e) => setS3Suffix(e.target.value)}
@@ -502,18 +415,16 @@ export function LambdaTriggerPanel({
 
           {/* DynamoDB Options */}
           {selectedType === "dynamodb" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div className="flex flex-col gap-2">
               <div>
-                <label className="metric-label" htmlFor="trigger-dynamo-table" style={{ display: "block", marginBottom: "3px" }}>
+                <label className="metric-label block mb-1" htmlFor="trigger-dynamo-table">
                   DynamoDB Table *
                 </label>
                 {dynamoTablesQuery.data && dynamoTablesQuery.data.length > 0 ? (
-                  <select
-                    id="trigger-dynamo-table"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0, textOverflow: "ellipsis", overflow: "hidden" }}
+                  <OptionSelect
+                    id="trigger-dynamo-table" className="w-full min-w-0"
                     value={dynamoTable}
-                    onChange={(e) => setDynamoTable(e.target.value)}
+                    onValueChange={(value) => setDynamoTable(value)}
                   >
                     <option value="">Select a DynamoDB table...</option>
                     {dynamoTablesQuery.data.map((t) => (
@@ -521,12 +432,11 @@ export function LambdaTriggerPanel({
                         {formatOptionLabel(t.name)}
                       </option>
                     ))}
-                  </select>
+                  </OptionSelect>
                 ) : (
-                  <input
+                  <Input
                     id="trigger-dynamo-table"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
+                    className="w-full min-w-0"
                     placeholder="e.g. users-table"
                     value={dynamoTable}
                     onChange={(e) => setDynamoTable(e.target.value)}
@@ -534,44 +444,40 @@ export function LambdaTriggerPanel({
                 )}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
-                <div style={{ minWidth: 0 }}>
-                  <label className="metric-label" htmlFor="trigger-dynamo-batch" style={{ display: "block", marginBottom: "3px" }}>
+              <div className="grid gap-2 grid-cols-2">
+                <div className="min-w-0">
+                  <label className="metric-label block mb-1" htmlFor="trigger-dynamo-batch">
                     Batch Size (1 - 10000)
                   </label>
-                  <input
+                  <Input
                     id="trigger-dynamo-batch"
                     type="number"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
+                    className="w-full min-w-0"
                     min={1}
                     max={10000}
-                    value={dynamoBatchSize}
+                    value={String(dynamoBatchSize)}
                     onChange={(e) => setDynamoBatchSize(Number(e.target.value))}
                   />
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <label className="metric-label" htmlFor="trigger-dynamo-pos" style={{ display: "block", marginBottom: "3px" }}>
+                <div className="min-w-0">
+                  <label className="metric-label block mb-1" htmlFor="trigger-dynamo-pos">
                     Starting Position
                   </label>
-                  <select
-                    id="trigger-dynamo-pos"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
+                  <OptionSelect
+                    id="trigger-dynamo-pos" className="w-full min-w-0"
                     value={dynamoPosition}
-                    onChange={(e) => setDynamoPosition(e.target.value as "LATEST" | "TRIM_HORIZON")}
+                    onValueChange={(value) => setDynamoPosition(value as "LATEST" | "TRIM_HORIZON")}
                   >
                     <option value="LATEST">LATEST</option>
                     <option value="TRIM_HORIZON">TRIM_HORIZON</option>
-                  </select>
+                  </OptionSelect>
                 </div>
               </div>
 
-              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
+              <label className="flex items-center gap-1.5 type-caption cursor-pointer">
+                <Checkbox
                   checked={dynamoEnabled}
-                  onChange={(e) => setDynamoEnabled(e.target.checked)}
+                  onCheckedChange={(checked) => setDynamoEnabled(checked)}
                 />
                 <span>Enable trigger immediately</span>
               </label>
@@ -580,18 +486,16 @@ export function LambdaTriggerPanel({
 
           {/* SQS Options */}
           {selectedType === "sqs" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div className="flex flex-col gap-2">
               <div>
-                <label className="metric-label" htmlFor="trigger-sqs-queue" style={{ display: "block", marginBottom: "3px" }}>
+                <label className="metric-label block mb-1" htmlFor="trigger-sqs-queue">
                   SQS Queue *
                 </label>
                 {sqsQueuesQuery.data && sqsQueuesQuery.data.length > 0 ? (
-                  <select
-                    id="trigger-sqs-queue"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0, textOverflow: "ellipsis", overflow: "hidden" }}
+                  <OptionSelect
+                    id="trigger-sqs-queue" className="w-full min-w-0"
                     value={sqsQueue}
-                    onChange={(e) => setSqsQueue(e.target.value)}
+                    onValueChange={(value) => setSqsQueue(value)}
                   >
                     <option value="">Select an SQS queue...</option>
                     {sqsQueuesQuery.data.map((q) => (
@@ -599,12 +503,11 @@ export function LambdaTriggerPanel({
                         {formatOptionLabel(q.name)}
                       </option>
                     ))}
-                  </select>
+                  </OptionSelect>
                 ) : (
-                  <input
+                  <Input
                     id="trigger-sqs-queue"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
+                    className="w-full min-w-0"
                     placeholder="e.g. order-events-queue"
                     value={sqsQueue}
                     onChange={(e) => setSqsQueue(e.target.value)}
@@ -613,26 +516,24 @@ export function LambdaTriggerPanel({
               </div>
 
               <div>
-                <label className="metric-label" htmlFor="trigger-sqs-batch" style={{ display: "block", marginBottom: "3px" }}>
+                <label className="metric-label block mb-1" htmlFor="trigger-sqs-batch">
                   Batch Size (1 - 10000)
                 </label>
-                <input
+                <Input
                   id="trigger-sqs-batch"
                   type="number"
-                  className="input"
-                  style={{ width: "100%", minWidth: 0 }}
+                  className="w-full min-w-0"
                   min={1}
                   max={10000}
-                  value={sqsBatchSize}
+                  value={String(sqsBatchSize)}
                   onChange={(e) => setSqsBatchSize(Number(e.target.value))}
                 />
               </div>
 
-              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
+              <label className="flex items-center gap-1.5 type-caption cursor-pointer">
+                <Checkbox
                   checked={sqsEnabled}
-                  onChange={(e) => setSqsEnabled(e.target.checked)}
+                  onCheckedChange={(checked) => setSqsEnabled(checked)}
                 />
                 <span>Enable trigger immediately</span>
               </label>
@@ -641,18 +542,16 @@ export function LambdaTriggerPanel({
 
           {/* Kinesis Options */}
           {selectedType === "kinesis" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div className="flex flex-col gap-2">
               <div>
-                <label className="metric-label" htmlFor="trigger-kinesis-stream" style={{ display: "block", marginBottom: "3px" }}>
+                <label className="metric-label block mb-1" htmlFor="trigger-kinesis-stream">
                   Kinesis Stream *
                 </label>
                 {kinesisStreamsQuery.data && kinesisStreamsQuery.data.length > 0 ? (
-                  <select
-                    id="trigger-kinesis-stream"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0, textOverflow: "ellipsis", overflow: "hidden" }}
+                  <OptionSelect
+                    id="trigger-kinesis-stream" className="w-full min-w-0"
                     value={kinesisStream}
-                    onChange={(e) => setKinesisStream(e.target.value)}
+                    onValueChange={(value) => setKinesisStream(value)}
                   >
                     <option value="">Select a Kinesis stream...</option>
                     {kinesisStreamsQuery.data.map((s) => (
@@ -660,12 +559,11 @@ export function LambdaTriggerPanel({
                         {formatOptionLabel(s.name)}
                       </option>
                     ))}
-                  </select>
+                  </OptionSelect>
                 ) : (
-                  <input
+                  <Input
                     id="trigger-kinesis-stream"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
+                    className="w-full min-w-0"
                     placeholder="e.g. telemetry-stream"
                     value={kinesisStream}
                     onChange={(e) => setKinesisStream(e.target.value)}
@@ -673,42 +571,38 @@ export function LambdaTriggerPanel({
                 )}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
-                <div style={{ minWidth: 0 }}>
-                  <label className="metric-label" htmlFor="trigger-kinesis-batch" style={{ display: "block", marginBottom: "3px" }}>
+              <div className="grid gap-2 grid-cols-2">
+                <div className="min-w-0">
+                  <label className="metric-label block mb-1" htmlFor="trigger-kinesis-batch">
                     Batch Size
                   </label>
-                  <input
+                  <Input
                     id="trigger-kinesis-batch"
                     type="number"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
-                    value={kinesisBatchSize}
+                    className="w-full min-w-0"
+                    value={String(kinesisBatchSize)}
                     onChange={(e) => setKinesisBatchSize(Number(e.target.value))}
                   />
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <label className="metric-label" htmlFor="trigger-kinesis-pos" style={{ display: "block", marginBottom: "3px" }}>
+                <div className="min-w-0">
+                  <label className="metric-label block mb-1" htmlFor="trigger-kinesis-pos">
                     Starting Position
                   </label>
-                  <select
-                    id="trigger-kinesis-pos"
-                    className="input"
-                    style={{ width: "100%", minWidth: 0 }}
+                  <OptionSelect
+                    id="trigger-kinesis-pos" className="w-full min-w-0"
                     value={kinesisPosition}
-                    onChange={(e) => setKinesisPosition(e.target.value as "LATEST" | "TRIM_HORIZON")}
+                    onValueChange={(value) => setKinesisPosition(value as "LATEST" | "TRIM_HORIZON")}
                   >
                     <option value="LATEST">LATEST</option>
                     <option value="TRIM_HORIZON">TRIM_HORIZON</option>
-                  </select>
+                  </OptionSelect>
                 </div>
               </div>
 
-              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
+              <label className="flex items-center gap-1.5 type-caption cursor-pointer">
+                <Checkbox
                   checked={kinesisEnabled}
-                  onChange={(e) => setKinesisEnabled(e.target.checked)}
+                  onCheckedChange={(checked) => setKinesisEnabled(checked)}
                 />
                 <span>Enable trigger immediately</span>
               </label>
@@ -716,14 +610,13 @@ export function LambdaTriggerPanel({
           )}
 
           {formError && (
-            <p className="error-text compact-text" style={{ margin: 0 }}>
+            <p className="error-text compact-text m-0">
               {formError}
             </p>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px", marginTop: "4px" }}>
-            <button
-              className="button compact"
+          <div className="flex items-center justify-end gap-1.5 mt-1">
+            <Button variant="secondary" size="sm"
               type="button"
               disabled={createMutation.isPending}
               onClick={() => {
@@ -732,64 +625,55 @@ export function LambdaTriggerPanel({
               }}
             >
               Cancel
-            </button>
-            <button
-              className="button success compact"
+            </Button>
+            <Button variant="secondary" size="sm"
+              className="success"
               type="submit"
               disabled={createMutation.isPending}
             >
-              {createMutation.isPending ? <Loader2 size={13} className="spin" /> : <Check size={13} />}
+              {createMutation.isPending ? <Icon icon={Loader2} size={14} className="spin" /> : <Icon icon={Check} size={14} />}
               {createMutation.isPending ? "Registering..." : "Add Trigger"}
-            </button>
+            </Button>
           </div>
         </form>
       )}
 
       {/* Triggers List */}
       {triggersQuery.isLoading ? (
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-muted)", padding: "8px 0" }}>
-          <Loader2 size={13} className="spin" />
+        <div className="flex items-center gap-1.5 type-caption text-text-3 py-2 px-0">
+          <Icon icon={Loader2} size={14} className="spin" />
           <span>Loading attached triggers...</span>
         </div>
       ) : triggers.length === 0 ? (
-        <div className="empty compact" style={{ padding: "12px", textAlign: "center" }}>
-          <p className="muted compact-text" style={{ margin: 0 }}>
+        <div className="empty compact p-3 text-center">
+          <p className="muted compact-text m-0">
             No triggers attached to this function yet.
           </p>
-          <p className="muted compact-text" style={{ fontSize: "11px", marginTop: "4px" }}>
+          <p className="muted compact-text type-caption mt-1">
             Click &ldquo;Register Trigger&rdquo; to configure S3, DynamoDB, SQS, or Kinesis events.
           </p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <div className="flex flex-col gap-2">
           {triggers.map((trig) => {
             const isDeletingThis = deletingId === trig.id;
             return (
-              <div
+              <div className="p-2.5 flex flex-col gap-1.5 bg-well border border-line"
                 key={trig.id}
-                style={{
-                  background: "var(--raised)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "6px",
-                  padding: "10px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "6px",
-                }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    {trig.type === "s3" && <HardDrive size={14} style={{ color: "#38bdf8" }} />}
-                    {trig.type === "dynamodb" && <Database size={14} style={{ color: "#34d399" }} />}
-                    {trig.type === "sqs" && <MessageSquare size={14} style={{ color: "#fbbf24" }} />}
-                    {trig.type === "kinesis" && <Activity size={14} style={{ color: "#f472b6" }} />}
-                    <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text)" }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    {trig.type === "s3" && <Icon icon={HardDrive} size={14} className="text-data-1" />}
+                    {trig.type === "dynamodb" && <Icon icon={Database} size={14} className="text-data-2" />}
+                    {trig.type === "sqs" && <Icon icon={MessageSquare} size={14} className="text-data-3" />}
+                    {trig.type === "kinesis" && <Icon icon={Activity} size={14} className="text-data-4" />}
+                    <span className="type-caption text-text-1">
                       {trig.sourceName}
                     </span>
                     <span className="badge neutral compact">{trig.type.toUpperCase()}</span>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <div className="flex items-center gap-1.5">
                     <span
                       className={`runtime-state compact ${trig.status.toLowerCase() === "enabled" || trig.status.toLowerCase() === "active"
                         ? "ready"
@@ -800,18 +684,16 @@ export function LambdaTriggerPanel({
                     </span>
 
                     {isDeletingThis ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <button
-                          className="button danger compact"
+                      <div className="flex items-center gap-1">
+                        <Button variant="destructive" size="sm"
                           type="button"
                           disabled={deleteMutation.isPending}
                           onClick={() => deleteMutation.mutate(trig)}
                         >
-                          {deleteMutation.isPending ? <Loader2 size={11} className="spin" /> : <Trash2 size={11} />}
+                          {deleteMutation.isPending ? <Icon icon={Loader2} size={14} className="spin" /> : <Icon icon={Trash2} size={14} />}
                           Confirm
-                        </button>
-                        <button
-                          className="button compact"
+                        </Button>
+                        <Button variant="secondary" size="sm"
                           type="button"
                           disabled={deleteMutation.isPending}
                           onClick={() => {
@@ -820,28 +702,26 @@ export function LambdaTriggerPanel({
                           }}
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     ) : (
-                      <button
-                        className="button compact danger"
+                      <Hint label="Remove trigger"><Button variant="destructive" size="sm"
                         type="button"
-                        title="Remove trigger"
                         disabled={deleteMutation.isPending}
                         onClick={() => {
                           setDeletingId(trig.id);
                           setDeleteError(null);
                         }}
                       >
-                        <Trash2 size={12} />
-                      </button>
+                        <Icon icon={Trash2} size={14} />
+                      </Button></Hint>
                     )}
                   </div>
                 </div>
 
                 {/* Trigger Details */}
-                <div style={{ fontSize: "11px", color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: "2px" }}>
-                  <div style={{ wordBreak: "break-all" }}>
+                <div className="type-caption text-text-3 flex flex-col gap-0.5">
+                  <div className="break-all">
                     <strong>Source ARN:</strong> {trig.sourceArn}
                   </div>
                   {trig.type === "s3" && (
@@ -864,7 +744,7 @@ export function LambdaTriggerPanel({
                     </>
                   )}
                   {(trig.type === "dynamodb" || trig.type === "sqs" || trig.type === "kinesis") && (
-                    <div style={{ display: "flex", gap: "12px" }}>
+                    <div className="flex gap-3">
                       {trig.details.batchSize !== undefined && (
                         <span><strong>Batch Size:</strong> {trig.details.batchSize}</span>
                       )}
@@ -876,7 +756,7 @@ export function LambdaTriggerPanel({
                 </div>
 
                 {isDeletingThis && deleteError && (
-                  <p className="error-text compact-text" style={{ margin: "4px 0 0" }}>
+                  <p className="error-text compact-text mt-1 mx-0 mb-0">
                     {deleteError}
                   </p>
                 )}

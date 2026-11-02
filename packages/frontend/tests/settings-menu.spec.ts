@@ -29,27 +29,18 @@ test('Settings switcher menus fit within narrow screens', async ({page}) => {
         await page.setViewportSize({width, height: 720})
         await page.goto('/settings')
 
-        for (const name of ['Switch cloud, currently AWS', /Switch AWS account/]) {
-            const trigger = page.getByRole('button', {name})
+        for (const name of ['Cloud', 'Account']) {
+            const trigger = page.getByRole('combobox', {name})
             await trigger.click()
             const menu = page.getByRole('listbox')
             await expect(menu).toBeVisible()
             const fits = await menu.evaluate((element) => {
                 const bounds = element.getBoundingClientRect()
-                const row = element.closest('.settings-row')?.getBoundingClientRect()
-                return row !== undefined && bounds.left >= row.left - 1
-                    && bounds.right <= row.right + 1 && bounds.right <= window.innerWidth
+                return bounds.left >= -1 && bounds.right <= window.innerWidth + 1
             })
-            expect(fits, `${width}px ${String(name)} menu overflows its Settings row`).toBe(true)
-            if (typeof name !== 'string') {
-                const accountIdFits = await menu.locator('.account-option-id').first().evaluate((element) => {
-                    const bounds = element.getBoundingClientRect()
-                    return bounds.height <= 20 && element.scrollWidth <= element.clientWidth + 1
-                })
-                expect(accountIdFits, `${width}px account ID wraps or clips`).toBe(true)
-                await expect(menu.locator('.account-tag').first()).toBeVisible()
-            }
-            await trigger.click()
+            expect(fits, `${width}px ${name} menu overflows the screen`).toBe(true)
+            await page.keyboard.press('Escape')
+            await expect(page.getByRole('listbox')).toHaveCount(0)
         }
     }
 })
@@ -62,11 +53,11 @@ test('cloud switching from Explorer Settings keeps the storage landing', async (
     // Navigations render as transitions, so the URL changes before the page commits.
     await expect(page.getByRole('heading', {name: 'Settings', exact: true})).toBeVisible()
 
-    await page.getByRole('textbox', {name: 'Search services, features, docs, and more'}).fill('storage')
+    await page.getByRole('searchbox', {name: 'Search services, features, docs, and more'}).fill('storage')
     await expect(page).toHaveURL(/\/settings\?search=storage$/)
     await page.reload()
 
-    await page.getByRole('button', {name: 'Switch cloud, currently AWS'}).click()
+    await page.getByRole('combobox', {name: 'Cloud'}).click()
     await page.getByRole('option', {name: 'Azure'}).click()
     await expect(page).toHaveURL(/\/cloud-explorer\/azure\/storage$/)
 })
@@ -75,7 +66,7 @@ test('cloud switching from direct Settings keeps the console landing', async ({p
     await mockCloudApi(page)
     await page.goto('/settings')
 
-    await page.getByRole('button', {name: 'Switch cloud, currently AWS'}).click()
+    await page.getByRole('combobox', {name: 'Cloud'}).click()
     await page.getByRole('option', {name: 'Azure'}).click()
     await expect(page).toHaveURL(/\/console\/azure$/)
 })
@@ -86,8 +77,8 @@ test('OCI Settings keeps one cloud and account control and shares the main theme
     await page.getByRole('link', {name: 'Settings', exact: true}).click()
     await expect(page).toHaveURL(/\/settings$/)
 
-    await expect(page.getByRole('button', {name: 'Switch cloud, currently OCI'})).toHaveCount(1)
-    await expect(page.getByRole('button', {name: /Switch AWS account/})).toHaveCount(1)
+    await expect(page.getByRole('combobox', {name: 'Cloud'})).toHaveCount(1)
+    await expect(page.getByRole('combobox', {name: 'Account'})).toHaveCount(1)
     await expect(page.locator('.topbar .cloud-switcher, .topbar .account-switcher')).toHaveCount(0)
 
     const toggle = page.getByRole('button', {name: /^Theme: /})
@@ -99,7 +90,7 @@ test('OCI Settings keeps one cloud and account control and shares the main theme
     await toggle.click()
     await expect(page.getByRole('radio', {name: 'Dark', exact: true})).toHaveAttribute('aria-checked', 'true')
 
-    await page.getByRole('button', {name: 'Switch cloud, currently OCI'}).click()
+    await page.getByRole('combobox', {name: 'Cloud'}).click()
     await expect(page.getByRole('option', {name: 'OCI'})).toHaveAttribute('aria-selected', 'true')
     await page.getByRole('option', {name: 'AWS'}).click()
     await expect(page).toHaveURL(/\/console\/aws$/)

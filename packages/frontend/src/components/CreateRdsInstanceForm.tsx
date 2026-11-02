@@ -1,6 +1,9 @@
 import { type FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus } from "lucide-react";
+import {Icon, Loader2, PlusSquared as Plus} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import {
   createCloudResource,
   listDatabaseOrderableClasses,
@@ -11,6 +14,7 @@ import {
 } from "@/api/aws/ec2.api";
 import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource } from "@/types/resource";
+import {Checkbox} from '@/components/sodium/ui/checkbox'
 
 const IDENTIFIER_PATTERN = /^(?!.*--)[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
@@ -133,8 +137,7 @@ export function CreateRdsInstanceForm({
         <span>
           DB Instance Identifier <em className="field-required">*</em>
         </span>
-        <input
-          className="input"
+        <Input aria-label="DB instance identifier"
           value={dbInstanceIdentifier}
           onChange={(e) => setDbInstanceIdentifier(e.target.value)}
           placeholder="e.g. orders-database"
@@ -147,11 +150,10 @@ export function CreateRdsInstanceForm({
         <span>
           Engine <em className="field-required">*</em>
         </span>
-        <select
-          className="input"
+        <OptionSelect
           value={engine}
-          onChange={(e) => {
-            const nextEngine = e.target.value;
+          onValueChange={(value) => {
+            const nextEngine = value;
             setEngine(nextEngine);
             setDbInstanceClass("");
           }}
@@ -160,24 +162,22 @@ export function CreateRdsInstanceForm({
           <option value="postgres">PostgreSQL</option>
           <option value="mysql">MySQL</option>
           <option value="mariadb">MariaDB</option>
-        </select>
+        </OptionSelect>
       </label>
 
       <label className="launch-field">
         <span>
           DB Instance Class <em className="field-required">*</em>
           {classesQuery.isFetching && (
-            <Loader2
-              size={11}
-              className="spin"
-              style={{ marginLeft: 6, display: "inline-block" }}
+            <Icon icon={Loader2}
+              size={14}
+              className="spin ml-1.5 inline-block"
             />
           )}
         </span>
-        <select
-          className="input"
+        <OptionSelect
           value={selectedClass}
-          onChange={(e) => setDbInstanceClass(e.target.value)}
+          onValueChange={(value) => setDbInstanceClass(value)}
           disabled={classesQuery.isLoading || availableClasses.length === 0}
           required
         >
@@ -203,16 +203,15 @@ export function CreateRdsInstanceForm({
               {cls}
             </option>
           ))}
-        </select>
+        </OptionSelect>
       </label>
 
       <label className="launch-field">
         <span>
           Master User Password <em className="field-required">*</em>
         </span>
-        <input
+        <Input aria-label="Master password"
           type="password"
-          className="input"
           value={masterUserPassword}
           onChange={(e) => setMasterUserPassword(e.target.value)}
           placeholder="Min 8 characters"
@@ -225,22 +224,21 @@ export function CreateRdsInstanceForm({
       {/* ── Networking — optional ─────────────────────────────────── */}
       {cloud === "aws" && (
         <>
-          <div className="launch-form-group">Networking — optional</div>
+          <div className="launch-form-group">Networking, optional</div>
           <div className="launch-field launch-field--span">
-            <span style={{ fontSize: "12px", color: "var(--text-2)" }}>
+            <span className="type-caption text-text-2">
               Security Groups
             </span>
-            <div className="sg-checklist" style={{ marginTop: "4px" }}>
+            <div className="sg-checklist mt-1">
               {sgsQuery.isLoading && <span className="muted">Loading…</span>}
               {!sgsQuery.isLoading && (sgsQuery.data ?? []).length === 0 && (
                 <span className="muted">No security groups found.</span>
               )}
               {(sgsQuery.data ?? []).map((sg: Ec2SecurityGroup) => (
                 <label key={sg.groupId} className="sg-check-item">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selectedSgs.includes(sg.groupId)}
-                    onChange={(e) => toggleSg(sg.groupId, e.target.checked)}
+                    onCheckedChange={(checked) => toggleSg(sg.groupId, checked)}
                   />
                   <span>{sg.groupName || sg.groupId}</span>
                   {sg.groupName && <code>{sg.groupId}</code>}
@@ -252,12 +250,11 @@ export function CreateRdsInstanceForm({
       )}
 
       {/* ── Additional Database Settings ───────────────────────────── */}
-      <div className="launch-form-group">Database Settings — optional</div>
+      <div className="launch-form-group">Database Settings, optional</div>
 
       <label className="launch-field">
         <span>Master Username</span>
-        <input
-          className="input"
+        <Input aria-label="Master username"
           value={masterUsername}
           onChange={(e) => setMasterUsername(e.target.value)}
           placeholder="root"
@@ -267,9 +264,8 @@ export function CreateRdsInstanceForm({
 
       <label className="launch-field">
         <span>Allocated Storage (GiB)</span>
-        <input
+        <Input aria-label="20"
           type="number"
-          className="input"
           value={allocatedStorage}
           onChange={(e) => setAllocatedStorage(e.target.value)}
           placeholder="20"
@@ -280,8 +276,7 @@ export function CreateRdsInstanceForm({
 
       <label className="launch-field">
         <span>Database Name</span>
-        <input
-          className="input"
+        <Input aria-label="Database name"
           value={dbName}
           onChange={(e) => setDbName(e.target.value)}
           placeholder="e.g. myapp"
@@ -291,8 +286,7 @@ export function CreateRdsInstanceForm({
 
       <label className="launch-field">
         <span>Engine Version</span>
-        <input
-          className="input"
+        <Input aria-label="16.3"
           value={engineVersion}
           onChange={(e) => setEngineVersion(e.target.value)}
           placeholder="e.g. 16.3"
@@ -301,33 +295,30 @@ export function CreateRdsInstanceForm({
 
       {/* ── Actions ────────────────────────────────────────────────── */}
       <div className="launch-form-actions">
-        <button
-          className="button"
+        <Button variant="secondary"
           type="button"
           onClick={onCancel}
           disabled={createMut.isPending}
         >
           Cancel
-        </button>
-        <button
-          className="button primary"
+        </Button>
+        <Button
           type="submit"
           disabled={createMut.isPending}
         >
           {createMut.isPending ? (
-            <Loader2 className="spin" size={13} />
+            <Icon icon={Loader2} className="spin" size={14} />
           ) : (
-            <Plus size={13} />
+            <Icon icon={Plus} size={14} />
           )}
           {createMut.isPending ? "Creating…" : "Create DB Instance"}
-        </button>
+        </Button>
       </div>
 
       {errorMessage && (
         <div
-          className="field-error launch-field--span"
+          className="field-error launch-field--span mt-1"
           role="alert"
-          style={{ marginTop: "4px" }}
         >
           {errorMessage}
         </div>

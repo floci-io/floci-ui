@@ -1,0 +1,344 @@
+/* Sodium tokens. The one file to retune.
+
+   Sodium is compact and ruled, for infrastructure and data tools: pipelines, jobs, logs, compute and warehouses.
+   Its interface speaks in mono capitals, its headlines and prose in a quiet display sans, and one sodium yellow
+   marks the thing to act on.
+
+   Rules
+   - Yellow is the brand, and it reads differently in each theme. On a light ground #ffd400 is 1.4:1, so it is never
+     text, an icon or a lone line there: it is the one solid slab of the primary button, the fill of a checked
+     control under an ink mark (a state, not an action, and small), a selection wash under ink, or a mark that sits
+     beside a word. Yellow-family text in light is --accent-text, a dark gold at 6.2:1. On a dark
+     ground yellow is 12.9:1, so it is the label on a dark tint with a yellow outline, the focus ring and the caret.
+   - Warning is orange, never yellow, and always comes with its word, because yellow already means "act here".
+   - Every reading text role is 4.5:1 or more on every surface it sits on, --text-3 included, and --line-control,
+     the edge of the small marks (checkbox, radio, switch, meter track), is 3:1 or more (WCAG 1.4.11).
+     foundations/contrast-check.mjs holds the pairs and contrast.test.mjs fails the build when one drops.
+   - Fields, menus, dialogs, segmented controls and secondary buttons take --line, the rule a card draws, 1.3:1 on
+     the page. Their edge is not what identifies them: a field reads by its label, its placeholder and its fill, a
+     button by its label.
+   - Zero radius everywhere. --radius is the only corner token, and it is 0.
+   - No shadows. An overlay is the panel with a 1px --line edge over the content; a dialog adds the scrim. The primary
+     and secondary buttons are lit from below instead (--primary-light, --secondary-light): light only ever lightens
+     a face, under the pointer, and goes out when it is held. Under the pointer and held they also take a 1px ring
+     flush outside the edge (--primary-ring, --secondary-ring): a hairline, no blur, no offset, never a shadow.
+   - Structure is rules, not a cell grid: 1px lines divide content (rows, columns, panel edges). There is no grid
+     pattern behind the page. Dots fill a large empty gutter, sparingly, as decoration only.
+   - Hierarchy is size, case and colour, never weight. Both faces are set at Regular (400).
+   - Mono capitals come only through the label roles (type-label and its sizes), which carry the case and the
+     tracking together. Mono inside a sentence of sans is set at --mono-scale of the text around it.
+
+   Format, read by the docs
+   - One declaration per line: --name: value; followed by a comment of the form job | used by.
+   - A line that starts with == opens a token group. Keep both formats when you retune.
+
+   Scope: the tokens live on .sodium and [data-system="sodium"], not :root, so an app's own --space-* and --font-*
+   stay as they are.
+
+   Fonts: Commit Mono and Inter Display, both SIL OFL 1.1 (docs/adr/0011). The @font-face rules below load the
+   subset files from design.how, where they sit beside their licence; a copy you host yourself goes first in each src
+   list. Without them the stacks fall back to the platform monospace and UI sans. */
+
+@font-face { font-family: "Commit Mono"; src: url("https://design.how/fonts/sodium/CommitMono-Regular.woff2") format("woff2"), url("/fonts/sodium/CommitMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Inter Display"; src: url("https://design.how/fonts/sodium/InterDisplay-Regular.woff2") format("woff2"), url("/fonts/sodium/InterDisplay-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+
+[data-system="sodium"], .sodium {
+  /* == Surfaces == */
+  --page: #ffffff; /* the page: white, so the rules and the one yellow slab carry the screen | app background, docs preview */
+  --panel: #fafaf7; /* a raised region, a hair warmer than the page, read by its rules more than its fill | panel, overlay, header row */
+  --well: #f4f3ee; /* an inset: code, output, a track | code block, log viewer, meter track, disabled control */
+  --code-surface: var(--well); /* where a block of code sits | code block, log viewer, code window */
+  --hover: rgb(22 21 18 / 0.04); /* ink at 4%: a row or a plain button under the pointer | row, ghost button, menu item */
+  --pressed: rgb(22 21 18 / 0.08); /* ink at 8%: a plain control held | ghost button, destructive button, segmented control, row active */
+  --selected: #fff4bf; /* the selection wash, like a terminal selection: a place you are, under ink | selected row, current tab index, highlighted line */
+  --selected-strong: #ffec99; /* the selection wash under the pointer or held | selected row hover */
+  --scrim: rgb(22 21 18 / 0.32); /* the dim behind a dialog: ink at 32% | dialog, sheet */
+
+  /* == Text == */
+  --text-1: #161512; /* primary text, a warm near-black, 18.3:1 on the page | headlines, body, labels, values */
+  --text-2: #55524a; /* secondary text, 7.8:1 on the page, 7.0:1 on the well | descriptions, hints, meta */
+  --text-3: #6b675e; /* tertiary text, 5.6:1 on the page, 5.1:1 on the well and the wash: still reads | axis labels, placeholders, column heads at rest */
+  --text-disabled: #a8a499; /* a disabled label; no contrast claim | disabled control */
+  --text-inverse: #ffffff; /* text on solid ink | tooltip, checked mark */
+
+  /* == Lines == */
+  --line-faint: #efede6; /* the rule between rows inside a region | table row, list row, log line */
+  --line: #e2dfd5; /* the rule that divides content and the edge of a field, a boxed control and an overlay, 1.3:1 on the page | panel, frame, column rule, input, select, textarea, segmented control, secondary button, menu, dialog */
+  --line-control: #8a8478; /* the edge of a small mark that would vanish on white, 3.7:1 on the page and 3.3:1 on the well (WCAG 1.4.11) | checkbox, radio, switch, meter track, chart cursor, swimlane connector */
+  --mark: #8a8478; /* the rail's dots and a tool-call stack's dashed connectors | rail, tool-call row */
+  --dot: #dedad0; /* the dots of a dot-matrix gutter, decoration only | dots */
+
+  /* == Accent: sodium yellow. Light: a slab or a wash under ink, never text. Dark: a tint with a yellow line and yellow text == */
+  --accent: #ffd400; /* sodium yellow, solid: the primary slab, a data series | primary button, chart */
+  --accent-text: #7a5d00; /* yellow-family text on a light ground: a dark gold, 6.2:1 on the page, 5.6:1 on the wash | current tab index, link */
+  --accent-edge: #c9a700; /* the line around a wash; decoration beside a word, never the only cue | running step tab, selected tab index */
+
+  /* == Primary: the one action a group leads with == */
+  --primary-bg: #ffd400; /* light: the solid yellow slab, the one solid yellow on the screen | primary button */
+  --primary-text: #161512; /* ink on the slab, 12.8:1 | primary button */
+  --primary-edge: #d9b400; /* the slab's 1px edge, so its corner holds on white | primary button */
+  --primary-hover: #ffdf3d; /* the slab under the pointer: lighter, never darker, as if lit from below | primary button hover */
+  --primary-edge-hover: #f0cf2c; /* the slab's edge under the pointer, lighter with the fill | primary button hover */
+  --primary-pressed: #ffd400; /* the slab held: back to the rest fill, and the light goes out | primary button active */
+  --primary-light: rgb(255 255 255 / 0.55); /* the light under the slab at rest: white rising from below its bottom edge, fainter across its top | primary button */
+  --primary-light-hover: rgb(255 255 255 / 0.85); /* that light under the pointer | primary button hover */
+  --primary-ring: #fff9df; /* the hairline halo: a 1px ring flush outside the slab's edge under the pointer and held, no blur | primary button hover */
+
+  /* == Secondary: the edged button, a body a hair off white so hover can brighten it == */
+  --secondary-bg: #f8f7f3; /* the secondary's body at rest, a hair off white | secondary button */
+  --secondary-hover: #fefefd; /* the body under the pointer: #f8f7f3 mixed 85% toward white | secondary button hover */
+  --secondary-pressed: #f8f7f3; /* the body held: back to rest, and the light goes out | secondary button active */
+  --secondary-edge: var(--line); /* its 1px edge at rest and held, the rule a card draws | secondary button */
+  --secondary-edge-hover: #ecebe5; /* the edge under the pointer, lighter with the body | secondary button hover */
+  --secondary-light: rgb(255 255 255 / 0.95); /* the light under the body at rest, from below and across the top | secondary button */
+  --secondary-light-hover: rgb(255 255 255 / 1); /* that light under the pointer | secondary button hover */
+  --secondary-ring: #f4f3ee; /* the hairline halo: a 1px ring flush outside the edge under the pointer and held, no blur | secondary button hover */
+
+  /* == Checked: a value chosen inside a small control. Light: the yellow slab in small, an ink mark on it, lit from below like the buttons == */
+  --check-bg: #ffd400; /* the checked box, the chosen radio, the switch on: sodium yellow as a state, lit by --primary-light | checkbox, radio, switch, segmented thumb, slider thumb */
+  --check-edge: #d9b400; /* its edge, the slab's gold, so the corner holds on white | checkbox, radio, switch, segmented thumb, slider thumb */
+  --check-mark: #161512; /* the tick, dot or knob on it: ink, 12.8:1 on the yellow | checkbox, radio, switch */
+  --check-off: var(--secondary-bg); /* an empty box, radio or switch track: the hair-off-white body the secondary button rests on | checkbox, radio, switch */
+  --check-off-hover: #ffffff; /* that body under the pointer, lifted to white; held settles it back | checkbox, radio, switch */
+  --check-range: var(--accent-text); /* a slider's range: dark gold in light (a yellow line would be 1.4:1), yellow in dark | slider */
+
+  /* == Field: a field and a menu row in the button's light. The secondary's body at rest, lifted toward white under the pointer, white with the gold edge and a pale halo while typed in. No light from below: text sits in a field == */
+  --field-bg: #f8f7f3; /* a field at rest: the secondary button's hair-off-white body | input, select, combobox, textarea, prompt input, filter cell */
+  --field-hover: #fefefd; /* the body under the pointer: #f8f7f3 mixed 85% toward white, as the secondary lifts | input, select, combobox, textarea, filter cell */
+  --field-edge: var(--line); /* its 1px edge at rest, the rule a card draws | input, select, combobox, textarea, filter cell */
+  --field-edge-hover: #ecebe5; /* the edge under the pointer, lighter with the body | input, select, combobox, textarea, filter cell */
+  --field-ring-hover: #f4f3ee; /* the hairline halo flush outside the edge under the pointer, the secondary's | input, select, combobox, textarea, filter cell */
+  --field-focus-bg: #ffffff; /* the body while it has the cursor or its list is open: white, the page under the text | input, select, combobox, textarea, prompt input */
+  --field-focus-edge: #a88c00; /* the edge while it has the cursor: a lighter gold than --focus, one line, 3.1:1 on white so it still passes as a focus indicator | input, select, combobox, textarea, prompt input */
+  --field-ring-focus: #fff1b8; /* the pale yellow halo outside the --focus edge: the slab's #fff9df darkened a step so it shows on white | input, select, combobox, textarea, prompt input */
+  --field-ring-fail: #fbdcd8; /* the pale red halo outside an invalid field's --fail edge | input, select, combobox, textarea, prompt input */
+  --field-inset-sm: 7px; /* the text inset of a 26px field, measured: the 13px sans's ink 8.5px in against its caps 8.3px from top and bottom; a glyph, key cap or chevron takes its own (26 - its height) / 2 | input sm, select sm, filter cell, menu row sm */
+  --field-inset: 10px; /* the text inset of a 32px field, measured: the first glyph's ink 11.5px in against the caps 11.3px from top and bottom | input, select, combobox, menu row, command row */
+  --field-inset-lg: 11px; /* the text inset of a 36px field, measured: the 15px sans's ink 12.5px in against its caps 12.6px from the top | input lg, select lg */
+  --row-highlight: #ffffff; /* a menu row under the pointer or the arrow keys: lifted to white off the panel, the field's hover | menu item, select option, combobox option, command item */
+  --row-highlight-edge: var(--line); /* the 1px rules above and below the lifted row, so the lift reads on a near-white panel | menu item, select option, combobox option, command item */
+
+  /* == Status: green, orange and red, each with a word == */
+  --ok: #2c6a3a; /* done: a mark | status mark, meter done */
+  --ok-text: #2c6a3a; /* the done word, 6.5:1 on the page, 5.7:1 on its tint | status word, success message */
+  --ok-tint: #e8f2ea; /* the done ground | success tag, success row */
+  --warn: #c25e00; /* a warning mark: orange, because yellow is the brand | status mark, meter over budget */
+  --warn-text: #a14b00; /* the warning word, 6.0:1 on the page, 5.2:1 on its tint | status word, warning message */
+  --warn-tint: #fdeee0; /* the warning ground | warning tag, warning row */
+  --fail: #b3261e; /* a failure mark, an invalid field's edge, a destructive action | status mark, invalid field, destructive button */
+  --fail-text: #b3261e; /* the failure word, 6.5:1 on the page, 5.7:1 on its tint | error message, status word, failed row */
+  --fail-tint: #fdecea; /* the failure ground | error tag, failed row, failing code line */
+
+  /* == Data: series for charts, meters and swimlanes; each fill sits beside its label or a 1px edge == */
+  --data-1: #ffd400; /* sodium, the series that matters | chart, meter, swimlane */
+  --data-2: #8c7a3c; /* straw | chart, meter */
+  --data-3: #9a937c; /* khaki: a baseline, a stem, the rest | chart stem, meter remainder */
+  --data-4: #5b4a1a; /* umber | chart */
+  --data-5: #2e3a4a; /* slate | chart */
+  --data-6: #d9cfae; /* cream | chart, swimlane lane */
+
+  /* == Focus == */
+  --focus: #7a5d00; /* the focus ring: dark gold, 6.2:1 on the page, so it reads as the brand and never as an error | every focusable */
+  --caret: #161512; /* the caret while text types: ink in light, since a yellow bar on white is 1.4:1 | typed headline, typed label, command input */
+
+  /* == Elevation == */
+  --shadow-none: none; /* the only shadow Sodium has: nothing casts one, overlays included; the buttons' 1px halo is a ring, not a shadow | every element */
+
+  /* == Type == */
+  --font-sans: "Inter Display", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; /* headlines, prose and big numbers | title, heading, body, figure */
+  --font-mono: "Commit Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; /* the interface voice and code: labels, buttons, tabs, tags, axes, table heads, IDs | label roles, code roles */
+  --mono-scale: 0.85; /* mono inside a sentence of sans, at this share of the size around it: Commit Mono is 22% wider than Inter Display a to z | mono, code in prose */
+  --weight-normal: 400; /* every word in both faces; hierarchy is size, case and colour | all text */
+  --type-display: 400 56px/1.02 var(--font-sans); /* a hero headline, on a cover or an introduction | display */
+  --type-title: 400 32px/1.1 var(--font-sans); /* the page title | page title */
+  --type-heading: 400 24px/1.2 var(--font-sans); /* a section or dialog title | section, dialog title */
+  --type-heading-sm: 400 18px/1.3 var(--font-sans); /* a subsection or panel title in sans | panel title, empty state title */
+  --type-figure: 400 40px/1 var(--font-sans); /* a big number with tabular figures | KPI value, meter readout */
+  --type-body: 400 15px/24px var(--font-sans); /* paragraphs | description, message, lead */
+  --type-body-sm: 400 14px/20px var(--font-sans); /* dense paragraphs, a field's text | field, card description, hint */
+  --type-caption: 400 13px/18px var(--font-sans); /* a sentence of meta under a row | row description, footnote */
+  --type-label-lg: 400 14px/20px var(--font-mono); /* a large control's label, in capitals | large button */
+  --type-label: 400 13px/16px var(--font-mono); /* the interface voice, in capitals: a control, a tab, a table head | button, tab, table head, status cell label */
+  --type-label-sm: 400 12px/16px var(--font-mono); /* a small control or a tag, in capitals | small button, tag, tab index */
+  --type-micro: 400 11px/14px var(--font-mono); /* an axis, a tick or a micro caption, in capitals | chart axis, meter scale, frame caption */
+  --type-code: 400 13px/20px var(--font-mono); /* code, logs and values read as written, not in capitals, and a region header's name | code block, log line, value in a row, panel header */
+  --type-code-sm: 400 12px/16px var(--font-mono); /* an ID or a value beside a label, as written | table ID, key tail, status value */
+  --tracking-display: -0.04em; /* the hero headline | display */
+  --tracking-title: -0.035em; /* titles | title, figure */
+  --tracking-heading: -0.025em; /* headings | heading, heading-sm */
+  --tracking-body: 0em; /* prose: the display cut sets tight on its own | body, body-sm, caption */
+  --tracking-label: 0.05em; /* mono capitals at 13px: opened so capitals do not crowd | label */
+  --tracking-label-lg: 0.04em; /* mono capitals at 14px | label-lg */
+  --tracking-label-sm: 0.06em; /* mono capitals at 12 and 11px, opened a step more as they shrink | label-sm, micro */
+
+  /* == Space == */
+  --space-0-5: 2px; /* an optical nudge | icon offset */
+  --space-1: 4px; /* the grid's step | tag, tab index box */
+  --space-1-5: 6px; /* icon to label inside a control | button, tag */
+  --space-2: 8px; /* between controls in a row, label to value, between a header's icon buttons | toolbar, footer actions, panel-head-actions */
+  --space-3: 12px; /* a button's text inset, between items inside a body, between table columns; a field and a menu row take --field-inset | button, frame body, table cell, log line */
+  --space-4: 16px; /* between groups inside a body, an overlay's inset | popover, field group */
+  --space-5: 20px; /* the narrowest dot gutter, between steps in a tool-call stack | dots, tool-call stack */
+  --space-6: 24px; /* between sections, a dialog's inset | section, dialog */
+  --space-8: 32px; /* between page regions | page */
+  --space-10: 40px; /* a page's top padding | page */
+  --inset: 12px; /* a region's one inset, from its edge to the nearest thing you see: header sides, body and footer on all four sides, a table's first and last cell, log and code lines, a tool-call row's header and body, a status-strip cell, a data list's sides | panel-head, frame body, frame footer, table, log viewer, code window, code block, tool-call row, tool-call body, status strip, data list, dialog, sheet */
+
+  /* == Size == */
+  --control-sm: 26px; /* a small control | button sm, tag button, toolbar action */
+  --control: 32px; /* the default control | button, input, select, tab */
+  --control-lg: 36px; /* a large control: a page's one main action, 2px clear of a row's rules each side | button lg, input lg, select lg */
+  --row: 40px; /* one row of a list, table or tool-call stack | table row, list row, tool-call row */
+  --row-sm: 32px; /* one row of a dense list or a menu, a table's column-head row | menu item, table head, dense table, small tool-call row */
+  --head: 38px; /* a region header's height, measured, not on the 4px grid: a 13px name's ink sits 12 to 14px from the top and 11 to 14px over the rule, against 12 to 14px from the side on the 12px inset | panel-head: frame header, table title, log viewer, code window, framed chart, dialog, sheet */
+  --icon: 16px; /* an icon in a control: the set is drawn at 16 | button, input, menu item */
+  --icon-sm: 14px; /* an icon inside a small field beside its 12 or 13px text, so the glyph spans the caps, not a line and a half | input sm, select sm, filter cell */
+  --marker: 8px; /* a small square mark: a status square, a chart head, a legend key | status, chart, meter */
+  --cap: 0.7em; /* the cap height of the text around it, Commit Mono and Inter Display alike | a status mark beside a value */
+  --rail: 12px; /* the width of a perforated rail at a quote's start | response quote */
+
+  /* == Radius == */
+  --radius: 0px; /* every corner: controls, panels, overlays, tags | everything */
+
+  /* == Lines == */
+  --line-width: 1px; /* every line: rules, edges, connectors | frame, field, rule, overlay */
+  --focus-width: 2px; /* the focus ring | every focusable */
+  --focus-offset: 2px; /* the gap between a control and its ring | every focusable */
+  --dot-pitch: 4px; /* the spacing of a dot-matrix gutter | dots */
+  --rail-pitch: 6px; /* the spacing of a rail's square dots | rail */
+  --rail-dot: 2px; /* one rail dot, square | rail */
+  --pending-cell: 3px; /* one square of the pending mark; four of them, 2px apart | button pending, switch pending, search pending */
+
+  /* == Motion: mechanical; cuts, typing and linear wipes, ease-out on moves, no springs == */
+  --dur-press: 80ms; /* a press: the colour step, no scale | button, row */
+  --dur-state: 120ms; /* a state change: hover, an edge, a check | every control */
+  --dur-overlay: 160ms; /* an overlay in; it leaves on --dur-state | menu, popover, dialog, tooltip */
+  --dur-wipe: 240ms; /* a region wiping in along its rule, start to end | panel reveal, meter fill, bar grow */
+  --dur-draw: 300ms; /* a connector drawing out, one hop | tool-call connector, swimlane elbow */
+  --dur-type: 18ms; /* one character typing in, about 55 a second | typed label, typed headline */
+  --dur-scramble: 400ms; /* a mono label resolving from random glyphs, start to end | panel header label, status value */
+  --dur-pending: 800ms; /* one cycle of the pending mark, four steps | button pending, tool call running */
+  --overlay-shift: 4px; /* how far an anchored overlay travels in from its trigger | menu, popover, select, tooltip */
+  --dur-light: 240ms; /* a button's fill and edge lightening under the pointer and settling back | primary button, secondary button */
+  --dur-glow: 320ms; /* a button's light from below rising and fading, a beat behind its fill | primary button, secondary button */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); /* the house curve: arrives fast and stops, no overshoot | every transition */
+  --ease-soft: cubic-bezier(0.22, 0.8, 0.24, 1); /* a softer arrival for light, no overshoot | primary button, secondary button hover */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1); /* an element leaving | overlay exit */
+  --ease-linear: linear; /* wipes, typing and the pending steps | wipe, draw, type */
+
+  /* == Layers == */
+  --z-raised: 10; /* a part lifted over its siblings inside a component | sticky header, focused cell */
+  --z-overlay: 50; /* every portalled layer, under the docs' own floating layers; the last opened sits on top | dialog, popover, menu, tooltip, toast */
+
+  /* == Layout == */
+  --overlay-sm: 400px; /* a small dialog | alert dialog */
+  --overlay: 480px; /* the default dialog and sheet width | dialog, sheet */
+  --overlay-lg: 640px; /* a wide dialog: a preview, the command palette | dialog lg, command */
+  --popover: 288px; /* a popover's width | popover */
+  --toast: 360px; /* a toast's width on a wide screen | toast */
+  --menu-min: 192px; /* the narrowest a menu opens | dropdown menu, select */
+  --popup-max: 320px; /* the tallest a list popup grows before it scrolls | select, combobox, menu */
+  --tooltip-max: 256px; /* a tooltip's line length before it wraps | tooltip */
+  --label-col: 160px; /* the widest a label column grows before its labels wrap | data list, key and value block */
+  --meter: 8px; /* the thickness of a meter or progress track | meter, progress */
+  --measure: 68ch; /* a paragraph's longest line | prose, lead */
+  --measure-hint: 60ch; /* a description or hint's longest line | field hint, row description */
+
+  /* == Scrollbar: one thin square bar for every scrolling region == */
+  --scrollbar-thumb: rgb(22 21 18 / 0.24); /* the thumb, ink at 24% | table, code block, log viewer, menu */
+  --scrollbar-size: 10px; /* the bar's gutter: a 6px thumb with --scrollbar-gap of clear on each side | every scrolling region */
+  --scrollbar-gap: 2px; /* the clear around the thumb | every scrolling region */
+}
+
+/* The dark theme. A warm near-black page with panels a step up and rules two steps up. Yellow turns from a slab into
+   a dark yellow tint with a 1px yellow line and yellow text, as a terminal selection reads; checked controls take the
+   same tint, line and a yellow mark. The selection wash is the same dark tint. Text stays warm. */
+[data-system="sodium"][data-theme="dark"], .sodium[data-theme="dark"], [data-theme="dark"] [data-system="sodium"], [data-theme="dark"] .sodium {
+  --page: #141412;
+  --panel: #1c1b19;
+  --well: #22211e;
+  --hover: rgb(245 243 238 / 0.04);
+  --pressed: rgb(245 243 238 / 0.08);
+  --selected: #3a3107;
+  --selected-strong: #4a3f09;
+  --scrim: rgb(0 0 0 / 0.64);
+
+  --text-1: #f5f3ee;
+  --text-2: #c4c0b6;
+  --text-3: #a19c90;
+  --text-disabled: #5e5a52;
+  --text-inverse: #141412;
+
+  --line-faint: #22211e;
+  --line: #2c2a25;
+  --line-control: #736d61;
+  --mark: #736d61;
+  --dot: #2a2824;
+
+  --accent: #ffd400;
+  --accent-text: #ffd400;
+  --accent-edge: #ffd400;
+
+  --primary-bg: #3a3107;
+  --primary-text: #ffd400;
+  --primary-edge: #ffd400;
+  --primary-hover: #4a3f09;
+  --primary-edge-hover: #ffd400;
+  --primary-pressed: #2e2705;
+  --primary-light: rgb(255 212 0 / 0.22);
+  --primary-light-hover: rgb(255 212 0 / 0.36);
+  --primary-ring: rgb(255 212 0 / 0.1);
+
+  --secondary-bg: #181715;
+  --secondary-hover: #21201e;
+  --secondary-pressed: #2a2926;
+  --secondary-edge-hover: #2c2a25;
+  --secondary-light: rgb(245 243 238 / 0.06);
+  --secondary-light-hover: rgb(245 243 238 / 0.11);
+  --secondary-ring: rgb(245 243 238 / 0.045);
+
+  --check-bg: #3a3107;
+  --check-edge: #ffd400;
+  --check-mark: #ffd400;
+  --check-off-hover: #21201e;
+
+  /* Field and menu row, dark: the secondary's body, a step lighter under the pointer, the page while typed in. */
+  --field-bg: #181715;
+  --field-hover: #21201e;
+  --field-edge-hover: #36332d;
+  --field-ring-hover: rgb(245 243 238 / 0.045);
+  --field-focus-bg: #141412;
+  --field-focus-edge: #c9a700;
+  --field-ring-focus: rgb(255 212 0 / 0.16);
+  --field-ring-fail: rgb(255 107 87 / 0.18);
+  --row-highlight: #282722;
+  --row-highlight-edge: #33312b;
+
+  --ok: #8cc79a;
+  --ok-text: #8cc79a;
+  --ok-tint: #17271b;
+  --warn: #ff9a52;
+  --warn-text: #ff9a52;
+  --warn-tint: #33200f;
+  --fail: #ff6b57;
+  --fail-text: #ff6b57;
+  --fail-tint: #3a1915;
+
+  --data-1: #ffd400;
+  --data-2: #ebdc9c;
+  --data-3: #8f8a76;
+  --data-4: #8a6d1f;
+  --data-5: #5d7290;
+  --data-6: #f3ead0;
+
+  --focus: #ffd400;
+  --caret: #ffd400;
+
+  --scrollbar-thumb: rgb(245 243 238 / 0.22);
+}
+
+/* Reduced motion: no wipes, draws, typing or scramble; text and lines are there at once. The pending mark stays as a
+   still mark. */
+@media (prefers-reduced-motion: reduce) {
+  [data-system="sodium"], .sodium { --dur-press: 0ms; --dur-light: 0ms; --dur-glow: 0ms; --dur-state: 0ms; --dur-overlay: 0ms; --dur-wipe: 0ms; --dur-draw: 0ms; --dur-type: 0ms; --dur-scramble: 0ms; }
+}

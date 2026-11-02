@@ -1,4 +1,4 @@
-import type {ElementType} from 'react'
+import type {SodiumIcon} from '@/components/sodium/icon'
 import type {CloudAvailability, CloudProvider, CloudStatus} from '@/types/cloud'
 
 export interface ConsoleServiceCard {
@@ -7,7 +7,7 @@ export interface ConsoleServiceCard {
     description: string
     status: CloudAvailability
     count?: number
-    icon: ElementType
+    icon: SodiumIcon
     route?: string
     meta: string
 }
@@ -26,6 +26,7 @@ export interface SummarySectionProps {
 
 export interface ServiceGridProps {
     services: ConsoleServiceCard[]
+    loading?: boolean
     runtimeReachable: boolean
     onNavigate: (route: string) => void
     searchQuery?: string

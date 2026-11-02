@@ -1,5 +1,9 @@
 import {FormEvent, useState} from 'react'
-import {Plus} from 'lucide-react'
+import {Icon, PlusSquared as Plus} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import type {FieldSchema, ServiceSchema} from '@/types/schema'
 
 interface DynamicFormRendererProps {
@@ -61,16 +65,16 @@ export function DynamicFormRenderer({
                     }}
                 />
             ))}
-            <div style={{gridColumn: '1 / -1', justifySelf: 'end', display: 'flex', gap: '8px', alignItems: 'center', marginTop: 4}}>
+            <div className="flex gap-2 items-center mt-1 col-span-full justify-self-end">
                 {onCancel && (
-                    <button className="button" type="button" disabled={isSubmitting} onClick={onCancel}>
+                    <Button variant="secondary" type="button" disabled={isSubmitting} onClick={onCancel}>
                         Cancel
-                    </button>
+                    </Button>
                 )}
-                <button className="button primary" type="submit" disabled={isSubmitting}>
-                    {submitLabel === 'Create' && <Plus size={14}/>}
+                <Button type="submit" disabled={isSubmitting}>
+                    {submitLabel === 'Create' && <Icon icon={Plus} size={14}/>}
                     {isSubmitting ? pendingLabel : submitLabel}
-                </button>
+                </Button>
             </div>
             {submitError && <div className="form-error" role="alert">{submitError}</div>}
         </form>
@@ -100,19 +104,19 @@ function FieldRow({field, showGroup, required, maxLength, value, error, onChange
 function FieldInput({field, required, maxLength, value, invalid, messageId, onChange}: {field: FieldSchema; required: boolean; maxLength?: number; value: string; invalid: boolean; messageId: string; onChange: (value: string) => void}) {
     if (field.type === 'select') {
         return (
-            <select className={`input ${invalid ? 'invalid' : ''}`} value={value} required={required} aria-invalid={invalid || undefined} aria-describedby={invalid || field.description ? messageId : undefined} onChange={(event) => onChange(event.target.value)}>
+            <OptionSelect aria-label={field.label} value={value} required={required} aria-invalid={invalid || undefined} aria-describedby={invalid || field.description ? messageId : undefined} onValueChange={(value) => onChange(value)}>
                 <option value="">Default</option>
                 {(field.options ?? []).map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
-            </select>
+            </OptionSelect>
         )
     }
 
     if (field.type === 'textarea') {
         return (
-            <textarea
-                className={`textarea code-textarea ${invalid ? 'invalid' : ''}`}
+            <Textarea
+                aria-label={field.label}
                 value={value}
                 required={required}
                 aria-invalid={invalid || undefined}
@@ -128,9 +132,9 @@ function FieldInput({field, required, maxLength, value, invalid, messageId, onCh
     }
 
     return (
-        <input
+        <Input
+            aria-label={field.label}
             type={field.type === 'password' ? 'password' : 'text'}
-            className={`input ${invalid ? 'invalid' : ''}`}
             value={value}
             required={required}
             aria-invalid={invalid || undefined}

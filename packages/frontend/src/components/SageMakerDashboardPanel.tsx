@@ -1,5 +1,7 @@
-import {RefreshCw} from 'lucide-react'
+import {Icon, RefreshCwSquared as RefreshCw} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import type {CloudResource} from '@/types/resource'
+import {Hint} from '@/components/Hint'
 
 interface SageMakerDashboardPanelProps {
     resources: CloudResource[]
@@ -27,9 +29,9 @@ export function SageMakerDashboardPanel({resources, isRefreshing, updatedAt, onR
                 </div>
                 <div className="sagemaker-refresh">
                     <span>Last updated<br/>{updatedAt ? new Date(updatedAt).toLocaleString() : 'Never'}</span>
-                    <button className="icon-button" type="button" disabled={isRefreshing} onClick={onRefresh} aria-label="Refresh SageMaker AI resources">
-                        <RefreshCw size={18}/>
-                    </button>
+                    <Hint label="Refresh SageMaker AI resources"><Button variant="ghost" size="icon-sm" type="button" disabled={isRefreshing} onClick={onRefresh} aria-label="Refresh SageMaker AI resources">
+                        <Icon icon={RefreshCw} />
+                    </Button></Hint>
                 </div>
             </div>
 

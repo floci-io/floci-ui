@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Camera, Loader2, Plus, RefreshCw } from "lucide-react";
+import {Icon, Camera, PlusSquared as Plus, RefreshCwSquared as RefreshCw} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDatabaseSnapshot, listDatabaseSnapshots } from "@/api/cloudProxyClient";
 import { HttpError } from "@/api/HttpClient";
@@ -8,6 +11,7 @@ import { capabilityEnabled } from "@/lib/capabilities";
 import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource } from "@/types/resource";
 import type { CapabilitySchema, DatabaseActionName } from "@/types/schema";
+import {RowsSkeleton} from '@/components/PageSkeleton'
 
 export interface DatabaseSnapshotsPanelProps {
   cloud: CloudProvider;
@@ -95,41 +99,37 @@ export function DatabaseSnapshotsPanel({
           </span>
         </div>
         <div className="resource-table-tools">
-          <button
-            className="button"
+          <Button title={createCapability?.reason} variant="secondary"
             type="button"
             disabled={!canCreate}
-            title={createCapability?.reason}
             onClick={() => setCreateOpen((open) => !open)}
           >
-            <Plus size={14} />
+            <Icon icon={Plus} size={14} />
             Create DB snapshot
-          </button>
-          <button
-            className="button"
+          </Button>
+          <Button variant="secondary"
             type="button"
             disabled={!canList || snapshotsQuery.isFetching}
             onClick={() => snapshotsQuery.refetch()}
           >
-            <RefreshCw size={14} />
+            <Icon icon={RefreshCw} size={14} />
             {snapshotsQuery.isFetching ? "Loading" : "Refresh"}
-          </button>
+          </Button>
         </div>
       </div>
 
       {createOpen && (
-        <div className="resource-create-inline" style={{ margin: "10px 12px 16px" }}>
+        <div className="resource-create-inline mt-2.5 mx-3 mb-4">
           <form onSubmit={handleCreateSubmit} className="dynamic-form">
             <div className="form-group">
               <label className="form-label" htmlFor="source-instance-select">
                 Source Instance *
               </label>
-              <select
+              <OptionSelect
                 id="source-instance-select"
-                className="input"
                 required
                 value={sourceInstance}
-                onChange={(e) => handleSourceChange(e.target.value)}
+                onValueChange={(value) => handleSourceChange(value)}
               >
                 <option value="">Select a DB instance</option>
                 {instances.map((inst) => (
@@ -137,16 +137,15 @@ export function DatabaseSnapshotsPanel({
                     {inst.name}
                   </option>
                 ))}
-              </select>
+              </OptionSelect>
             </div>
 
             <div className="form-group">
               <label className="form-label" htmlFor="snapshot-id-input">
                 Snapshot Identifier *
               </label>
-              <input
+              <Input
                 id="snapshot-id-input"
-                className="input"
                 type="text"
                 required
                 value={snapshotId}
@@ -156,22 +155,19 @@ export function DatabaseSnapshotsPanel({
             </div>
 
             {createMut.isError && (
-              <div role="alert" className="error-text compact-text" style={{ marginTop: 8 }}>
+              <div role="alert" className="error-text compact-text mt-2">
                 {getErrorMessage(createMut.error)}
               </div>
             )}
 
-            <div className="form-actions" style={{ marginTop: 12 }}>
-              <button
-                className="button primary"
+            <div className="form-actions mt-3">
+              <Button title={createCapability?.reason}
                 type="submit"
                 disabled={!canCreate || !isFormValid || createMut.isPending}
-                title={createCapability?.reason}
               >
                 {createMut.isPending ? "Creating…" : "Create snapshot"}
-              </button>
-              <button
-                className="button"
+              </Button>
+              <Button variant="secondary"
                 type="button"
                 disabled={createMut.isPending}
                 onClick={() => {
@@ -180,23 +176,20 @@ export function DatabaseSnapshotsPanel({
                 }}
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
       )}
 
       {!canList ? (
-        <p className="muted compact-text" style={{ padding: "16px" }}>
+        <p className="muted compact-text p-4">
           {listCapability?.reason ?? "Snapshot listing is not available."}
         </p>
       ) : snapshotsQuery.isLoading ? (
-        <div className="empty compact">
-          <Loader2 size={18} className="spin" />
-          <p>Loading snapshots…</p>
-        </div>
+        <RowsSkeleton rows={4} label="Loading snapshots"/>
       ) : snapshotsQuery.isError ? (
-        <div role="alert" className="error-text compact-text" style={{ padding: "16px" }}>
+        <div role="alert" className="error-text compact-text p-4">
           {snapshotsQuery.error instanceof Error
             ? snapshotsQuery.error.message
             : "Failed to load database snapshots."}
@@ -208,7 +201,7 @@ export function DatabaseSnapshotsPanel({
           description="No snapshots returned for this account."
         />
       ) : (
-        <div className="snapshot-list" style={{ padding: "0 12px 12px" }}>
+        <div className="snapshot-list pt-0 px-3 pb-3">
           {snapshotsQuery.data?.map((snapshot) => (
             <div className="snapshot-row" key={snapshot.id || snapshot.name}>
               <div>

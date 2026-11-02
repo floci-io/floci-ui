@@ -1,10 +1,14 @@
 import {useState} from 'react';
 import {Link} from 'react-router-dom';
-import {Pencil, Trash2} from 'lucide-react';
+import {Icon, PencilSquared as Pencil, Trash2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import type {CloudResource} from '@/types/resource';
 import type {ServiceSchema} from '@/types/schema';
 import {getPath} from '@/lib/resourcePath';
 import {renderColumnValue} from '@/lib/columnFormat';
+import {Checkbox} from '@/components/sodium/ui/checkbox'
+import {EmptyState} from '@/components/EmptyState'
+import {Hint} from '@/components/Hint'
 
 interface ResourceTableProps {
   schema: ServiceSchema;
@@ -53,10 +57,7 @@ export function ResourceTable({
     const emptyTitle = `No ${schema.displayName} found.`;
     const emptyDescription = `The connected runtime did not return any ${schema.displayName} resources.`;
     return (
-      <div className="empty compact">
-        <h2>{emptyTitle}</h2>
-        <p>{emptyDescription}</p>
-      </div>
+      <EmptyState compact title={<>{emptyTitle}</>} description={<>{emptyDescription}</>}/>
     );
   }
 
@@ -66,12 +67,11 @@ export function ResourceTable({
         <thead>
           <tr>
             {isDeleteMulti && (
-              <th style={{ width: '1%' }}>
-                <input
-                  type="checkbox"
+              <th className="w-[1%]">
+                <Checkbox
                   aria-label="Select all resources"
                   checked={isAllSelected && resources.length > 0}
-                  onChange={() => {
+                  onCheckedChange={() => {
                     if (onToggleSelectAll) {
                       onToggleSelectAll();
                     } else {
@@ -96,14 +96,13 @@ export function ResourceTable({
             return (
               <tr key={resource.id} className={selectedId === resource.id ? 'selected' : ''}>
                 {isDeleteMulti && (
-                  <td style={{ width: '1%' }} onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
+                  <td className="w-[1%]" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
                       aria-label={`Select ${resource.name || resource.id}`}
                       checked={canDeleteRow && (selectedItems?.some((item) => item.id === resource.id) ?? false)}
                       disabled={!canDeleteRow}
                       title={canDeleteRow ? undefined : `${resource.name} cannot be deleted`}
-                      onChange={() => {
+                      onCheckedChange={() => {
                         onToggleSelect?.(resource);
                       }}
                     />
@@ -128,18 +127,16 @@ export function ResourceTable({
                         </Link>
                       )}
                       {canEdit && (
-                        <button
-                          className="icon-btn"
+                        <Hint label={`Edit ${resource.name}`}><Button variant="ghost" size="icon-sm"
                           type="button"
-                          title={`Edit ${resource.name}`}
                           aria-label={`Edit ${resource.name}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             onEdit?.(resource);
                           }}
                         >
-                          <Pencil size={13} />
-                        </button>
+                          <Icon icon={Pencil} size={14} />
+                        </Button></Hint>
                       )}
                       {canDeleteRow && (
                         confirmId === resource.id ? (
@@ -147,8 +144,7 @@ export function ResourceTable({
                             className="table-confirm-actions"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <button
-                              className="button danger compact"
+                            <Button variant="destructive" size="sm"
                               type="button"
                               disabled={deletingId === resource.id}
                               onClick={(e) => {
@@ -157,9 +153,9 @@ export function ResourceTable({
                               }}
                             >
                               Confirm
-                            </button>
-                            <button
-                              className="button success compact"
+                            </Button>
+                            <Button variant="secondary" size="sm"
+                              className="success"
                               type="button"
                               disabled={deletingId === resource.id}
                               onClick={(e) => {
@@ -168,13 +164,11 @@ export function ResourceTable({
                               }}
                             >
                               Cancel
-                            </button>
+                            </Button>
                           </div>
                         ) : (
-                          <button
-                            className="icon-btn danger"
+                          <Hint label={`Delete ${resource.name}`}><Button variant="ghost" size="icon-sm"
                             type="button"
-                            title={`Delete ${resource.name}`}
                             aria-label={`Delete ${resource.name}`}
                             disabled={deletingId === resource.id}
                             onClick={(e) => {
@@ -182,8 +176,8 @@ export function ResourceTable({
                               setConfirmId(resource.id);
                             }}
                           >
-                            <Trash2 size={13} />
-                          </button>
+                            <Icon icon={Trash2} size={14} />
+                          </Button></Hint>
                         )
                       )}
                     </div>

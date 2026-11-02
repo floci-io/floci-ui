@@ -70,13 +70,13 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
             name: 'dynamo-mesh-serverless-local-eventCommitCoordinator',
         })
         expect(heading).toBeInTheDocument()
-        expect(heading).toHaveStyle({textOverflow: 'ellipsis', whiteSpace: 'nowrap'})
+        expect(heading).toHaveClass('text-ellipsis', 'whitespace-nowrap')
 
         const triggerButton = await screen.findByRole('button', {
             name: /Register Trigger \(0\)/i,
         })
         expect(triggerButton).toBeInTheDocument()
-        expect(triggerButton).toHaveStyle({whiteSpace: 'nowrap', flexShrink: '0'})
+        expect(triggerButton).toHaveClass('whitespace-nowrap', 'shrink-0')
     })
 
     test('updates count when triggers exist', async () => {
@@ -178,7 +178,6 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
 
         // Default tab is Plain Text
         const plainTab = screen.getByRole('tab', {name: 'Plain Text'})
-        expect(plainTab).toHaveClass('active')
         expect(plainTab).toHaveAttribute('aria-selected', 'true')
         expect(plainTab).toHaveAttribute('aria-controls', 'inspector-tabpanel-plain')
         expect(screen.getByRole('tabpanel', {name: 'Plain Text'})).toBeInTheDocument()
@@ -189,7 +188,6 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
         const jsonTab = screen.getByRole('tab', {name: 'JSON'})
         expect(jsonTab).toHaveAttribute('aria-selected', 'false')
         await user.click(jsonTab)
-        expect(jsonTab).toHaveClass('active')
         expect(jsonTab).toHaveAttribute('aria-selected', 'true')
         expect(screen.getByRole('tabpanel', {name: 'JSON'})).toBeInTheDocument()
         expect(screen.queryByText('Lambda Details')).not.toBeInTheDocument()
@@ -199,7 +197,6 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
         const tableTab = screen.getByRole('tab', {name: 'Table'})
         expect(tableTab).toHaveAttribute('aria-selected', 'false')
         await user.click(tableTab)
-        expect(tableTab).toHaveClass('active')
         expect(tableTab).toHaveAttribute('aria-selected', 'true')
         expect(screen.getByRole('tabpanel', {name: 'Table'})).toBeInTheDocument()
         expect(screen.queryByText('Lambda Details')).not.toBeInTheDocument()
@@ -207,7 +204,6 @@ describe('ResourceInspector Lambda Header and Triggers', () => {
 
         // Switch back to Plain Text tab
         await user.click(plainTab)
-        expect(plainTab).toHaveClass('active')
         expect(plainTab).toHaveAttribute('aria-selected', 'true')
         expect(screen.getByText('Lambda Details')).toBeInTheDocument()
     })

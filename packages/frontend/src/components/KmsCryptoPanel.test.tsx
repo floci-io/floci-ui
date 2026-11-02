@@ -92,7 +92,7 @@ describe("KmsCryptoPanel", () => {
       />,
     );
     expect(screen.getByText("Ready")).toBeInTheDocument();
-    expect(screen.getByLabelText("Encryption algorithm")).toHaveValue("RSAES_OAEP_SHA_256");
+    expect(screen.getByLabelText("Encryption algorithm")).toHaveAttribute("data-value", "RSAES_OAEP_SHA_256");
   });
 
   test("shows the runtime's reason for a key it cannot use", () => {

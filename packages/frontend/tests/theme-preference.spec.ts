@@ -25,12 +25,12 @@ async function mockCloudApi(page: Page) {
 }
 
 async function expectCloud(page: Page, cloud: string) {
-    await expect(page.getByRole('link', {name: 'Console Home', exact: true})).toHaveAttribute('href', `/console/${cloud}`)
-    await expect(page.locator('.cloud-service-nav > .nav-label')).toHaveText(`Cloud Services · ${cloud.toUpperCase()}`)
+    await expect(page.getByRole('navigation', {name: 'Console'}).getByRole('link', {name: 'Console Home', exact: true})).toHaveAttribute('href', `/console/${cloud}`)
+    await expect(page.locator('.cloud-service-nav > span').first()).toHaveText(`Cloud services · ${cloud.toUpperCase()}`)
     await expect(page.locator('.topbar .cloud-switcher, .topbar .account-switcher')).toHaveCount(0)
     if (/^\/settings\/?$/i.test(new URL(page.url()).pathname)) {
-        await expect(page.getByRole('button', {name: `Switch cloud, currently ${cloud.toUpperCase()}`})).toBeVisible()
-        await expect(page.getByRole('button', {name: /Switch AWS account/})).toHaveCount(1)
+        await expect(page.getByRole('combobox', {name: 'Cloud'})).toBeVisible()
+        await expect(page.getByRole('combobox', {name: 'Account'})).toHaveCount(1)
     }
 }
 
@@ -59,7 +59,7 @@ for (const cloud of clouds) {
         await expectCloud(page, cloud)
         await page.reload()
         await expectCloud(page, cloud)
-        await page.getByRole('link', {name: 'Console Home', exact: true}).click()
+        await page.getByRole('navigation', {name: 'Console'}).getByRole('link', {name: 'Console Home', exact: true}).click()
         await expect(page).toHaveURL(new RegExp(`/console/${cloud}$`))
         await page.goBack()
         await expect(page).toHaveURL(/\/settings$/)
@@ -71,7 +71,7 @@ for (const cloud of clouds) {
         await expect(page).toHaveURL(/\/settings$/)
         await expectCloud(page, cloud)
         await expect.poll(() => page.evaluate(() => window.history.state.usr?.fromCloudExplorer)).toBe(true)
-        await page.getByRole('textbox', {name: 'Search services, features, docs, and more'}).fill('storage')
+        await page.getByRole('searchbox', {name: 'Search services, features, docs, and more'}).fill('storage')
         await expect(page).toHaveURL(/\/settings\?search=storage$/)
         await expectCloud(page, cloud)
         await expect.poll(() => page.evaluate(() => window.history.state.usr?.fromCloudExplorer)).toBe(true)
@@ -122,7 +122,7 @@ test('Settings navigation preserves OCI when session storage is unavailable', as
     await page.getByRole('link', {name: 'Settings', exact: true}).click()
     await expect(page).toHaveURL(/\/settings$/)
     await expectCloud(page, 'oci')
-    await page.getByRole('textbox', {name: 'Search services, features, docs, and more'}).fill('storage')
+    await page.getByRole('searchbox', {name: 'Search services, features, docs, and more'}).fill('storage')
     await expect(page).toHaveURL(/\/settings\?search=storage$/)
     await expect.poll(() => page.evaluate(() => window.history.state.usr?.fromCloudExplorer)).toBe(true)
     await page.reload()
@@ -134,7 +134,7 @@ test('Settings history restores its cloud after another cloud was selected', asy
     await page.goto('/console/oci')
     await page.getByRole('link', {name: 'Settings', exact: true}).click()
     await expectCloud(page, 'oci')
-    await page.getByRole('button', {name: 'Switch cloud, currently OCI'}).click()
+    await page.getByRole('combobox', {name: 'Cloud'}).click()
     await page.getByRole('option', {name: 'AZURE', exact: true}).click()
     await expect(page).toHaveURL(/\/console\/azure$/)
     await page.getByRole('link', {name: 'Settings', exact: true}).click()
@@ -171,7 +171,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
         const headerToggle = page.getByRole('button', {name: /^Theme: /})
         await expect(headerToggle).toHaveAccessibleName('Theme: System')
-        const logo = page.locator('.brand-logo')
+        const logo = page.getByRole('img', {name: 'Floci', exact: true})
         const initialLogo = await logo.getAttribute('src') ?? ''
         expect(initialLogo).not.toBe('')
 

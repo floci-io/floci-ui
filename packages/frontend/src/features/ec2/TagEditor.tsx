@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { Loader2, Plus, Save, Trash2 } from "lucide-react";
+import {Icon, Loader2, PlusSquared as Plus, Save, Trash2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
 import { useUpdateEc2InstanceTagsMutation } from "@/api/aws/ec2.mutations";
 import type { Ec2Tag } from "@/api/aws/ec2.api";
+import {Hint} from '@/components/Hint'
 
 interface Props {
   instanceId: string;
@@ -65,50 +68,47 @@ export function TagEditor({ instanceId, initialTags }: Props) {
 
   return (
     <div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+      <div className="flex flex-col gap-1 mb-2">
         {initialTags.filter(isAwsTag).map((tag) => (
-          <div key={tag.key} className="field-row" style={{ gap: 4 }}>
-            <input className="input" aria-label="AWS-managed tag key" value={tag.key} readOnly style={{ flex: 1 }} />
-            <input className="input" aria-label="AWS-managed tag value" value={tag.value} readOnly style={{ flex: 2 }} />
+          <div key={tag.key} className="field-row gap-1">
+            <Input className="flex-1" aria-label="AWS-managed tag key" value={tag.key} readOnly />
+            <Input className="flex-2" aria-label="AWS-managed tag value" value={tag.value} readOnly />
             <span title="AWS-managed tags cannot be edited or removed">AWS-managed</span>
           </div>
         ))}
         {rows.map((tag, idx) => (
-          <div key={idx} className="field-row" style={{ gap: 4 }}>
-            <input aria-label="Key"
-              className="input"
+          <div key={idx} className="field-row gap-1">
+            <Input aria-label="Key"
+              className="flex-1"
               placeholder="Key"
               value={tag.key}
               disabled={mutation.isPending}
               onChange={(e) => setKey(idx, e.target.value)}
-              style={{ flex: 1 }}
             />
-            <input aria-label="Value"
-              className="input"
+            <Input className="flex-2" aria-label="Value"
               placeholder="Value"
               value={tag.value}
               disabled={mutation.isPending}
               onChange={(e) => setValue(idx, e.target.value)}
-              style={{ flex: 2 }}
             />
-            <button className="icon-btn danger" onClick={() => removeRow(idx)} title="Remove" disabled={mutation.isPending}>
-              <Trash2 size={12} />
-            </button>
+            <Hint label="Remove"><Button variant="ghost" size="icon-sm" onClick={() => removeRow(idx)} aria-label="Remove" disabled={mutation.isPending}>
+              <Icon icon={Trash2} size={14} />
+            </Button></Hint>
           </div>
         ))}
       </div>
 
-      {err && <p style={{ fontSize: 11, color: "var(--status-error)", margin: "0 0 6px" }}>{err}</p>}
+      {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-1.5">{err}</p>}
 
-      <div style={{ display: "flex", gap: 6 }}>
-        <button className="button compact" onClick={addRow} disabled={mutation.isPending}>
-          <Plus size={12} />
+      <div className="flex gap-1.5">
+        <Button variant="secondary" size="sm" onClick={addRow} disabled={mutation.isPending}>
+          <Icon icon={Plus} size={14} />
           Add tag
-        </button>
-        <button className="button compact primary" onClick={handleSave} disabled={mutation.isPending}>
-          {mutation.isPending ? <Loader2 size={12} /> : <Save size={12} />}
+        </Button>
+        <Button size="sm" onClick={handleSave} disabled={mutation.isPending}>
+          {mutation.isPending ? <Icon icon={Loader2} size={14} /> : <Icon icon={Save} size={14} />}
           Save tags
-        </button>
+        </Button>
       </div>
     </div>
   );

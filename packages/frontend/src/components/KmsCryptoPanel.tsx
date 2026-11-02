@@ -1,5 +1,8 @@
 import {useEffect, useRef, useState} from "react";
-import {Copy, KeyRound, Loader2, LockKeyhole, UnlockKeyhole} from "lucide-react";
+import {Icon, Copy, KeyRound, Loader2, LockKeyhole, UnlockKeyhole} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {OptionSelect} from '@/components/OptionSelect'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {
   decryptKmsResource,
   encryptKmsResource,
@@ -8,6 +11,7 @@ import {
 import {useAccountId} from "@/lib/accountStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
+import {EmptyState} from '@/components/EmptyState'
 
 interface KmsCryptoPanelProps {
   cloud: CloudProvider;
@@ -127,10 +131,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
   if (!resource || resource.service !== "kms") {
     return (
       <section className="table-panel">
-        <div className="empty compact">
-          <h2>Select an encryption key</h2>
-          <p>Select an enabled ENCRYPT_DECRYPT KMS key to encrypt or decrypt data.</p>
-        </div>
+        <EmptyState compact title="Select an encryption key" description="Select an enabled ENCRYPT_DECRYPT KMS key to encrypt or decrypt data."/>
       </section>
     );
   }
@@ -140,7 +141,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">KMS Actions</p>
-          <h2><KeyRound size={15} /> Encrypt and decrypt</h2>
+          <h2><Icon icon={KeyRound}  /> Encrypt and decrypt</h2>
           <p className="muted compact-text">
             Values stay in this panel and are cleared when you switch keys or operations.
           </p>
@@ -152,21 +153,20 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
 
       <div className="resource-create-inline">
         <div className="drawer-tabs">
-          <button type="button" className={`drawer-tab ${mode === "encrypt" ? "active" : ""}`} onClick={() => changeMode("encrypt")}>
-            <LockKeyhole size={13} /> Encrypt
-          </button>
-          <button type="button" className={`drawer-tab ${mode === "decrypt" ? "active" : ""}`} onClick={() => changeMode("decrypt")}>
-            <UnlockKeyhole size={13} /> Decrypt
-          </button>
+          <Button variant={mode === "encrypt" ? 'secondary' : 'ghost'} type="button" onClick={() => changeMode("encrypt")}>
+            <Icon icon={LockKeyhole} size={14} /> Encrypt
+          </Button>
+          <Button variant={mode === "decrypt" ? 'secondary' : 'ghost'} type="button" onClick={() => changeMode("decrypt")}>
+            <Icon icon={UnlockKeyhole} size={14} /> Decrypt
+          </Button>
         </div>
 
         <label className="metric-label" htmlFor="kms-encryption-algorithm">Encryption algorithm</label>
-        <select
+        <OptionSelect
           id="kms-encryption-algorithm"
-          className="input"
           value={algorithm}
           disabled={!isRsa}
-          onChange={(event) => setAlgorithm(event.target.value as KmsEncryptionAlgorithm)}
+          onValueChange={(value) => setAlgorithm(value as KmsEncryptionAlgorithm)}
         >
           {isRsa ? (
             <>
@@ -176,25 +176,25 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
           ) : (
             <option value="SYMMETRIC_DEFAULT">SYMMETRIC_DEFAULT</option>
           )}
-        </select>
+        </OptionSelect>
 
         <label className="metric-label" htmlFor={`kms-${mode}-input`}>
           {mode === "encrypt" ? "Plaintext (UTF-8)" : "Ciphertext (Base64)"}
         </label>
-        <textarea
+        <Textarea
+          aria-label={mode === "encrypt" ? "Plaintext" : "Ciphertext"}
           id={`kms-${mode}-input`}
           className="json-editor"
           value={mode === "encrypt" ? plaintext : ciphertext}
           onChange={(event) => mode === "encrypt" ? setPlaintext(event.target.value) : setCiphertext(event.target.value)}
           spellCheck={false}
           autoComplete="off"
-          style={{minHeight: 120}}
         />
 
         {!isRsa && contextSupported && (
           <>
             <label className="metric-label" htmlFor="kms-encryption-context">Encryption context (optional JSON)</label>
-            <textarea
+            <Textarea
               id="kms-encryption-context"
               className="json-editor"
               value={contextText}
@@ -202,25 +202,24 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
               spellCheck={false}
               autoComplete="off"
               placeholder={'{"purpose":"local-test"}'}
-              style={{minHeight: 72}}
             />
             <p className="muted compact-text">Encryption context is authenticated metadata and may appear in audit records. Do not put secrets in it.</p>
           </>
         )}
 
-        <button className="button primary" type="button" disabled={!canSubmit} onClick={() => void submit()}>
-          {pending ? <Loader2 size={13} className="spin" /> : mode === "encrypt" ? <LockKeyhole size={13} /> : <UnlockKeyhole size={13} />}
+        <Button type="button" disabled={!canSubmit} onClick={() => void submit()}>
+          {pending ? <Icon icon={Loader2} size={14} className="spin" /> : mode === "encrypt" ? <Icon icon={LockKeyhole} size={14} /> : <Icon icon={UnlockKeyhole} size={14} />}
           {pending ? "Working" : mode === "encrypt" ? "Encrypt" : "Decrypt"}
-        </button>
+        </Button>
 
         {error && <p className="error-text compact-text">{error}</p>}
         {result && (
           <div className="inspector-section">
             <div className="inspector-section-header">
               <p className="metric-label">{result.label}</p>
-              <button className="button" type="button" onClick={() => void copyResult()}>
-                <Copy size={13} /> {copied ? "Copied" : "Copy"}
-              </button>
+              <Button variant="secondary" type="button" onClick={() => void copyResult()}>
+                <Icon icon={Copy} size={14} /> {copied ? "Copied" : "Copy"}
+              </Button>
             </div>
             <pre className="invoke-result success">{result.value}</pre>
           </div>

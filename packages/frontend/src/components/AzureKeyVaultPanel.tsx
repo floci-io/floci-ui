@@ -1,5 +1,6 @@
 import {useEffect, useRef, useState} from "react";
-import {History, Loader2, RefreshCw} from "lucide-react";
+import {Icon, History, Loader2, RefreshCwSquared as RefreshCw} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import {
   purgeDeletedCertificateResource,
   purgeDeletedKmsResource,
@@ -105,13 +106,13 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">Key Vault</p>
-          <h2><History size={15}/> {deleted ? `Deleted ${noun}` : `${kind.label} versions`}</h2>
+          <h2><Icon icon={History} /> {deleted ? `Deleted ${noun}` : `${kind.label} versions`}</h2>
           <p className="muted compact-text">{kind.notice}</p>
         </div>
         {isKey && !deleted && (
-          <button className="button" type="button" disabled={!runtimeReachable || pending || resource.status !== "enabled"} onClick={() => void run("rotate")}>
-            {pending ? <Loader2 size={13} className="spin"/> : <RefreshCw size={13}/>} Rotate key
-          </button>
+          <Button variant="secondary" type="button" disabled={!runtimeReachable || pending || resource.status !== "enabled"} onClick={() => void run("rotate")}>
+            {pending ? <Icon icon={Loader2} size={14} className="spin"/> : <Icon icon={RefreshCw} size={14}/>} Rotate key
+          </Button>
         )}
       </div>
       {deleted ? (
@@ -123,19 +124,19 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
           {confirmPurge ? (
             <>
               <p className="error-text compact-text">Purging permanently removes {resource.name} and all of its versions.</p>
-              <button className="button danger" type="button" disabled={!runtimeReachable || pending} onClick={() => void run("purge")}>
-                {pending ? <Loader2 size={13} className="spin"/> : null} Confirm purge
-              </button>
-              <button className="button" type="button" disabled={pending} onClick={() => setConfirmPurge(false)}>Cancel</button>
+              <Button variant="secondary" type="button" disabled={!runtimeReachable || pending} onClick={() => void run("purge")}>
+                {pending ? <Icon icon={Loader2} size={14} className="spin"/> : null} Confirm purge
+              </Button>
+              <Button variant="secondary" type="button" disabled={pending} onClick={() => setConfirmPurge(false)}>Cancel</Button>
             </>
           ) : (
             <>
-              <button className="button primary" type="button" disabled={!runtimeReachable || pending} onClick={() => void run("recover")}>
-                {pending ? <Loader2 size={13} className="spin"/> : null} Recover
-              </button>
-              <button className="button danger" type="button" disabled={!runtimeReachable || pending} onClick={() => setConfirmPurge(true)}>
+              <Button type="button" disabled={!runtimeReachable || pending} onClick={() => void run("recover")}>
+                {pending ? <Icon icon={Loader2} size={14} className="spin"/> : null} Recover
+              </Button>
+              <Button variant="secondary" type="button" disabled={!runtimeReachable || pending} onClick={() => setConfirmPurge(true)}>
                 Purge
-              </button>
+              </Button>
             </>
           )}
         </div>

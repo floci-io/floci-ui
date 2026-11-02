@@ -1,10 +1,13 @@
 import {useEffect, useState} from "react";
-import {ChevronDown, ChevronUp, Copy, Loader2, Play, Wand2, Zap} from "lucide-react";
+import {Icon, ChevronDown, ChevronUp, Copy, Loader2, Play, Wand2, ZapSquared as Zap} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {useMutation} from "@tanstack/react-query";
 import {invokeCloudResource} from "@/api/cloudProxyClient";
 import type {ServerlessInvokeResult} from "@/api/cloudProxyClient";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
+import {EmptyState} from '@/components/EmptyState'
 
 interface ServerlessInvokePanelProps {
   cloud: CloudProvider;
@@ -90,13 +93,8 @@ const clearPayload = () => {
   if (!resource || resource.service !== "serverless" || !isSupportedResource) {
     return (
       <section className="table-panel">
-        <div className="empty compact">
-          <h2>Select a serverless function</h2>
-          <p>
-            Select a Lambda function, Azure Function, Google Cloud Function, or OCI function to
-            invoke it from Cloud Explorer.
-          </p>
-        </div>
+        <EmptyState compact title="Select a serverless function" description={<>Select a Lambda function, Azure Function, Google Cloud Function, or OCI function to
+            invoke it from Cloud Explorer.</>}/>
       </section>
     );
   }
@@ -107,7 +105,7 @@ const clearPayload = () => {
         <div>
           <p className="eyebrow">Serverless Actions</p>
           <h2>
-            <Zap size={15} />
+            <Icon icon={Zap}  />
             Invoke {providerLabel}
           </h2>
           <p className="muted compact-text">
@@ -126,17 +124,17 @@ const clearPayload = () => {
     Event payload JSON
   </label>
 
-  <button className="button" type="button" onClick={formatPayload}>
-    <Wand2 size={13} />
+  <Button variant="secondary" type="button" onClick={formatPayload}>
+    <Icon icon={Wand2} size={14} />
     Format JSON
-  </button>
+  </Button>
 
-<button className="button" type="button" onClick={clearPayload}>
+<Button variant="secondary" type="button" onClick={clearPayload}>
   Clear
-</button>
+</Button>
 </div>
 
-<textarea
+<Textarea
   id="serverless-invoke-payload"
   className="json-editor"
   value={payload}
@@ -153,7 +151,6 @@ const clearPayload = () => {
   }}
   spellCheck={false}
   placeholder="{}"
-  style={{minHeight: 140}}
 />
         {validationError && (
           <p className="error-text compact-text">
@@ -161,15 +158,14 @@ const clearPayload = () => {
           </p>
         )}
 
-        <button
-          className="button primary"
+        <Button
           type="button"
           disabled={!canSubmit || invokeMutation.isPending}
           onClick={() => invokeMutation.mutate()}
         >
-          {invokeMutation.isPending ? <Loader2 size={13} /> : <Play size={13} />}
+          {invokeMutation.isPending ? <Icon icon={Loader2} size={14} /> : <Icon icon={Play} size={14} />}
           {invokeMutation.isPending ? "Invoking" : "Invoke"}
-        </button>
+        </Button>
 
         {invokeMutation.isError && (
           <p className="error-text compact-text">
@@ -200,10 +196,10 @@ const clearPayload = () => {
               </p>
             )}
 
-            <button className="button" type="button" onClick={copyResponse}>
-              <Copy size={13} />
+            <Button variant="secondary" type="button" onClick={copyResponse}>
+              <Icon icon={Copy} size={14} />
               {copied ? "Copied" : "Copy response"}
-            </button>
+            </Button>
 
             <pre className={`invoke-result ${isInvokeError ? "error" : "success"}`}>
               {tryFormatJson(invokeResult.payload) || "(empty)"}
@@ -211,14 +207,13 @@ const clearPayload = () => {
 
             {invokeResult.logResult && (
               <div>
-                <button
-                  className="button"
+                <Button variant="secondary"
                   type="button"
                   onClick={() => setShowLog((open) => !open)}
                 >
                   Log tail
-                  {showLog ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </button>
+                  {showLog ? <Icon icon={ChevronUp} size={14} /> : <Icon icon={ChevronDown} size={14} />}
+                </Button>
                 {showLog && <div className="log-tail">{invokeResult.logResult}</div>}
               </div>
             )}

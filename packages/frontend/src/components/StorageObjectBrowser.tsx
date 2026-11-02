@@ -1,5 +1,8 @@
 import {useEffect, useRef, useState} from 'react'
-import {ChevronLeft, ChevronRight, Copy, Download, Eye, File, Folder, Loader2, RefreshCw, Search, Trash2, Upload, X} from 'lucide-react'
+import {Icon, ChevronLeft, ChevronRight, Copy, Download, EyeSquared as Eye, File, Folder, Loader2, RefreshCwSquared as RefreshCw, Search, Trash2, Upload, XSquared as X} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {
     copyStorageObject,
@@ -20,6 +23,10 @@ import {storageObjectsKey, storageObjectWriteKey, storageTargetKey, type Storage
 import {ImagePreviewModal} from '@/components/ImagePreviewModal'
 import {ObjectThumbnail} from '@/components/ObjectThumbnail'
 import {ModalOverlay} from './ModalOverlay'
+import {Checkbox} from '@/components/sodium/ui/checkbox'
+import {EmptyState} from '@/components/EmptyState'
+import {RowsSkeleton} from '@/components/PageSkeleton'
+import {Hint} from '@/components/Hint'
 
 interface StorageObjectBrowserProps {
     cloud: CloudProvider
@@ -274,35 +281,35 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                 </div>
                 <div className="object-browser-actions">
                     {prefix && (
-                        <button className="button" type="button" onClick={() => navigate(parentPrefix(prefix))}>
-                            <ChevronLeft size={14}/>
+                        <Button variant="secondary" type="button" onClick={() => navigate(parentPrefix(prefix))}>
+                            <Icon icon={ChevronLeft} size={14}/>
                             Back
-                        </button>
+                        </Button>
                     )}
                     {createFolderCapability && (
-                        <button className="button" type="button" disabled={!canCreateFolder} title={createFolderCapability.reason} onClick={() => setCreateFolderOpen((open) => !open)}>
-                            <Folder size={14}/>
+                        <Button title={createFolderCapability.reason} variant="secondary" type="button" disabled={!canCreateFolder} onClick={() => setCreateFolderOpen((open) => !open)}>
+                            <Icon icon={Folder} size={14}/>
                             New folder
-                        </button>
+                        </Button>
                     )}
                     {uploadCapability && (
                         <>
-                            <input aria-label="Upload prefix" className="input object-prefix-input" value={uploadPrefix} onChange={(event) => setUploadPrefix(normalizePrefix(event.target.value))} placeholder={prefix ? `Upload to ${prefix}` : 'Upload prefix'}/>
-                            <input aria-label="Choose file to upload" ref={fileRef} type="file" hidden onChange={(event) => {
+                            <Input aria-label="Upload prefix" className="object-prefix-input" value={uploadPrefix} onChange={(event) => setUploadPrefix(normalizePrefix(event.target.value))} placeholder={prefix ? `Upload to ${prefix}` : 'Upload prefix'}/>
+                            <Input aria-label="Choose file to upload" ref={fileRef} type="file" className="hidden" onChange={(event) => {
                                 const file = event.target.files?.[0]
                                 if (file && target) uploadMut.mutate({file, target})
                                 event.currentTarget.value = ''
                             }}/>
-                            <button className="button" type="button" disabled={!canUpload} title={uploadCapability.reason} onClick={() => fileRef.current?.click()}>
-                                <Upload size={14}/>
+                            <Button title={uploadCapability.reason} variant="secondary" type="button" disabled={!canUpload} onClick={() => fileRef.current?.click()}>
+                                <Icon icon={Upload} size={14}/>
                                 {uploadMut.isPending ? 'Uploading' : 'Upload'}
-                            </button>
+                            </Button>
                         </>
                     )}
-                    <button className="button" type="button" disabled={query.isFetching} onClick={() => query.refetch()}>
-                        <RefreshCw size={14}/>
+                    <Button variant="secondary" type="button" disabled={query.isFetching} onClick={() => query.refetch()}>
+                        <Icon icon={RefreshCw} size={14}/>
                         {query.isFetching ? 'Loading' : 'Refresh'}
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -314,12 +321,12 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                 }}>
                     <label>
                         <span>Folder name</span>
-                        <input className="input" value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder={prefix ? `${prefix}new-folder/` : 'new-folder/'}/>
+                        <Input aria-label="Folder name" value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder={prefix ? `${prefix}new-folder/` : 'new-folder/'}/>
                     </label>
-                    <button className="button primary" type="submit" disabled={createFolderMut.isPending || !folderName.trim()}>
-                        <Folder size={14}/>
+                    <Button type="submit" disabled={createFolderMut.isPending || !folderName.trim()}>
+                        <Icon icon={Folder} size={14}/>
                         {createFolderMut.isPending ? 'Creating' : 'Create folder'}
-                    </button>
+                    </Button>
                 </form>
             )}
 
@@ -334,20 +341,19 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
             {/* ── Search bar ── */}
             {!query.isLoading && objects.length > 0 && (
                 <div className="object-search-bar">
-                    <Search size={13}/>
-                    <input aria-label={`Search ${objectLabel} and folders`}
-                        className="input"
+                    <Icon icon={Search} size={14}/>
+                    <Input aria-label={`Search ${objectLabel} and folders`}
                         value={search}
                         onChange={(e) => { setSearch(e.target.value); setSelectedKeys(new Set()) }}
                         placeholder={`Search ${objectLabel} and folders…`}
                     />
                     {search && (
-                        <button className="icon-btn" type="button" onClick={() => setSearch('')} aria-label="Clear search" title="Clear search">
-                            <X size={13} aria-hidden="true"/>
-                        </button>
+                        <Hint label="Clear search"><Button variant="ghost" size="icon-sm" type="button" onClick={() => setSearch('')} aria-label="Clear search">
+                            <Icon icon={X} size={14} aria-hidden="true"/>
+                        </Button></Hint>
                     )}
                     {search && (
-                        <span style={{fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap'}}>
+                        <span className="type-caption text-text-3 whitespace-nowrap">
                             {filteredObjects.length} / {objects.length}
                         </span>
                     )}
@@ -356,31 +362,21 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
 
             {/* ── Table ── */}
             {query.isLoading ? (
-                <div className="empty compact">
-                    <h2>Loading objects</h2>
-                    <p>Reading objects from the selected storage resource.</p>
-                </div>
+                <RowsSkeleton label="Loading objects"/>
             ) : objects.length === 0 ? (
-                <div className="empty compact">
-                    <h2>No {objectLabel}</h2>
-                    <p>{prefix ? `The ${prefix} prefix is empty.` : `This ${resource.type} has no ${objectLabel} yet.`}</p>
-                </div>
+                <EmptyState compact title={<>No {objectLabel}</>} description={<>{prefix ? `The ${prefix} prefix is empty.` : `This ${resource.type} has no ${objectLabel} yet.`}</>}/>
             ) : filteredObjects.length === 0 ? (
-                <div className="empty compact">
-                    <h2>No results</h2>
-                    <p>Nothing matches &ldquo;{search}&rdquo;.</p>
-                </div>
+                <EmptyState compact title="No results" description={<>Nothing matches &ldquo;{search}&rdquo;.</>}/>
             ) : (
                 <table className="table object-table">
                     <thead>
                         <tr>
-                            <th style={{width: 32, textAlign: 'center'}}>
-                                <input
-                                    type="checkbox"
-                                    ref={(el) => { if (el) el.indeterminate = someSelected }}
+                            <th className="w-8 text-center">
+                                <Checkbox
+                                    indeterminate={someSelected}
                                     checked={allSelected}
-                                    title={allSelected ? 'Deselect all' : 'Select all files'}
-                                    onChange={() => {
+                                    aria-label={allSelected ? 'Deselect all' : 'Select all files'}
+                                    onCheckedChange={() => {
                                         if (allSelected) setSelectedKeys(new Set())
                                         else setSelectedKeys(new Set(filteredFiles.map((f) => f.key)))
                                     }}
@@ -397,16 +393,16 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                         {filteredFolders.map((object) => (
                             <tr key={object.key}>
                                 <td/>
-                                <td onClick={() => navigate(object.key)} style={{cursor: 'pointer'}}>
+                                <td className="cursor-pointer" onClick={() => navigate(object.key)}>
                                     <span className="object-name">
-                                        <Folder size={14}/>
+                                        <Icon icon={Folder} size={14}/>
                                         {object.name}
-                                        <ChevronRight size={12}/>
+                                        <Icon icon={ChevronRight} size={14}/>
                                     </span>
                                 </td>
                                 <td>{object.type}</td>
-                                <td>—</td>
-                                <td>{object.lastModified ?? '—'}</td>
+                                <td>, </td>
+                                <td>{object.lastModified ?? ', '}</td>
                                 <td/>
                             </tr>
                         ))}
@@ -422,66 +418,63 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                         isSelected ? 'bulk-selected' : '',
                                     ].filter(Boolean).join(' ')}
                                 >
-                                    <td style={{textAlign: 'center'}}>
-                                        <input aria-label={`Select ${object.name}`}
-                                            type="checkbox"
+                                    <td className="text-center">
+                                        <Checkbox aria-label={`Select ${object.name}`}
                                             checked={isSelected}
                                             onClick={(e) => e.stopPropagation()}
-                                            onChange={(e) => {
+                                            onCheckedChange={(checked) => {
                                                 const next = new Set(selectedKeys)
-                                                if (e.target.checked) next.add(object.key)
+                                                if (checked) next.add(object.key)
                                                 else next.delete(object.key)
                                                 setSelectedKeys(next)
                                             }}
                                         />
                                     </td>
-                                    <td onClick={() => onSelectObject(object)} style={{cursor: 'pointer'}}>
+                                    <td className="cursor-pointer" onClick={() => onSelectObject(object)}>
                                         <span className="object-name">
                                             {iconKind ? (
                                                 <ObjectThumbnail kind={iconKind} src={storageObjectDownloadUrl(cloud, resource.id, object.key)} name={object.name} canLoad={canDownload}/>
                                             ) : (
-                                                <File size={14}/>
+                                                <Icon icon={File} size={14}/>
                                             )}
                                             {object.name}
                                         </span>
                                     </td>
                                     <td>{object.type}</td>
-                                    <td>{object.size === null ? '—' : formatBytes(object.size)}</td>
-                                    <td>{object.lastModified ?? '—'}</td>
+                                    <td>{object.size === null ? ', ' : formatBytes(object.size)}</td>
+                                    <td>{object.lastModified ?? ', '}</td>
                                     <td className="table-actions">
                                         {previewKind && (
-                                            <button
-                                                className="icon-btn"
+                                            <Button title={canDownload ? `Preview ${object.name}` : (downloadCapability?.reason ?? `Preview ${object.name}`)} variant="ghost" size="icon-sm"
                                                 type="button"
-                                                disabled={!canDownload}
-                                                title={canDownload ? `Preview ${object.name}` : (downloadCapability?.reason ?? `Preview ${object.name}`)}
+                                                disabled={!canDownload} aria-label={canDownload ? `Preview ${object.name}` : (downloadCapability?.reason ?? `Preview ${object.name}`)}
                                                 onClick={(e) => { e.stopPropagation(); if (canDownload) setPreviewObject(object) }}
                                             >
-                                                <Eye size={13}/>
-                                            </button>
+                                                <Icon icon={Eye} size={14}/>
+                                            </Button>
                                         )}
                                         {downloadCapability && (
                                             <a className={`icon-btn ${canDownload ? '' : 'disabled'}`} href={canDownload ? storageObjectDownloadUrl(cloud, resource.id, object.key) : undefined} title={downloadCapability.reason ?? `Download ${object.name}`}>
-                                                <Download size={13}/>
+                                                <Icon icon={Download} size={14}/>
                                             </a>
                                         )}
                                         {copyCapability && (
-                                            <button className="icon-btn" disabled={!canCopy} title={copyCapability.reason ?? `Move / Copy ${object.name}`} onClick={() => setCopyObject(object)}>
-                                                <Copy size={13}/>
-                                            </button>
+                                            <Button title={copyCapability.reason ?? `Move / Copy ${object.name}`} variant="ghost" size="icon-sm" disabled={!canCopy} aria-label={copyCapability.reason ?? `Move / Copy ${object.name}`} onClick={() => setCopyObject(object)}>
+                                                <Icon icon={Copy} size={14}/>
+                                            </Button>
                                         )}
                                         {canDelete && deleteConfirm === object.key ? (
-                                            <button className="button danger compact" disabled={deleteMut.isPending} onClick={() => {
+                                            <Button variant="destructive" size="sm" disabled={deleteMut.isPending} onClick={() => {
                                                 if (target) deleteMut.mutate({object, target})
                                                 setDeleteConfirm(null)
                                             }}>
                                                 Confirm
-                                            </button>
+                                            </Button>
                                         ) : (
                                             deleteCapability && (
-                                                <button className="icon-btn danger" disabled={!canDelete} title={deleteCapability.reason ?? `Delete ${object.name}`} onClick={() => setDeleteConfirm(object.key)}>
-                                                    <Trash2 size={13}/>
-                                                </button>
+                                                <Button title={deleteCapability.reason ?? `Delete ${object.name}`} variant="ghost" size="icon-sm" disabled={!canDelete} aria-label={deleteCapability.reason ?? `Delete ${object.name}`} onClick={() => setDeleteConfirm(object.key)}>
+                                                    <Icon icon={Trash2} size={14}/>
+                                                </Button>
                                             )
                                         )}
                                     </td>
@@ -499,23 +492,20 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                         {selectedKeys.size} {objectLabel.replace(/s$/, '')}{selectedKeys.size !== 1 ? 's' : ''} selected
                     </span>
                     <span className="bulk-spacer"/>
-                    <button
-                        className="button"
+                    <Button variant="secondary"
                         onClick={() => setSelectedKeys(new Set())}
                         disabled={bulkDeleting}
                     >
                         Deselect all
-                    </button>
+                    </Button>
                     {deleteCapability && (
-                        <button
-                            className="button danger"
+                        <Button title={deleteCapability.reason} variant="destructive"
                             disabled={!canDelete || bulkDeleting}
-                            title={deleteCapability.reason}
                             onClick={() => void handleBulkDelete()}
                         >
-                            {bulkDeleting ? <Loader2 size={13}/> : <Trash2 size={13}/>}
+                            {bulkDeleting ? <Icon icon={Loader2} size={14}/> : <Icon icon={Trash2} size={14}/>}
                             Delete {selectedKeys.size}
-                        </button>
+                        </Button>
                     )}
                 </div>
             )}
@@ -582,75 +572,72 @@ function MoveOrCopyModal({
     return (
         <ModalOverlay className="copy-modal-overlay" onClose={onClose} aria-label={`${mode === 'move' ? 'Move' : 'Copy'} ${srcObject.key}`}>
             <div className="copy-modal">
-                <div className="drawer-tabs" style={{marginBottom: 14}}>
-                    <button className={`drawer-tab ${mode === 'move' ? 'active' : ''}`} onClick={() => setMode('move')}>Move</button>
-                    <button className={`drawer-tab ${mode === 'copy' ? 'active' : ''}`} onClick={() => setMode('copy')}>Copy</button>
+                <div className="drawer-tabs mb-3.5">
+                    <Button variant={mode === 'move' ? 'secondary' : 'ghost'} onClick={() => setMode('move')}>Move</Button>
+                    <Button variant={mode === 'copy' ? 'secondary' : 'ghost'} onClick={() => setMode('copy')}>Copy</Button>
                 </div>
 
-                <div style={{fontSize: 12, color: 'var(--text-3)', marginBottom: 12}}>
-                    Source: <span className="mono" style={{color: 'var(--text-2)'}}>{resource.name}/{srcObject.key}</span>
+                <div className="type-caption text-text-3 mb-3">
+                    Source: <span className="mono text-text-2">{resource.name}/{srcObject.key}</span>
                 </div>
 
                 <div className="form-row">
                     <label>Destination {resourceLabel}</label>
                     {resourcesQuery.isLoading ? (
-                        <div style={{display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-3)'}}>
-                            <Loader2 size={13}/> Loading {resourceLabel}s…
+                        <div className="flex items-center gap-1.5 type-caption text-text-3">
+                            <Icon icon={Loader2} size={14}/> Loading {resourceLabel}s…
                         </div>
                     ) : (
-                        <select aria-label={`Destination ${resourceLabel}`} className="input" value={destResourceId} onChange={(e) => setDestResourceId(e.target.value)}>
+                        <OptionSelect aria-label={`Destination ${resourceLabel}`} value={destResourceId} onValueChange={(value) => setDestResourceId(value)}>
                             {resources.map((r) => (
                                 <option key={r.id} value={r.id}>
                                     {r.name}{r.id === resource.id ? ' (current)' : ''}
                                 </option>
                             ))}
                             <option value={NEW_RESOURCE_SENTINEL}>+ New {resourceLabel}…</option>
-                        </select>
+                        </OptionSelect>
                     )}
                 </div>
 
                 {isCreatingNew && (
-                    <div style={{display: 'flex', gap: 6, alignItems: 'center', marginTop: -6, marginBottom: 4}}>
-                        <input aria-label={`New ${resourceLabel} name`}
-                            className="input"
+                    <div className="flex gap-1.5 items-center -mt-1.5 mb-1">
+                        <Input aria-label={`New ${resourceLabel} name`}
                             autoFocus
                             value={newResourceName}
                             onChange={(e) => setNewResourceName(e.target.value.toLowerCase().replace(cloud === 'azure' ? /[^a-z0-9-]/g : /[^a-z0-9.-]/g, ''))}
                             placeholder={`new-${resourceLabel}-name`}
                             onKeyDown={(e) => { if (e.key === 'Enter' && newResourceName.trim().length >= 3) createResourceMut.mutate() }}
                         />
-                        <button
-                            className="button primary"
+                        <Button
                             disabled={newResourceName.trim().length < 3 || createResourceMut.isPending}
                             onClick={() => createResourceMut.mutate()}
                         >
-                            {createResourceMut.isPending ? <Loader2 size={13}/> : 'Create'}
-                        </button>
+                            {createResourceMut.isPending ? <Icon icon={Loader2} size={14}/> : 'Create'}
+                        </Button>
                     </div>
                 )}
                 {createResourceMut.isError && (
-                    <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 6px'}}>
+                    <p className="type-caption text-fail-text mt-0 mx-0 mb-1.5">
                         {createResourceMut.error instanceof Error ? createResourceMut.error.message : 'Create failed'}
                     </p>
                 )}
 
                 <div className="form-row">
                     <label>Destination key</label>
-                    <input aria-label="Destination key" className="input" value={destKey} onChange={(e) => setDestKey(e.target.value)}/>
+                    <Input aria-label="Destination key" value={destKey} onChange={(e) => setDestKey(e.target.value)}/>
                 </div>
 
-                {error && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 4px'}}>{error}</p>}
+                {error && <p className="type-caption text-fail-text mt-0 mx-0 mb-1">{error}</p>}
 
                 <div className="copy-modal-footer">
-                    <button className="button" onClick={onClose} disabled={isPending}>Cancel</button>
-                    <button
-                        className="button primary"
+                    <Button variant="secondary" onClick={onClose} disabled={isPending}>Cancel</Button>
+                    <Button
                         disabled={!destKey.trim() || isCreatingNew || !canCopy || isPending}
                         onClick={() => onConfirm(destKey, resolvedDestId, mode)}
                     >
-                        {isPending ? <Loader2 size={13}/> : <Copy size={13}/>}
+                        {isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Copy} size={14}/>}
                         {mode === 'move' ? 'Move' : 'Copy'}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -663,13 +650,13 @@ function ObjectBreadcrumb({prefix, onNavigate}: {prefix: string; onNavigate: (pr
     const segments = prefix ? prefix.replace(/\/$/, '').split('/') : []
     return (
         <div className="object-breadcrumb">
-            <button type="button" onClick={() => onNavigate('')}>Root</button>
+            <Button variant="ghost" type="button" onClick={() => onNavigate('')}>Root</Button>
             {segments.map((segment, index) => {
                 const path = `${segments.slice(0, index + 1).join('/')}/`
                 return (
                     <span key={path}>
-                        <ChevronRight size={11}/>
-                        <button type="button" onClick={() => onNavigate(path)}>{segment}</button>
+                        <Icon icon={ChevronRight} size={14}/>
+                        <Button variant="ghost" type="button" onClick={() => onNavigate(path)}>{segment}</Button>
                     </span>
                 )
             })}

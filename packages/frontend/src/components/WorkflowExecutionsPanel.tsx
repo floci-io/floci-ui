@@ -1,13 +1,15 @@
 import {Fragment, useEffect, useState} from 'react'
-import {ChevronDown, ChevronRight, History, Play, RefreshCw} from 'lucide-react'
+import {Icon, ChevronDown, ChevronRight, History, Play, RefreshCwSquared as RefreshCw} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {cn} from '@/lib/sodium/utils'
 import {useQueries} from '@tanstack/react-query'
 import {listChildCollections, listCollectionItems} from '@/api/cloudProxyClient'
-import {EmptyState} from '@/components/EmptyState'
 import {formatDateTime} from '@/lib/format'
 import {expandJsonStrings, formatDuration, isExpressExecution, summarizeDetails} from '@/lib/workflowHistory'
 import {timeAgo} from '@/lib/utils'
 import type {CloudProvider} from '@/types/cloud'
 import type {ChildCollection, ChildItem, CloudResource} from '@/types/resource'
+import {EmptyState} from '@/components/EmptyState'
 
 interface WorkflowExecutionsPanelProps {
     cloud: CloudProvider
@@ -93,10 +95,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
     if (!machineId) {
         return (
             <section className="cosmos-panel">
-                <div className="empty compact">
-                    <h2>Select a state machine</h2>
-                    <p>Executions and their history are loaded after a state machine is selected.</p>
-                </div>
+                <EmptyState compact title="Select a state machine" description="Executions and their history are loaded after a state machine is selected."/>
             </section>
         )
     }
@@ -105,7 +104,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
         <section className="cosmos-panel">
             <div className="cosmos-column">
                 <div className="cosmos-panel-header">
-                    <Play size={15}/>
+                    <Icon icon={Play} />
                     <span>
                         <small>Executions</small>
                         <strong>{resource?.name ?? machineId}</strong>
@@ -113,15 +112,14 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                     </span>
                 </div>
                 <div className="cosmos-toolbar">
-                    <button
-                        className="button"
+                    <Button variant="secondary"
                         type="button"
                         disabled={!runtimeReachable || firstExecutionPage?.isFetching}
                         onClick={refreshExecutions}
                     >
-                        <RefreshCw size={14}/>
+                        <Icon icon={RefreshCw} size={14}/>
                         Refresh
-                    </button>
+                    </Button>
                 </div>
                 <PageError pages={executionPages}/>
                 <div className="cosmos-list">
@@ -134,7 +132,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                         />
                     )}
                     {executions.map((execution) => (
-                        <button
+                        <Button variant="secondary"
                             key={execution.id}
                             className={`cosmos-list-row ${selectedExecutionId === execution.id ? 'selected' : ''}`}
                             type="button"
@@ -149,19 +147,18 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                                 </small>
                             </span>
                             <ExecutionStatusBadge status={stringMetadata(execution, 'status')}/>
-                            <ChevronRight size={13}/>
-                        </button>
+                            <Icon icon={ChevronRight} size={14}/>
+                        </Button>
                     ))}
                     {nextExecutionCursor && (
-                        <div style={{display: 'flex', justifyContent: 'center', padding: '12px 0'}}>
-                            <button
-                                className="button"
+                        <div className="flex justify-center py-3 px-0">
+                            <Button variant="secondary"
                                 type="button"
                                 disabled={Boolean(loadingMoreExecutions)}
                                 onClick={() => setExecutionCursors((prev) => [...prev, nextExecutionCursor])}
                             >
                                 {loadingMoreExecutions ? 'Loading…' : 'Load more'}
-                            </button>
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -169,7 +166,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
 
             <div className="cosmos-column cosmos-column--wide">
                 <div className="cosmos-panel-header">
-                    <History size={15}/>
+                    <Icon icon={History} />
                     <span>
                         <small>Execution history</small>
                         <strong>{selectedExecution?.name ?? selectedExecutionId ?? 'Select an execution'}</strong>
@@ -177,23 +174,19 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                     </span>
                 </div>
                 <div className="cosmos-toolbar">
-                    <button
-                        className="button"
+                    <Button variant="secondary"
                         type="button"
                         disabled={!runtimeReachable || !selectedExecutionId || selectedIsExpress || firstEventPage?.isFetching}
                         onClick={refreshEvents}
                     >
-                        <RefreshCw size={14}/>
+                        <Icon icon={RefreshCw} size={14}/>
                         Refresh
-                    </button>
+                    </Button>
                 </div>
                 <PageError pages={eventPages}/>
                 <div className="cosmos-items-table">
                     {!selectedExecutionId && (
-                        <div className="empty compact">
-                            <h2>Select an execution</h2>
-                            <p>History events are scoped to one execution.</p>
-                        </div>
+                        <EmptyState compact title="Select an execution" description="History events are scoped to one execution."/>
                     )}
                     {selectedIsExpress && (
                         <EmptyState
@@ -216,7 +209,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                             <table className="table">
                                 <thead>
                                     <tr>
-                                        <th style={{width: 32}}/>
+                                        <th className="w-8"/>
                                         <th>#</th>
                                         <th>Timestamp</th>
                                         <th>Type</th>
@@ -229,13 +222,11 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                                         return (
                                             <Fragment key={event.id}>
                                                 <tr
-                                                    className={expanded ? 'selected' : undefined}
-                                                    style={{cursor: 'pointer'}}
+                                                    className={cn(expanded ? 'selected' : undefined, 'cursor-pointer')}
                                                     onClick={() => setExpandedEventId(expanded ? undefined : event.id)}
                                                 >
                                                     <td>
-                                                        <button
-                                                            className="button compact"
+                                                        <Button variant="secondary" size="sm"
                                                             type="button"
                                                             aria-expanded={expanded}
                                                             aria-label={expanded ? 'Collapse event details' : 'Expand event details'}
@@ -244,11 +235,11 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                                                                 setExpandedEventId(expanded ? undefined : event.id)
                                                             }}
                                                         >
-                                                            {expanded ? <ChevronDown size={13}/> : <ChevronRight size={13}/>}
-                                                        </button>
+                                                            {expanded ? <Icon icon={ChevronDown} size={14}/> : <Icon icon={ChevronRight} size={14}/>}
+                                                        </Button>
                                                     </td>
-                                                    <td className="mono" style={{color: 'var(--text-3)'}}>{event.id}</td>
-                                                    <td className="mono" style={{color: 'var(--text-3)', whiteSpace: 'nowrap'}}>
+                                                    <td className="mono text-text-3">{event.id}</td>
+                                                    <td className="mono text-text-3 whitespace-nowrap">
                                                         {formatDateTime(event.timestamp) ?? '-'}
                                                     </td>
                                                     <td className="mono">{eventType(event)}</td>
@@ -257,7 +248,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                                                 {expanded && (
                                                     <tr className="selected">
                                                         <td colSpan={5}>
-                                                            <pre className="mono" style={{margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>
+                                                            <pre className="mono m-0 whitespace-pre-wrap break-words">
                                                                 {JSON.stringify(expandJsonStrings(eventDetails(event)), null, 2)}
                                                             </pre>
                                                         </td>
@@ -269,15 +260,14 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
                                 </tbody>
                             </table>
                             {nextEventCursor && (
-                                <div style={{display: 'flex', justifyContent: 'center', padding: '12px 0'}}>
-                                    <button
-                                        className="button"
+                                <div className="flex justify-center py-3 px-0">
+                                    <Button variant="secondary"
                                         type="button"
                                         disabled={Boolean(loadingMoreEvents)}
                                         onClick={() => setEventCursors((prev) => [...prev, nextEventCursor])}
                                     >
                                         {loadingMoreEvents ? 'Loading…' : 'Load more'}
-                                    </button>
+                                    </Button>
                                 </div>
                             )}
                         </>
@@ -303,11 +293,11 @@ function PageError({pages}: {pages: PageState[]}) {
     const failed = pages.find((page) => page.error instanceof Error)
     if (!failed || !(failed.error instanceof Error)) return null
     return (
-        <div className="form-error" role="alert" style={{display: 'flex', alignItems: 'center', gap: 8}}>
-            <span style={{flex: 1}}>{failed.error.message}</span>
-            <button className="button compact" type="button" disabled={failed.isFetching} onClick={() => void failed.refetch()}>
+        <div className="form-error flex items-center gap-2" role="alert">
+            <span className="flex-1">{failed.error.message}</span>
+            <Button variant="secondary" size="sm" type="button" disabled={failed.isFetching} onClick={() => void failed.refetch()}>
                 Retry
-            </button>
+            </Button>
         </div>
     )
 }
@@ -327,7 +317,7 @@ function ExecutionStatusBadge({status}: {status?: string}) {
     const label = status ?? 'UNKNOWN'
     // `.cosmos-list-row span` lays every span out as a grid; the badge is inline.
     return (
-        <span className="badge" style={{display: 'inline-flex', ...(STATUS_STYLES[label] ?? NEUTRAL_STATUS_STYLE)}}>
+        <span className="badge inline-flex" style={{...(STATUS_STYLES[label] ?? NEUTRAL_STATUS_STYLE)}}>
             {label}
         </span>
     )

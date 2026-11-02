@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import type {ReactElement} from 'react'
 import {DynamoDbTableExplorer} from '@/components/DynamoDbTableExplorer'
 import type {ChildItem, CloudResource, CollectionPage} from '@/types/resource'
+import {chooseOption} from '@/test/selectOption'
 
 const {listFlatItems, putFlatItem, queryFlatItems, queryFlatItemsByKey} = vi.hoisted(() => ({
     listFlatItems: vi.fn(),
@@ -293,9 +294,10 @@ describe('DynamoDbTableExplorer query mode', () => {
     }
 
     test('offers the table and every secondary index with their keys', async () => {
-        await openQueryMode()
+        const user = await openQueryMode()
 
-        const options = within(screen.getByRole('combobox', {name: 'Table or index'})).getAllByRole('option')
+        await user.click(screen.getByRole('combobox', {name: 'Table or index'}))
+        const options = within(await screen.findByRole('listbox')).getAllByRole('option')
         expect(options.map((option) => option.textContent)).toEqual([
             'Table: orders (customerId, orderId)',
             'GSI: by-status (status, total)',
@@ -324,7 +326,7 @@ describe('DynamoDbTableExplorer query mode', () => {
         const partitionKey = screen.getByRole('textbox', {name: 'Partition key'})
         expect(partitionKey).toHaveAttribute('placeholder', 'customerId (string)')
         await user.type(partitionKey, 'c-1')
-        await user.selectOptions(screen.getByRole('combobox', {name: 'Sort key condition'}), 'beginsWith')
+        await chooseOption(user, screen.getByRole('combobox', {name: 'Sort key condition'}), 'beginsWith')
         const sortKey = screen.getByRole('textbox', {name: 'Sort key value'})
         expect(sortKey).toHaveAttribute('placeholder', 'orderId (string)')
         await user.type(sortKey, 'o-2{Enter}')
@@ -340,15 +342,15 @@ describe('DynamoDbTableExplorer query mode', () => {
         queryFlatItemsByKey.mockResolvedValue(page([]))
         const user = await openQueryMode()
 
-        await user.selectOptions(screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
+        await chooseOption(user, screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
         await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'open')
         const condition = screen.getByRole('combobox', {name: 'Sort key condition'})
         expect(within(condition).queryByRole('option', {name: 'Begins with'})).not.toBeInTheDocument()
-        await user.selectOptions(condition, 'between')
+        await chooseOption(user, condition, 'between')
         await user.type(screen.getByRole('textbox', {name: 'Sort key lower bound'}), '10')
         expect(screen.getByRole('button', {name: 'Run query'})).toBeDisabled()
         await user.type(screen.getByRole('textbox', {name: 'Sort key upper bound'}), '50')
-        await user.selectOptions(screen.getByRole('combobox', {name: 'Order'}), 'desc')
+        await chooseOption(user, screen.getByRole('combobox', {name: 'Order'}), 'desc')
         await user.click(screen.getByRole('button', {name: 'Run query'}))
 
         expect(await screen.findByText('No items match this key condition.')).toBeInTheDocument()
@@ -449,7 +451,7 @@ describe('DynamoDbTableExplorer query mode', () => {
         renderExplorer(<DynamoDbTableExplorer cloud="aws" resource={resource} runtimeReachable/>)
         await user.click(screen.getByRole('radio', {name: 'Query'}))
 
-        await user.selectOptions(screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
+        await chooseOption(user, screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
         await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'open{Enter}')
         await user.click(await screen.findByRole('button', {name: '{"customerId":"c-1","orderId":"o-1"}'}))
 
@@ -474,18 +476,18 @@ describe('DynamoDbTableExplorer query mode', () => {
     test('keeps the query inputs when switching to Scan and back', async () => {
         queryFlatItemsByKey.mockResolvedValue(page([]))
         const user = await openQueryMode()
-        await user.selectOptions(screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
+        await chooseOption(user, screen.getByRole('combobox', {name: 'Table or index'}), 'by-status')
         await user.type(screen.getByRole('textbox', {name: 'Partition key'}), 'open')
-        await user.selectOptions(screen.getByRole('combobox', {name: 'Sort key condition'}), 'gt')
+        await chooseOption(user, screen.getByRole('combobox', {name: 'Sort key condition'}), 'gt')
         await user.type(screen.getByRole('textbox', {name: 'Sort key value'}), '20{Enter}')
         await screen.findByText('No items match this key condition.')
 
         await user.click(screen.getByRole('radio', {name: 'Scan'}))
         await user.click(screen.getByRole('radio', {name: 'Query'}))
 
-        expect(screen.getByRole('combobox', {name: 'Table or index'})).toHaveValue('by-status')
+        expect(screen.getByRole('combobox', {name: 'Table or index'})).toHaveAttribute('data-value', 'by-status')
         expect(screen.getByRole('textbox', {name: 'Partition key'})).toHaveValue('open')
-        expect(screen.getByRole('combobox', {name: 'Sort key condition'})).toHaveValue('gt')
+        expect(screen.getByRole('combobox', {name: 'Sort key condition'})).toHaveAttribute('data-value', 'gt')
         expect(screen.getByRole('textbox', {name: 'Sort key value'})).toHaveValue('20')
     })
 

@@ -13,6 +13,7 @@ import {
 import {setAccountId} from '@/lib/accountStore'
 import type {CloudResource, StorageObjectList} from '@/types/resource'
 import type {ObjectActionName} from '@/types/schema'
+import {chooseOption} from '@/test/selectOption'
 
 vi.mock('@/api/cloudProxyClient', () => ({
     copyStorageObject: vi.fn(),
@@ -165,7 +166,7 @@ describe('StorageObjectBrowser storage cache', () => {
                 await user.click(screen.getByTitle('Move / Copy a.txt'))
                 const dialog = await screen.findByRole('dialog')
                 await user.click(within(dialog).getByRole('button', {name: 'Copy'}))
-                await user.selectOptions(await within(dialog).findByLabelText('Destination bucket'), 'archive')
+                await chooseOption(user, await within(dialog).findByLabelText('Destination bucket'), 'archive')
                 const copyButtons = within(dialog).getAllByRole('button', {name: 'Copy'})
                 await user.click(copyButtons[copyButtons.length - 1])
             },
