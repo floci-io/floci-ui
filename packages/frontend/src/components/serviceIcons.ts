@@ -1,5 +1,6 @@
 import {
     Activity,
+    BarChart3,
     Boxes,
     Brain,
     Circle,
@@ -38,6 +39,7 @@ const SERVICE_ICONS: Record<string, LucideIcon> = {
     storage: HardDrive,
     database: Table2,
     nosql: Database,
+    analytics: BarChart3,
     k8s: Boxes,
     compute: Server,
     containers: Container,
