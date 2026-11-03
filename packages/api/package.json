@@ -45,11 +45,11 @@
     "@aws-sdk/dsql-signer": "3.1156.0",
     "@aws-sdk/util-dynamodb": "^3.996.7",
     "@google-cloud/firestore": "^9.4.0",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.5",
     "hono": "^4.13.14",
     "mssql": "^12.7.13",
     "pg": "^8.23.1",
-    "postal-mime": "2.7.5",
+    "postal-mime": "4.0.4",
     "saxes": "^6.0.0"
   },
   "devDependencies": {
