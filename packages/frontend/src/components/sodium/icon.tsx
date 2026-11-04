@@ -102,6 +102,7 @@ export const TextWrap = squared(TextWrapGlyph, 'TextWrap');
 // Glyphs the console needs beyond Sodium's own set, under the lucide names the screens already use.
 export const AlertCircle = squared(L.AlertCircle, 'AlertCircle');
 export const AlertTriangle = squared(L.AlertTriangle, 'AlertTriangle');
+export const BarChart3 = squared(L.BarChart3, 'BarChart3');
 export const Boxes = squared(L.Boxes, 'Boxes');
 export const Braces = squared(L.Braces, 'Braces');
 export const Brain = squared(L.Brain, 'Brain');

@@ -142,6 +142,12 @@ export const SERVICE_CATALOG = {
         group: 'Databases',
         order: 20,
     },
+    analytics: {
+        displayName: 'Analytics',
+        displayNameByCloud: {gcp: 'BigQuery'},
+        description: 'Browse analytics datasets and the tables inside them.',
+        iconKey: 'analytics', group: 'Databases', order: 30,
+    },
     networking: {
         displayName: 'Networking',
         description: 'Connect and isolate cloud resources in virtual networks.',
