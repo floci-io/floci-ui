@@ -61,9 +61,12 @@ importers:
       '@aws-sdk/client-eventbridge':
         specifier: ^3.1156.0
         version: 3.1156.0
+      '@aws-sdk/client-eventbridgev2':
+        specifier: 3.1156.0
+        version: 3.1156.0
       '@aws-sdk/client-iam':
         specifier: ^3.1156.0
-        version: 3.1156.0
+        version: 3.1161.0
       '@aws-sdk/client-kinesis':
         specifier: ^3.1156.0
         version: 3.1156.0
@@ -335,8 +338,12 @@ packages:
     resolution: {integrity: sha512-28iqO827Guim54osIG3dTkTG5jp0Ptr2nxkdauHKSVjhbqjjJ3aWwZ4mSkR80QFybuRn18WCKuwm5WV2SutklA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-iam@3.1156.0':
-    resolution: {integrity: sha512-Z8wtt8eI78O2OPUqAuPoecTY+kwr0Z35AYJbdgG6VNKaWlzhSoXabCF0h7u9sAq9fpLD8Pq3vByH8ainVh+gPg==}
+  '@aws-sdk/client-eventbridgev2@3.1156.0':
+    resolution: {integrity: sha512-RwVOpI2jzdjT7yVshycyRLqqhIRP7Mb0CHkCStB6M+5VlZB8AGierfIF+JHoD/ERGFm7n/A4FHiigs2sz8mALg==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-iam@3.1161.0':
+    resolution: {integrity: sha512-K+ScrcbP0wWo1hovq55ZELg2Q4mK6EWZ1mMR3IV76g8Qqiljb16GYHEG4dtDfDiGInnOLvElp26BCsMzfhgzgA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-kinesis@3.1156.0':
@@ -2973,7 +2980,18 @@ snapshots:
       '@smithy/types': 4.19.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-iam@3.1156.0':
+  '@aws-sdk/client-eventbridgev2@3.1156.0':
+    dependencies:
+      '@aws-sdk/core': 3.979.1
+      '@aws-sdk/credential-provider-node': 3.972.92
+      '@aws-sdk/types': 3.975.0
+      '@smithy/core': 3.38.1
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.14.1
+      '@smithy/types': 4.19.0
+      tslib: 2.9.1
+
+  '@aws-sdk/client-iam@3.1161.0':
     dependencies:
       '@aws-sdk/core': 3.979.1
       '@aws-sdk/credential-provider-node': 3.972.92
