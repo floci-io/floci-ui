@@ -595,6 +595,48 @@ describe("DynamicResourceView Empty bucket", () => {
     expect(screen.queryByText(/Could not delete logs/)).not.toBeInTheDocument();
   });
 
+  it("deletes a selected child before the parent that holds it", async () => {
+    const user = userEvent.setup();
+    vi.mocked(listCloudResources).mockResolvedValue([storageBucket("sales"), storageBucket("sales/orders")]);
+    const order: string[] = [];
+    vi.mocked(deleteCloudResource).mockImplementation(async (_cloud, _service, id) => {
+      order.push(`start ${id}`);
+      await Promise.resolve();
+      order.push(`end ${id}`);
+    });
+    renderStorage();
+    await screen.findByText("sales");
+    await user.click(screen.getByRole("button", { name: "Delete Multiple" }));
+    await user.click(screen.getByLabelText("Select all resources"));
+    await user.click(screen.getByRole("button", { name: "Delete Selected (2)" }));
+    await user.click(screen.getByRole("button", { name: "Confirm Delete (2)" }));
+
+    await waitFor(() => expect(order).toHaveLength(4));
+    expect(order).toEqual(["start sales/orders", "end sales/orders", "start sales", "end sales"]);
+  });
+
+  it("sends every wave of a bulk delete to the account it was confirmed in", async () => {
+    const user = userEvent.setup();
+    vi.mocked(listCloudResources).mockResolvedValue([storageBucket("sales"), storageBucket("sales/orders")]);
+    const gate = deferred<void>();
+    vi.mocked(deleteCloudResource).mockImplementation(async (_cloud, _service, id) => {
+      if (id === "sales/orders") return gate.promise;
+    });
+    renderStorage();
+    await screen.findByText("sales");
+    await user.click(screen.getByRole("button", { name: "Delete Multiple" }));
+    await user.click(screen.getByLabelText("Select all resources"));
+    await user.click(screen.getByRole("button", { name: "Delete Selected (2)" }));
+    await user.click(screen.getByRole("button", { name: "Confirm Delete (2)" }));
+
+    act(() => setAccountId(ACCOUNT_B));
+    await act(async () => gate.resolve());
+
+    await waitFor(() => expect(deleteCloudResource).toHaveBeenCalledTimes(2));
+    const accounts = vi.mocked(deleteCloudResource).mock.calls.map((call) => call[4]);
+    expect(accounts).toEqual([ACCOUNT_A, ACCOUNT_A]);
+  });
+
   it("does not show a bulk refusal that arrives after another account is selected", async () => {
     const user = userEvent.setup();
     const gate = deferred<void>();

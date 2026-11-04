@@ -17,6 +17,7 @@ import { ResourceInspector } from "@/components/ResourceInspector";
 import { ResourceTable } from "@/components/ResourceTable";
 import { StorageObjectBrowser } from "@/components/StorageObjectBrowser";
 import { getPath } from "@/lib/resourcePath";
+import { deleteWaves } from "@/lib/deleteOrder";
 import {
   capabilityEnabled,
   capabilityFor,
@@ -318,22 +319,27 @@ export function DynamicResourceView({
 
   const deleteMultipleMut = useMutation({
     mutationFn: async (items: CloudResource[]) => {
-      const results = await Promise.allSettled(
-        items.map(async (item) => {
-          await deleteCloudResource(cloud, service, item.id);
-          return item.id;
-        }),
-      );
+      // Later waves start after the user may have switched account, so every
+      // request carries the account the deletion was confirmed in.
+      const confirmedAccountId = accountId;
       const succeededIds = new Set<string>();
       const failedItems: { id: string; error: unknown }[] = [];
 
-      results.forEach((res, index) => {
-        if (res.status === "fulfilled") {
-          succeededIds.add(res.value);
-        } else {
-          failedItems.push({ id: items[index].id, error: res.reason });
-        }
-      });
+      for (const wave of deleteWaves(items)) {
+        const results = await Promise.allSettled(
+          wave.map(async (item) => {
+            await deleteCloudResource(cloud, service, item.id, undefined, confirmedAccountId);
+            return item.id;
+          }),
+        );
+        results.forEach((res, index) => {
+          if (res.status === "fulfilled") {
+            succeededIds.add(res.value);
+          } else {
+            failedItems.push({ id: wave[index].id, error: res.reason });
+          }
+        });
+      }
 
       return { succeededIds, failedItems };
     },
