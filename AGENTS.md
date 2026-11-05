@@ -201,9 +201,12 @@ Keep attribution limited to human contributors.
 
 ## Release Awareness
 
-Releases are tag-driven. Docker images are never published on PR merge — only when a
-maintainer pushes an `X.Y.Z` tag, which triggers `.github/workflows/release.yml` to build
-and push the multi-arch `floci/floci-ui` image. Treat release workflows as critical infra.
+Releases are made with release-please. Docker images are never published on an ordinary PR
+merge, only when a maintainer merges the release PR (`chore(main): release X.Y.Z`): that tags
+`X.Y.Z`, and `.github/workflows/release-please.yml` then runs `.github/workflows/release.yml`
+to build and push the multi-arch `floci/floci-ui` image. `CHANGELOG.md` and the version in
+both `package.json` files are written only by the release PR. Treat release workflows as
+critical infra.
 
 ---
 
