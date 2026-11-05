@@ -185,10 +185,14 @@ export async function deleteCloudResource(
   service: CloudServiceType,
   id: string,
   signal?: AbortSignal,
+  accountId?: string,
 ): Promise<void> {
   await apiClient.call<void>(
     apiEndpointKeys.clouds.resources.delete,
-    requestOptions(cloud, service, { signal }),
+    requestOptions(cloud, service, {
+      signal,
+      headers: accountId ? { [ACCOUNT_HEADER]: accountId } : undefined,
+    }),
     { cloud, service, id },
   );
 }
