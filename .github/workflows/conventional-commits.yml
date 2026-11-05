@@ -25,7 +25,7 @@ jobs:
           # Conventional Commits pattern:
           #   <type>[optional scope]: <description>
           #
-          # Types recognised by semantic-release (commit-analyzer defaults):
+          # Conventional Commit types accepted here:
           #   feat, fix, perf, revert, docs, style, chore, refactor, test, build, ci
           #
           # Breaking changes are signalled by appending ! before the colon:

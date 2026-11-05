@@ -80,13 +80,13 @@ pnpm build         # production build
 
 ## Branching Model
 
-Floci UI uses a **tag-driven release model**. Docker images are never published on PR
-merge, only when a version tag is pushed, which the Release Cut workflow does.
+Floci UI releases with release-please. Docker images are never published on an ordinary PR
+merge, only when a maintainer merges the release PR, which tags the release.
 
 | Branch / ref | Purpose | Docker published? |
 |---|---|---|
 | `main` | Integration branch: all PRs merge here. Treated as unstable. | No |
-| `X.Y.Z` tag | Signals a release. Triggers the multi-arch Docker publish pipeline. | Yes (`floci/floci-ui:x.y.z`, `floci/floci-ui:latest`) |
+| `X.Y.Z` tag | Created by merging the release PR. The multi-arch Docker publish runs from it. | Yes (`floci/floci-ui:x.y.z`, `floci/floci-ui:latest`) |
 
 ## Commit Message Format
 
@@ -251,25 +251,30 @@ Once your current pull requests are reviewed, merged, or closed, you are welcome
 Releases are cut when there is something worth shipping. Unlike the emulators, floci-ui is
 not on a fixed train.
 
-Releases are cut from `main` with the **Release Cut** workflow (Actions -> Release Cut ->
-Run workflow). semantic-release analyzes the Conventional Commits since the last tag, bumps
-the version in `package.json` and `packages/frontend/package.json`, regenerates
-`CHANGELOG.md`, commits, tags, and publishes the GitHub Release. Use the `dry-run` input to
-preview the next version and release notes without releasing anything.
+Releases are made with [release-please](https://github.com/googleapis/release-please)
+(`.github/workflows/release-please.yml`). On every push to `main` it keeps one release PR
+open, titled `chore(main): release X.Y.Z`, which bumps the version in `package.json` and
+`packages/frontend/package.json` and adds the `CHANGELOG.md` entry for the Conventional
+Commits since the last release. To release, review that PR (the version and notes can be
+edited there) and merge it.
 
-The tag push then triggers `.github/workflows/release.yml`, which builds the frontend bundle
-and the API binary, then packages and pushes a multi-arch (`linux/amd64,linux/arm64`)
-image as `floci/floci-ui:x.y.z` and `floci/floci-ui:latest`.
+Merging the release PR tags the release (plain `X.Y.Z`, no `v`) and creates the GitHub
+Release. The same workflow then runs `.github/workflows/release.yml` against the tag, which
+builds the frontend bundle and the API binary, then packages and pushes a multi-arch
+(`linux/amd64,linux/arm64`) image as `floci/floci-ui:x.y.z` and `floci/floci-ui:latest`.
+CodeQL and Trivy then scan the tag.
+
+If a publish step fails, re-run it without cutting a new version: Actions -> Release Please
+-> Run workflow, with `tag` set to the existing tag (e.g. `0.8.0`).
 
 Publishing requires the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets, and
-the Release Cut workflow requires `GH_TOKEN` to be a fine-grained PAT with contents:write.
-The default `GITHUB_TOKEN` cannot be used: tags pushed with it do not trigger other
-workflows, so `release.yml` would never run.
+release-please requires `GH_TOKEN` to be a fine-grained PAT with contents and pull-requests
+write. The default `GITHUB_TOKEN` cannot be used: PRs opened with it do not run CI.
 
 `CHANGELOG.md` is generated. Do not edit it by hand; a genuine correction goes in a PR
 carrying the `changelog-edit` label.
 
-Nothing is published on PR merge: only a release cut produces artifacts.
+Nothing is published on any other PR merge: only merging the release PR produces artifacts.
 
 ## Testing Policy for Pull Requests
 

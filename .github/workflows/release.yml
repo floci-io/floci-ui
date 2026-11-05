@@ -1,9 +1,11 @@
 name: Release
 
-# Triggered when a version tag (e.g. 1.2.3) is pushed.
-# Builds the frontend bundle and the API binary in the workflow, then packages
-# them into a multi-platform (amd64 + arm64) Docker image pushed to Docker Hub.
-# Nothing is compiled inside the Dockerfile — see docker/Dockerfile.package.
+# Called by release-please.yml (the publish job) with the release tag, after release-please has
+# tagged the release and created the GitHub Release; also reached through its workflow_dispatch
+# `tag` input to re-publish an existing tag.
+# Builds the frontend bundle and the API binary from the tag, then packages them into a
+# multi-platform (amd64 + arm64) Docker image pushed to Docker Hub.
+# Nothing is compiled inside the Dockerfile; see docker/Dockerfile.package.
 #
 # Published tags:
 #   floci/floci-ui:1.2.3   floci/floci-ui:latest
@@ -11,9 +13,12 @@ name: Release
 # Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 
 on:
-  push:
-    tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to build and publish (e.g. 0.8.0)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -21,7 +26,7 @@ permissions:
 # Per-tag concurrency. Re-runs of the same tag supersede in-flight builds of
 # that tag; distinct tags run in parallel.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.tag }}
   cancel-in-progress: true
 
 jobs:
@@ -32,10 +37,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag }}
 
       - name: Extract version
         id: version
-        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: echo "version=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Set created timestamp
         id: created
@@ -43,7 +52,9 @@ jobs:
 
       - name: Set SOURCE_DATE_EPOCH
         id: source_date
-        run: echo "epoch=$(git log -1 --pretty=%ct)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "epoch=$(git log -1 --pretty=%ct)" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       # ── Build the frontend bundle (arch-independent) ───────────────────────
       - uses: pnpm/action-setup@v6
@@ -100,10 +111,10 @@ jobs:
             floci/floci-ui:latest
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ steps.source_date.outputs.sha }}
             org.opencontainers.image.created=${{ steps.created.outputs.created }}
             version=${{ steps.version.outputs.version }}
             build-date=${{ steps.created.outputs.created }}
-            vcs-ref=${{ github.sha }}
+            vcs-ref=${{ steps.source_date.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -1,0 +1,105 @@
+name: Release Please
+
+# Releases floci-ui the way the Testcontainers modules do (decision 0023 in floci-loft).
+#
+# On every push to main, release-please keeps one release PR open with the next version in
+# package.json and packages/frontend/package.json and the CHANGELOG.md entry. Merging that PR
+# tags the release (plain X.Y.Z, no "v", matching the image tags) and creates the GitHub
+# Release. The jobs below then build and push the multi-arch image and scan the tag.
+#
+# GH_TOKEN must be a fine-grained PAT with contents and pull-requests write on this repo. The
+# default GITHUB_TOKEN cannot be used: PRs it opens do not run CI (GitHub's recursion guard).
+#
+# Required secrets: GH_TOKEN, DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Existing release tag to (re)publish and security-scan (e.g. 0.8.0), bypassing the
+          release-please gate. Use this to recover a release whose tag/GitHub Release was created
+          out-of-band (so release-please never reported release_created=true) or to re-run a failed
+          publish/security-scan job. Leave empty to run release-please normally: it may update the
+          release PR, or tag and publish a release PR that has been merged.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Step 1: Maintain the release PR (version bump in both package.json files + changelog) and,
+  # once it is merged, tag the release and create the GitHub Release.
+  release-please:
+    # A tag recovery skips this job, so a release-please failure (e.g. an expired GH_TOKEN) cannot
+    # block re-publishing an existing tag.
+    if: inputs.tag == ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      release-created: ${{ steps.release.outputs.release_created }}
+      tag-name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          target-branch: main
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Step 2: Build the release tag and push floci/floci-ui:X.Y.Z and :latest to Docker Hub
+  publish:
+    needs: release-please
+    if: >-
+      !cancelled() && (inputs.tag != '' ||
+      (needs.release-please.result == 'success' && needs.release-please.outputs.release-created == 'true'))
+    permissions:
+      contents: read
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ inputs.tag || needs.release-please.outputs.tag-name }}
+    secrets: inherit
+
+  # Step 3: Run security scanners against the release tag
+  security-scan:
+    needs: release-please
+    if: >-
+      !cancelled() && (inputs.tag != '' ||
+      (needs.release-please.result == 'success' && needs.release-please.outputs.release-created == 'true'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag || needs.release-please.outputs.tag-name }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "changelog-path": "CHANGELOG.md",
+  "include-component-in-tag": false,
+  "include-v-in-tag": false,
+  "signoff": "Hector Ventura <hectorvent@gmail.com>",
+  "last-release-sha": "ba041ac4be0bc0fd12532c0f80db918fa276f3a7",
+  "packages": {
+    ".": {
+      "package-name": "floci-ui",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "packages/frontend/package.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    }
+  }
+}

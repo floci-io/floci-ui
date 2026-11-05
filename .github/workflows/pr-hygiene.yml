@@ -312,7 +312,7 @@ jobs:
           # Conventional Commits pattern:
           #   <type>[optional scope]: <description>
           #
-          # Types recognised by semantic-release (commit-analyzer defaults):
+          # Conventional Commit types accepted here:
           #   feat, fix, perf, revert, docs, style, chore, refactor, test, build, ci
           #
           # Breaking changes are signalled by appending ! before the colon:
@@ -324,7 +324,7 @@ jobs:
         run: |
           # The PR title is checked as well as the commits: the title becomes
           # the squash-merge commit title on main, which is what
-          # semantic-release reads, so it must be conventional even when the
+          # release-please reads, so it must be conventional even when the
           # commits on the branch are WIP history that gets squashed away.
           # Merge commits are skipped via --no-merges.
 
@@ -411,8 +411,12 @@ jobs:
           exit $FAILED
 
       - name: PR body keeps the required template sections
-        # Bot PRs (dependabot) do not use the template.
-        if: ${{ !cancelled() && github.event.pull_request.user.type != 'Bot' }}
+        # Bot PRs (dependabot) and release-please's release PR do not use the
+        # template. The release PR is opened with the maintainer's PAT, so it is
+        # not a Bot: it is recognised by its branch (release-please--branches--main,
+        # optionally with a --components--<name> suffix), and only when that
+        # branch lives in this repository, so a fork cannot claim the exemption.
+        if: ${{ !cancelled() && github.event.pull_request.user.type != 'Bot' && !(github.event.pull_request.head.repo.full_name == github.repository && (github.head_ref == 'release-please--branches--main' || startsWith(github.head_ref, 'release-please--branches--main--components--'))) }}
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
