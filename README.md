@@ -111,7 +111,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Compute | SageMaker AI | ✅ | – | – | – |
 | Storage | Storage | ✅ | ✅ | ✅ | ✅ |
 | Storage | Table Storage | – | ✅ | – | – |
-| Databases | Database | ✅ | ✅ | ✅ | – |
+| Databases | Database | ✅ | ✅ | ✅ | ✅ |
 | Databases | Aurora DSQL | ✅ | – | – | – |
 | Databases | Cache | ✅ | – | – | – |
 | Databases | NoSQL | ✅ | ✅ | ✅ | – |

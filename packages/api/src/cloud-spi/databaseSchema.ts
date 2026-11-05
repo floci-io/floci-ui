@@ -326,3 +326,105 @@ export function gcpDatabaseSchema(): ServiceSchema {
         },
     }
 }
+
+/** A DB system reports its engine version and shape, and no endpoint until inspected. */
+const ociDatabaseColumns: TableColumnSchema[] = [
+    {name: 'name', label: 'Name'},
+    {name: 'status', label: 'Status', format: 'badge'},
+    {name: 'engine', label: 'Version'},
+    {name: 'instanceClass', label: 'Shape'},
+    {name: 'region', label: 'Region'},
+]
+
+export function ociDatabaseSchema(): ServiceSchema {
+    return {
+        cloud: 'oci',
+        service: 'database',
+        displayName: 'OCI Database with PostgreSQL',
+        fields: [
+            {
+                name: 'displayName',
+                label: 'DB System Name',
+                type: 'text',
+                required: true,
+                validation: {minLength: 1, maxLength: 255},
+            },
+            {
+                name: 'dbVersion',
+                label: 'PostgreSQL Version',
+                type: 'select',
+                required: true,
+                defaultValue: '16',
+                options: [
+                    {label: 'PostgreSQL 14', value: '14'},
+                    {label: 'PostgreSQL 15', value: '15'},
+                    {label: 'PostgreSQL 16', value: '16'},
+                    {label: 'PostgreSQL 17', value: '17'},
+                ],
+            },
+            {
+                name: 'shape',
+                label: 'Shape',
+                type: 'select',
+                required: true,
+                defaultValue: 'VM.Standard.E4.Flex',
+                options: [
+                    {label: 'VM.Standard.E4.Flex', value: 'VM.Standard.E4.Flex'},
+                    {label: 'VM.Standard.E5.Flex', value: 'VM.Standard.E5.Flex'},
+                ],
+            },
+            {
+                name: 'instanceOcpuCount',
+                label: 'OCPUs',
+                type: 'text',
+                required: false,
+                defaultValue: '2',
+                validation: {pattern: '^[1-9][0-9]{0,2}$', message: 'Use a whole number of OCPUs.'},
+            },
+            {
+                name: 'instanceMemorySizeInGBs',
+                label: 'Memory (GB)',
+                type: 'text',
+                required: false,
+                defaultValue: '32',
+                validation: {pattern: '^[1-9][0-9]{0,3}$', message: 'Use a whole number of gigabytes.'},
+            },
+            {
+                name: 'subnetId',
+                label: 'Subnet OCID',
+                type: 'text',
+                required: true,
+                span: true,
+                description: 'Floci-OCI has no networking service and does not check that the subnet exists, so locally any ocid1.subnet... value is accepted.',
+                validation: {pattern: '^ocid1\\.subnet\\.', message: 'Use a subnet OCID starting with ocid1.subnet.'},
+            },
+            {
+                name: 'adminUsername',
+                label: 'Administrator Username',
+                type: 'text',
+                required: true,
+                defaultValue: 'admin',
+            },
+            {
+                name: 'adminPassword',
+                label: 'Administrator Password',
+                type: 'password',
+                required: true,
+                span: true,
+                description: 'Sent to the runtime once to create the user. It is never returned or shown.',
+                validation: {minLength: 8, message: 'Use at least 8 characters.'},
+            },
+        ],
+        actions: ['list', 'create', 'inspect', 'delete'],
+        filters: databaseFilters,
+        columns: ociDatabaseColumns,
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List DB systems', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create DB system', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete DB system', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect DB system', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+    }
+}
