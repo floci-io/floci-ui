@@ -305,10 +305,7 @@ function toResource(name: string, url: string, attributes: QueueAttributes): Clo
             visibilityTimeout: numberValue(attributes.VisibilityTimeout),
             messageRetentionPeriod: numberValue(attributes.MessageRetentionPeriod),
             maximumMessageSize: numberValue(attributes.MaximumMessageSize),
-            maximumMessageSizeKb:
-                numberValue(attributes.MaximumMessageSize) !== null
-                    ? Math.round(numberValue(attributes.MaximumMessageSize)! / 1024)
-                    : null,
+            maximumMessageSizeKb: wholeKilobytes(numberValue(attributes.MaximumMessageSize)),
             delaySeconds: numberValue(attributes.DelaySeconds),
             receiveMessageWaitTimeSeconds: numberValue(attributes.ReceiveMessageWaitTimeSeconds),
             lastModified: epochSecondsToIso(attributes.LastModifiedTimestamp),
@@ -327,6 +324,15 @@ function numberValue(value: string | undefined): number | null {
     if (value === undefined) return null
     const parsed = Number(value)
     return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
+ * The edit form takes whole KB. A size that is not a multiple of 1024 bytes has no
+ * exact KB value, so it stays blank instead of showing a rounded one the user could
+ * not change (re-entering the rounded value would read as "No fields changed.").
+ */
+function wholeKilobytes(bytes: number | null): number | null {
+    return bytes !== null && bytes % 1024 === 0 ? bytes / 1024 : null
 }
 
 function queueNameFromUrl(url: string): string {
