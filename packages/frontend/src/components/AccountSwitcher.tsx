@@ -1,6 +1,8 @@
-import {useEffect, useRef, useState} from 'react'
+import {useState} from 'react'
 import {useQueryClient} from '@tanstack/react-query'
-import {Check, ChevronDown, UserRound} from 'lucide-react'
+import {Input, InputAction} from '@/components/sodium/ui/input'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/sodium/ui/select'
+import {Tag} from '@/components/sodium/ui/tag'
 import {
     DEFAULT_ACCOUNT_ID,
     isAccountId,
@@ -14,30 +16,20 @@ function formatAccount(id: string): string {
     return id.replace(/(\d{4})(\d{4})(\d{4})/, '$1-$2-$3')
 }
 
+function accountLabel(id: string) {
+    return id === DEFAULT_ACCOUNT_ID
+        ? <span className="flex items-center gap-2">{formatAccount(id)}<Tag size="sm" variant="outline">Default</Tag></span>
+        : formatAccount(id)
+}
+
 export function AccountSwitcher() {
     const accountId = useAccountId()
     const recents = useAccountRecents()
     const queryClient = useQueryClient()
-    const [open, setOpen] = useState(false)
     const [draft, setDraft] = useState('')
     const [error, setError] = useState<string | null>(null)
-    const containerRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        if (!open) return
-        const onClick = (event: MouseEvent) => {
-            if (!containerRef.current?.contains(event.target as Node)) setOpen(false)
-        }
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setOpen(false)
-        }
-        document.addEventListener('mousedown', onClick)
-        document.addEventListener('keydown', onKey)
-        return () => {
-            document.removeEventListener('mousedown', onClick)
-            document.removeEventListener('keydown', onKey)
-        }
-    }, [open])
+    const ids = recents.includes(accountId) ? recents : [accountId, ...recents]
+    const items = ids.map((id) => ({value: id, label: accountLabel(id)}))
 
     function applyAccount(id: string) {
         if (!setAccountId(id)) {
@@ -46,7 +38,6 @@ export function AccountSwitcher() {
         }
         setDraft('')
         setError(null)
-        setOpen(false)
         // Resources are account-scoped, so anything cached under the previous
         // account must not leak into the new view.
         void queryClient.invalidateQueries()
@@ -62,68 +53,49 @@ export function AccountSwitcher() {
     }
 
     return (
-        <div className="account-switcher" ref={containerRef}>
-            <button
-                type="button"
-                className="account-trigger"
-                onClick={() => setOpen((v) => !v)}
-                title="Switch AWS account"
-                aria-label={`Switch AWS account ${formatAccount(accountId)}`}
-                aria-haspopup="listbox"
-                aria-expanded={open}
+        <div className="flex w-56 flex-col gap-2">
+            <Select
+                items={items}
+                value={accountId}
+                onValueChange={(next) => {
+                    if (next && next !== accountId) applyAccount(next)
+                }}
             >
-                <UserRound size={14}/>
-                <span className="account-meta">
-                    <span className="account-label">Account</span>
-                    <span className="account-value">{formatAccount(accountId)}</span>
-                </span>
-                <ChevronDown size={14}/>
-            </button>
-
-            {open && (
-                <div className="account-popover" role="listbox">
-                    <div className="account-popover-title">Switch account</div>
-                    <div className="account-recents">
-                        {recents.map((id) => (
-                            <button
-                                key={id}
-                                type="button"
-                                className={`account-option${id === accountId ? ' active' : ''}`}
-                                role="option"
-                                aria-selected={id === accountId}
-                                onClick={() => applyAccount(id)}
-                            >
-                                <span className="account-option-id">{formatAccount(id)}</span>
-                                {id === DEFAULT_ACCOUNT_ID && <span className="account-tag">default</span>}
-                                {id === accountId && <Check size={13}/>}
-                            </button>
-                        ))}
-                    </div>
-                    <form
-                        className="account-entry"
-                        onSubmit={(event) => {
-                            event.preventDefault()
-                            submitDraft()
-                        }}
-                    >
-                        <input
-                            value={draft}
-                            inputMode="numeric"
-                            maxLength={12}
-                            placeholder="12-digit ID"
-                            aria-label="New account id"
-                            onChange={(event) => {
-                                setDraft(event.target.value.replace(/\D/g, ''))
-                                setError(null)
-                            }}
-                        />
-                        <button type="submit" disabled={!isAccountId(draft.trim())}>
+                <SelectTrigger aria-label="Account">
+                    <SelectValue/>
+                </SelectTrigger>
+                <SelectContent>
+                    {items.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault()
+                    submitDraft()
+                }}
+            >
+                <Input
+                    mono
+                    value={draft}
+                    inputMode="numeric"
+                    maxLength={12}
+                    placeholder="12-digit ID"
+                    aria-label="New account id"
+                    aria-invalid={error ? true : undefined}
+                    onChange={(event) => {
+                        setDraft(event.target.value.replace(/\D/g, ''))
+                        setError(null)
+                    }}
+                    trailing={
+                        <InputAction type="submit" size="text" disabled={!isAccountId(draft.trim())}>
                             Switch
-                        </button>
-                    </form>
-                    {error && <div className="account-error">{error}</div>}
-                </div>
-            )}
+                        </InputAction>
+                    }
+                />
+            </form>
+            {error && <p role="alert" className="type-body-sm text-fail-text">{error}</p>}
         </div>
     )
 }

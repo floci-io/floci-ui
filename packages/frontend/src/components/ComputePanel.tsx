@@ -1,18 +1,9 @@
 import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-    AlertTriangle,
-    HardDrive,
-    Loader2,
-    Play,
-    Plus,
-    Power,
-    RefreshCw,
-    RotateCcw,
-    Terminal,
-    Trash2,
-    X,
-} from 'lucide-react'
+import {Icon, AlertTriangle, HardDrive, Loader2, Play, PlusSquared as Plus, Power, RefreshCwSquared as RefreshCw, RotateCcw, Terminal, Trash2, XSquared as X} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import {
     authorizeEc2SecurityGroupIngress,
     createEc2Ami,
@@ -42,6 +33,11 @@ import type { CloudProvider } from '@/types/cloud'
 import type { CloudResource } from '@/types/resource'
 import { TagEditor } from '@/features/ec2/TagEditor'
 import { ModalOverlay } from './ModalOverlay'
+import {Checkbox} from '@/components/sodium/ui/checkbox'
+import {Switch} from '@/components/sodium/ui/switch'
+import {EmptyState} from '@/components/EmptyState'
+import {RowsSkeleton} from '@/components/PageSkeleton'
+import {Hint} from '@/components/Hint'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -101,14 +97,13 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{ maxWidth: 420 }}>
+            <div className="create-table-modal max-w-105">
                 <h2>Create AMI</h2>
 
                 <div className="modal-section">
                     <p className="modal-section-title">Image name</p>
-                    <input aria-label="Image name"
-                        className="input"
-                        style={{ width: '100%', minWidth: 'unset' }}
+                    <Input aria-label="Image name"
+                        className="w-full min-w-0"
                         autoFocus
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -116,10 +111,9 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
                 </div>
 
                 <div className="modal-section">
-                    <p className="modal-section-title">Description — optional</p>
-                    <input aria-label="Description"
-                        className="input"
-                        style={{ width: '100%', minWidth: 'unset' }}
+                    <p className="modal-section-title">Description, optional</p>
+                    <Input aria-label="Description"
+                        className="w-full min-w-0"
                         placeholder="e.g. production snapshot"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
@@ -127,27 +121,23 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
                 </div>
 
                 <div className="modal-section">
-                    <div className="field-row" style={{ alignItems: 'center' }}>
-                        <label className="toggle-switch" style={{ width: 32, height: 18 }}>
-                            <input type="checkbox" checked={noReboot} onChange={(e) => setNoReboot(e.target.checked)} />
-                            <span className="toggle-track" />
-                        </label>
-                        <p className="modal-section-title" style={{ margin: 0 }}>No reboot — skip instance restart before imaging</p>
+                    <div className="field-row items-center">
+                        <Switch checked={noReboot} onCheckedChange={setNoReboot} aria-label="No reboot"/>
+                        <p className="modal-section-title m-0">No reboot, skip instance restart before imaging</p>
                     </div>
                 </div>
 
-                {err && <p style={{ fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px' }}>{err}</p>}
+                {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
 
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={mutation.isPending}>Cancel</button>
-                    <button
-                        className="button primary"
+                    <Button variant="secondary" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
+                    <Button
                         onClick={handleSubmit}
                         disabled={!name.trim() || mutation.isPending}
                     >
-                        {mutation.isPending ? <Loader2 size={13} /> : <HardDrive size={13} />}
+                        {mutation.isPending ? <Icon icon={Loader2} size={14} /> : <Icon icon={HardDrive} size={14} />}
                         Create AMI
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -164,18 +154,18 @@ function ConsoleOutputModal({ instanceId, onClose }: { instanceId: string; onClo
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{ maxWidth: 720, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-                <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Terminal size={14} />
-                    Console output — {instanceId}
+            <div className="create-table-modal max-w-180 flex flex-col max-h-[85vh]">
+                <h2 className="flex items-center gap-1.5">
+                    <Icon icon={Terminal} size={14} />
+                    Console output, {instanceId}
                 </h2>
 
                 {query.isLoading && (
-                    <p style={{ fontSize: 12, color: 'var(--text-2)' }}>Loading…</p>
+                    <p className="type-caption text-text-2">Loading…</p>
                 )}
 
                 {query.isError && (
-                    <p style={{ fontSize: 12, color: 'var(--status-error)' }}>
+                    <p className="type-caption text-fail-text">
                         {query.error instanceof Error ? query.error.message : 'Failed to fetch console output.'}
                     </p>
                 )}
@@ -183,31 +173,20 @@ function ConsoleOutputModal({ instanceId, onClose }: { instanceId: string; onClo
                 {query.data && (
                     <>
                         {query.data.timestamp && (
-                            <p style={{ fontSize: 11, color: 'var(--text-2)', margin: '0 0 8px' }}>
+                            <p className="type-caption text-text-2 mt-0 mx-0 mb-2">
                                 As of {new Date(query.data.timestamp).toLocaleString()}
                             </p>
                         )}
                         <pre
-                            className="mono"
-                            style={{
-                                flex: 1,
-                                overflowY: 'auto',
-                                background: 'var(--surface-2)',
-                                padding: 12,
-                                borderRadius: 4,
-                                fontSize: 11,
-                                margin: 0,
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-all',
-                            }}
+                            className="mono flex-1 overflow-y-auto p-3 type-caption m-0 whitespace-pre-wrap break-all bg-panel"
                         >
                             {query.data.output || '(no output yet)'}
                         </pre>
                     </>
                 )}
 
-                <div className="modal-footer" style={{ marginTop: 12 }}>
-                    <button className="button" onClick={onClose}>Close</button>
+                <div className="modal-footer mt-3">
+                    <Button variant="secondary" onClick={onClose}>Close</Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -224,34 +203,28 @@ function DeregisterAmiConfirm({ imageId, onConfirm, onCancel, isPending }: {
 }) {
     return (
         <ModalOverlay onClose={onCancel}>
-            <div className="create-table-modal" style={{ width: 380 }} onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <AlertTriangle size={14} style={{ color: 'var(--status-error)', flexShrink: 0 }} />
+            <div className="create-table-modal w-95" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header flex items-center gap-2">
+                    <Icon icon={AlertTriangle} className="text-fail-text shrink-0" size={14} />
                     <span>Deregister AMI</span>
-                    <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onCancel} aria-label="Close" title="Close">
-                        <X size={13} />
-                    </button>
+                    <Hint label="Close"><Button variant="ghost" size="icon-sm" className="ml-auto" onClick={onCancel} aria-label="Close">
+                        <Icon icon={X} size={14} />
+                    </Button></Hint>
                 </div>
                 <div className="modal-section">
-                    <div style={{
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 4,
-                        padding: '8px 12px',
-                        marginBottom: 12,
-                    }}>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 13 }}>{imageId}</div>
+                    <div className="py-2 px-3 mb-3 bg-well border border-line">
+                        <div className="type-code">{imageId}</div>
                     </div>
-                    <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    <p className="type-caption text-text-3">
                         This will deregister the AMI. Associated snapshots are not deleted automatically.
                     </p>
                 </div>
                 <div className="modal-footer">
-                    <button className="button" onClick={onCancel} disabled={isPending}>Cancel</button>
-                    <button className="button danger" onClick={onConfirm} disabled={isPending}>
-                        {isPending ? <Loader2 size={13} /> : <Trash2 size={13} />}
+                    <Button variant="secondary" onClick={onCancel} disabled={isPending}>Cancel</Button>
+                    <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
+                        {isPending ? <Icon icon={Loader2} size={14} /> : <Icon icon={Trash2} size={14} />}
                         Deregister
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -299,20 +272,13 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
 
     if (query.isLoading) {
         return (
-            <div className="empty compact">
-                <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                <p>Loading instance…</p>
-            </div>
+            <RowsSkeleton rows={4} label="Loading instance"/>
         )
     }
 
     if (query.isError || !query.data) {
         return (
-            <div className="empty compact">
-                <p style={{ color: 'var(--status-error)' }}>
-                    {query.error instanceof Error ? query.error.message : 'Failed to load instance'}
-                </p>
-            </div>
+            <EmptyState compact reason="error" title="Failed to load instance" description={query.error instanceof Error ? query.error.message : undefined}/>
         )
     }
 
@@ -344,100 +310,84 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                 <div className="widget-header">
                     <h2>{inst.name || instanceId}</h2>
                     <span className={`status ${stateClass(state)}`}>{state}</span>
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                        <button
-                            className="button compact"
+                    <div className="ml-auto flex gap-1.5">
+                        <Hint label="Start"><Button variant="secondary" size="sm"
                             disabled={!canStart || startMut.isPending}
                             onClick={() => startMut.mutate()}
-                            title="Start"
                         >
-                            <Play size={12} />
+                            <Icon icon={Play} size={14} />
                             Start
-                        </button>
-                        <button
-                            className="button compact"
+                        </Button></Hint>
+                        <Hint label="Stop"><Button variant="secondary" size="sm"
                             disabled={!canStop || stopMut.isPending}
                             onClick={() => stopMut.mutate()}
-                            title="Stop"
                         >
-                            <Power size={12} />
+                            <Icon icon={Power} size={14} />
                             Stop
-                        </button>
-                        <button
-                            className="button compact"
+                        </Button></Hint>
+                        <Hint label="Reboot"><Button variant="secondary" size="sm"
                             disabled={!canReboot || rebootMut.isPending}
                             onClick={() => rebootMut.mutate()}
-                            title="Reboot"
                         >
-                            <RotateCcw size={12} />
+                            <Icon icon={RotateCcw} size={14} />
                             Reboot
-                        </button>
-                        <button
-                            className="button compact"
+                        </Button></Hint>
+                        <Hint label="Create AMI"><Button variant="secondary" size="sm"
                             onClick={() => setShowAmiModal(true)}
-                            title="Create AMI"
                         >
-                            <HardDrive size={12} />
+                            <Icon icon={HardDrive} size={14} />
                             Create AMI
-                        </button>
+                        </Button></Hint>
                         {canTerminate && terminateStep === 'idle' && (
-                            <button
-                                className="button compact danger"
+                            <Hint label="Terminate"><Button variant="destructive" size="sm"
                                 onClick={() => setTerminateStep('confirm')}
-                                title="Terminate"
                             >
-                                <Trash2 size={12} />
+                                <Icon icon={Trash2} size={14} />
                                 Terminate
-                            </button>
+                            </Button></Hint>
                         )}
                         {canTerminate && terminateStep === 'confirm' && (
                             <>
-                                <button
-                                    className="button compact danger"
+                                <Button variant="destructive" size="sm"
                                     disabled={terminateMut.isPending}
                                     onClick={() => terminateMut.mutate()}
                                 >
-                                    {terminateMut.isPending ? <Loader2 size={12} /> : null}
+                                    {terminateMut.isPending ? <Icon icon={Loader2} size={14} /> : null}
                                     Confirm terminate
-                                </button>
-                                <button
-                                    className="button compact"
+                                </Button>
+                                <Button variant="secondary" size="sm"
                                     onClick={() => setTerminateStep('idle')}
                                 >
                                     Cancel
-                                </button>
+                                </Button>
                             </>
                         )}
-                        <button
-                            className="button compact"
+                        <Button variant="secondary" size="sm"
                             disabled={query.isFetching}
                             onClick={() => query.refetch()}
                         >
-                            <RefreshCw size={12} />
-                        </button>
+                            <Icon icon={RefreshCw} size={14} />
+                        </Button>
                     </div>
                 </div>
 
                 {/* Tabs */}
                 <div className="sns-tabs">
-                    <button
-                        className={`sns-tab${tab === 'details' ? ' active' : ''}`}
+                    <Button variant={tab === 'details' ? 'secondary' : 'ghost'}
                         onClick={() => setTab('details')}
                     >
                         Details
-                    </button>
-                    <button
-                        className={`sns-tab${tab === 'tags' ? ' active' : ''}`}
+                    </Button>
+                    <Button variant={tab === 'tags' ? 'secondary' : 'ghost'}
                         onClick={() => setTab('tags')}
                     >
                         Tags
-                    </button>
-                    <button
-                        className={`sns-tab${tab === 'console' ? ' active' : ''}`}
+                    </Button>
+                    <Button variant={tab === 'console' ? 'secondary' : 'ghost'}
                         onClick={() => { setTab('console'); setShowConsoleModal(true) }}
                     >
                         Console
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="widget-body">
@@ -445,23 +395,23 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                         <div className="meta-grid">
                             <div className="meta-row">
                                 <span className="meta-label">Instance ID</span>
-                                <span className="meta-value" style={{ fontFamily: 'var(--mono)' }}>{inst.instanceId}</span>
+                                <span className="meta-value type-code">{inst.instanceId}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Type</span>
-                                <span className="meta-value">{inst.instanceType ?? '—'}</span>
+                                <span className="meta-value">{inst.instanceType ?? ', '}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">AMI</span>
-                                <span className="meta-value" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{inst.imageId ?? '—'}</span>
+                                <span className="meta-value type-code-sm">{inst.imageId ?? ', '}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Key pair</span>
-                                <span className="meta-value">{inst.keyName ?? '—'}</span>
+                                <span className="meta-value">{inst.keyName ?? ', '}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Architecture</span>
-                                <span className="meta-value">{inst.architecture ?? '—'}</span>
+                                <span className="meta-value">{inst.architecture ?? ', '}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Platform</span>
@@ -469,27 +419,27 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Launch time</span>
-                                <span className="meta-value" style={{ color: 'var(--text-3)' }}>{inst.launchTime ?? '—'}</span>
+                                <span className="meta-value text-text-3">{inst.launchTime ?? ', '}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Availability zone</span>
-                                <span className="meta-value">{inst.availabilityZone ?? '—'}</span>
+                                <span className="meta-value">{inst.availabilityZone ?? ', '}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Public IP</span>
-                                <span className="meta-value" style={{ fontFamily: 'var(--mono)' }}>{inst.publicIpAddress ?? '—'}</span>
+                                <span className="meta-value type-code">{inst.publicIpAddress ?? ', '}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Private IP</span>
-                                <span className="meta-value" style={{ fontFamily: 'var(--mono)' }}>{inst.privateIpAddress ?? '—'}</span>
+                                <span className="meta-value type-code">{inst.privateIpAddress ?? ', '}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">VPC</span>
-                                <span className="meta-value" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{inst.vpcId ?? '—'}</span>
+                                <span className="meta-value type-code-sm">{inst.vpcId ?? ', '}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="meta-label">Subnet</span>
-                                <span className="meta-value" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{inst.subnetId ?? '—'}</span>
+                                <span className="meta-value type-code-sm">{inst.subnetId ?? ', '}</span>
                             </div>
                             {inst.securityGroups.length > 0 && (
                                 <div className="meta-row">
@@ -507,18 +457,17 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                     )}
 
                     {tab === 'console' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+                        <div className="flex flex-col gap-2">
+                            <p className="type-caption text-text-3 m-0">
                                 Open the console output modal to view system logs.
                             </p>
-                            <button
-                                className="button"
+                            <Button variant="secondary"
+                                className="self-start"
                                 onClick={() => setShowConsoleModal(true)}
-                                style={{ alignSelf: 'flex-start' }}
                             >
-                                <Terminal size={13} />
+                                <Icon icon={Terminal} size={14} />
                                 View console output
-                            </button>
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -556,21 +505,20 @@ function AmiPanel({ imageId }: { imageId: string }) {
             <div className="widget">
                 <div className="widget-header">
                     <h2>{imageId}</h2>
-                    <div style={{ marginLeft: 'auto' }}>
-                        <button
-                            className="button danger compact"
+                    <div className="ml-auto">
+                        <Button variant="destructive" size="sm"
                             onClick={() => setShowDeregister(true)}
                         >
-                            <Trash2 size={12} />
+                            <Icon icon={Trash2} size={14} />
                             Deregister
-                        </button>
+                        </Button>
                     </div>
                 </div>
                 <div className="widget-body">
                     <div className="meta-grid">
                         <div className="meta-row">
                             <span className="meta-label">Image ID</span>
-                            <span className="meta-value" style={{ fontFamily: 'var(--mono)' }}>{imageId}</span>
+                            <span className="meta-value type-code">{imageId}</span>
                         </div>
                     </div>
                 </div>
@@ -748,42 +696,42 @@ export function LaunchInstanceForm({
 
             <label className="launch-field launch-field--span">
                 <span>Instance Name <em className="field-required">*</em></span>
-                <input className="input" value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. my-web-server"/>
+                <Input aria-label="Instance name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. my-web-server"/>
             </label>
 
             <label className="launch-field">
                 <span>AMI <em className="field-required">*</em></span>
-                <select className="input" value={imageId} onChange={(e) => setImageId(e.target.value)} required>
+                <OptionSelect value={imageId} onValueChange={(value) => setImageId(value)} required>
                     <option value="">Select an AMI…</option>
                     {(amisQ.data ?? []).map((ami: Ec2Image) => (
                         <option key={ami.imageId} value={ami.imageId}>{ami.name || ami.imageId}</option>
                     ))}
-                </select>
+                </OptionSelect>
             </label>
 
             <label className="launch-field">
                 <span>Instance Type <em className="field-required">*</em></span>
-                <select className="input" value={instanceType} onChange={(e) => setInstanceType(e.target.value)} required>
+                <OptionSelect value={instanceType} onValueChange={(value) => setInstanceType(value)} required>
                     {INSTANCE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                </OptionSelect>
             </label>
 
             {/* ── Networking — optional ─────────────────────────────── */}
-            <div className="launch-form-group">Networking — optional</div>
+            <div className="launch-form-group">Networking, optional</div>
 
             <label className="launch-field">
                 <span>Key Pair</span>
-                <select className="input" value={keyName} onChange={(e) => setKeyName(e.target.value)}>
+                <OptionSelect value={keyName} onValueChange={(value) => setKeyName(value)}>
                     <option value="">None</option>
                     {(keysQ.data ?? []).map((kp: Ec2KeyPair) => (
                         <option key={kp.keyPairId} value={kp.keyName}>{kp.keyName}</option>
                     ))}
-                </select>
+                </OptionSelect>
             </label>
 
             <label className="launch-field">
                 <span>Subnet</span>
-                <select className="input" value={subnetId} onChange={(e) => setSubnetId(e.target.value)}>
+                <OptionSelect value={subnetId} onValueChange={(value) => setSubnetId(value)}>
                     <option value="">Default</option>
                     {groupByVpc
                         ? vpcs.map((vpc: Ec2Vpc) => {
@@ -793,7 +741,7 @@ export function LaunchInstanceForm({
                                 <optgroup key={vpc.vpcId} label={vpcLabel(vpc)}>
                                     {vpcSubnets.map((s: Ec2Subnet) => (
                                         <option key={s.subnetId} value={s.subnetId}>
-                                            {s.availabilityZone} — {s.cidrBlock}
+                                            {s.availabilityZone} , {s.cidrBlock}
                                         </option>
                                     ))}
                                 </optgroup>
@@ -801,39 +749,36 @@ export function LaunchInstanceForm({
                         })
                         : subnets.map((s: Ec2Subnet) => (
                             <option key={s.subnetId} value={s.subnetId}>
-                                {s.availabilityZone} — {s.cidrBlock}
+                                {s.availabilityZone} , {s.cidrBlock}
                             </option>
                         ))
                     }
-                </select>
+                </OptionSelect>
             </label>
 
             {/* ── Security Groups ───────────────────────────────────── */}
             <div className="launch-field launch-field--span">
                 <div className="sg-header">
                     <span>Security Groups</span>
-                    <button
+                    <Hint label={showCreateSg ? 'Cancel new SG' : 'Create a new security group'}><Button variant="secondary" size="sm"
                         type="button"
-                        className="button small"
                         onClick={() => setShowCreateSg((v) => !v)}
-                        title={showCreateSg ? 'Cancel new SG' : 'Create a new security group'}
                     >
-                        {showCreateSg ? <X size={12}/> : <Plus size={12}/>}
+                        {showCreateSg ? <Icon icon={X} size={14}/> : <Icon icon={Plus} size={14}/>}
                         {showCreateSg ? 'Cancel' : 'New SG'}
-                    </button>
+                    </Button></Hint>
                 </div>
 
                 <div className="sg-checklist">
                     {sgsQ.isLoading && <span className="muted">Loading…</span>}
                     {sgsQ.data?.length === 0 && !showCreateSg && (
-                        <span className="muted">No security groups — create one above.</span>
+                        <span className="muted">No security groups, create one above.</span>
                     )}
                     {(sgsQ.data ?? []).map((sg: Ec2SecurityGroup) => (
                         <label key={sg.groupId} className="sg-check-item">
-                            <input
-                                type="checkbox"
+                            <Checkbox
                                 checked={selectedSgs.includes(sg.groupId)}
-                                onChange={(e) => toggleSg(sg.groupId, e.target.checked)}
+                                onCheckedChange={(checked) => toggleSg(sg.groupId, checked)}
                             />
                             <span>{sg.groupName || sg.groupId}</span>
                             {sg.groupName && <code>{sg.groupId}</code>}
@@ -845,20 +790,20 @@ export function LaunchInstanceForm({
                     <div className="sg-create-inline">
                         <label className="sg-create-field">
                             <span>Name <em className="field-required">*</em></span>
-                            <input className="input" value={newSgName} onChange={(e) => setNewSgName(e.target.value)} placeholder="e.g. web-servers"/>
+                            <Input aria-label="Security group name" value={newSgName} onChange={(e) => setNewSgName(e.target.value)} placeholder="e.g. web-servers"/>
                         </label>
                         <label className="sg-create-field">
                             <span>Description</span>
-                            <input className="input" value={newSgDesc} onChange={(e) => setNewSgDesc(e.target.value)} placeholder="Optional description"/>
+                            <Input aria-label="Description" value={newSgDesc} onChange={(e) => setNewSgDesc(e.target.value)} placeholder="Optional description"/>
                         </label>
                         <label className="sg-create-field">
                             <span>VPC</span>
-                            <select className="input" value={newSgVpc} onChange={(e) => setNewSgVpc(e.target.value)}>
+                            <OptionSelect value={newSgVpc} onValueChange={(value) => setNewSgVpc(value)}>
                                 <option value="">Default VPC</option>
                                 {vpcs.map((vpc: Ec2Vpc) => (
                                     <option key={vpc.vpcId} value={vpc.vpcId}>{vpcLabel(vpc)}</option>
                                 ))}
-                            </select>
+                            </OptionSelect>
                         </label>
 
                         {/* Inbound Rules */}
@@ -868,14 +813,14 @@ export function LaunchInstanceForm({
                                 <div className="sg-rules-divider"/>
                                 <div className="sg-presets">
                                     {SG_PRESETS.map((p) => (
-                                        <button key={p.label} type="button" className="button small"
+                                        <Button variant="secondary" size="sm" key={p.label} type="button"
                                             onClick={() => addRule(p.protocol, p.portInput, p.cidr)}>
                                             {p.label}
-                                        </button>
+                                        </Button>
                                     ))}
-                                    <button type="button" className="button small" onClick={() => addRule()}>
-                                        <Plus size={10}/> Custom
-                                    </button>
+                                    <Button variant="secondary" size="sm" type="button" onClick={() => addRule()}>
+                                        <Icon icon={Plus} size={14}/> Custom
+                                    </Button>
                                 </div>
                             </div>
 
@@ -891,23 +836,23 @@ export function LaunchInstanceForm({
                                         const noPort = rule.protocol === '-1' || rule.protocol === 'icmp'
                                         return (
                                             <div key={rule.id} className="sg-rule-row">
-                                                <select aria-label="Protocol" className="input" value={rule.protocol}
-                                                    onChange={(e) => updateRule(rule.id, { protocol: e.target.value, portInput: '' })}>
+                                                <OptionSelect aria-label="Protocol" value={rule.protocol}
+                                                    onValueChange={(value) => updateRule(rule.id, { protocol: value, portInput: '' })}>
                                                     <option value="tcp">TCP</option>
                                                     <option value="udp">UDP</option>
                                                     <option value="icmp">ICMP</option>
                                                     <option value="-1">All</option>
-                                                </select>
-                                                <input aria-label="Port range" className="input" value={rule.portInput}
+                                                </OptionSelect>
+                                                <Input aria-label="Port range" value={rule.portInput}
                                                     placeholder={noPort ? 'All' : '80 or 80-443'}
                                                     disabled={noPort}
                                                     onChange={(e) => updateRule(rule.id, { portInput: e.target.value })}/>
-                                                <input aria-label="Source CIDR" className="input" value={rule.cidr}
+                                                <Input aria-label="Source CIDR" value={rule.cidr}
                                                     placeholder="0.0.0.0/0"
                                                     onChange={(e) => updateRule(rule.id, { cidr: e.target.value })}/>
-                                                <button type="button" className="icon-btn danger" onClick={() => removeRule(rule.id)}>
-                                                    <X size={12}/>
-                                                </button>
+                                                <Hint label="Remove rule"><Button variant="ghost" size="icon-sm" type="button" aria-label="Remove rule" onClick={() => removeRule(rule.id)}>
+                                                    <Icon icon={X} size={14}/>
+                                                </Button></Hint>
                                             </div>
                                         )
                                     })}
@@ -919,19 +864,18 @@ export function LaunchInstanceForm({
                             {createSgMut.error instanceof Error && (
                                 <span className="sg-create-error">
                                     {createSgMut.error.message.startsWith('char')
-                                        ? 'Security group creation failed — runtime returned an unexpected response.'
+                                        ? 'Security group creation failed, runtime returned an unexpected response.'
                                         : createSgMut.error.message}
                                 </span>
                             )}
-                            <button
+                            <Button size="sm"
                                 type="button"
-                                className="button primary small"
                                 disabled={!newSgName || createSgMut.isPending}
                                 onClick={() => createSgMut.mutate({name: newSgName, desc: newSgDesc, vpc: newSgVpc, rules: inboundRules})}
                             >
-                                <Plus size={12}/>
+                                <Icon icon={Plus} size={14}/>
                                 {createSgMut.isPending ? 'Creating…' : 'Create SG'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -942,11 +886,11 @@ export function LaunchInstanceForm({
             )}
 
             <div className="launch-form-actions">
-                <button type="button" className="button" onClick={onCancel}>Cancel</button>
-                <button type="submit" className="button primary" disabled={createMut.isPending}>
-                    <Plus size={14}/>
+                <Button variant="secondary" type="button" onClick={onCancel}>Cancel</Button>
+                <Button type="submit" disabled={createMut.isPending}>
+                    <Icon icon={Plus} size={14}/>
                     {createMut.isPending ? 'Launching…' : 'Launch instance'}
-                </button>
+                </Button>
             </div>
         </form>
     )

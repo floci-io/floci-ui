@@ -1,18 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Boxes,
-  Info,
-  RefreshCw,
-  Server,
-  ShieldCheck,
-  Tags,
-} from "lucide-react";
+import {Icon, Boxes, InfoSquared as Info, RefreshCwSquared as RefreshCw, ServerSquared as Server, ShieldCheck, Tags} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import { EmptyState } from "@/components/EmptyState";
 import type { EksCluster, EksNodegroup } from "@/api/aws/eks.api";
 import {
   useEksClustersQuery,
   useEksNodegroupsQuery,
 } from "@/api/aws/eks.queries";
+import {RowsSkeleton} from '@/components/PageSkeleton'
 
 function statusClass(status?: string) {
   const normalized = status?.toLowerCase();
@@ -23,7 +18,7 @@ function statusClass(status?: string) {
 }
 
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) return ", ";
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
@@ -31,7 +26,7 @@ function formatDate(value?: string) {
 }
 
 function yesNo(value?: boolean) {
-  if (value === undefined) return "—";
+  if (value === undefined) return ", ";
   return value ? "Enabled" : "Disabled";
 }
 
@@ -45,16 +40,16 @@ function ClusterListItem({
   onSelect: () => void;
 }) {
   return (
-    <button
+    <Button variant="secondary"
       className={`list-item ${active ? "active" : ""}`}
       onClick={onSelect}
       type="button"
     >
       <strong>{cluster.name}</strong>
       <span>
-        Kubernetes {cluster.version ?? "—"} · {cluster.nodegroupCount ?? 0} nodegroups
+        Kubernetes {cluster.version ?? ", "} · {cluster.nodegroupCount ?? 0} nodegroups
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -65,29 +60,29 @@ function ClusterSummary({ cluster }: { cluster: EksCluster }) {
     <div className="grid two">
       <div className="widget">
         <div className="widget-header">
-          <Boxes size={13} color="var(--accent)" />
+          <Icon icon={Boxes} size={14} color="var(--accent)" />
           <h3>Cluster</h3>
         </div>
         <div className="widget-body">
           <div className="meta-grid">
             <Meta label="Status" value={cluster.status ?? "unknown"} />
-            <Meta label="Kubernetes version" value={cluster.version ?? "—"} />
-            <Meta label="Platform version" value={cluster.platformVersion ?? "—"} />
+            <Meta label="Kubernetes version" value={cluster.version ?? ", "} />
+            <Meta label="Platform version" value={cluster.platformVersion ?? ", "} />
             <Meta label="Created" value={formatDate(cluster.createdAt)} />
-            <Meta label="Endpoint" value={cluster.endpoint ?? "—"} />
-            <Meta label="Role ARN" value={cluster.roleArn ?? "—"} />
+            <Meta label="Endpoint" value={cluster.endpoint ?? ", "} />
+            <Meta label="Role ARN" value={cluster.roleArn ?? ", "} />
           </div>
         </div>
       </div>
 
       <div className="widget">
         <div className="widget-header">
-          <ShieldCheck size={13} color="var(--accent)" />
+          <Icon icon={ShieldCheck} size={14} color="var(--accent)" />
           <h3>Networking</h3>
         </div>
         <div className="widget-body">
           <div className="meta-grid">
-            <Meta label="VPC" value={vpc?.vpcId ?? "—"} />
+            <Meta label="VPC" value={vpc?.vpcId ?? ", "} />
             <Meta label="Public endpoint" value={yesNo(vpc?.endpointPublicAccess)} />
             <Meta label="Private endpoint" value={yesNo(vpc?.endpointPrivateAccess)} />
             <Meta label="Subnets" value={String(vpc?.subnetIds.length ?? 0)} />
@@ -97,7 +92,7 @@ function ClusterSummary({ cluster }: { cluster: EksCluster }) {
             />
             <Meta
               label="Public CIDRs"
-              value={vpc?.publicAccessCidrs.join(", ") || "—"}
+              value={vpc?.publicAccessCidrs.join(", ") || ", "}
             />
           </div>
         </div>
@@ -112,7 +107,7 @@ function ClusterTags({ tags }: { tags: Record<string, string> }) {
   return (
     <div className="widget section-space">
       <div className="widget-header">
-        <Tags size={13} color="var(--accent)" />
+        <Icon icon={Tags} size={14} color="var(--accent)" />
         <h3>Tags</h3>
         <span className="badge neutral">{entries.length}</span>
       </div>
@@ -175,12 +170,12 @@ function NodegroupTable({ nodegroups }: { nodegroups: EksNodegroup[] }) {
                 {nodegroup.status ?? "unknown"}
               </span>
             </td>
-            <td>{nodegroup.capacityType ?? "—"}</td>
-            <td className="mono">{nodegroup.instanceTypes.join(", ") || "—"}</td>
+            <td>{nodegroup.capacityType ?? ", "}</td>
+            <td className="mono">{nodegroup.instanceTypes.join(", ") || ", "}</td>
             <td className="mono">
               {nodegroup.scalingConfig
                 ? `${nodegroup.scalingConfig.minSize ?? "?"}/${nodegroup.scalingConfig.desiredSize ?? "?"}/${nodegroup.scalingConfig.maxSize ?? "?"}`
-                : "—"}
+                : ", "}
             </td>
             <td>{formatDate(nodegroup.modifiedAt ?? nodegroup.createdAt)}</td>
           </tr>
@@ -213,32 +208,31 @@ export function EKSPage() {
         <div className="page-title">
           <h1>EKS</h1>
           <span className="info-link">
-            <Info size={11} />
+            <Icon icon={Info} size={14} />
             Kubernetes clusters
           </span>
         </div>
-        <button
-          className="button"
+        <Button variant="secondary"
           onClick={() => {
             void clustersQuery.refetch();
             void nodegroupsQuery.refetch();
           }}
           type="button"
         >
-          <RefreshCw size={13} />
+          <Icon icon={RefreshCw} size={14} />
           Refresh
-        </button>
+        </Button>
       </div>
 
       <div className="split">
         <aside className="list-pane">
           <div className="widget-header">
-            <Boxes size={13} color="var(--text-2)" />
+            <Icon icon={Boxes} size={14} color="var(--text-2)" />
             <h2>Clusters ({clusters.length})</h2>
           </div>
 
           {clustersQuery.isLoading ? (
-            <div className="empty compact"><p>Loading clusters...</p></div>
+            <RowsSkeleton rows={4} label="Loading clusters"/>
           ) : clustersQuery.isError ? (
             <EmptyState
               icon={Boxes}
@@ -272,8 +266,8 @@ export function EKSPage() {
             />
           ) : (
             <div className="content">
-              <div className="page-title" style={{ marginBottom: 16 }}>
-                <Boxes size={18} color="var(--accent)" />
+              <div className="page-title mb-4">
+                <Icon icon={Boxes}  color="var(--accent)" />
                 <h2>{selectedCluster.name}</h2>
                 <span className={`status ${statusClass(selectedCluster.status)}`}>
                   {selectedCluster.status ?? "unknown"}
@@ -285,12 +279,12 @@ export function EKSPage() {
 
               <div className="table-panel section-space">
                 <div className="widget-header">
-                  <Server size={13} color="var(--text-2)" />
+                  <Icon icon={Server} size={14} color="var(--text-2)" />
                   <h3>Managed nodegroups</h3>
                 </div>
 
                 {nodegroupsQuery.isLoading ? (
-                  <div className="empty compact"><p>Loading nodegroups...</p></div>
+                  <RowsSkeleton rows={3} label="Loading nodegroups"/>
                 ) : nodegroupsQuery.isError ? (
                   <EmptyState
                     icon={Server}

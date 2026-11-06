@@ -1,10 +1,11 @@
-import {act, render, screen} from "@testing-library/react";
+import {act, render, screen, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, describe, expect, test, vi} from "vitest";
 import {putStreamMessages, readStreamMessages, type PutStreamMessageEntry} from "@/api/cloudProxyClient";
 import {StreamMessagesPanel} from "@/components/StreamMessagesPanel";
 import {DEFAULT_ACCOUNT_ID, setAccountId} from "@/lib/accountStore";
 import type {CloudResource} from "@/types/resource";
+import {chooseOption} from '@/test/selectOption'
 
 vi.mock("@/api/cloudProxyClient", () => ({
   putStreamMessages: vi.fn(),
@@ -67,9 +68,11 @@ describe("StreamMessagesPanel", () => {
     render(<StreamMessagesPanel cloud="oci" resource={stream} runtimeReachable={true}/>);
 
     await user.click(screen.getByRole("button", {name: "Read"}));
-    expect(screen.getByLabelText("Partition").querySelectorAll("option")).toHaveLength(2);
-    await user.selectOptions(screen.getByLabelText("Partition"), "1");
-    await user.selectOptions(screen.getByLabelText("Start from"), "AT_OFFSET");
+    await user.click(screen.getByLabelText("Partition"));
+    expect(within(await screen.findByRole("listbox")).getAllByRole("option")).toHaveLength(2);
+    await user.keyboard("{Escape}");
+    await chooseOption(user, screen.getByLabelText("Partition"), "1");
+    await chooseOption(user, screen.getByLabelText("Start from"), "AT_OFFSET");
     await user.clear(screen.getByLabelText("Offset"));
     await user.type(screen.getByLabelText("Offset"), "0");
     await user.click(screen.getByRole("button", {name: "Read messages"}));
@@ -100,7 +103,7 @@ describe("StreamMessagesPanel", () => {
     await user.click(screen.getByRole("button", {name: "Read messages"}));
     expect(await screen.findByRole("button", {name: "Read next"})).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Partition"), "1");
+    await chooseOption(user, screen.getByLabelText("Partition"), "1");
 
     expect(screen.queryByRole("button", {name: "Read next"})).not.toBeInTheDocument();
     expect(screen.getByText(/Nothing read yet/)).toBeInTheDocument();

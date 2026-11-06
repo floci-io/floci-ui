@@ -1,7 +1,15 @@
-import {type ElementType} from 'react'
-import {Cloud, Database, Radio, Route, ShieldCheck} from 'lucide-react'
+import {SoftText} from '@/components/SoftText'
+import {EmptyState} from '@/components/EmptyState'
+import {RowsSkeleton} from '@/components/PageSkeleton'
+import {Icon, Search} from '@/components/sodium/icon'
+import {Frame, FrameBody, FrameHeader, FrameTitle, FrameValue} from '@/components/sodium/ui/frame'
+import {Item, ItemContent, ItemDescription, ItemGroup, ItemLink, ItemMedia, ItemMeta, ItemTitle} from '@/components/sodium/ui/item'
+import {StatusMark} from '@/components/sodium/ui/status'
+import {StatusStrip, StatusStripCell, StatusStripLabel, StatusStripValue} from '@/components/sodium/ui/status-strip'
 import {adapterLabel, runtimeName} from './cloudConsoleHome.utils'
 import type {RuntimeFlowProps, ServiceGridProps, SummarySectionProps} from './types'
+
+const RUNTIME_MARK = {ready: 'ok', unavailable: 'fail', pending: 'idle'} as const
 
 export function SummarySection({
     cloud,
@@ -15,95 +23,114 @@ export function SummarySection({
     resourceDetail,
 }: SummarySectionProps) {
     return (
-        <section className="console-summary">
-            <SummaryTile label="Cloud" value={cloud.toUpperCase()} detail={runtimeLabel} icon={Cloud}/>
-            <SummaryTile label="Runtime" value={runtimeState} detail={runtimeDetail} icon={Radio} state={runtimeClass}/>
-            <SummaryTile label="Active services" value={`${activeServices}`} detail={activeServicesDetail}/>
-            <SummaryTile label="Resources" value={`${resourceCount}`} detail={resourceDetail}/>
-        </section>
+        <StatusStrip label="Runtime summary">
+            <SummaryCell label="Cloud" value={cloud.toUpperCase()} detail={runtimeLabel}/>
+            <SummaryCell
+                label="Runtime"
+                value={<><StatusMark status={RUNTIME_MARK[runtimeClass]} label={runtimeState}/><SoftText value={runtimeState}/></>}
+                detail={runtimeDetail}
+            />
+            <SummaryCell label="Active services" value={`${activeServices}`} detail={activeServicesDetail}/>
+            <SummaryCell label="Resources" value={`${resourceCount}`} detail={resourceDetail}/>
+        </StatusStrip>
     )
 }
 
 export function RuntimeFlow({cloud, status}: RuntimeFlowProps) {
     return (
-        <section className="console-runtime-flow">
-            <FlowStep icon={Cloud} label="UI" value="Console Home"/>
-            <FlowStep icon={Route} label="Proxy" value="/api/clouds"/>
-            <FlowStep icon={ShieldCheck} label="Adapter" value={adapterLabel(cloud, status)}/>
-            <FlowStep icon={Database} label="Runtime" value={runtimeName(cloud)}/>
-        </section>
+        <StatusStrip label="Request path">
+            <FlowCell label="UI" value="Console Home"/>
+            <FlowCell label="Proxy" value="/api/clouds"/>
+            <FlowCell label="Adapter" value={adapterLabel(cloud, status)}/>
+            <FlowCell label="Runtime" value={runtimeName(cloud)}/>
+        </StatusStrip>
     )
 }
 
-export function ServiceGrid({services, runtimeReachable, onNavigate, searchQuery}: ServiceGridProps) {
-    if (services.length === 0) {
-        return (
-            <section className="console-service-grid empty">
-                <p className="muted" style={{ padding: '24px', textAlign: 'center', gridColumn: '1 / -1' }}>
-                    {searchQuery ? `No services matching "${searchQuery}"` : 'No services found.'}
-                </p>
-            </section>
-        )
-    }
-
+export function ServiceGrid({services, loading, runtimeReachable, onNavigate, searchQuery}: ServiceGridProps) {
     return (
-        <section className="console-service-grid">
-            {services.map((service) => {
-                const Icon = service.icon
-                const isAvailable = service.status === 'available'
-                const canOpen = isAvailable && service.route && runtimeReachable
-                const content = (
-                    <>
-                        <div className="service-card-header">
-                            <div className="service-icon"><Icon size={18}/></div>
-                            <div>
-                                <h2>{service.label}</h2>
-                                <span className={isAvailable ? 'status healthy' : 'status unknown'}>
-                                    {isAvailable ? 'available' : 'coming soon'}
-                                </span>
-                            </div>
-                        </div>
-                        <p className="console-service-description">{service.description}</p>
-                        <div className="console-service-meta">
-                            <strong>{service.count ?? '-'}</strong>
-                            <span>{service.meta}</span>
-                        </div>
-                    </>
-                )
-
-                return canOpen ? (
-                    <button key={service.id} className="service-card console-service-card" type="button" onClick={() => onNavigate(service.route!)}>
-                        {content}
-                    </button>
+        <Frame aria-label="Services">
+            <FrameHeader>
+                <FrameTitle>Services</FrameTitle>
+                <FrameValue meta>{services.length}</FrameValue>
+            </FrameHeader>
+            <FrameBody padding="none">
+                {services.length === 0 && loading ? (
+                    <RowsSkeleton rows={8} label="Loading services"/>
+                ) : services.length === 0 ? (
+                    <EmptyState
+                        compact
+                        icon={searchQuery ? Search : undefined}
+                        reason={searchQuery ? 'no-results' : 'empty'}
+                        title={searchQuery ? `No services matching "${searchQuery}"` : 'No services found'}
+                        description={searchQuery ? 'Try another name or clear the filter.' : 'The runtime did not list any services.'}
+                    />
                 ) : (
-                    <div key={service.id} className={`service-card console-service-card ${isAvailable ? 'blocked' : 'offline'}`}>
-                        {content}
-                    </div>
-                )
-            })}
-        </section>
+                    <ItemGroup variant="plain">
+                        {services.map((service) => (
+                            <ServiceRow
+                                key={service.id}
+                                service={service}
+                                runtimeReachable={runtimeReachable}
+                                onNavigate={onNavigate}
+                            />
+                        ))}
+                    </ItemGroup>
+                )}
+            </FrameBody>
+        </Frame>
     )
 }
 
-function SummaryTile({label, value, detail, icon, state}: {label: string; value: string; detail: string; icon?: ElementType; state?: string}) {
-    const Icon = icon
+function ServiceRow({service, runtimeReachable, onNavigate}: {
+    service: ServiceGridProps['services'][number]
+    runtimeReachable: boolean
+    onNavigate: (route: string) => void
+}) {
+    const isAvailable = service.status === 'available'
+    const route = isAvailable && runtimeReachable ? service.route : undefined
+    const availability = isAvailable ? 'available' : 'coming soon'
     return (
-        <div className={`summary-tile ${state ?? ''}`}>
-            {Icon && <Icon size={16}/>}
-            <span>{label}</span>
-            <strong>{value}</strong>
-            <small>{detail}</small>
-        </div>
+        <Item disabled={!route}>
+            <ItemMedia variant="icon"><Icon icon={service.icon}/></ItemMedia>
+            <ItemContent>
+                <ItemTitle role="heading" aria-level={2}>
+                    {route ? (
+                        <ItemLink
+                            href={route}
+                            onClick={(event) => {
+                                event.preventDefault()
+                                onNavigate(route)
+                            }}
+                        >
+                            {service.label}
+                        </ItemLink>
+                    ) : service.label}
+                </ItemTitle>
+                <ItemDescription>{service.description}</ItemDescription>
+            </ItemContent>
+            <ItemMeta>
+                {availability}, {service.count ?? '-'} {service.meta}
+            </ItemMeta>
+        </Item>
     )
 }
 
-function FlowStep({icon, label, value}: {icon: ElementType; label: string; value: string}) {
-    const Icon = icon
+function SummaryCell({label, value, detail}: {label: string; value: React.ReactNode; detail: string}) {
     return (
-        <div className="console-flow-step">
-            <Icon size={16}/>
-            <span>{label}</span>
-            <strong>{value}</strong>
-        </div>
+        <StatusStripCell className="justify-start">
+            <StatusStripLabel>{label}</StatusStripLabel>
+            <StatusStripValue>{typeof value === 'string' ? <SoftText value={value}/> : value}</StatusStripValue>
+            <SoftText className="type-body-sm text-text-2" value={detail}/>
+        </StatusStripCell>
+    )
+}
+
+function FlowCell({label, value}: {label: string; value: string}) {
+    return (
+        <StatusStripCell>
+            <StatusStripLabel>{label}</StatusStripLabel>
+            <StatusStripValue>{value}</StatusStripValue>
+        </StatusStripCell>
     )
 }

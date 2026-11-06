@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { Router } from 'lucide-react'
+import {Icon, Router} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import { useCreateRouteTableMutation } from '@/api/aws/ec2.mutations'
 import { useEc2VpcsQuery } from '@/api/aws/ec2.queries'
 import type { Ec2RouteTable } from '@/api/aws/ec2.api'
@@ -35,39 +38,37 @@ export function CreateRtbModal({ onClose, onCreated }: Props) {
   return (
     <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Router size={14} /> Create Route Table
+        <h2 className="flex items-center gap-1.5">
+          <Icon icon={Router} size={14} /> Create Route Table
         </h2>
         <div className="modal-section">
           <div className="field-row">
-            <label>VPC <span style={{ color: 'var(--status-error)' }}>*</span></label>
-            <select aria-label="VPC"
-              className="input"
+            <label>VPC <span className="text-fail-text">*</span></label>
+            <OptionSelect aria-label="VPC"
               value={vpcId}
-              onChange={(e) => { setVpcId(e.target.value); setErr('') }}
+              onValueChange={(value) => { setVpcId(value); setErr('') }}
             >
-              <option value="">— select VPC —</option>
+              <option value="">, select VPC, </option>
               {vpcs.map((v) => (
                 <option key={v.vpcId} value={v.vpcId}>{v.vpcId} ({v.cidrBlock})</option>
               ))}
-            </select>
+            </OptionSelect>
           </div>
           <div className="field-row">
-            <label>Name <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional)</span></label>
-            <input aria-label="Name"
-              className="input"
+            <label>Name <span className="text-text-3 type-caption">(optional)</span></label>
+            <Input aria-label="Name"
               placeholder="my-route-table"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          {err && <p style={{ color: 'var(--status-error)', fontSize: 12, marginTop: 6 }}>{err}</p>}
+          {err && <p className="text-fail-text type-caption mt-1.5">{err}</p>}
         </div>
         <div className="modal-footer">
-          <button className="button" onClick={onClose}>Cancel</button>
-          <button className="button primary" disabled={!vpcId || mutation.isPending} onClick={() => void handleCreate()}>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button disabled={!vpcId || mutation.isPending} onClick={() => void handleCreate()}>
             {mutation.isPending ? 'Creating…' : 'Create'}
-          </button>
+          </Button>
         </div>
       </div>
     </ModalOverlay>

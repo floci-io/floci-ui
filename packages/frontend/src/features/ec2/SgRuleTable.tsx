@@ -1,5 +1,9 @@
-import { Trash2 } from "lucide-react";
+import {Icon, Trash2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import { newRule, ruleErrors } from "./sgRuleHelpers";
+import {Hint} from '@/components/Hint'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,84 +99,69 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
   return (
     <div>
       {rules.length === 0 ? (
-        <div style={{
-          border: "1px solid var(--border)",
-          borderRadius: 4,
-          padding: "12px 16px",
-          fontSize: 12,
-          color: "var(--text-2)",
-          marginBottom: 8,
-        }}>
+        <div className="py-3 px-4 type-caption text-text-2 mb-2 border border-line">
           No {direction.toLowerCase()} rules. Click Add rule to create one.
         </div>
       ) : (
-        <div style={{
-          border: "1px solid var(--border)",
-          borderRadius: 4,
-          marginBottom: 8,
-        }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <div className="mb-2 border border-line">
+          <table className="w-full border-collapse type-caption">
             <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              <tr className="border-b border-line">
                 <th style={thStyle}>Type</th>
                 <th style={thStyle}>Protocol</th>
                 <th style={thStyle}>Port range</th>
                 <th style={thStyle}>{sourceLabel}</th>
                 <th style={thStyle}>Description</th>
-                <th style={{ ...thStyle, width: 32 }} />
+                <th className="w-8" style={{...thStyle}} />
               </tr>
             </thead>
             <tbody>
               {rules.map((rule, idx) => {
                 const errs = ruleErrors(rule);
                 return (
-                <tr key={rule.id} style={{
-                  borderBottom: idx < rules.length - 1 ? "1px solid var(--border-faint)" : "none",
-                }}>
+                <tr key={rule.id} className={idx < rules.length - 1 ? 'border-b border-line-faint' : undefined}>
                   {/* Type */}
                   <td style={tdStyle}>
                     {readonly ? (
-                      <span style={{ fontSize: 12 }}>{presetFor(rule.type)?.label ?? rule.type}</span>
+                      <span className="type-caption">{presetFor(rule.type)?.label ?? rule.type}</span>
                     ) : (
-                      <select aria-label="Rule type"
-                        className="input"
-                        style={{ width: 150, fontSize: 12 }}
+                      <OptionSelect aria-label="Rule type" className="w-37.5"
                         value={rule.type}
-                        onChange={(e) => handleTypeChange(rule.id, e.target.value)}
+                        onValueChange={(value) => handleTypeChange(rule.id, value)}
                       >
                         {RULE_PRESETS.map((p) => (
                           <option key={p.key} value={p.key}>{p.label}</option>
                         ))}
-                      </select>
+                      </OptionSelect>
                     )}
                   </td>
 
                   {/* Protocol */}
-                  <td style={{ ...tdStyle, color: "var(--text-2)" }}>
+                  <td className="text-text-2" style={{...tdStyle}}>
                     {rule.protocol === "-1" ? "All" : rule.protocol.toUpperCase()}
                   </td>
 
                   {/* Port range */}
                   <td style={tdStyle}>
                     {rule.protocol === "-1" || rule.protocol === "icmp" || readonly || !isCustomType(rule.type) ? (
-                      <span style={{ color: "var(--text-2)", fontSize: 12 }}>{portRangeDisplay(rule)}</span>
+                      <span className="text-text-2 type-caption">{portRangeDisplay(rule)}</span>
                     ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <div className="flex items-center gap-1">
                         <div>
-                          <input
-                            className="input"
-                            style={{ width: 52, fontSize: 12, minWidth: "unset", borderColor: errs.fromPort ? "var(--status-error)" : undefined }}
+                          <Input aria-label="From"
+                            className="w-13 min-w-0"
+                            aria-invalid={(errs.fromPort) ? true : undefined}
                             placeholder="From"
                             value={rule.fromPort}
                             onChange={(e) => updateRule(rule.id, { fromPort: e.target.value })}
                             title={errs.fromPort}
                           />
                         </div>
-                        <span style={{ color: "var(--text-2)" }}>–</span>
+                        <span className="text-text-2">–</span>
                         <div>
-                          <input
-                            className="input"
-                            style={{ width: 52, fontSize: 12, minWidth: "unset", borderColor: errs.toPort ? "var(--status-error)" : undefined }}
+                          <Input aria-label="To"
+                            className="w-13 min-w-0"
+                            aria-invalid={(errs.toPort) ? true : undefined}
                             placeholder="To"
                             value={rule.toPort}
                             onChange={(e) => updateRule(rule.id, { toPort: e.target.value })}
@@ -186,19 +175,19 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
                   {/* CIDR */}
                   <td style={tdStyle}>
                     {readonly ? (
-                      <span style={{ fontSize: 12 }}>{rule.cidr}</span>
+                      <span >{rule.cidr}</span>
                     ) : (
                       <div>
-                        <input
-                          className="input"
-                          style={{ width: 150, fontSize: 12, minWidth: "unset", borderColor: errs.cidr ? "var(--status-error)" : undefined }}
+                        <Input aria-label="0.0.0.0/0"
+                          className="w-37.5 min-w-0"
+                          aria-invalid={(errs.cidr) ? true : undefined}
                           placeholder="0.0.0.0/0"
                           value={rule.cidr}
                           onChange={(e) => updateRule(rule.id, { cidr: e.target.value })}
                           title={errs.cidr}
                         />
                         {errs.cidr && (
-                          <p style={{ fontSize: 11, color: "var(--status-error)", margin: "2px 0 0", whiteSpace: "nowrap" }}>{errs.cidr}</p>
+                          <p className="text-fail-text mt-0.5 mx-0 mb-0 whitespace-nowrap">{errs.cidr}</p>
                         )}
                       </div>
                     )}
@@ -207,11 +196,10 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
                   {/* Description */}
                   <td style={tdStyle}>
                     {readonly ? (
-                      <span style={{ fontSize: 12, color: "var(--text-2)" }}>{rule.description}</span>
+                      <span className="type-caption text-text-2">{rule.description}</span>
                     ) : (
-                      <input aria-label="Rule description"
-                        className="input"
-                        style={{ width: 150, fontSize: 12, minWidth: "unset" }}
+                      <Input aria-label="Rule description"
+                        className="w-37.5 min-w-0"
                         placeholder="optional"
                         value={rule.description}
                         onChange={(e) => updateRule(rule.id, { description: e.target.value })}
@@ -220,11 +208,11 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
                   </td>
 
                   {/* Delete */}
-                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                  <td className="text-center" style={{...tdStyle}}>
                     {!readonly && (
-                      <button className="icon-btn danger" type="button" onClick={() => removeRow(rule.id)}>
-                        <Trash2 size={13} />
-                      </button>
+                      <Hint label="Remove rule"><Button variant="ghost" size="icon-sm" type="button" aria-label="Remove rule" onClick={() => removeRow(rule.id)}>
+                        <Icon icon={Trash2} size={14} />
+                      </Button></Hint>
                     )}
                   </td>
                 </tr>
@@ -236,9 +224,9 @@ export function SgRuleTable({ rules, onChange, direction, addLabel }: SgRuleTabl
       )}
 
       {!readonly && (
-        <button className="button" type="button" onClick={addRow} style={{ fontSize: 12 }}>
+        <Button variant="secondary" type="button" onClick={addRow}>
           + Add rule
-        </button>
+        </Button>
       )}
     </div>
   );

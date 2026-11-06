@@ -1,5 +1,8 @@
 import {FormEvent, useEffect, useMemo, useRef, useState} from 'react'
-import {Code2, Database, Play, Plus, RefreshCw, Table2, Trash2, type LucideIcon} from 'lucide-react'
+import {Icon, Code2, DatabaseSquared as Database, Play, PlusSquared as Plus, RefreshCwSquared as RefreshCw, Table2, Trash2, type SodiumIcon as LucideIcon} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {JsonRecordModal} from '@/components/JsonRecordModal'
 import {useAccountId} from '@/lib/accountStore'
@@ -14,6 +17,9 @@ import {
 } from '@/api/cloudProxyClient'
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource, CosmosItem} from '@/types/resource'
+import {EmptyState} from '@/components/EmptyState'
+import {RowsSkeleton} from '@/components/PageSkeleton'
+import {Hint} from '@/components/Hint'
 
 interface CosmosNoSqlPanelProps {
     cloud: CloudProvider
@@ -116,10 +122,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
     if (!databaseId) {
         return (
             <section className="cosmos-panel">
-                <div className="empty compact">
-                    <h2>Select a Cosmos database</h2>
-                    <p>Containers, documents, and SQL queries are loaded after a database is selected.</p>
-                </div>
+                <EmptyState compact title="Select a Cosmos database" description="Containers, documents, and SQL queries are loaded after a database is selected."/>
             </section>
         )
     }
@@ -161,40 +164,45 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
             <div className="cosmos-column">
                 <PanelHeader icon={Database} eyebrow="Containers" title={databaseId} detail={`${containers.length} containers`}/>
                 <form className="cosmos-inline-form" onSubmit={submitContainer}>
-                    <input aria-label="Container name" className="input" value={containerName} onChange={(event) => setContainerName(event.target.value)} placeholder="Container name" disabled={!runtimeReachable}/>
-                    <input aria-label="Partition key path" className="input" value={partitionKeyPath} onChange={(event) => setPartitionKeyPath(event.target.value)} placeholder="/id" disabled={!runtimeReachable}/>
-                    <button className="button" type="submit" disabled={!runtimeReachable || createContainerMut.isPending || !containerName.trim()}>
-                        <Plus size={14}/>
+                    <Input aria-label="Container name" value={containerName} onChange={(event) => setContainerName(event.target.value)} placeholder="Container name" disabled={!runtimeReachable}/>
+                    <Input aria-label="Partition key path" value={partitionKeyPath} onChange={(event) => setPartitionKeyPath(event.target.value)} placeholder="/id" disabled={!runtimeReachable}/>
+                    <Button variant="secondary" type="submit" disabled={!runtimeReachable || createContainerMut.isPending || !containerName.trim()}>
+                        <Icon icon={Plus} size={14}/>
                         {createContainerMut.isPending ? 'Creating' : 'Create'}
-                    </button>
+                    </Button>
                 </form>
                 {createContainerMut.error instanceof Error && <div className="form-error">{createContainerMut.error.message}</div>}
                 {containersQuery.error instanceof Error && <div className="form-error">{containersQuery.error.message}</div>}
                 <div className="cosmos-list">
-                    {containersQuery.isLoading && <div className="muted padded">Loading containers</div>}
+                    {containersQuery.isLoading && <RowsSkeleton rows={3} label="Loading containers"/>}
                     {containersQuery.isSuccess && containers.length === 0 && <div className="muted padded">No containers</div>}
                     {containersQuery.isSuccess && selectedContainerId && !selectedContainer && <div className="form-error">Container not found: {selectedContainerId}</div>}
                     {containers.map((container) => (
-                        <button
+                        <div
                             key={container.id}
                             className={`cosmos-list-row ${selectedContainerId === container.id ? 'selected' : ''}`}
-                            type="button"
-                            onClick={() => {
-                                if (container.id === selectedContainerId) return
-                                selectionChanged.current = true
-                                onSelectContainer(container.id)
-                            }}
                         >
-                            <span>
-                                <strong>{container.name}</strong>
-                                <small>Partition key {container.partitionKeyPath}</small>
-                            </span>
+                            <Button
+                                variant="ghost"
+                                type="button"
+                                className="grow justify-start"
+                                onClick={() => {
+                                    if (container.id === selectedContainerId) return
+                                    selectionChanged.current = true
+                                    onSelectContainer(container.id)
+                                }}
+                            >
+                                <span>
+                                    <strong>{container.name}</strong>
+                                    <small>Partition key {container.partitionKeyPath}</small>
+                                </span>
+                            </Button>
                             {confirmContainer === container.id ? (
-                                <em
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={(event) => {
-                                        event.stopPropagation()
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    type="button"
+                                    onClick={() => {
                                         deleteContainerMut.mutate(container.id, {
                                             onSuccess: () => {
                                                 if (selectionChanged.current) return
@@ -205,17 +213,19 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
                                     }}
                                 >
                                     Confirm
-                                </em>
+                                </Button>
                             ) : (
-                                <Trash2
-                                    size={13}
-                                    onClick={(event) => {
-                                        event.stopPropagation()
-                                        setConfirmContainer(container.id)
-                                    }}
-                                />
+                                <Hint label={`Delete ${container.name}`}><Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    type="button"
+                                    aria-label={`Delete ${container.name}`}
+                                    onClick={() => setConfirmContainer(container.id)}
+                                >
+                                    <Icon icon={Trash2} size={14}/>
+                                </Button></Hint>
                             )}
-                        </button>
+                        </div>
                     ))}
                 </div>
             </div>
@@ -223,8 +233,7 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
             <div className="cosmos-column cosmos-column--wide">
                 <PanelHeader icon={Table2} eyebrow="Documents" title={selectedContainer?.name ?? selectedContainerId ?? 'Select container'} detail={`${itemsQuery.data?.length ?? 0} items`}/>
                 <div className="cosmos-toolbar">
-                    <button
-                        className="button primary"
+                    <Button
                         type="button"
                         disabled={!selectedContainer || !runtimeReachable}
                         onClick={() => {
@@ -232,13 +241,13 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
                             setAddRecordOpen(true)
                         }}
                     >
-                        <Plus size={14}/>
+                        <Icon icon={Plus} size={14}/>
                         Add record
-                    </button>
-                    <button className="button" type="button" disabled={!selectedContainer || !runtimeReachable || itemsQuery.isFetching} onClick={() => itemsQuery.refetch()}>
-                        <RefreshCw size={14}/>
+                    </Button>
+                    <Button variant="secondary" type="button" disabled={!selectedContainer || !runtimeReachable || itemsQuery.isFetching} onClick={() => itemsQuery.refetch()}>
+                        <Icon icon={RefreshCw} size={14}/>
                         Refresh
-                    </button>
+                    </Button>
                 </div>
                 {itemsQuery.error instanceof Error && <div className="form-error">{itemsQuery.error.message}</div>}
                 {deleteItemMut.error instanceof Error && <div className="form-error">{deleteItemMut.error.message}</div>}
@@ -260,20 +269,20 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
                                     <td onClick={() => selectItem(item)}><code>{formatShort(item.etag)}</code></td>
                                     <td className="table-actions">
                                         {confirmItem === item.id ? (
-                                            <button className="button danger compact" type="button" onClick={() => deleteItemMut.mutate(item)}>Confirm</button>
+                                            <Button variant="destructive" size="sm" type="button" onClick={() => deleteItemMut.mutate(item)}>Confirm</Button>
                                         ) : (
-                                            <button className="icon-btn danger" type="button" title={`Delete ${item.id}`} onClick={() => setConfirmItem(item.id)}>
-                                                <Trash2 size={13}/>
-                                            </button>
+                                            <Hint label={`Delete ${item.id}`}><Button variant="ghost" size="icon-sm" type="button" aria-label={`Delete ${item.id}`} onClick={() => setConfirmItem(item.id)}>
+                                                <Icon icon={Trash2} size={14}/>
+                                            </Button></Hint>
                                         )}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    {!selectedContainerId && <div className="empty compact"><h2>Select a container</h2><p>Documents are scoped to a Cosmos container.</p></div>}
-                    {itemsQuery.isLoading && <div className="muted padded">Loading documents</div>}
-                    {selectedContainerId && itemsQuery.isSuccess && itemsQuery.data.length === 0 && <div className="empty compact"><h2>No documents</h2><p>Create a JSON document or run a query after data exists.</p></div>}
+                    {!selectedContainerId && <EmptyState compact title="Select a container" description="Documents are scoped to a Cosmos container."/>}
+                    {itemsQuery.isLoading && <RowsSkeleton rows={4} label="Loading documents"/>}
+                    {selectedContainerId && itemsQuery.isSuccess && itemsQuery.data.length === 0 && <EmptyState compact title="No documents" description="Create a JSON document or run a query after data exists."/>}
                 </div>
             </div>
 
@@ -281,28 +290,27 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
                 <PanelHeader icon={Code2} eyebrow="Document editor" title={selectedItem ? `Update ${selectedItem.id}` : 'Select document'} detail={selectedItem ? 'Edits replace the selected document' : 'Choose a document to inspect or update'}/>
                 {selectedItem ? (
                     <form className="cosmos-editor" onSubmit={submitDocument}>
-                        <textarea aria-label="Document JSON" className="textarea code-textarea" value={documentText} onChange={(event) => setDocumentText(event.target.value)} spellCheck={false}/>
-                        <button className="button primary" type="submit" disabled={!selectedContainer || !runtimeReachable || upsertItemMut.isPending}>
+                        <Textarea aria-label="Document JSON" className="code-textarea" value={documentText} onChange={(event) => setDocumentText(event.target.value)} spellCheck={false}/>
+                        <Button type="submit" disabled={!selectedContainer || !runtimeReachable || upsertItemMut.isPending}>
                             {upsertItemMut.isPending ? 'Saving' : 'Update document'}
-                        </button>
+                        </Button>
                         {saveError && <div className="form-error">{saveError}</div>}
                     </form>
                 ) : (
-                    <div className="empty compact"><h2>Select a document</h2><p>Its JSON contents appear here.</p></div>
+                    <EmptyState compact title="Select a document" description="Its JSON contents appear here."/>
                 )}
 
                 <PanelHeader icon={Play} eyebrow="SQL query" title="Cosmos SQL" detail="Runs against selected container"/>
                 <div className="cosmos-query">
-                    <textarea aria-label="SQL query" className="textarea code-textarea small" value={sql} onChange={(event) => setSql(event.target.value)} spellCheck={false}/>
-                    <button
-                        className="button"
+                    <Textarea aria-label="SQL query" className="code-textarea small" value={sql} onChange={(event) => setSql(event.target.value)} spellCheck={false}/>
+                    <Button variant="secondary"
                         type="button"
                         disabled={!selectedContainer || !runtimeReachable || queryMut.isPending}
                         onClick={() => selectedContainerId && queryMut.mutate({containerId: selectedContainerId, query: sql})}
                     >
-                        <Play size={14}/>
+                        <Icon icon={Play} size={14}/>
                         {queryMut.isPending ? 'Running' : 'Run query'}
-                    </button>
+                    </Button>
                     {queryMut.error instanceof Error && <div className="form-error">{queryMut.error.message}</div>}
                     {activeQueryResult && (
                         <>

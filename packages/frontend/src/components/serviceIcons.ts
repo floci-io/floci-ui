@@ -1,31 +1,4 @@
-import {
-    Activity,
-    BarChart3,
-    Boxes,
-    Brain,
-    Circle,
-    Clock,
-    Container,
-    Database,
-    HardDrive,
-    KeyRound,
-    Layers,
-    Lock,
-    MessageSquare,
-    Network,
-    Package,
-    Radio,
-    ScrollText,
-    Scale,
-    Server,
-    ShieldCheck,
-    SlidersHorizontal,
-    Table2,
-    Workflow,
-    Waypoints,
-    Zap,
-    type LucideIcon,
-} from 'lucide-react'
+import {Activity, BarChart3, Boxes, Brain, Circle, ClockSquared as Clock, Container, DatabaseSquared as Database, HardDrive, KeyRound, Layers, LockSquared as Lock, MessageSquare, Network, Package, Radio, ScrollText, Scale, ServerSquared as Server, ShieldCheck, SlidersHorizontal, Table2, WorkflowSquared as Workflow, Waypoints, ZapSquared as Zap, type SodiumIcon as LucideIcon} from '@/components/sodium/icon'
 
 /**
  * Maps the server's `iconKey` hint to a component.

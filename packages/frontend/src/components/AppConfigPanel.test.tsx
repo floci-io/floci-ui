@@ -71,7 +71,7 @@ describe('AppConfigPanel account isolation', () => {
             </QueryClientProvider>,
         )
 
-        expect(await screen.findAllByText(`environment-${DEFAULT_ACCOUNT_ID}`)).toHaveLength(2)
+        expect(await screen.findAllByText(`environment-${DEFAULT_ACCOUNT_ID}`)).toHaveLength(1)
         const environmentName = screen.getByPlaceholderText('Environment name')
         await user.type(environmentName, 'private-draft')
         expect(environmentName).toHaveValue('private-draft')
@@ -80,7 +80,7 @@ describe('AppConfigPanel account isolation', () => {
             setAccountId('111111111111')
         })
 
-        expect(await screen.findAllByText('environment-111111111111')).toHaveLength(2)
+        expect(await screen.findAllByText('environment-111111111111')).toHaveLength(1)
         expect(screen.queryAllByText(`environment-${DEFAULT_ACCOUNT_ID}`)).toHaveLength(0)
         expect(screen.getByPlaceholderText('Environment name')).toHaveValue('')
 
@@ -165,7 +165,7 @@ describe('AppConfigPanel configuration editor', () => {
         const user = await renderWithProfileSelected()
         await waitFor(() => expect(screen.getByLabelText('Configuration content')).toHaveValue('{"a":2}'))
 
-        await user.click(await screen.findByTitle('Edit from version 1'))
+        await user.click(await screen.findByLabelText('Edit from version 1'))
 
         await waitFor(() => expect(screen.getByLabelText('Configuration content')).toHaveValue('{"a":1}'))
         expect(screen.getByText(/latest is 2/)).toBeInTheDocument()
@@ -194,19 +194,17 @@ describe('AppConfigPanel configuration editor', () => {
     })
 
     test('asks before an older version replaces unsaved edits', async () => {
-        const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
         const user = await renderWithProfileSelected()
         const editor = await screen.findByLabelText('Configuration content')
         await waitFor(() => expect(editor).toHaveValue('{"a":2}'))
         await user.type(editor, ' ')
 
-        await user.click(screen.getByTitle('Edit from version 1'))
-        expect(confirm).toHaveBeenCalledTimes(1)
+        await user.click(screen.getByLabelText('Edit from version 1'))
+        await user.click(await screen.findByRole('button', {name: 'Keep editing'}))
         expect(editor).toHaveValue('{"a":2} ')
 
-        confirm.mockReturnValue(true)
-        await user.click(screen.getByTitle('Edit from version 1'))
+        await user.click(screen.getByLabelText('Edit from version 1'))
+        await user.click(await screen.findByRole('button', {name: 'Discard changes'}))
         await waitFor(() => expect(editor).toHaveValue('{"a":1}'))
-        confirm.mockRestore()
     })
 })

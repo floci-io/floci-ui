@@ -1,5 +1,6 @@
 import {useEffect, useRef, useState} from "react";
-import {Loader2, Power} from "lucide-react";
+import {Icon, Loader2, Power} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import {powerComputeResource, type ComputePowerAction} from "@/api/cloudProxyClient";
 import {capabilityEnabled, capabilityFor} from "@/lib/capabilities";
 import type {CloudResource} from "@/types/resource";
@@ -62,22 +63,20 @@ export function ComputePowerPanel({resource, capabilities, onChanged}: ComputePo
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">Instance Actions</p>
-          <h2><Power size={15}/> Power state</h2>
+          <h2><Icon icon={Power} /> Power state</h2>
           <p className="muted compact-text">Current state: {resource.status ?? "unknown"}</p>
         </div>
       </div>
       <div className="resource-create-inline">
         {offered.map(({action, fallbackLabel, capability}) => (
-          <button
+          <Button title={capability?.reason} variant="secondary"
             key={action}
-            className="button"
             type="button"
-            title={capability?.reason}
             disabled={!capabilityEnabled(capability) || pending !== null || !appliesNow(action)}
             onClick={() => void run(action)}
           >
-            {pending === action ? <Loader2 size={13} className="spin"/> : null} {capability?.label ?? fallbackLabel}
-          </button>
+            {pending === action ? <Icon icon={Loader2} size={14} className="spin"/> : null} {capability?.label ?? fallbackLabel}
+          </Button>
         ))}
         {error && <p className="form-error">{error}</p>}
       </div>

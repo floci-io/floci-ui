@@ -1,5 +1,9 @@
 import {useEffect, useRef, useState} from "react";
-import {Copy, KeyRound, Loader2} from "lucide-react";
+import {Icon, Copy, KeyRound, Loader2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {
   cancelKmsDeletionResource,
   rotateKmsResource,
@@ -161,7 +165,7 @@ export function OciKmsActionsPanel({resource, runtimeReachable, onChanged}: OciK
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">OCI Vault Actions</p>
-          <h2><KeyRound size={15}/> Key operations</h2>
+          <h2><Icon icon={KeyRound} /> Key operations</h2>
           <p className="muted compact-text">Messages and signatures stay in this panel and clear when the key or account changes.</p>
         </div>
       </div>
@@ -169,41 +173,41 @@ export function OciKmsActionsPanel({resource, runtimeReachable, onChanged}: OciK
         {isKey && (
           <>
             <p className="muted compact-text">Current key version: {String(resource.metadata.currentKeyVersion ?? "unknown")}</p>
-            <button className="button" type="button" disabled={!enabled || !runtimeReachable || pending} onClick={() => void run("rotate")}>
-              {pending ? <Loader2 size={13} className="spin"/> : null} Rotate key
-            </button>
+            <Button variant="secondary" type="button" disabled={!enabled || !runtimeReachable || pending} onClick={() => void run("rotate")}>
+              {pending ? <Icon icon={Loader2} size={14} className="spin"/> : null} Rotate key
+            </Button>
           </>
         )}
         {pendingDeletion && (
-          <button className="button" type="button" disabled={!runtimeReachable || pending} onClick={() => void run("cancel")}>
+          <Button variant="secondary" type="button" disabled={!runtimeReachable || pending} onClick={() => void run("cancel")}>
             Cancel scheduled deletion
-          </button>
+          </Button>
         )}
         {canSign && (
           <>
             <div className="drawer-tabs">
-              <button type="button" className={`drawer-tab ${mode === "sign" ? "active" : ""}`} disabled={pending} onClick={() => switchMode("sign")}>Sign</button>
-              <button type="button" className={`drawer-tab ${mode === "verify" ? "active" : ""}`} disabled={pending} onClick={() => switchMode("verify")}>Verify</button>
+              <Button variant={mode === "sign" ? 'secondary' : 'ghost'} type="button" disabled={pending} onClick={() => switchMode("sign")}>Sign</Button>
+              <Button variant={mode === "verify" ? 'secondary' : 'ghost'} type="button" disabled={pending} onClick={() => switchMode("verify")}>Verify</Button>
             </div>
             <label className="metric-label" htmlFor="oci-kms-signing-algorithm">Signing algorithm</label>
-            <select id="oci-kms-signing-algorithm" className="input" value={algorithm} disabled={pending} onChange={(event) => changeInput("algorithm", event.target.value)}>
+            <OptionSelect id="oci-kms-signing-algorithm" value={algorithm} disabled={pending} onValueChange={(value) => changeInput("algorithm", value)}>
               {algorithms.map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
+            </OptionSelect>
             <label className="metric-label" htmlFor="oci-kms-message">Message (UTF-8)</label>
-            <textarea id="oci-kms-message" className="json-editor" value={message} disabled={pending} onChange={(event) => changeInput("message", event.target.value)}
-              spellCheck={false} autoComplete="off" style={{minHeight: 100}}/>
+            <Textarea id="oci-kms-message" className="json-editor" value={message} disabled={pending} onChange={(event) => changeInput("message", event.target.value)}
+              spellCheck={false} autoComplete="off"/>
             {mode === "verify" && (
               <>
                 <label className="metric-label" htmlFor="oci-kms-signature">Signature (Base64)</label>
-                <textarea id="oci-kms-signature" className="json-editor" value={signature} disabled={pending} onChange={(event) => changeInput("signature", event.target.value)}
-                  spellCheck={false} autoComplete="off" style={{minHeight: 90}}/>
+                <Textarea id="oci-kms-signature" className="json-editor" value={signature} disabled={pending} onChange={(event) => changeInput("signature", event.target.value)}
+                  spellCheck={false} autoComplete="off"/>
                 <label className="metric-label" htmlFor="oci-kms-version">Key version ID</label>
-                <input id="oci-kms-version" className="input" value={versionId} disabled={pending} onChange={(event) => changeInput("version", event.target.value)} autoComplete="off"/>
+                <Input id="oci-kms-version" value={versionId} disabled={pending} onChange={(event) => changeInput("version", event.target.value)} autoComplete="off"/>
               </>
             )}
-            <button className="button primary" type="button" disabled={!runtimeReachable || pending} onClick={() => void run(mode)}>
+            <Button type="button" disabled={!runtimeReachable || pending} onClick={() => void run(mode)}>
               {pending ? "Working" : mode === "sign" ? "Sign" : "Verify"}
-            </button>
+            </Button>
           </>
         )}
         {signed && (
@@ -211,10 +215,10 @@ export function OciKmsActionsPanel({resource, runtimeReachable, onChanged}: OciK
             <p className="metric-label">Signature (Base64)</p>
             <pre className="invoke-result success">{signed.signatureBase64}</pre>
             <p className="muted compact-text">Key version: {signed.keyVersionId}</p>
-            <button className="button" type="button" onClick={() => void navigator.clipboard.writeText(signed.signatureBase64)}>
-              <Copy size={13}/> Copy signature
-            </button>
-            <button className="button" type="button" onClick={useSignature}>Use in Verify</button>
+            <Button variant="secondary" type="button" onClick={() => void navigator.clipboard.writeText(signed.signatureBase64)}>
+              <Icon icon={Copy} size={14}/> Copy signature
+            </Button>
+            <Button variant="secondary" type="button" onClick={useSignature}>Use in Verify</Button>
           </div>
         )}
         {verification !== null && <p className={verification ? "success-text" : "error-text"}>Signature {verification ? "valid" : "invalid"}</p>}

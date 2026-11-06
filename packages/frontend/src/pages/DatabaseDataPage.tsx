@@ -1,4 +1,5 @@
-import {ArrowLeft, Database} from 'lucide-react'
+import {Icon, ArrowLeft, DatabaseSquared as Database} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import {Link, useParams, useSearchParams} from 'react-router-dom'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudResource} from '@/api/cloudProxyClient'
@@ -69,9 +70,9 @@ function DatabaseDataWorkspace({cloud, service, resourceId}: {cloud: CloudProvid
     return (
         <div className="database-data-page">
             <header className="page-header data-workspace-header">
-                <Link className="button compact" to={`/cloud-explorer/${cloud}/${service}`}><ArrowLeft size={14}/>Back to {descriptor?.displayName ?? service}</Link>
+                <Link className="button compact" to={`/cloud-explorer/${cloud}/${service}`}><Icon icon={ArrowLeft} size={14}/>Back to {descriptor?.displayName ?? service}</Link>
                 <div className="page-title">
-                    <Database size={20}/>
+                    <Icon icon={Database} size={20}/>
                     <div>
                         <h1>{resource?.name ?? resourceId}</h1>
                         <p className="muted">{cloud.toUpperCase()} · {descriptor?.displayName ?? service} · Explore data</p>
@@ -85,6 +86,6 @@ function DatabaseDataWorkspace({cloud, service, resourceId}: {cloud: CloudProvid
 
 function DataNotice({title, detail, onRetry}: {title: string; detail?: string; onRetry?: () => void}) {
     return <div className="runtime-notice" role="status"><h2>{title}</h2>{detail && <p>{detail}</p>}
-        {onRetry && <button className="button" type="button" onClick={onRetry}>Retry</button>}
+        {onRetry && <Button variant="secondary" type="button" onClick={onRetry}>Retry</Button>}
     </div>
 }

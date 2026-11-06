@@ -1,5 +1,5 @@
-import {useEffect, useRef, useState} from 'react'
-import {Check, ChevronDown, Cloud} from 'lucide-react'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/sodium/ui/select'
+import {Tag} from '@/components/sodium/ui/tag'
 import type {CloudDescriptor, CloudProvider} from '@/types/cloud'
 
 interface CloudSwitcherProps {
@@ -8,115 +8,35 @@ interface CloudSwitcherProps {
     onSelect: (cloud: CloudProvider) => void
 }
 
-/** Cloud provider dropdown, styled after AccountSwitcher's popover. */
+function cloudLabel(cloud: CloudDescriptor) {
+    return cloud.availability === 'coming_soon'
+        ? <span className="flex items-center gap-2">{cloud.displayName}<Tag size="sm" variant="outline">Soon</Tag></span>
+        : cloud.displayName
+}
+
+/** Cloud provider picker. The selected cloud stays listed while the cloud list is still loading. */
 export function CloudSwitcher({clouds, selected, onSelect}: CloudSwitcherProps) {
-    const [open, setOpen] = useState(false)
-    const [focusedIndex, setFocusedIndex] = useState(0)
-    const containerRef = useRef<HTMLDivElement>(null)
-    const triggerRef = useRef<HTMLButtonElement>(null)
-    const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
-    const selectedCloud = clouds.find((cloud) => cloud.id === selected)
-
-    // Runs only when `open`/`focusedIndex` change (not on every `clouds`
-    // refetch), so a background query refresh while the menu is open can't
-    // steal focus away from whatever option the user has navigated to.
-    useEffect(() => {
-        if (open) optionRefs.current[focusedIndex]?.focus()
-    }, [open, focusedIndex])
-
-    useEffect(() => {
-        if (!open) return
-        const onClick = (event: MouseEvent) => {
-            if (!containerRef.current?.contains(event.target as Node)) {
-                setOpen(false)
-                triggerRef.current?.focus()
-            }
-        }
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setOpen(false)
-                triggerRef.current?.focus()
-            }
-        }
-        document.addEventListener('mousedown', onClick)
-        document.addEventListener('keydown', onKeyDown)
-        return () => {
-            document.removeEventListener('mousedown', onClick)
-            document.removeEventListener('keydown', onKeyDown)
-        }
-    }, [open])
-
-    function openMenu() {
-        const selectedIndex = clouds.findIndex((cloud) => cloud.id === selected)
-        setFocusedIndex(selectedIndex >= 0 ? selectedIndex : 0)
-        setOpen(true)
-    }
-
-    function choose(cloud: CloudProvider) {
-        setOpen(false)
-        triggerRef.current?.focus()
-        if (cloud !== selected) onSelect(cloud)
-    }
-
-    function onListKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-        if (event.key === 'ArrowDown') {
-            event.preventDefault()
-            setFocusedIndex((index) => (index + 1) % clouds.length)
-        } else if (event.key === 'ArrowUp') {
-            event.preventDefault()
-            setFocusedIndex((index) => (index - 1 + clouds.length) % clouds.length)
-        } else if (event.key === 'Home') {
-            event.preventDefault()
-            setFocusedIndex(0)
-        } else if (event.key === 'End') {
-            event.preventDefault()
-            setFocusedIndex(clouds.length - 1)
-        }
-    }
+    const options = clouds.some((cloud) => cloud.id === selected)
+        ? clouds
+        : [...clouds, {id: selected, displayName: selected.toUpperCase(), availability: 'available' as const}]
+    const items = options.map((cloud) => ({value: cloud.id, label: cloudLabel(cloud)}))
 
     return (
-        <div className="cloud-switcher" ref={containerRef}>
-            <button
-                ref={triggerRef}
-                type="button"
-                className="account-trigger"
-                onClick={() => (open ? setOpen(false) : openMenu())}
-                title="Switch cloud"
-                aria-label={`Switch cloud, currently ${selectedCloud?.displayName ?? selected.toUpperCase()}`}
-                aria-haspopup="listbox"
-                aria-expanded={open}
-            >
-                <Cloud size={14}/>
-                <span className="account-meta">
-                    <span className="account-label">Cloud</span>
-                    <span className="account-value">{selectedCloud?.displayName ?? selected.toUpperCase()}</span>
-                </span>
-                <ChevronDown size={14}/>
-            </button>
-
-            {open && (
-                <div className="account-popover" role="listbox">
-                    <div className="account-popover-title">Switch cloud</div>
-                    <div className="account-recents" onKeyDown={onListKeyDown}>
-                        {clouds.map((cloud, index) => (
-                            <button
-                                key={cloud.id}
-                                ref={(el) => { optionRefs.current[index] = el }}
-                                type="button"
-                                className={`account-option${cloud.id === selected ? ' active' : ''}`}
-                                role="option"
-                                tabIndex={index === focusedIndex ? 0 : -1}
-                                aria-selected={cloud.id === selected}
-                                onClick={() => choose(cloud.id)}
-                            >
-                                <span className="account-option-id">{cloud.displayName}</span>
-                                {cloud.availability === 'coming_soon' && <span className="badge neutral">Soon</span>}
-                                {cloud.id === selected && <Check size={13}/>}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
+        <Select
+            items={items}
+            value={selected}
+            onValueChange={(next) => {
+                if (next && next !== selected) onSelect(next as CloudProvider)
+            }}
+        >
+            <SelectTrigger aria-label="Cloud" className="w-56">
+                <SelectValue/>
+            </SelectTrigger>
+            <SelectContent>
+                {items.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
     )
 }

@@ -1,4 +1,5 @@
-import { Terminal } from "lucide-react";
+import {Icon, Terminal} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import { useEc2ConsoleOutputQuery } from "@/api/aws/ec2.queries";
 import { ModalOverlay } from "@/components/ModalOverlay";
 
@@ -12,18 +13,18 @@ export function ConsoleOutputModal({ instanceId, onClose }: Props) {
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="create-table-modal" style={{ maxWidth: 720, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
-        <h2 style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Terminal size={14} />
-          Console output — {instanceId}
+      <div className="create-table-modal max-w-180 flex flex-col max-h-[85vh]">
+        <h2 className="flex items-center gap-1.5">
+          <Icon icon={Terminal} size={14} />
+          Console output, {instanceId}
         </h2>
 
         {query.isLoading && (
-          <p style={{ fontSize: 12, color: "var(--text-2)" }}>Loading…</p>
+          <p className="type-caption text-text-2">Loading…</p>
         )}
 
         {query.isError && (
-          <p style={{ fontSize: 12, color: "var(--status-error)" }}>
+          <p className="type-caption text-fail-text">
             {query.error instanceof Error ? query.error.message : "Failed to fetch console output."}
           </p>
         )}
@@ -31,31 +32,20 @@ export function ConsoleOutputModal({ instanceId, onClose }: Props) {
         {query.data && (
           <>
             {query.data.timestamp && (
-              <p style={{ fontSize: 11, color: "var(--text-2)", margin: "0 0 8px" }}>
+              <p className="type-caption text-text-2 mt-0 mx-0 mb-2">
                 As of {new Date(query.data.timestamp).toLocaleString()}
               </p>
             )}
             <pre
-              className="mono"
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                background: "var(--surface-2)",
-                padding: 12,
-                borderRadius: 4,
-                fontSize: 11,
-                margin: 0,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-all",
-              }}
+              className="mono flex-1 overflow-y-auto p-3 type-caption m-0 whitespace-pre-wrap break-all bg-panel"
             >
               {query.data.output || "(no output yet)"}
             </pre>
           </>
         )}
 
-        <div className="modal-footer" style={{ marginTop: 12 }}>
-          <button className="button" onClick={onClose}>Close</button>
+        <div className="modal-footer mt-3">
+          <Button variant="secondary" onClick={onClose}>Close</Button>
         </div>
       </div>
     </ModalOverlay>

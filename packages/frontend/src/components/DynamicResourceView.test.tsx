@@ -20,6 +20,7 @@ import { DEFAULT_ACCOUNT_ID, setAccountId } from "@/lib/accountStore";
 import type { CloudStatus } from "@/types/cloud";
 import type { CloudResource } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
+import {chooseOption} from '@/test/selectOption'
 
 vi.mock("@/api/cloudProxyClient", () => ({
   clearEmailInbox: vi.fn(),
@@ -859,7 +860,7 @@ describe("DynamicResourceView Empty bucket and object writes already sent", () =
     await screen.findByText("a.txt");
     const dialog = await openMoveOrCopy(user);
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));
-    await user.selectOptions(await within(dialog).findByLabelText("Destination bucket"), "logs");
+    await chooseOption(user, await within(dialog).findByLabelText("Destination bucket"), "logs");
     const copyButtons = within(dialog).getAllByRole("button", { name: "Copy" });
     await user.click(copyButtons[copyButtons.length - 1]);
     await user.keyboard("{Escape}");
@@ -952,7 +953,7 @@ describe("DynamicResourceView Empty bucket and object writes already sent", () =
       expect(screen.getByRole("button", { name: "Delete db-password" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Delete Multiple" })).toBeInTheDocument();
 
-      await user.selectOptions(screen.getByLabelText("View"), "deleted");
+      await chooseOption(user, screen.getByLabelText("View"), "deleted");
 
       expect(await screen.findByText("old-token")).toBeInTheDocument();
       expect(listCloudResources).toHaveBeenLastCalledWith("azure", "secrets", "", expect.anything(), { state: "deleted" });
@@ -963,7 +964,7 @@ describe("DynamicResourceView Empty bucket and object writes already sent", () =
     it("offers recover and purge for a selected deleted secret", async () => {
       const user = userEvent.setup();
       renderSecrets();
-      await user.selectOptions(await screen.findByLabelText("View"), "deleted");
+      await chooseOption(user, await screen.findByLabelText("View"), "deleted");
       await user.click(await screen.findByText("old-token"));
 
       expect(await screen.findByRole("button", { name: "Recover" })).toBeEnabled();

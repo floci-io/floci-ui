@@ -52,11 +52,11 @@ describe('SettingsPage', () => {
         const user = userEvent.setup()
         renderSettings('/settings')
 
-        expect(screen.getByRole('button', {name: 'Switch cloud, currently AWS'})).toBeInTheDocument()
-        expect(screen.getByRole('button', {name: /Switch AWS account/})).toBeInTheDocument()
+        expect(screen.getByRole('combobox', {name: 'Cloud'})).toBeInTheDocument()
+        expect(screen.getByRole('combobox', {name: 'Account'})).toBeInTheDocument()
 
-        await user.click(screen.getByRole('button', {name: 'Switch cloud, currently AWS'}))
-        await user.click(screen.getByRole('option', {name: 'Azure'}))
+        await user.click(screen.getByRole('combobox', {name: 'Cloud'}))
+        await user.click(await screen.findByRole('option', {name: 'Azure'}))
 
         expect(screen.getByText('Selected /console/azure')).toBeInTheDocument()
     })
@@ -65,8 +65,8 @@ describe('SettingsPage', () => {
         const user = userEvent.setup()
         renderSettings({pathname: '/settings', state: {cloud: 'aws', fromCloudExplorer: true}})
 
-        await user.click(screen.getByRole('button', {name: 'Switch cloud, currently AWS'}))
-        await user.click(screen.getByRole('option', {name: 'Azure'}))
+        await user.click(screen.getByRole('combobox', {name: 'Cloud'}))
+        await user.click(await screen.findByRole('option', {name: 'Azure'}))
 
         expect(screen.getByText('Selected /cloud-explorer/azure/storage')).toBeInTheDocument()
     })
@@ -75,9 +75,9 @@ describe('SettingsPage', () => {
         const user = userEvent.setup()
         renderSettings({pathname: '/settings', state: {cloud: 'oci'}})
 
-        await user.click(screen.getByRole('button', {name: 'Switch cloud, currently OCI'}))
-        expect(screen.getByRole('option', {name: 'OCI'})).toHaveAttribute('aria-selected', 'true')
-        await user.click(screen.getByRole('option', {name: 'AWS'}))
+        await user.click(screen.getByRole('combobox', {name: 'Cloud'}))
+        expect(await screen.findByRole('option', {name: 'OCI'})).toHaveAttribute('aria-selected', 'true')
+        await user.click(await screen.findByRole('option', {name: 'AWS'}))
 
         expect(screen.getByText('Selected /console/aws')).toBeInTheDocument()
     })
@@ -87,9 +87,9 @@ describe('SettingsPage', () => {
         sessionStorage.setItem('floci-last-cloud', 'azure')
         renderSettings('/settings')
 
-        await user.click(screen.getByRole('button', {name: 'Switch cloud, currently Azure'}))
-        expect(screen.getByRole('option', {name: 'Azure'})).toHaveAttribute('aria-selected', 'true')
-        await user.click(screen.getByRole('option', {name: 'AWS'}))
+        await user.click(screen.getByRole('combobox', {name: 'Cloud'}))
+        expect(await screen.findByRole('option', {name: 'Azure'})).toHaveAttribute('aria-selected', 'true')
+        await user.click(await screen.findByRole('option', {name: 'AWS'}))
 
         expect(screen.getByText('Selected /console/aws')).toBeInTheDocument()
     })
@@ -100,8 +100,8 @@ describe('SettingsPage', () => {
         sessionStorage.setItem('floci-last-cloud', 'oci')
         renderSettings('/settings')
 
-        await user.click(screen.getByRole('button', {name: 'Switch cloud, currently Azure'}))
+        await user.click(screen.getByRole('combobox', {name: 'Cloud'}))
 
-        expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Azure'])
+        expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['Azure'])
     })
 })

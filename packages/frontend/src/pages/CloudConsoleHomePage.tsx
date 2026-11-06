@@ -1,4 +1,3 @@
-import {Cloud} from 'lucide-react'
 import {Navigate, useNavigate, useParams, useSearchParams} from 'react-router-dom'
 import {
     RuntimeFlow,
@@ -8,6 +7,7 @@ import {
 import {useCloudConsoleHomeData} from '@/features/cloud-console/useCloudConsoleHomeData'
 import type {CloudProvider} from '@/types/cloud'
 import {isCloudProvider} from '@/lib/cloudProvider'
+import {PageHeader} from '@/components/PageHeader'
 
 export function CloudConsoleHomePage() {
     const navigate = useNavigate()
@@ -31,37 +31,30 @@ export function CloudConsoleHomePage() {
 
     return (
         <>
-            <div className="page-header cloud-explorer-header">
-                <div className="page-title">
-                    <Cloud size={20}/>
-                    <div>
-                        <h1>Console Home</h1>
-                        <p className="muted">Cloud-aware local runtime overview</p>
-                    </div>
-                </div>
-            </div>
+            <PageHeader title="Console Home" description="Cloud-aware local runtime overview"/>
+            <div className="flex flex-col gap-4 p-4">
 
-            <div className="content cloud-console-home">
-                <SummarySection
-                    cloud={cloud}
-                    runtimeLabel={data.runtimeLabel}
-                    runtimeState={data.runtimeState}
-                    runtimeClass={data.runtimeClass}
-                    runtimeDetail={data.runtimeDetail}
-                    activeServices={data.activeServices}
-                    activeServicesDetail={data.activeServicesDetail}
-                    resourceCount={data.resourceCount}
-                    resourceDetail={data.resourceDetail}
-                />
+            <SummarySection
+                cloud={cloud}
+                runtimeLabel={data.runtimeLabel}
+                runtimeState={data.runtimeState}
+                runtimeClass={data.runtimeClass}
+                runtimeDetail={data.runtimeDetail}
+                activeServices={data.activeServices}
+                activeServicesDetail={data.activeServicesDetail}
+                resourceCount={data.resourceCount}
+                resourceDetail={data.resourceDetail}
+            />
 
-                <RuntimeFlow cloud={cloud} status={data.status}/>
+            <RuntimeFlow cloud={cloud} status={data.status}/>
 
-                <ServiceGrid
-                    services={filteredServices}
-                    searchQuery={search}
-                    runtimeReachable={data.status?.runtime === 'reachable'}
-                    onNavigate={(route) => navigate(route)}
-                />
+            <ServiceGrid
+                services={filteredServices}
+                loading={data.servicesLoading}
+                searchQuery={search}
+                runtimeReachable={data.status?.runtime === 'reachable'}
+                onNavigate={(route) => navigate(route)}
+            />
             </div>
         </>
     )

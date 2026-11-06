@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { Cloud } from 'lucide-react'
+import {Icon, Cloud} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import { useCreateInternetGatewayMutation, useAttachInternetGatewayMutation } from '@/api/aws/ec2.mutations'
 import { useEc2VpcsQuery } from '@/api/aws/ec2.queries'
 import type { Ec2InternetGateway } from '@/api/aws/ec2.api'
@@ -40,35 +43,34 @@ export function CreateIgwModal({ onClose, onCreated }: Props) {
   return (
     <ModalOverlay onClose={onClose}>
       <div className="create-table-modal" onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Cloud size={14} /> Create Internet Gateway
+        <h2 className="flex items-center gap-1.5">
+          <Icon icon={Cloud} size={14} /> Create Internet Gateway
         </h2>
         <div className="modal-section">
           <div className="field-row">
-            <label>Name <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional)</span></label>
-            <input aria-label="Name"
-              className="input"
+            <label>Name <span className="text-text-3 type-caption">(optional)</span></label>
+            <Input aria-label="Name"
               placeholder="my-igw"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
           <div className="field-row">
-            <label>Attach to VPC <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional)</span></label>
-            <select aria-label="Attach to VPC" className="input" value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
-              <option value="">— skip attach —</option>
+            <label>Attach to VPC <span className="text-text-3 type-caption">(optional)</span></label>
+            <OptionSelect aria-label="Attach to VPC" value={vpcId} onValueChange={(value) => setVpcId(value)}>
+              <option value="">, skip attach, </option>
               {vpcs.map((v) => (
                 <option key={v.vpcId} value={v.vpcId}>{v.vpcId} ({v.cidrBlock})</option>
               ))}
-            </select>
+            </OptionSelect>
           </div>
-          {err && <p style={{ color: 'var(--status-error)', fontSize: 12, marginTop: 6 }}>{err}</p>}
+          {err && <p className="text-fail-text type-caption mt-1.5">{err}</p>}
         </div>
         <div className="modal-footer">
-          <button className="button" onClick={onClose}>Cancel</button>
-          <button className="button primary" disabled={isPending} onClick={() => void handleCreate()}>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button disabled={isPending} onClick={() => void handleCreate()}>
             {isPending ? 'Creating…' : 'Create'}
-          </button>
+          </Button>
         </div>
       </div>
     </ModalOverlay>

@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { HardDrive, Loader2 } from "lucide-react";
+import {Icon, HardDrive, Loader2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
 import { useCreateAmiMutation } from "@/api/aws/ec2.mutations";
 import { ModalOverlay } from "@/components/ModalOverlay";
+import {Switch} from '@/components/sodium/ui/switch'
 
 interface Props {
   instanceId: string;
@@ -32,14 +35,13 @@ export function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }:
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="create-table-modal" style={{ maxWidth: 420 }}>
+      <div className="create-table-modal max-w-105">
         <h2>Create AMI</h2>
 
         <div className="modal-section">
           <p className="modal-section-title">Image name</p>
-          <input aria-label="Image name"
-            className="input"
-            style={{ width: "100%", minWidth: "unset" }}
+          <Input aria-label="Image name"
+            className="w-full min-w-0"
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -47,10 +49,9 @@ export function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }:
         </div>
 
         <div className="modal-section">
-          <p className="modal-section-title">Description — optional</p>
-          <input aria-label="Description"
-            className="input"
-            style={{ width: "100%", minWidth: "unset" }}
+          <p className="modal-section-title">Description, optional</p>
+          <Input aria-label="Description"
+            className="w-full min-w-0"
             placeholder="e.g. production snapshot"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -58,27 +59,23 @@ export function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }:
         </div>
 
         <div className="modal-section">
-          <div className="field-row" style={{ alignItems: "center" }}>
-            <label className="toggle-switch" style={{ width: 32, height: 18 }}>
-              <input type="checkbox" checked={noReboot} onChange={(e) => setNoReboot(e.target.checked)} />
-              <span className="toggle-track" />
-            </label>
-            <p className="modal-section-title" style={{ margin: 0 }}>No reboot — skip instance restart before imaging</p>
+          <div className="field-row items-center">
+            <Switch checked={noReboot} onCheckedChange={setNoReboot} aria-label="No reboot" />
+            <p className="modal-section-title m-0">No reboot, skip instance restart before imaging</p>
           </div>
         </div>
 
-        {err && <p style={{ fontSize: 12, color: "var(--status-error)", margin: "0 0 8px" }}>{err}</p>}
+        {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
 
         <div className="modal-footer">
-          <button className="button" onClick={onClose} disabled={mutation.isPending}>Cancel</button>
-          <button
-            className="button primary"
+          <Button variant="secondary" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
+          <Button
             onClick={handleSubmit}
             disabled={!name.trim() || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 size={13} /> : <HardDrive size={13} />}
+            {mutation.isPending ? <Icon icon={Loader2} size={14} /> : <Icon icon={HardDrive} size={14} />}
             Create AMI
-          </button>
+          </Button>
         </div>
       </div>
     </ModalOverlay>

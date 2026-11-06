@@ -1,13 +1,15 @@
 import {useEffect, useState} from 'react'
-import {ChevronRight, Maximize2, Minimize2, RefreshCw, ScrollText} from 'lucide-react'
+import {Icon, ChevronRight, Maximize2, Minimize2, RefreshCwSquared as RefreshCw, ScrollText} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import {useQueries} from '@tanstack/react-query'
 import {listChildCollections, listCollectionItems} from '@/api/cloudProxyClient'
-import {EmptyState} from '@/components/EmptyState'
 import {ExpandablePanel} from '@/components/ExpandablePanel'
 import {formatBytes, formatDateTime} from '@/lib/format'
 import {timeAgo} from '@/lib/utils'
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource} from '@/types/resource'
+import {EmptyState} from '@/components/EmptyState'
+import {Hint} from '@/components/Hint'
 
 interface LogsExplorerPanelProps {
     cloud: CloudProvider
@@ -92,21 +94,21 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
         <section className="cosmos-panel">
             <div className="cosmos-column">
                 <div className="cosmos-panel-header">
-                    <ScrollText size={15}/>
+                    <Icon icon={ScrollText} />
                     <span>
                         <small>Streams</small>
                         <strong>{groupId}</strong>
                         <em>{streams.length} log streams</em>
                     </span>
-                    <button className="icon-btn" type="button" title="Collapse" onClick={() => setExpanded(false)}>
-                        <Minimize2 size={14}/>
-                    </button>
+                    <Hint label="Collapse"><Button variant="ghost" size="icon-sm" type="button" aria-label="Collapse" onClick={() => setExpanded(false)}>
+                        <Icon icon={Minimize2} size={14}/>
+                    </Button></Hint>
                 </div>
                 <div className="cosmos-toolbar">
-                    <button className="button" type="button" disabled={!runtimeReachable || firstStreamPage?.isFetching} onClick={refreshStreams}>
-                        <RefreshCw size={14}/>
+                    <Button variant="secondary" type="button" disabled={!runtimeReachable || firstStreamPage?.isFetching} onClick={refreshStreams}>
+                        <Icon icon={RefreshCw} size={14}/>
                         Refresh
-                    </button>
+                    </Button>
                 </div>
                 {firstStreamPage?.error instanceof Error && <div className="form-error">{firstStreamPage.error.message}</div>}
                 <div className="cosmos-list">
@@ -119,7 +121,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                         />
                     )}
                     {streams.map((stream) => (
-                        <button
+                        <Button variant="secondary"
                             key={stream.id}
                             className={`cosmos-list-row ${selectedStreamId === stream.id ? 'selected' : ''}`}
                             type="button"
@@ -130,19 +132,18 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                                 <small>Last event {timeAgo(typeof stream.metadata.lastEventTimestamp === 'string' ? stream.metadata.lastEventTimestamp : undefined)}</small>
                             </span>
                             <em>{typeof stream.metadata.storedBytes === 'number' ? formatBytes(stream.metadata.storedBytes) : '-'}</em>
-                            <ChevronRight size={13}/>
-                        </button>
+                            <Icon icon={ChevronRight} size={14}/>
+                        </Button>
                     ))}
                     {nextStreamCursor && (
-                        <div style={{display: 'flex', justifyContent: 'center', padding: '12px 0'}}>
-                            <button
-                                className="button"
+                        <div className="flex justify-center py-3 px-0">
+                            <Button variant="secondary"
                                 type="button"
                                 disabled={Boolean(loadingMoreStreams)}
                                 onClick={() => setStreamCursors((prev) => [...prev, nextStreamCursor])}
                             >
                                 {loadingMoreStreams ? 'Loading…' : 'Load more'}
-                            </button>
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -150,7 +151,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
 
             <div className="cosmos-column cosmos-column--wide">
                 <div className="cosmos-panel-header">
-                    <ScrollText size={15}/>
+                    <Icon icon={ScrollText} />
                     <span>
                         <small>Events</small>
                         <strong>{selectedStreamId ?? 'Select a stream'}</strong>
@@ -158,15 +159,15 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                     </span>
                 </div>
                 <div className="cosmos-toolbar">
-                    <button className="button" type="button" disabled={!runtimeReachable || !selectedStreamId || firstEventPage?.isFetching} onClick={refreshEvents}>
-                        <RefreshCw size={14}/>
+                    <Button variant="secondary" type="button" disabled={!runtimeReachable || !selectedStreamId || firstEventPage?.isFetching} onClick={refreshEvents}>
+                        <Icon icon={RefreshCw} size={14}/>
                         Refresh
-                    </button>
+                    </Button>
                 </div>
                 {firstEventPage?.error instanceof Error && <div className="form-error">{firstEventPage.error.message}</div>}
                 <div className="cosmos-items-table">
                     {!selectedStreamId && (
-                        <div className="empty compact"><h2>Select a stream</h2><p>Events are scoped to a log stream.</p></div>
+                        <EmptyState compact title="Select a stream" description="Events are scoped to a log stream."/>
                     )}
                     {selectedStreamId && !firstEventPage?.isLoading && events.length === 0 && (
                         <EmptyState
@@ -189,7 +190,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                                 <tbody>
                                     {events.map((event) => (
                                         <tr key={event.id}>
-                                            <td className="mono" style={{color: 'var(--text-3)', whiteSpace: 'nowrap'}}>
+                                            <td className="mono text-text-3 whitespace-nowrap">
                                                 {formatDateTime(event.timestamp) ?? '-'}
                                             </td>
                                             <td className="mono">{String(event.body.message ?? '')}</td>
@@ -198,15 +199,14 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
                                 </tbody>
                             </table>
                             {nextEventCursor && (
-                                <div style={{display: 'flex', justifyContent: 'center', padding: '12px 0'}}>
-                                    <button
-                                        className="button"
+                                <div className="flex justify-center py-3 px-0">
+                                    <Button variant="secondary"
                                         type="button"
                                         disabled={Boolean(loadingMoreEvents)}
                                         onClick={() => setEventCursors((prev) => [...prev, nextEventCursor])}
                                     >
                                         {loadingMoreEvents ? 'Loading…' : 'Load more'}
-                                    </button>
+                                    </Button>
                                 </div>
                             )}
                         </>
@@ -219,15 +219,15 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
     const summary = (
         <section className="logs-query-panel">
             <div className="logs-query-header">
-                <ScrollText size={15}/>
+                <Icon icon={ScrollText} />
                 <span>
                     <small>Streams &amp; events</small>
                     <strong>{groupId}</strong>
                     <em>{firstStreamPage?.isLoading ? 'Loading…' : `${streams.length} log streams`}</em>
                 </span>
-                <button className="icon-btn" type="button" title="Expand to full page" onClick={() => setExpanded(true)}>
-                    <Maximize2 size={14}/>
-                </button>
+                <Hint label="Expand to full page"><Button variant="ghost" size="icon-sm" type="button" aria-label="Expand to full page" onClick={() => setExpanded(true)}>
+                    <Icon icon={Maximize2} size={14}/>
+                </Button></Hint>
             </div>
         </section>
     )

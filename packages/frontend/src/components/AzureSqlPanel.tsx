@@ -1,6 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Code2, Database, Play, Plug, RefreshCw, Table2, Unplug } from "lucide-react";
+import {Icon, Code2, DatabaseSquared as Database, Play, Plug, RefreshCwSquared as RefreshCw, Table2, Unplug} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAccountId } from "@/lib/accountStore";
 import {
@@ -17,6 +20,8 @@ import type {
   SqlQueryResult,
   SqlTable,
 } from "@/types/resource";
+import {EmptyState} from '@/components/EmptyState'
+import {Hint} from '@/components/Hint'
 
 const SQL_SERVER_DEFAULT_QUERY = `SELECT
   DB_NAME() AS database_name,
@@ -110,10 +115,7 @@ export function AzureSqlPanel({
   if (!serverId) {
     return (
       <section className="sql-panel">
-        <div className="empty compact">
-          <h2>Select an Azure database server</h2>
-          <p>Databases, tables, rows, and SQL queries load after connection.</p>
-        </div>
+        <EmptyState compact title="Select an Azure database server" description="Databases, tables, rows, and SQL queries load after connection."/>
       </section>
     );
   }
@@ -184,7 +186,7 @@ export function AzureSqlPanel({
     <section className="sql-panel">
       <form className="sql-connection-bar" onSubmit={connect}>
         <div className="sql-connection-title">
-          <Plug size={16} />
+          <Icon icon={Plug}  />
           <span>
             <small>{iamAuth ? "AURORA DSQL DATA PLANE" : engine === "postgresql" ? "POSTGRESQL DATA PLANE" : "SQL DATA PLANE"}</small>
             <strong>{resource.name}</strong>
@@ -195,8 +197,7 @@ export function AzureSqlPanel({
           <>
             <label>
               <span>Username</span>
-              <input
-                className="input"
+              <Input aria-label="Username"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 disabled={connected || !runtimeReachable}
@@ -205,8 +206,7 @@ export function AzureSqlPanel({
             </label>
             <label>
               <span>Password</span>
-              <input
-                className="input"
+              <Input aria-label="Password"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -217,13 +217,12 @@ export function AzureSqlPanel({
           </>
         )}
         {connected ? (
-          <button className="button" type="button" onClick={disconnect}>
-            <Unplug size={14} />
+          <Button variant="secondary" type="button" onClick={disconnect}>
+            <Icon icon={Unplug} size={14} />
             Disconnect
-          </button>
+          </Button>
         ) : (
-          <button
-            className="button primary"
+          <Button
             type="submit"
             disabled={
               !runtimeReachable ||
@@ -231,9 +230,9 @@ export function AzureSqlPanel({
               !hasCredentials
             }
           >
-            <Plug size={14} />
+            <Icon icon={Plug} size={14} />
             {databasesMut.isPending ? "Connecting" : "Connect"}
-          </button>
+          </Button>
         )}
         <small className="sql-credential-note">
           {iamAuth
@@ -244,12 +243,9 @@ export function AzureSqlPanel({
       </form>
 
       {!connected ? (
-        <div className="empty compact sql-connect-empty">
-          <h2>Connect to browse SQL data</h2>
-          <p>{iamAuth
+        <EmptyState compact className="sql-connect-empty" title="Connect to browse SQL data" description={<>{iamAuth
             ? "Connect to sign in as admin with an IAM token."
-            : "Use the administrator login configured for this local engine."}</p>
-        </div>
+            : "Use the administrator login configured for this local engine."}</>}/>
       ) : (
         <div className="sql-explorer">
           <div className="sql-column">
@@ -259,22 +255,20 @@ export function AzureSqlPanel({
               title={resource.name}
               detail={`${databases.length} databases`}
               action={
-                <button
-                  className="icon-btn"
-                  type="button"
-                  title="Refresh databases"
+                <Hint label="Refresh databases"><Button variant="ghost" size="icon-sm"
+                  type="button" aria-label="Refresh databases"
                   disabled={databasesMut.isPending}
                   onClick={loadDatabases}
                 >
-                  <RefreshCw size={13} />
-                </button>
+                  <Icon icon={RefreshCw} size={14} />
+                </Button></Hint>
               }
             />
             <div className="sql-list">
               {databases.length === 0 && <div className="muted padded">No databases</div>}
               {databases.length > 0 && !databaseExists && <div className="form-error">Database not found: {selectedDatabase}</div>}
               {databases.map((database) => (
-                <button
+                <Button variant="secondary"
                   key={database.name}
                   className={`sql-list-row ${selectedDatabase === database.name ? "selected" : ""}`}
                   type="button"
@@ -285,7 +279,7 @@ export function AzureSqlPanel({
                     <small>{database.state}</small>
                   </span>
                   {database.isSystem && <em>System</em>}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -297,15 +291,13 @@ export function AzureSqlPanel({
               title={selectedDatabase}
               detail={`${tables.length} objects`}
               action={
-                <button
-                  className="icon-btn"
-                  type="button"
-                  title="Refresh tables"
+                <Hint label="Refresh tables"><Button variant="ghost" size="icon-sm"
+                  type="button" aria-label="Refresh tables"
                   disabled={!databaseExists || tablesQuery.isFetching}
                   onClick={() => void tablesQuery.refetch()}
                 >
-                  <RefreshCw size={13} />
-                </button>
+                  <Icon icon={RefreshCw} size={14} />
+                </Button></Hint>
               }
             />
             {tablesQuery.error instanceof Error && (
@@ -318,7 +310,7 @@ export function AzureSqlPanel({
               )}
               {databaseExists && tablesQuery.isSuccess && tableName && !selectedTable && <div className="form-error">Table not found: {tableSchema}.{tableName}</div>}
               {tables.map((table) => (
-                <button
+                <Button variant="secondary"
                   key={`${table.schema}.${table.name}`}
                   className={`sql-list-row ${selectedTable?.schema === table.schema && selectedTable.name === table.name ? "selected" : ""}`}
                   type="button"
@@ -328,8 +320,8 @@ export function AzureSqlPanel({
                     <strong>{table.schema}.{table.name}</strong>
                     <small>{table.type}</small>
                   </span>
-                  <em>{table.rowCount === null ? "—" : `${table.rowCount} rows`}</em>
-                </button>
+                  <em>{table.rowCount === null ? ", " : `${table.rowCount} rows`}</em>
+                </Button>
               ))}
             </div>
           </div>
@@ -344,21 +336,20 @@ export function AzureSqlPanel({
                 : "T-SQL against selected database"}
             />
             <div className="sql-query-editor">
-              <textarea aria-label="SQL query"
-                className="textarea code-textarea small"
+              <Textarea aria-label="SQL query"
+                className="code-textarea small"
                 value={queryText}
                 onChange={(event) => setQueryText(event.target.value)}
                 spellCheck={false}
               />
-              <button
-                className="button primary"
+              <Button
                 type="button"
                 disabled={!databaseExists || queryMut.isPending || !queryText.trim()}
                 onClick={runQuery}
               >
-                <Play size={14} />
+                <Icon icon={Play} size={14} />
                 {queryMut.isPending ? "Running" : "Run query"}
-              </button>
+              </Button>
             </div>
             {queryMut.error instanceof Error && (
               <div className="form-error">{queryMut.error.message}</div>
@@ -374,10 +365,7 @@ export function AzureSqlPanel({
 function SqlQueryResults({ result }: { result?: SqlQueryResult }) {
   if (!result) {
     return (
-      <div className="empty compact sql-results-empty">
-        <h2>No query results</h2>
-        <p>Select a table for a 100-row preview or run SQL.</p>
-      </div>
+      <EmptyState compact className="sql-results-empty" title="No query results" description="Select a table for a 100-row preview or run SQL."/>
     );
   }
 

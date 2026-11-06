@@ -1,3 +1,7 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
 :root {
     color-scheme: dark;
 
@@ -185,43 +189,13 @@ button {
 }
 
 :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-text);
     outline-offset: 2px;
 }
 
 /* Parked off-screen with a fixed offset rather than a percentage transform:
    translating by its own height cannot clear the focused `top`, which left a
    1px edge showing at the top of the viewport. */
-.skip-link {
-    position: absolute;
-    left: 12px;
-    top: -100px;
-    z-index: 400;
-    padding: 8px 12px;
-    border: 1px solid var(--input-border);
-    border-radius: 4px;
-    background: var(--surface);
-    color: var(--text-bright);
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-}
-
-.skip-link:focus {
-    top: 8px;
-}
-
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
 
 #main-content:focus {
     outline: none;
@@ -262,24 +236,8 @@ pre,
     flex: 0 0 var(--sidebar-w);
 }
 
-.sidebar-inner {
-    position: absolute;
-    inset: 0;
-    width: var(--sidebar-w);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    transition: width 160ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 [data-sidebar="collapsed"] .sidebar {
     flex-basis: var(--sidebar-rail-w);
-}
-
-[data-sidebar="collapsed"] .sidebar-inner {
-    width: var(--sidebar-rail-w);
 }
 
 /* The rail does NOT expand on hover — hovering a link shows its native title
@@ -292,108 +250,19 @@ pre,
    re-expand the panel the click just collapsed. The condition is duplicated as
    :not(:has(.nav:focus-within)) on the rail rules below — the two must stay in
    sync or focus will strip the rail's styling without changing its width. */
-[data-sidebar="collapsed"] .sidebar:has(.nav:focus-within) .sidebar-inner {
-    width: var(--sidebar-w);
-    z-index: 30;
-    box-shadow: var(--sidebar-overlay-shadow);
-}
 
 /* Rail: collapsed and not hovered. Hovering restores every label below. */
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) :is(
-    .nav-label,
-    .nav-group-label,
-    .nav-retry,
-    .nav-soon,
-    .brand p,
-    .brand-logo,
-    .sidebar-footer-text,
-    .nav-link > span:not(.skeleton-bar)
-) {
-    display: none;
-}
-
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .brand-mark {
-    display: block;
-}
-
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .brand {
-    align-items: center;
-    padding: 12px 0;
-}
-
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link {
-    justify-content: center;
-    padding: 8px 0;
-}
 
 /* The 14px chrome size is too small once the icon is the only thing naming a
    service. CSS overrides lucide's width/height attributes. */
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link svg {
-    width: 18px;
-    height: 18px;
-}
 
 /* With labels hidden the divider is the only grouping cue, so it uses the
    structural --border weight rather than --border-faint (1.17:1). */
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-group + .nav-group {
-    border-top: 1px solid var(--border);
-    padding-top: 5px;
-}
 
 /* The active tint is ~1.2:1 in both themes and never carried active state on
    its own — the label did. Without a label, the accent inset does the work. */
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link.active {
-    box-shadow: inset 3px 0 var(--accent);
-}
-
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .skeleton-bar {
-    width: 20px;
-}
-
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .sidebar-footer {
-    justify-content: center;
-    padding: 8px;
-}
-
-.brand {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-}
-
-.brand-logo {
-    width: 100%;
-    max-width: 150px;
-    height: auto;
-    display: block;
-}
 
 /* Shown only in the rail — see the collapsible sidebar section. */
-.brand-mark {
-    display: none;
-    width: 30px;
-    height: auto;
-}
-
-.service-icon {
-    display: grid;
-    place-items: center;
-    border-radius: 6px;
-    background: var(--accent-tint);
-    color: var(--accent);
-}
-
-.brand p {
-    width: 100%;
-    max-width: 150px;
-    margin: 0;
-    text-align: center;
-    font-size: 11px;
-    color: var(--text-2);
-}
 
 .nav {
     flex: 1;
@@ -401,88 +270,8 @@ pre,
     padding: 8px 0;
 }
 
-.nav-section {
-    margin: 0 0 4px;
-}
-
-.nav-label {
-    display: block;
-    padding: 8px 16px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-2);
-}
-
-.nav-link {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 16px 7px 15px;
-    color: var(--text-nav);
-    text-decoration: none;
-    font-size: 13px;
-    transition: background 120ms, color 120ms;
-}
-
-.nav-link:hover {
-    background: var(--hover);
-    color: var(--text);
-}
-
 /* Dimming with opacity dropped the label to 3.77:1 and the Soon pill to 1.84:1.
    The muted colour plus the pill carry the unavailable state instead. */
-.nav-link.disabled {
-    cursor: not-allowed;
-    color: var(--text-3);
-}
-
-.nav-link.disabled:hover {
-    background: transparent;
-    color: var(--text-3);
-}
-
-.nav-link.active {
-    color: var(--text-bright);
-    background: var(--active-nav-bg);
-    box-shadow: inset 2px 0 var(--accent);
-}
-
-.nav-soon {
-    margin-left: auto;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 1px 6px;
-    color: var(--text-3);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.nav-hint {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    margin: 6px 14px 2px;
-    border: 1px dashed var(--border);
-    border-radius: 4px;
-    color: var(--text-2);
-    padding: 7px 9px;
-    font-size: 11px;
-}
-
-.sidebar-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 8px 8px 8px 16px;
-    border-top: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--text-3);
-}
 
 .shell {
     min-width: 0;
@@ -520,8 +309,8 @@ pre,
 }
 
 .search input:focus-visible {
-    border-color: var(--accent);
-    outline: 2px solid var(--accent);
+    border-color: var(--accent-text);
+    outline: 2px solid var(--accent-text);
     outline-offset: 1px;
 }
 
@@ -530,17 +319,6 @@ pre,
     top: 7px;
     left: 10px;
     color: var(--text-2);
-}
-
-.kbd {
-    position: absolute;
-    right: 8px;
-    top: 5px;
-    padding: 1px 6px;
-    border: 1px solid var(--kbd-border);
-    border-radius: 4px;
-    color: var(--text-2);
-    font-size: 11px;
 }
 
 /* An icon at rest; on hover or keyboard focus it opens into the same chip as .connection. */
@@ -622,76 +400,6 @@ pre,
     color: var(--text);
 }
 
-.connection.disconnected {
-    color: var(--status-error);
-    border-color: rgba(239, 68, 68, 0.35);
-}
-
-.connection-state {
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.connection-target {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--text-2);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.account-switcher,
-.cloud-switcher {
-    position: relative;
-}
-
-.topbar-status:empty + .connection {
-    margin-left: auto;
-}
-
-.account-trigger {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-    gap: 8px;
-    height: 30px;
-    padding: 0 8px;
-    border: 1px solid var(--input-border);
-    border-radius: 4px;
-    background: var(--connection-bg);
-    color: var(--text);
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.account-trigger:hover {
-    border-color: var(--text-2);
-}
-
-.account-meta {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    line-height: 1.15;
-}
-
-.account-label,
-.account-value {
-    white-space: nowrap;
-}
-
-.account-label {
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-2);
-}
-
-.account-value {
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-}
-
 /* Keep the connection badge compact on narrow screens. */
 @media (max-width: 680px) {
     .topbar {
@@ -699,135 +407,13 @@ pre,
         padding: 0 12px;
     }
 
-    .kbd {
-        display: none;
-    }
-
-    .connection-state,
-    .connection-target,
     .theme-toggle-label {
         display: none;
     }
 }
 
-.account-popover {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    width: 248px;
-    padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-    z-index: 30;
-}
-
-.account-popover-title {
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-2);
-    padding: 2px 4px 6px;
-}
-
-.account-recents {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    max-height: 220px;
-    overflow-y: auto;
-}
-
-.account-option {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 6px 8px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--text);
-    cursor: pointer;
-    font-size: 12px;
-    text-align: left;
-}
-
-.account-option:hover {
-    background: var(--input-bg);
-}
-
-.account-option.active {
-    background: var(--input-bg);
-}
-
-.account-option-id {
-    font-variant-numeric: tabular-nums;
-    flex: 1;
-}
-
-.account-tag {
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-2);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 1px 4px;
-}
-
-.account-entry {
-    display: flex;
-    gap: 6px;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border);
-}
-
-.account-entry input {
-    flex: 1;
-    min-width: 0;
-    height: 28px;
-    padding: 0 8px;
-    border: 1px solid var(--input-border);
-    border-radius: 4px;
-    background: var(--input-bg);
-    color: var(--text);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-    outline: none;
-}
-
 /* `outline: none` above outranks the global :focus-visible rule on specificity,
    so the ring has to be restated here. Same for .tag-input below. */
-.account-entry input:focus-visible {
-    border-color: var(--accent);
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-}
-
-.account-entry button {
-    height: 28px;
-    padding: 0 10px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--connection-bg);
-    color: var(--text);
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.account-entry button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.account-error {
-    margin-top: 6px;
-    color: var(--status-error);
-    font-size: 11px;
-}
 
 .dot {
     width: 8px;
@@ -849,11 +435,6 @@ pre,
 .dot.unavailable {
     background: var(--status-error);
     box-shadow: 0 0 6px var(--status-error);
-}
-
-.main {
-    flex: 1;
-    overflow: auto;
 }
 
 .page-header {
@@ -910,10 +491,6 @@ pre,
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.span-two {
-    grid-column: span 2;
-}
-
 .widget,
 .card,
 .table-panel {
@@ -952,82 +529,8 @@ pre,
     padding: 16px;
 }
 
-.widget-footer {
-    padding: 10px 16px;
-    border-top: 1px solid var(--border);
-}
-
-.link-button,
-.quiet-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 0;
-    background: transparent;
-    color: var(--link);
-    font-size: 12px;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-}
-
-.link-button:hover,
-.quiet-button:hover {
-    color: var(--text-bright);
-}
-
-.service-card {
-    display: block;
-    padding: 18px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--service-card-bg);
-    color: inherit;
-    text-decoration: none;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
-    transition: transform 160ms, border-color 160ms, background 160ms;
-}
-
-.service-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--border-hover);
-    background: var(--service-card-hover);
-}
-
 /* A dashed edge marks the offline card instead of fading its text, which took
    the meta line under 4.5:1. Matches .status-tile.pending. */
-.service-card.offline {
-    border-style: dashed;
-}
-
-.service-card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.service-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 6px;
-}
-
-.service-card h2 {
-    margin: 0;
-    color: var(--text);
-    font-size: 18px;
-    font-weight: 500;
-}
-
-.metric-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px 20px;
-    margin-top: 16px;
-}
-
-.metric-grid.six {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-}
 
 .metric-label {
     margin: 0;
@@ -1179,8 +682,8 @@ pre,
 }
 
 .input:focus-visible {
-    border-color: var(--accent);
-    outline: 2px solid var(--accent);
+    border-color: var(--accent-text);
+    outline: 2px solid var(--accent-text);
     outline-offset: 1px;
 }
 
@@ -1363,25 +866,10 @@ pre,
     margin-bottom: 14px;
 }
 
-.sagemaker-filters,
 .sagemaker-card {
     border: 1px solid var(--border);
     border-radius: 16px;
     background: var(--surface);
-}
-
-.sagemaker-filters {
-    padding: 14px 16px 16px;
-}
-
-.sagemaker-filters summary {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    color: var(--text-bright);
-    font-size: 15px;
-    font-weight: 700;
 }
 
 .coming-soon-pill {
@@ -1397,36 +885,6 @@ pre,
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-}
-
-.sagemaker-filter-note {
-    max-width: 760px;
-    margin: 10px 0 0;
-    color: var(--text-2);
-    font-size: 12px;
-    line-height: 1.5;
-}
-
-.sagemaker-filter-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
-    margin-top: 14px;
-}
-
-.sagemaker-filter {
-    display: grid;
-    gap: 6px;
-    color: var(--text-bright);
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.sagemaker-filter-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 16px;
 }
 
 .sagemaker-dashboard-header {
@@ -1516,7 +974,6 @@ pre,
 }
 
 @media (max-width: 900px) {
-    .sagemaker-filter-grid,
     .sagemaker-card-grid {
         grid-template-columns: 1fr;
     }
@@ -1525,23 +982,6 @@ pre,
         align-items: flex-start;
         flex-direction: column;
     }
-}
-
-.topbar-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: auto;
-}
-
-.topbar-status:empty {
-    display: none;
-}
-
-.topbar-status .icon-btn {
-    flex: 0 0 auto;
-    width: 24px;
-    height: 24px;
 }
 
 .dynamic-stage-header {
@@ -1553,8 +993,7 @@ pre,
     border-bottom: 1px solid var(--border);
 }
 
-.dynamic-stage-header h2,
-.resource-action-panel h2 {
+.dynamic-stage-header h2 {
     margin: 2px 0 0;
     color: var(--text-bright);
     font-size: 13px;
@@ -2259,8 +1698,8 @@ pre,
 }
 
 .textarea:focus-visible {
-    border-color: var(--accent);
-    outline: 2px solid var(--accent);
+    border-color: var(--accent-text);
+    outline: 2px solid var(--accent-text);
     outline-offset: 1px;
 }
 
@@ -2561,10 +2000,6 @@ pre,
     grid-column: 1 / -1;
 }
 
-.dynamodb-mode {
-    margin-right: auto;
-}
-
 .dynamodb-load-more {
     display: flex;
     justify-content: center;
@@ -2661,18 +2096,13 @@ pre,
     cursor: pointer;
 }
 
-.sg-check-item input[type="checkbox"] {
-    flex-shrink: 0;
-    accent-color: var(--link);
-}
-
 .sg-check-item code {
     color: var(--text-3);
     font-size: 11px;
     font-family: var(--mono);
 }
 
-.sg-check-item span {
+.sg-check-item > span:not([data-slot]) {
     color: var(--text-1);
     flex: 1;
 }
@@ -2828,10 +2258,6 @@ pre,
     align-items: center;
     gap: 6px;
     white-space: nowrap;
-}
-
-.icon-btn.danger {
-    color: var(--status-error);
 }
 
 .resource-inspector {
@@ -3146,186 +2572,6 @@ pre,
     padding: 24px;
 }
 
-.cloud-console-home {
-    display: grid;
-    gap: 14px;
-}
-
-.console-summary {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--elevated);
-    overflow: hidden;
-}
-
-.summary-tile {
-    position: relative;
-    display: grid;
-    gap: 4px;
-    min-height: 82px;
-    border-right: 1px solid var(--border);
-    padding: 14px 16px;
-}
-
-.summary-tile svg {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    color: var(--link);
-}
-
-.summary-tile.ready svg,
-.summary-tile.ready strong {
-    color: var(--status-ok);
-}
-
-.summary-tile.pending svg,
-.summary-tile.pending strong {
-    color: var(--status-warn);
-}
-
-.summary-tile.unavailable svg,
-.summary-tile.unavailable strong {
-    color: var(--status-error);
-}
-
-.summary-tile:last-child {
-    border-right: 0;
-}
-
-.summary-tile span {
-    color: var(--text-2);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.summary-tile strong {
-    color: var(--text-bright);
-    font-size: 20px;
-    font-weight: 700;
-}
-
-.summary-tile small {
-    color: var(--text-3);
-    font-size: 11px;
-    line-height: 1.35;
-}
-
-.console-runtime-flow {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--elevated);
-    overflow: hidden;
-}
-
-.console-flow-step {
-    position: relative;
-    display: grid;
-    grid-template-columns: 22px minmax(0, 1fr);
-    grid-template-areas:
-        "icon label"
-        "icon value";
-    gap: 2px 8px;
-    align-content: center;
-    min-height: 58px;
-    border-right: 1px solid var(--border);
-    padding: 10px 14px;
-}
-
-.console-flow-step:last-child {
-    border-right: 0;
-}
-
-.console-flow-step:not(:last-child)::after {
-    content: "";
-    position: absolute;
-    right: -5px;
-    top: 50%;
-    z-index: 1;
-    width: 9px;
-    height: 9px;
-    border-top: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    background: var(--elevated);
-    transform: translateY(-50%) rotate(45deg);
-}
-
-.console-flow-step svg {
-    grid-area: icon;
-    align-self: center;
-    color: var(--link);
-}
-
-.console-flow-step span {
-    grid-area: label;
-    color: var(--text-2);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.console-flow-step strong {
-    grid-area: value;
-    overflow: hidden;
-    color: var(--text-bright);
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.console-service-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.console-service-card {
-    min-height: 150px;
-    text-align: left;
-}
-
-button.console-service-card {
-    width: 100%;
-    cursor: pointer;
-}
-
-.console-service-card.blocked {
-    border-style: dashed;
-}
-
-.console-service-description {
-    margin: 14px 0 0;
-    color: var(--text-2);
-    font-size: 12px;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-}
-
-.console-service-meta {
-    display: grid;
-    gap: 3px;
-    margin-top: 18px;
-}
-
-.console-service-meta strong {
-    color: var(--text-bright);
-    font-size: 26px;
-    line-height: 1;
-}
-
-.console-service-meta span {
-    color: var(--text-2);
-    font-size: 12px;
-}
-
 .cloud-coming-soon h2 {
     margin: 4px 0 6px;
     color: var(--text-bright);
@@ -3407,15 +2653,6 @@ button.console-service-card {
     font-size: 12px;
 }
 
-.log-line {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border-lighter);
-    font-family: var(--mono);
-    font-size: 12px;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-
 .section-space {
     margin-top: 16px;
 }
@@ -3426,10 +2663,6 @@ button.console-service-card {
     .grid.four,
     .split {
         grid-template-columns: 1fr;
-    }
-
-    .span-two {
-        grid-column: auto;
     }
 
     .cloud-explorer-header,
@@ -3445,31 +2678,6 @@ button.console-service-card {
 
     .service-info-grid {
         grid-template-columns: 1fr;
-    }
-
-    .console-summary,
-    .console-service-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .console-service-card {
-        padding: 14px;
-    }
-
-    .console-service-card .service-card-header {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .console-service-card .service-icon {
-        width: 36px;
-        height: 36px;
-    }
-
-    .console-service-card h2 {
-        font-size: 16px;
-        overflow-wrap: anywhere;
     }
 
     .dynamic-form,
@@ -3491,73 +2699,7 @@ button.console-service-card {
     }
 }
 
-@media (max-width: 680px) {
-    .console-runtime-flow {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .console-flow-step:nth-child(2n) {
-        border-right: 0;
-    }
-
-    .console-flow-step:nth-child(2n)::after {
-        display: none;
-    }
-
-    .console-flow-step:nth-child(-n + 2) {
-        border-bottom: 1px solid var(--border);
-    }
-}
-
 /* ─── Stats bar (dashboard) ─────────────────────────────────────────────── */
-.stats-bar {
-    display: flex;
-    align-items: center;
-    padding: 0 24px;
-    height: 36px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--text-2);
-    gap: 0;
-}
-
-.stats-bar-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 16px;
-    border-right: 1px solid var(--border);
-    height: 100%;
-}
-
-.stats-bar-item:first-child {
-    padding-left: 0;
-}
-
-.stats-bar-item strong {
-    color: var(--text);
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.stats-bar-refresh {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: var(--text-2);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    padding: 4px 8px;
-    border-radius: 4px;
-}
-
-.stats-bar-refresh:hover {
-    background: var(--hover-md);
-    color: var(--text);
-}
 
 /* ─── Breadcrumb ─────────────────────────────────────────────────────────── */
 .breadcrumb {
@@ -3571,60 +2713,7 @@ button.console-service-card {
     background: var(--surface);
 }
 
-.breadcrumb-btn {
-    background: none;
-    border: none;
-    color: var(--link);
-    font-size: 12px;
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: 3px;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-}
-
-.breadcrumb-btn:hover {
-    background: var(--link-tint-hover);
-}
-
-.breadcrumb-sep {
-    color: var(--border);
-    padding: 0 2px;
-    user-select: none;
-}
-
-.breadcrumb-current {
-    color: var(--text);
-    padding: 0 4px;
-}
-
 /* ─── Lambda function cards ──────────────────────────────────────────────── */
-.fn-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.fn-card {
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--elevated);
-    padding: 16px;
-    transition: border-color 150ms, background 150ms;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.fn-card:hover {
-    border-color: var(--border-hover);
-    background: var(--fn-card-hover);
-}
-
-.fn-card.selected {
-    border-color: var(--link);
-    background: var(--link-tint);
-}
 
 /* ─── Lambda invoke result ───────────────────────────────────────────────── */
 .invoke-result {
@@ -3668,27 +2757,6 @@ button.console-service-card {
     overflow-y: auto;
 }
 
-.fn-card-name {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-}
-
-.fn-card-name h2 {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
-    word-break: break-word;
-    line-height: 1.3;
-}
-
-.fn-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
 .badge {
     display: inline-flex;
     align-items: center;
@@ -3698,41 +2766,6 @@ button.console-service-card {
     font-size: 11px;
     font-weight: 500;
     font-family: var(--mono);
-}
-
-.fn-meta {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px 12px;
-    margin-top: 2px;
-}
-
-.fn-meta-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.fn-meta-label {
-    font-size: 11px;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.fn-meta-value {
-    font-size: 12px;
-    color: var(--text);
-    font-family: var(--mono);
-    margin-top: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-@media (max-width: 980px) {
-    .fn-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
 }
 
 /* ─── Icon-only row buttons ──────────────────────────────────────────────── */
@@ -3763,12 +2796,6 @@ button.console-service-card {
     opacity: 0.45;
 }
 
-.icon-btn.danger:hover {
-    background: rgba(239, 68, 68, 0.12);
-    color: var(--status-error);
-    border-color: rgba(239, 68, 68, 0.3);
-}
-
 /* ─── Tag drawer ─────────────────────────────────────────────────────────── */
 .tag-drawer {
     position: fixed;
@@ -3778,7 +2805,7 @@ button.console-service-card {
     height: 100%;
     background: var(--surface);
     border-left: 1px solid var(--border);
-    z-index: 200;
+    z-index: calc(var(--z-overlay, 50) - 10);
     display: flex;
     flex-direction: column;
     box-shadow: -6px 0 32px rgba(0, 0, 0, 0.45);
@@ -3818,31 +2845,6 @@ button.console-service-card {
     gap: 12px;
 }
 
-.tag-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 26px;
-    gap: 6px;
-    align-items: center;
-}
-
-.tag-input {
-    height: 28px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
-    color: var(--text);
-    padding: 0 8px;
-    outline: none;
-    font-size: 12px;
-    font-family: var(--mono);
-}
-
-.tag-input:focus-visible {
-    border-color: var(--accent);
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-}
-
 .tag-drawer-footer {
     padding: 12px 14px;
     border-top: 1px solid var(--border);
@@ -3851,39 +2853,8 @@ button.console-service-card {
 }
 
 /* ─── Upload status rows ─────────────────────────────────────────────────── */
-.upload-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    border-bottom: 1px solid var(--border-faint);
-}
-
-.upload-item.pending {
-    color: var(--accent);
-    background: var(--accent-tint-faint);
-}
-
-.upload-item.done {
-    color: var(--status-ok);
-    background: rgba(34, 197, 94, 0.05);
-}
-
-.upload-item.error {
-    color: var(--status-error);
-    background: rgba(239, 68, 68, 0.05);
-}
 
 /* ─── Folder-create inline bar ───────────────────────────────────────────── */
-.new-folder-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: var(--link-tint);
-    border-bottom: 1px solid var(--link-tint-border);
-}
 
 .button.primary {
     background: var(--button-primary-bg);
@@ -3894,16 +2865,6 @@ button.console-service-card {
 .button.primary:hover {
     background: var(--button-primary-hover);
     border-color: var(--button-primary-hover);
-}
-
-.button.danger {
-    background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.4);
-    color: var(--status-error);
-}
-
-.button.danger:hover {
-    background: rgba(239, 68, 68, 0.25);
 }
 
 .button.success {
@@ -4000,7 +2961,7 @@ button.console-service-card {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
-    z-index: 300;
+    z-index: calc(var(--z-overlay, 50) - 10);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4142,13 +3103,6 @@ button.console-service-card {
     padding: 24px;
 }
 /* ─── Table checkboxes ───────────────────────────────────────────────────── */
-.table input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: var(--link);
-    cursor: pointer;
-}
-
 /* ─── Shared modal styles ────────────────────────────────────────────────── */
 /* Focus lands on the backdrop only when a dialog has nothing focusable. */
 .modal-overlay:focus,
@@ -4160,7 +3114,7 @@ button.console-service-card {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
-    z-index: 300;
+    z-index: calc(var(--z-overlay, 50) - 10);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4316,8 +3270,8 @@ button.console-service-card {
 }
 
 .sns-tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
+    color: var(--accent-text);
+    border-bottom-color: var(--accent-text);
 }
 
 .sns-tab:hover:not(.active) {
@@ -4340,78 +3294,9 @@ button.console-service-card {
 
 /* ── Server-driven service nav ─────────────────────────────────────────────── */
 
-.nav-group {
-    margin: 0 0 2px;
-}
-
-.nav-group-label {
-    display: block;
-    padding: 6px 16px 3px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-3);
-}
-
-.nav-link.nav-error {
-    color: var(--text-3);
-}
-
-.nav-retry {
-    display: block;
-    margin: 2px 16px 6px;
-    padding: 3px 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-2);
-    font-size: 11px;
-    font-family: inherit;
-    cursor: pointer;
-}
-
-.nav-retry:hover:not(:disabled) {
-    background: var(--hover);
-    color: var(--text);
-}
-
-.nav-retry:disabled {
-    cursor: progress;
-    opacity: 0.6;
-}
-
-.nav-link.nav-skeleton {
-    cursor: default;
-    opacity: 1;
-}
-
-.skeleton-bar {
-    display: block;
-    width: 60%;
-    height: 9px;
-    border-radius: 4px;
-    background: var(--border);
-    animation: skeleton-pulse 1.4s ease-in-out infinite;
-}
-
-.nav-link.nav-skeleton:nth-child(even) .skeleton-bar {
-    width: 74%;
-}
-
 @keyframes skeleton-pulse {
     0%, 100% { opacity: 0.35; }
     50% { opacity: 0.75; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .skeleton-bar {
-        animation: none;
-    }
-
-    .sidebar-inner {
-        transition: none;
-    }
 }
 
 /* Dedicated database workspaces fill the area below the application toolbar. */
@@ -4563,204 +3448,7 @@ button.console-service-card {
     }
 }
 /* ── Settings page ── */
-
-.settings-section {
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface);
-}
-
-.settings-section h2 {
-    margin: 0;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border-faint);
-    color: var(--text-bright);
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.settings-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 16px;
-}
-
-.settings-row + .settings-row {
-    border-top: 1px solid var(--border-faint);
-}
-
-.settings-row-text {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-}
-
-.settings-label {
-    color: var(--text);
-    font-size: 13px;
-    font-weight: 500;
-}
-
-.settings-description {
-    color: var(--text-3);
-    font-size: 12px;
-}
-
-.settings-toggle-group {
-    display: flex;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.settings-toggle-btn {
-    padding: 5px 14px;
-    border: 0;
-    background: transparent;
-    color: var(--text-2);
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 120ms, color 120ms;
-}
-
-.settings-toggle-btn + .settings-toggle-btn {
-    border-left: 1px solid var(--border);
-}
-
-.settings-toggle-btn:hover {
-    background: var(--hover);
-}
-
-.settings-toggle-btn.active {
-    background: var(--accent-tint);
-    color: var(--text-bright);
-    font-weight: 600;
-}
-
-.settings-section + .settings-section {
-    margin-top: 16px;
-}
-
-@media (max-width: 600px) {
-    .settings-section .settings-row {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .settings-section :is(.account-switcher, .cloud-switcher) {
-        width: 248px;
-        max-width: 100%;
-    }
-
-    .settings-section .account-popover {
-        left: 0;
-        right: auto;
-        width: 100%;
-    }
-
-    .settings-section .account-option {
-        flex-wrap: wrap;
-        row-gap: 4px;
-    }
-
-    .settings-section .account-option-id {
-        flex: 1 0 auto;
-        white-space: nowrap;
-    }
-
-    .settings-section .account-option > svg {
-        order: 1;
-    }
-
-    .settings-section .account-tag {
-        order: 2;
-    }
-}
 /* ── Settings page ── */
-
-.settings-section {
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface);
-}
-
-.settings-section h2 {
-    margin: 0;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border-faint);
-    color: var(--text-bright);
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.settings-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 16px;
-}
-
-.settings-row + .settings-row {
-    border-top: 1px solid var(--border-faint);
-}
-
-.settings-row-text {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-}
-
-.settings-label {
-    color: var(--text);
-    font-size: 13px;
-    font-weight: 500;
-}
-
-.settings-description {
-    color: var(--text-3);
-    font-size: 12px;
-}
-
-.settings-toggle-group {
-    display: flex;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.settings-toggle-btn {
-    padding: 5px 14px;
-    border: 0;
-    background: transparent;
-    color: var(--text-2);
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 120ms, color 120ms;
-}
-
-.settings-toggle-btn + .settings-toggle-btn {
-    border-left: 1px solid var(--border);
-}
-
-.settings-toggle-btn:hover {
-    background: var(--hover);
-}
-
-.settings-toggle-btn.active {
-    background: var(--accent-tint);
-    color: var(--text-bright);
-    font-weight: 600;
-}
-
-@media (max-width: 600px) {
-    .settings-section .settings-row {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-}
 
 /* ─── Networking panel: resource list beside its detail ─────────────────── */
 .net-split {
@@ -4791,4 +3479,413 @@ button.console-service-card {
         border-right: 0;
         border-bottom: 1px solid var(--border);
     }
+}
+
+
+/* Sodium bridge: the legacy variable names, answered by Sodium's tokens inside the .sodium scope, so every screen
+   that has not been ported yet already draws in Sodium's colours, rules and square corners. Delete a line when
+   nothing reads its variable any more. */
+.sodium {
+    --bg: var(--page);
+    --surface: var(--panel);
+    --elevated: var(--panel);
+    --raised: var(--well);
+    --raised-hover: var(--hover);
+    --border: var(--line);
+    --border-faint: var(--line-faint);
+    --border-lighter: var(--line-faint);
+    --border-hover: var(--line-control);
+    --active-nav-bg: var(--selected);
+
+    --text: var(--text-1);
+    --text-bright: var(--text-1);
+    --text-muted: var(--text-3);
+    --text-nav: var(--text-2);
+
+    --status-ok: var(--ok-text);
+    --status-warn: var(--warn-text);
+    --status-error: var(--fail-text);
+    --status-info: var(--text-2);
+    --status-neutral: var(--text-3);
+    --status-ok-tint: var(--ok-tint);
+    --status-warn-tint: var(--warn-tint);
+    --status-error-tint: var(--fail-tint);
+    --status-info-tint: var(--hover);
+    --status-neutral-tint: var(--hover);
+
+    --accent-tint: var(--selected);
+    --accent-tint-faint: var(--hover);
+    --accent-tint-border: var(--accent-edge);
+
+    --link: var(--text-1);
+    --link-tint: var(--hover);
+    --link-tint-hover: var(--pressed);
+    --link-tint-border: var(--line-control);
+
+    --button-primary-bg: var(--primary-bg);
+    --button-primary-hover: var(--primary-hover);
+    --on-accent: var(--primary-text);
+
+    --hover-md: var(--hover);
+    --hover-lg: var(--pressed);
+    --input-border: var(--line-control);
+    --input-bg: var(--field-bg);
+    --connection-bg: transparent;
+    --kbd-border: var(--line);
+    --service-card-bg: var(--panel);
+    --service-card-hover: var(--hover);
+    --fn-card-hover: var(--hover);
+    --bulk-bar-bg: var(--selected);
+    --bulk-bar-border: var(--accent-edge);
+    --bulk-bar-text: var(--text-1);
+    --sidebar-overlay-shadow: none;
+    --mono: var(--font-mono);
+}
+
+.sodium :is(*, ::before, ::after) {
+    border-radius: 0 !important;
+}
+
+/* An HTML email is written for a white canvas, whatever the console theme. */
+.email-preview-frame {
+    background: #fff;
+}
+
+/* Numbers are typed, not nudged: no platform spin buttons inside Sodium's fields. */
+.sodium input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.sodium input[type="number"]::-webkit-inner-spin-button,
+.sodium input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* ─── Transitions (transitions.dev): modal open / close, text swap soft ─────────────────────────────────────── */
+:root {
+    /* transitions.dev motion tokens */
+    --duration-quick: 150ms;
+    --duration-fast: 250ms;
+    --duration-medium: 350ms;
+    --duration-slow: 400ms;
+    --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: ease-in-out;
+
+    --modal-open-dur: 250ms;
+    --modal-close-dur: 150ms;
+    --modal-scale: 0.96;
+    --modal-scale-close: 0.96;
+    --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+    --text-soft-dur: 200ms;
+    --text-soft-blur: 2px;
+    --text-soft-ease: ease-in-out;
+    --text-soft-resize-dur: 240ms;
+    --text-soft-resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.t-modal {
+    transform-origin: center;
+    transform: scale(var(--modal-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform var(--modal-open-dur) var(--modal-ease),
+        opacity   var(--modal-open-dur) var(--modal-ease);
+    will-change: transform, opacity;
+}
+.t-modal.is-open {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+.t-modal.is-closing {
+    transform: scale(var(--modal-scale-close));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform var(--modal-close-dur) var(--modal-ease),
+        opacity   var(--modal-close-dur) var(--modal-ease);
+}
+
+/* Both texts share one grid cell, so they cross-blur in place; the cell's width eases between them. */
+.t-text-soft {
+    display: inline-grid;
+    justify-items: var(--text-soft-align, start);
+    transition: width var(--text-soft-resize-dur) var(--text-soft-resize-ease);
+}
+.t-text-soft > span {
+    grid-area: 1 / 1;
+    white-space: pre;
+    transition:
+        filter  var(--text-soft-dur) var(--text-soft-ease),
+        opacity var(--text-soft-dur) var(--text-soft-ease);
+}
+.t-text-soft-new {
+    opacity: 0;
+    filter: blur(var(--text-soft-blur));
+}
+.t-text-soft.is-swapping .t-text-soft-old {
+    opacity: 0;
+    filter: blur(var(--text-soft-blur));
+}
+.t-text-soft.is-swapping .t-text-soft-new {
+    opacity: 1;
+    filter: blur(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .t-modal,
+    .t-text-soft,
+    .t-text-soft > span { transition: none !important; }
+}
+
+/* ─── Overlay scrollbar: drawn over the content, only while it moves (components/ScrollArea.tsx) ──────────────── */
+.overlay-scroll-box {
+    position: relative;
+    min-height: 0;
+    min-width: 0;
+}
+.overlay-scroll {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+}
+.overlay-scroll::-webkit-scrollbar {
+    display: none;
+}
+.overlay-scroll-track {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    width: 10px;
+    pointer-events: none;
+}
+.overlay-scroll-thumb {
+    position: absolute;
+    inset-inline-end: 2px;
+    top: 0;
+    width: 4px;
+    display: none;
+    background: var(--line-control);
+    opacity: 0;
+    pointer-events: auto;
+    touch-action: none;
+    transition: opacity var(--duration-fast, 250ms) var(--ease-smooth-out, ease-out), width 120ms ease-out;
+}
+.overlay-scroll-box[data-scrolling] .overlay-scroll-thumb {
+    opacity: 1;
+}
+.overlay-scroll-thumb:hover {
+    width: 6px;
+    opacity: 1;
+}
+
+/* ─── Sidebar: width glides, labels fade, the wordmark cross-fades into the mark (transitions.dev) ─────────────── */
+.sidebar-shell {
+    width: 16rem;
+    transition: width var(--duration-fast) var(--ease-smooth-out);
+}
+.sidebar-shell[data-collapsed] {
+    width: 3.5rem;
+}
+.sidebar-fade {
+    white-space: nowrap;
+    transition: opacity var(--duration-quick) var(--ease-in-out);
+}
+.sidebar-shell[data-collapsed] .sidebar-fade {
+    opacity: 0;
+    pointer-events: none;
+}
+.sidebar-logo-full,
+.sidebar-logo-mark {
+    position: absolute;
+    inset-inline-start: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    transition:
+        opacity   var(--duration-fast) var(--ease-in-out),
+        filter    var(--duration-fast) var(--ease-in-out),
+        transform var(--duration-fast) var(--ease-in-out);
+}
+.sidebar-logo-mark,
+.sidebar-shell[data-collapsed] .sidebar-logo-full {
+    opacity: 0;
+    filter: blur(2px);
+    transform: translateY(-50%) scale(0.9);
+}
+.sidebar-shell[data-collapsed] .sidebar-logo-mark {
+    opacity: 1;
+    filter: none;
+    transform: translateY(-50%);
+}
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-shell,
+    .sidebar-fade,
+    .sidebar-logo-full,
+    .sidebar-logo-mark,
+    .overlay-scroll-thumb { transition: none !important; }
+}
+
+/* ─── Accordion expand and panel reveal (transitions.dev) ─────────────────────────────────────────────────── */
+:root {
+    --acc-expand: 250ms;
+    --acc-collapse: 250ms;
+    --acc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+    --panel-open-dur: 400ms;
+    --panel-close-dur: 350ms;
+    --panel-translate-y: 24px;
+    --panel-blur: 2px;
+    --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.t-acc-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--acc-collapse) var(--acc-ease);
+}
+.t-acc[data-open="true"] .t-acc-panel {
+    grid-template-rows: 1fr;
+    transition: grid-template-rows var(--acc-expand) var(--acc-ease);
+}
+.t-acc-panel-inner {
+    overflow: hidden;
+    opacity: 0;
+    filter: blur(2px);
+    transition:
+        opacity var(--acc-collapse) var(--acc-ease),
+        filter var(--acc-collapse) var(--acc-ease);
+}
+.t-acc[data-open="true"] .t-acc-panel-inner {
+    opacity: 1;
+    filter: blur(0);
+    transition:
+        opacity var(--acc-expand) var(--acc-ease),
+        filter var(--acc-expand) var(--acc-ease);
+}
+
+.t-panel-slide {
+    transform: translateY(var(--panel-translate-y));
+    opacity: 0;
+    filter: blur(var(--panel-blur));
+    pointer-events: none;
+    transition:
+        transform var(--panel-close-dur) var(--panel-ease),
+        opacity   var(--panel-close-dur) var(--panel-ease),
+        filter    var(--panel-close-dur) var(--panel-ease);
+}
+.t-panel-slide[data-open="true"] {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+    pointer-events: auto;
+    transition:
+        transform var(--panel-open-dur) var(--panel-ease),
+        opacity   var(--panel-open-dur) var(--panel-ease),
+        filter    var(--panel-open-dur) var(--panel-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .t-acc-panel,
+    .t-acc-panel-inner,
+    .t-panel-slide { transition: none !important; }
+}
+
+/* ─── Icon swap (transitions.dev): the theme button cross-fades between its icons ──────────────────────────── */
+:root {
+    --icon-swap-dur: 250ms;
+    --icon-swap-blur: 2px;
+    --icon-swap-start-scale: 0.25;
+    --icon-swap-ease: ease-in-out;
+}
+.t-icon-swap {
+    position: relative;
+    display: inline-grid;
+}
+.t-icon-swap .t-icon {
+    grid-area: 1 / 1;
+    display: inline-flex;
+    opacity: 0;
+    filter: blur(var(--icon-swap-blur));
+    transform: scale(var(--icon-swap-start-scale));
+    transition:
+        opacity   var(--icon-swap-dur) var(--icon-swap-ease),
+        filter    var(--icon-swap-dur) var(--icon-swap-ease),
+        transform var(--icon-swap-dur) var(--icon-swap-ease);
+}
+.t-icon-swap[data-state="dark"] .t-icon[data-icon="dark"],
+.t-icon-swap[data-state="light"] .t-icon[data-icon="light"],
+.t-icon-swap[data-state="system"] .t-icon[data-icon="system"] {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+    .t-icon-swap .t-icon { transition: none !important; }
+}
+
+/* ─── Page enter: a short rise with a soft cross-blur when the route changes (transitions.dev texts reveal) ─── */
+@keyframes page-enter {
+    from { opacity: 0; filter: blur(2px); transform: translateY(8px); }
+    to   { opacity: 1; filter: none; transform: none; }
+}
+/* Fill backwards only: a filter or transform left on the page after it settles would make it the containing block
+   of the fixed overlays inside it. */
+.page-enter {
+    animation: page-enter var(--duration-slow) var(--ease-smooth-out) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+    .page-enter { animation: none; }
+}
+
+/* Collapsed rail: the section and group names fold away, a rule marks where each group starts, and the footer shows
+   only the expand button. */
+.sidebar-label {
+    max-height: 3rem;
+    overflow: hidden;
+    white-space: nowrap;
+    transition:
+        max-height var(--duration-fast) var(--ease-smooth-out),
+        padding var(--duration-fast) var(--ease-smooth-out),
+        opacity var(--duration-quick) var(--ease-in-out);
+}
+.sidebar-shell[data-collapsed] .sidebar-label {
+    max-height: 0;
+    padding-block: 0;
+    opacity: 0;
+}
+.sidebar-shell[data-collapsed] .sidebar-group + .sidebar-group {
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--line-faint);
+    padding-top: 0.5rem;
+}
+.sidebar-footer-text {
+    white-space: nowrap;
+    transition: opacity var(--duration-quick) var(--ease-in-out), max-width var(--duration-fast) var(--ease-smooth-out);
+    max-width: 12rem;
+    overflow: hidden;
+}
+.sidebar-shell[data-collapsed] .sidebar-footer {
+    justify-content: center;
+    padding-inline: 0;
+}
+.sidebar-shell[data-collapsed] .sidebar-footer-text {
+    max-width: 0;
+    opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-label,
+    .sidebar-footer-text { transition: none !important; }
+}
+
+/* Service information cards: one rule edge, no tint per state; the state is the mark before the value. */
+.service-info-card,
+.service-info-card.ready,
+.service-info-card.pending,
+.service-info-card.unavailable {
+    border-color: var(--line);
+    background: transparent;
 }

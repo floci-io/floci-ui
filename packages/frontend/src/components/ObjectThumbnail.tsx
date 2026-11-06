@@ -1,5 +1,5 @@
 import {useState} from 'react'
-import {File, FileAudio, FileSpreadsheet, FileText, FileType, FileVideo, Image} from 'lucide-react'
+import {File, FileAudio, FileSpreadsheet, FileTextSquared as FileText, FileType, FileVideo, Image} from '@/components/sodium/icon'
 import type {ObjectIconKind} from '@/lib/format'
 
 interface ObjectThumbnailProps {
