@@ -148,6 +148,15 @@ describe('AwsSqsAdapter', () => {
         expect(resource?.metadata.maximumMessageSizeKb).toBe(256)
     })
 
+    test('leaves maximumMessageSizeKb blank when the size is not a whole number of KB', async () => {
+        const {client} = stubSqs({
+            attributes: {...ORDERS_ATTRIBUTES, MaximumMessageSize: '1536'},
+        })
+        const [resource] = await new AwsSqsAdapter(client).list()
+        expect(resource?.metadata.maximumMessageSize).toBe(1536)
+        expect(resource?.metadata.maximumMessageSizeKb).toBeNull()
+    })
+
     test('converts SQS epoch-second timestamps to ISO', async () => {
         const {client} = stubSqs()
         const [resource] = await new AwsSqsAdapter(client).list()
