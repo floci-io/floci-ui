@@ -865,6 +865,20 @@ export async function putFlatItem(
   return res.data;
 }
 
+export async function deleteFlatItem(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  resourceId: string,
+  itemId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call(
+    apiEndpointKeys.clouds.childCollections.flatItems.delete,
+    requestOptions(cloud, service, { signal }),
+    { cloud, service, id: resourceId, itemId },
+  );
+}
+
 /**
  * The continuation cursor travels in the body with the statement it belongs
  * to, never in the URL.

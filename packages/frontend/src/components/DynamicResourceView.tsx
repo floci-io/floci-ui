@@ -56,6 +56,7 @@ const DatabaseSnapshotsPanel = lazyPanel(() => import("@/components/DatabaseSnap
 const AppConfigPanel = lazyPanel(() => import("@/components/AppConfigPanel").then((m) => m.AppConfigPanel));
 const KmsCryptoPanel = lazyPanel(() => import("@/components/KmsCryptoPanel").then((m) => m.KmsCryptoPanel));
 const AzureKeyVaultPanel = lazyPanel(() => import("@/components/AzureKeyVaultPanel").then((m) => m.AzureKeyVaultPanel));
+const OciParPanel = lazyPanel(() => import("@/components/OciParPanel").then((m) => m.OciParPanel));
 const OciKmsActionsPanel = lazyPanel(() => import("@/components/OciKmsActionsPanel").then((m) => m.OciKmsActionsPanel));
 const SqsMessagingPanel = lazyPanel(() => import("@/components/SqsMessagingPanel").then((m) => m.SqsMessagingPanel));
 const StreamMessagesPanel = lazyPanel(() => import("@/components/StreamMessagesPanel").then((m) => m.StreamMessagesPanel));
@@ -1006,6 +1007,9 @@ export function DynamicResourceView({
           onSelectObject={setSelectedObject}
           writesBlocked={emptyingKey !== undefined && emptyingKey === storageTargetKey}
         />
+      )}
+      {service === "storage" && cloud === "oci" && (
+        <OciParPanel resource={selected} runtimeReachable={canUseRuntime} />
       )}
       {service === "compute" && (
         <ComputePanel

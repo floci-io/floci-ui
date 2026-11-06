@@ -165,6 +165,12 @@ export function ociStorageSchema(): ServiceSchema {
         capabilities: {
             resourceActions: storageResourceActions('Create bucket'),
             objectActions: storageObjectActions,
+            // Pre-authenticated requests of a bucket (a flat item store).
+            itemActions: [
+                {name: 'list', label: 'List pre-authenticated requests', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'put', label: 'Create pre-authenticated request', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete pre-authenticated request', enabled: true, status: 'available', runtimeRequired: true},
+            ],
         },
         filters: storageFilters,
         columns: storageColumns,

@@ -1,6 +1,8 @@
+import type {ItemStoreAdapter} from '../cloud-spi/childCollections'
 import {NotFoundError, ValidationError} from '../cloud-spi/errors'
 import {ociStorageSchema} from '../cloud-spi/storageSchema'
 import {oci, type OciRuntimeClient} from '../oci'
+import {OciParStore} from './OciParStore'
 import type {
     CloudResource,
     CloudServiceAdapter,
@@ -47,7 +49,12 @@ export class OciStorageAdapter implements CloudServiceAdapter {
     readonly cloud = 'oci' as const
     readonly service = 'storage' as const
 
-    constructor(private readonly client: OciRuntimeClient = oci) {}
+    /** Pre-authenticated requests: a bucket is the collection, so the store is flat. */
+    readonly items: ItemStoreAdapter
+
+    constructor(private readonly client: OciRuntimeClient = oci) {
+        this.items = new OciParStore(client, (bucket) => this.bucketPath(bucket))
+    }
 
     schema(): ServiceSchema {
         return ociStorageSchema()

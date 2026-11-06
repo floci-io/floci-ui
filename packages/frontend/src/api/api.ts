@@ -110,6 +110,7 @@ export const apiEndpointKeys = {
       flatItems: {
         list: "clouds.services.childCollections.flatItems.list",
         put: "clouds.services.childCollections.flatItems.put",
+        delete: "clouds.services.childCollections.flatItems.delete",
         query: "clouds.services.childCollections.flatItems.query",
         keyQuery: "clouds.services.childCollections.flatItems.keyQuery",
       },
@@ -912,6 +913,14 @@ export const endpointRegistry: EndpointRegistry = new Map([
     {
       path: "/clouds/:cloud/services/:service/resources/:id/items",
       method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.childCollections.flatItems.delete,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/items/:itemId",
+      method: "DELETE",
       telemetry: { service: "cloud-proxy" },
     },
   ],
