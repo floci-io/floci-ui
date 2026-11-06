@@ -86,7 +86,9 @@ function parseCreate(body: Record<string, unknown>): CreateDetails {
     if (Number.isNaN(expiresAt)) throw new ValidationError('timeExpires must be a valid date and time')
     if (expiresAt <= Date.now()) throw new ValidationError('timeExpires must be in the future')
 
-    const objectName = text(body.objectName)
+    // Object keys are exact: spaces at the edges are part of the name, so it is never trimmed.
+    const rawObject = typeof body.objectName === 'string' ? body.objectName : ''
+    const objectName = rawObject.trim() ? rawObject : ''
     if (accessType.startsWith('Object') && !objectName) {
         throw new ValidationError(`objectName is required for access type ${accessType}`)
     }

@@ -241,6 +241,14 @@ describe('OciStorageAdapter pre-authenticated requests', () => {
         expect(item.body.accessUri).toBe('/p/tok/n/floci-local/b/app/o/a.txt')
     })
 
+    test('keeps the object name exactly as given', async () => {
+        const calls = stubFetch(() => json({id: 'abc:p3', name: 'p3', accessType: 'ObjectRead', timeExpires: future}))
+        await adapter().items!.putItem!('app', {
+            name: 'p3', accessType: 'ObjectRead', objectName: ' report.txt ', timeExpires: future,
+        })
+        expect(JSON.parse(String(calls[0]?.init?.body)).objectName).toBe(' report.txt ')
+    })
+
     test('rejects an expiry in the past without calling the runtime', async () => {
         const calls = stubFetch(() => json({}))
         await expect(adapter().items!.putItem!('app', {

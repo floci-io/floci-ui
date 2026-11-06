@@ -73,12 +73,14 @@ function ParPanel({bucket, runtimeReachable}: {bucket: string; runtimeReachable:
     })
     const deleteMut = useMutation({
         mutationFn: (id: string) => deleteFlatItem('oci', 'storage', bucket, id),
-        onSuccess: () => void qc.invalidateQueries({queryKey}),
+        onSuccess: (_, id) => {
+            setCreated((item) => (item?.id === id ? null : item))
+            void qc.invalidateQueries({queryKey})
+        },
     })
 
     const submit = (event: FormEvent) => {
         event.preventDefault()
-        setCreated(null)
         const expiresAt = new Date(expires)
         if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
             setFormError('Expiry must be a date and time in the future.')
@@ -89,7 +91,7 @@ function ParPanel({bucket, runtimeReachable}: {bucket: string; runtimeReachable:
             name: name.trim(),
             accessType,
             timeExpires: expiresAt.toISOString(),
-            ...(needsObject(accessType) ? {objectName: objectName.trim()} : {}),
+            ...(needsObject(accessType) ? {objectName} : {}),
         })
     }
 

@@ -111,4 +111,57 @@ describe("OciParPanel", () => {
     await user.click(screen.getByRole("button", {name: "Delete p1"}));
     await waitFor(() => expect(vi.mocked(deleteFlatItem)).toHaveBeenCalledWith("oci", "storage", "app", "abc:p1"));
   });
+
+  test("keeps the object name exactly as typed", async () => {
+    const user = userEvent.setup();
+    vi.mocked(listFlatItems).mockResolvedValue({items: [], nextCursor: null});
+    vi.mocked(putFlatItem).mockResolvedValue({...par, body: {...par.body, accessUri: "/p/tok"}});
+    renderPanel();
+    await screen.findByText("No pre-authenticated requests");
+
+    await user.type(screen.getByLabelText("Name"), "p1");
+    await user.selectOptions(screen.getByLabelText("Access type"), "ObjectRead");
+    await user.type(screen.getByLabelText("Object name"), " report.txt ");
+    await user.click(screen.getByRole("button", {name: /Create request/}));
+
+    await waitFor(() => expect(vi.mocked(putFlatItem)).toHaveBeenCalled());
+    expect(vi.mocked(putFlatItem).mock.calls[0][3]).toMatchObject({objectName: " report.txt "});
+  });
+
+  test("keeps the access URI when a later submit fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(listFlatItems).mockResolvedValue({items: [], nextCursor: null});
+    vi.mocked(putFlatItem).mockResolvedValueOnce({...par, body: {...par.body, accessUri: "/p/tok/first"}});
+    renderPanel();
+    await screen.findByText("No pre-authenticated requests");
+
+    await user.type(screen.getByLabelText("Name"), "p1");
+    await user.click(screen.getByRole("button", {name: /Create request/}));
+    expect(await screen.findByText("/p/tok/first")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Name"), "p2");
+    const expiry = screen.getByLabelText("Expires");
+    await user.clear(expiry);
+    await user.type(expiry, "2020-01-01T00:00");
+    await user.click(screen.getByRole("button", {name: /Create request/}));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText("/p/tok/first")).toBeInTheDocument();
+  });
+
+  test("clears the access URI when its request is deleted", async () => {
+    const user = userEvent.setup();
+    vi.mocked(listFlatItems).mockResolvedValue({items: [par], nextCursor: null});
+    vi.mocked(putFlatItem).mockResolvedValue({...par, body: {...par.body, accessUri: "/p/tok/gone"}});
+    vi.mocked(deleteFlatItem).mockResolvedValue();
+    renderPanel();
+    await screen.findByText("p1");
+
+    await user.type(screen.getByLabelText("Name"), "p1");
+    await user.click(screen.getByRole("button", {name: /Create request/}));
+    expect(await screen.findByText("/p/tok/gone")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", {name: "Delete p1"}));
+    await waitFor(() => expect(screen.queryByText("/p/tok/gone")).not.toBeInTheDocument());
+  });
 });
