@@ -44,6 +44,7 @@ import {OciSecretsAdapter} from './adapter-oci/OciSecretsAdapter'
 import {OciFunctionsAdapter} from './adapter-oci/OciFunctionsAdapter'
 import {OciOkeAdapter} from './adapter-oci/OciOkeAdapter'
 import {OciDatabaseAdapter} from './adapter-oci/OciDatabaseAdapter'
+import {OciWorkRequestsAdapter} from './adapter-oci/OciWorkRequestsAdapter'
 import {AwsSqsAdapter} from './adapter-aws/AwsSqsAdapter'
 import {AwsSnsAdapter} from './adapter-aws/AwsSnsAdapter'
 import {AwsCloudWatchAdapter} from './adapter-aws/AwsCloudWatchAdapter'
@@ -163,6 +164,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new OciFunctionsAdapter(),
         new OciOkeAdapter(),
         new OciDatabaseAdapter(),
+        new OciWorkRequestsAdapter(),
         new AwsSqsAdapter(clients.sqs),
         new AwsSnsAdapter(clients.sns),
         new AwsCloudWatchAdapter(clients.cloudwatch),

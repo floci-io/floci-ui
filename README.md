@@ -139,6 +139,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Security | Parameter Store | ✅ | – | – | – |
 | Observability | Logs | ✅ | – | 👁 | – |
 | Observability | CloudWatch | ✅ | – | – | – |
+| Observability | Work Requests | – | – | – | 👁 |
 
 ✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available
 
