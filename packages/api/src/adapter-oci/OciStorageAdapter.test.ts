@@ -192,3 +192,84 @@ describe('OciStorageAdapter', () => {
         })
     })
 })
+
+describe('OciStorageAdapter pre-authenticated requests', () => {
+    const PARS = `${BUCKETS}/app/p`
+    const future = '2030-01-01T00:00:00Z'
+
+    test('declares the item actions it implements', () => {
+        const instance = adapter()
+        const names = instance.schema().capabilities?.itemActions?.map((action) => action.name)
+        expect(names).toEqual(['list', 'put', 'delete'])
+        expect(typeof instance.items?.listItems).toBe('function')
+        expect(typeof instance.items?.putItem).toBe('function')
+        expect(typeof instance.items?.deleteItem).toBe('function')
+    })
+
+    test('lists an empty bucket as an empty page', async () => {
+        const calls = stubFetch(() => json([]))
+        const page = await adapter().items!.listItems('app')
+        expect(calls[0]?.url).toBe(PARS)
+        expect(page).toEqual({items: [], nextCursor: null})
+    })
+
+    test('lists requests without the access path', async () => {
+        stubFetch(() => json([{
+            id: 'abc:p1', name: 'p1', accessType: 'AnyObjectRead', timeCreated: '2026-11-06T00:00:00Z',
+            timeExpires: future, fullPath: '/p/secret/n/floci-local/b/app/o/',
+        }]))
+        const {items} = await adapter().items!.listItems('app')
+        expect(items[0]).toMatchObject({id: 'abc:p1', timestamp: '2026-11-06T00:00:00Z'})
+        expect(items[0]?.body).toMatchObject({name: 'p1', accessType: 'AnyObjectRead', timeExpires: future})
+        expect(JSON.stringify(items[0])).not.toContain('secret')
+        expect(items[0]?.body).not.toHaveProperty('fullPath')
+    })
+
+    test('creates a request and returns the access path once', async () => {
+        const calls = stubFetch(() => json({
+            id: 'abc:p2', name: 'p2', accessType: 'ObjectRead', objectName: 'a.txt', timeExpires: future,
+            accessUri: '/p/tok/n/floci-local/b/app/o/a.txt', fullPath: '/p/tok/n/floci-local/b/app/o/a.txt',
+        }))
+        const item = await adapter().items!.putItem!('app', {
+            name: ' p2 ', accessType: 'ObjectRead', objectName: 'a.txt', timeExpires: future,
+        })
+        expect(calls[0]?.url).toBe(PARS)
+        expect(calls[0]?.init?.method).toBe('POST')
+        expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+            name: 'p2', accessType: 'ObjectRead', objectName: 'a.txt', timeExpires: '2030-01-01T00:00:00.000Z',
+        })
+        expect(item.body.accessUri).toBe('/p/tok/n/floci-local/b/app/o/a.txt')
+    })
+
+    test('rejects an expiry in the past without calling the runtime', async () => {
+        const calls = stubFetch(() => json({}))
+        await expect(adapter().items!.putItem!('app', {
+            name: 'p', accessType: 'AnyObjectRead', timeExpires: '2020-01-01T00:00:00Z',
+        })).rejects.toThrow(new ValidationError('timeExpires must be in the future'))
+        expect(calls).toHaveLength(0)
+    })
+
+    test('rejects invalid input', async () => {
+        stubFetch(() => json({}))
+        const put = (body: Record<string, unknown>) => adapter().items!.putItem!('app', body)
+        await expect(put({accessType: 'AnyObjectRead', timeExpires: future})).rejects.toThrow('name is required')
+        await expect(put({name: 'p', accessType: 'Nope', timeExpires: future})).rejects.toThrow('accessType must be one of')
+        await expect(put({name: 'p', accessType: 'AnyObjectRead'})).rejects.toThrow('timeExpires is required')
+        await expect(put({name: 'p', accessType: 'AnyObjectRead', timeExpires: 'soon'})).rejects.toThrow('valid date')
+        await expect(put({name: 'p', accessType: 'ObjectRead', timeExpires: future})).rejects.toThrow('objectName is required')
+        await expect(put({name: 'p', accessType: 'AnyObjectRead', objectName: 'a', timeExpires: future}))
+            .rejects.toThrow('objectName is only valid')
+    })
+
+    test('deletes a request by its encoded id', async () => {
+        const calls = stubFetch(() => new Response(null, {status: 204}))
+        await adapter().items!.deleteItem!('app', 'abc:p1')
+        expect(calls[0]?.url).toBe(`${PARS}/abc%3Ap1`)
+        expect(calls[0]?.init?.method).toBe('DELETE')
+    })
+
+    test('a missing bucket surfaces as not found', async () => {
+        stubFetch(() => json({code: 'BucketNotFound', message: 'no'}, {status: 404}))
+        await expect(adapter().items!.listItems('nope')).rejects.toBeInstanceOf(NotFoundError)
+    })
+})
