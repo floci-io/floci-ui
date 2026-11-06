@@ -226,6 +226,13 @@ export const SERVICE_CATALOG = {
         group: 'Integration',
         order: 15,
     },
+    eventsv2: {
+        displayName: 'EventBridge V2',
+        description: 'Publish events to buses that deliver them to filtered subscribers.',
+        iconKey: 'events',
+        group: 'Integration',
+        order: 16,
+    },
     identity: {
         displayName: 'Identity',
         description: 'Manage identities and access to cloud resources.',

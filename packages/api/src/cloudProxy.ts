@@ -63,6 +63,7 @@ import {AwsKmsAdapter} from './adapter-aws/AwsKmsAdapter'
 import {AwsStepFunctionsAdapter} from './adapter-aws/AwsStepFunctionsAdapter'
 import {AwsLoadBalancingAdapter} from './adapter-aws/AwsLoadBalancingAdapter'
 import {AwsEventBridgeAdapter} from './adapter-aws/AwsEventBridgeAdapter'
+import {AwsEventBridgeV2Adapter} from './adapter-aws/AwsEventBridgeV2Adapter'
 import {AwsIamAdapter} from './adapter-aws/AwsIamAdapter'
 import {AwsCognitoAdapter} from './adapter-aws/AwsCognitoAdapter'
 import {AwsApiGatewayAdapter} from './adapter-aws/AwsApiGatewayAdapter'
@@ -112,6 +113,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsStepFunctionsAdapter(clients.sfn),
         new AwsLoadBalancingAdapter(clients.elbv2),
         new AwsEventBridgeAdapter(clients.eventbridge),
+        new AwsEventBridgeV2Adapter(clients.eventbridgeV2),
         new AwsIamAdapter(clients.iam),
         new AwsCognitoAdapter(clients.cognito),
         new AwsApiGatewayAdapter(clients.apiGateway),

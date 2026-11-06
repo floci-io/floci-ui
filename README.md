@@ -126,6 +126,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Integration | Queue Storage | – | ✅ | – | – |
 | Integration | Streams | ✅ | ✅ | ✅ | ✅ |
 | Integration | Events | ✅ | – | – | – |
+| Integration | EventBridge V2 | ✅ | – | – | – |
 | Integration | Email | 👁 | – | – | – |
 | Integration | Scheduler | ✅ | – | ✅ | – |
 | Integration | Workflows | ✅ | – | – | – |
@@ -143,6 +144,8 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 ✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available
 
 AWS EventBridge Scheduler list, inspect, create, and delete are verified with SDK-mocked adapter tests. Live Floci runtime integration has not been exercised.
+
+AWS EventBridge V2 event buses and SQS subscribers: list, inspect, create, and delete are verified with SDK-mocked adapter tests. Live Floci runtime integration has not been exercised.
 
 Known runtime gaps (the adapter is ready, the emulator is not):
 
