@@ -139,9 +139,12 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Security | Parameter Store | ✅ | – | – | – |
 | Observability | Logs | ✅ | – | 👁 | – |
 | Observability | CloudWatch | ✅ | – | – | – |
+| Observability | X-Ray | 👁 | – | – | – |
 | Observability | Work Requests | – | – | – | 👁 |
 
 ✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available
+
+AWS X-Ray lists traces over a time window and inspects one trace's segments and services; it is read-only here, because traces are written by an instrumented app, an SDK or the X-Ray daemon. Verified with SDK-mocked adapter tests and against a local Floci running with a trace the daemon wrote.
 
 AWS EventBridge Scheduler list, inspect, create, and delete are verified with SDK-mocked adapter tests. Live Floci runtime integration has not been exercised.
 

@@ -78,6 +78,7 @@ import {AwsRegistryAdapter} from './adapter-aws/AwsRegistryAdapter'
 import {AwsCloudFrontAdapter} from './adapter-aws/AwsCloudFrontAdapter'
 import {AwsRoute53Adapter} from './adapter-aws/AwsRoute53Adapter'
 import {AwsSchedulerAdapter} from './adapter-aws/AwsSchedulerAdapter'
+import {AwsXrayAdapter} from './adapter-aws/AwsXrayAdapter'
 import {awsClientsForAccount, resolveAccountId} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
@@ -127,6 +128,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsCloudFrontAdapter(clients.cloudfront),
         new AwsRoute53Adapter(clients.route53),
         new AwsSchedulerAdapter(clients.scheduler),
+        new AwsXrayAdapter(clients.xray),
         new AzureStorageAdapter(),
         new AzureTableAdapter(),
         new AzureServiceBusAdapter(),
