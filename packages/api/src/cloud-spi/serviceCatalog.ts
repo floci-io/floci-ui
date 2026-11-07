@@ -321,6 +321,13 @@ export const SERVICE_CATALOG = {
         group: 'Observability',
         order: 20,
     },
+    xray: {
+        displayName: 'X-Ray',
+        description: 'Follow distributed traces and the services they touched.',
+        iconKey: 'monitoring',
+        group: 'Observability',
+        order: 30,
+    },
     workrequests: {
         displayName: 'Work Requests',
         description: 'Follow asynchronous operations, their progress and errors.',
