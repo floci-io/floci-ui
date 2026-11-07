@@ -33,6 +33,7 @@ import { ECRClient } from "@aws-sdk/client-ecr";
 import { CloudFrontClient } from "@aws-sdk/client-cloudfront";
 import { Route53Client } from "@aws-sdk/client-route-53";
 import { SchedulerClient } from "@aws-sdk/client-scheduler";
+import { XRayClient } from "@aws-sdk/client-xray";
 import { STSClient } from "@aws-sdk/client-sts";
 import { cloudEndpoint } from "./service/endpoints";
 
@@ -115,6 +116,7 @@ export type AwsClients = {
   route53: Route53Client;
   scheduler: SchedulerClient;
   athena: AthenaClient;
+  xray: XRayClient;
   dsql: DSQLClient;
   sts: STSClient;
 };
@@ -165,6 +167,7 @@ function buildClients(accountId: string): AwsClients {
     route53: new Route53Client(base),
     scheduler: new SchedulerClient(base),
     athena: new AthenaClient(base),
+    xray: new XRayClient(base),
     dsql: new DSQLClient(base),
     sts: new STSClient(base),
   };
