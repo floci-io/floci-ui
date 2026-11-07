@@ -18,7 +18,9 @@ describe('credentialsForAccount', () => {
     test('keeps the account id as the key for any other account', () => {
         process.env.AWS_ACCESS_KEY_ID = 'test'
 
-        expect(credentialsForAccount('123456789012').accessKeyId).toBe('123456789012')
+        const otherAccountId = defaultAccountId() === '123456789012' ? '210987654321' : '123456789012'
+
+        expect(credentialsForAccount(otherAccountId).accessKeyId).toBe(otherAccountId)
     })
 
     test('uses the account id as the key when AWS_ACCESS_KEY_ID is an account id', () => {
