@@ -62,6 +62,20 @@ export function resolveAccountId(raw?: string | null): string {
   return isAccountId(raw) ? raw : defaultAccountId();
 }
 
+/**
+ * The credentials a client for `accountId` signs with. The account id doubles as
+ * the access key, except for the default account when AWS_ACCESS_KEY_ID is set:
+ * that key already maps to the default account, and it is the one Floci accepts
+ * when it enforces S3 auth (`FLOCI_SERVICES_S3_ENFORCE_AUTH`), which rejects a
+ * key that is neither "test" nor registered in Floci IAM. Other accounts keep
+ * the account id as the key, so they need enforcement off.
+ */
+export function credentialsForAccount(accountId: string): { accessKeyId: string; secretAccessKey: string } {
+  const envKey = process.env.AWS_ACCESS_KEY_ID;
+  const accessKeyId = envKey && accountId === defaultAccountId() ? envKey : accountId;
+  return { accessKeyId, secretAccessKey: SECRET_ACCESS_KEY };
+}
+
 export type AwsClients = {
   s3: S3Client;
   lambda: LambdaClient;
@@ -104,7 +118,7 @@ const clientCache = new Map<string, AwsClients>();
 function buildClients(accountId: string): AwsClients {
   const base = {
     region,
-    credentials: { accessKeyId: accountId, secretAccessKey: SECRET_ACCESS_KEY },
+    credentials: credentialsForAccount(accountId),
     endpoint,
     forcePathStyle: true,
   };
