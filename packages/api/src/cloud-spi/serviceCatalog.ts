@@ -144,7 +144,7 @@ export const SERVICE_CATALOG = {
     },
     analytics: {
         displayName: 'Analytics',
-        displayNameByCloud: {gcp: 'BigQuery'},
+        displayNameByCloud: {aws: 'Athena', gcp: 'BigQuery'},
         description: 'Browse analytics datasets and the tables inside them.',
         iconKey: 'analytics', group: 'Databases', order: 30,
     },

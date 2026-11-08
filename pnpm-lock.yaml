@@ -19,6 +19,9 @@ importers:
       '@aws-sdk/client-appconfig':
         specifier: ^3.1156.0
         version: 3.1156.0
+      '@aws-sdk/client-athena':
+        specifier: 3.1156.0
+        version: 3.1156.0
       '@aws-sdk/client-cloudformation':
         specifier: ^3.1156.0
         version: 3.1156.0
@@ -277,6 +280,10 @@ packages:
 
   '@aws-sdk/client-appconfig@3.1156.0':
     resolution: {integrity: sha512-cxlSCljPs5swxIl+tIyqL25srnb6wSAfUlRam99S4FUmQN+Bm1sC7PNz/FPFjrIWeSYf48oPnqQGxX4i4FYOxw==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-athena@3.1156.0':
+    resolution: {integrity: sha512-rqebnBvY6c9DuSKZz99dI0BS01HZl3iqXYTWTqbEbu02C1YCiYoho7tW7buAnNqIhZ1laB+EJh/JncO59pruJA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-cloudformation@3.1156.0':
@@ -2804,6 +2811,17 @@ snapshots:
       tslib: 2.9.1
 
   '@aws-sdk/client-appconfig@3.1156.0':
+    dependencies:
+      '@aws-sdk/core': 3.979.1
+      '@aws-sdk/credential-provider-node': 3.972.92
+      '@aws-sdk/types': 3.975.0
+      '@smithy/core': 3.38.1
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.14.1
+      '@smithy/types': 4.19.0
+      tslib: 2.9.1
+
+  '@aws-sdk/client-athena@3.1156.0':
     dependencies:
       '@aws-sdk/core': 3.979.1
       '@aws-sdk/credential-provider-node': 3.972.92

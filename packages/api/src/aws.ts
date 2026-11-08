@@ -10,6 +10,7 @@ import { ACMClient } from "@aws-sdk/client-acm";
 import { ElastiCacheClient } from "@aws-sdk/client-elasticache";
 import { KMSClient } from "@aws-sdk/client-kms";
 import { SFNClient } from "@aws-sdk/client-sfn";
+import { AthenaClient } from "@aws-sdk/client-athena";
 import { ElasticLoadBalancingV2Client } from "@aws-sdk/client-elastic-load-balancing-v2";
 import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
 import { SQSClient } from "@aws-sdk/client-sqs";
@@ -107,6 +108,7 @@ export type AwsClients = {
   cloudfront: CloudFrontClient;
   route53: Route53Client;
   scheduler: SchedulerClient;
+  athena: AthenaClient;
   dsql: DSQLClient;
   sts: STSClient;
 };
@@ -153,6 +155,7 @@ function buildClients(accountId: string): AwsClients {
     cloudfront: new CloudFrontClient(base),
     route53: new Route53Client(base),
     scheduler: new SchedulerClient(base),
+    athena: new AthenaClient(base),
     dsql: new DSQLClient(base),
     sts: new STSClient(base),
   };

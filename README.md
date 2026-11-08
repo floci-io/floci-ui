@@ -115,7 +115,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Databases | Aurora DSQL | ✅ | – | – | – |
 | Databases | Cache | ✅ | – | – | – |
 | Databases | NoSQL | ✅ | ✅ | ✅ | – |
-| Databases | Analytics | – | – | ✅ | – |
+| Databases | Analytics | ✅ | – | ✅ | – |
 | Networking | Networking | 👁 | ✅ | ✅ | – |
 | Networking | Load Balancing | ✅ | – | – | – |
 | Networking | CDN | ✅ | – | – | – |
