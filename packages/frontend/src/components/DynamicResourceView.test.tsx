@@ -430,6 +430,70 @@ describe("DynamicResourceView GCP compute", () => {
   });
 });
 
+describe("DynamicResourceView AWS Athena", () => {
+  const athenaSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "analytics",
+    displayName: "Athena",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect", "delete"],
+    columns: [{ name: "name", label: "Name" }],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(ACCOUNT_A);
+  });
+
+  it("keeps delete off queries and primary even while an Empty bucket request is pending", async () => {
+    const user = userEvent.setup();
+    const pending = deferred<{ deleted: number }>();
+    vi.mocked(emptyStorageBucket).mockReturnValue(pending.promise);
+    vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) => storageBucket(id));
+    vi.mocked(listStorageObjects).mockResolvedValue({ prefix: "", objects: [] });
+    vi.mocked(getServiceSchema).mockImplementation(async (_cloud, service) =>
+      service === "analytics" ? athenaSchema : awsStorageSchema,
+    );
+    vi.mocked(listCloudResources).mockImplementation(async (_cloud, service) =>
+      service === "analytics"
+        ? [
+            { ...summary, id: "workgroup:primary", name: "primary", service: "analytics", type: "athena-workgroup" },
+            { ...summary, id: "workgroup:etl", name: "etl", service: "analytics", type: "athena-workgroup" },
+            { ...summary, id: "query:q1", name: "SELECT 1", service: "analytics", type: "athena-query" },
+          ]
+        : [storageBucket("logs")],
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = (service: string) => (
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service={service}
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+    const rendered = render(view("storage"));
+
+    await openEmptyDialog(user);
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Empty bucket" }));
+    await waitFor(() => expect(emptyStorageBucket).toHaveBeenCalled());
+
+    rendered.rerender(view("analytics"));
+
+    const etlRow = (await screen.findByText("etl")).closest("tr")!;
+    const primaryRow = (await screen.findByText("primary")).closest("tr")!;
+    const queryRow = (await screen.findByText("SELECT 1")).closest("tr")!;
+    expect(within(etlRow).queryByRole("button", { name: /delete/i })).not.toBeNull();
+    expect(within(primaryRow).queryByRole("button", { name: /delete/i })).toBeNull();
+    expect(within(queryRow).queryByRole("button", { name: /delete/i })).toBeNull();
+    pending.resolve({ deleted: 0 });
+  });
+});
+
 describe("DynamicResourceView Empty bucket", () => {
   beforeEach(() => {
     vi.clearAllMocks();

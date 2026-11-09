@@ -37,7 +37,7 @@ const PRIMARY_WORKGROUP = 'primary'
 const WORKGROUP_NAME = new RegExp(AWS_ATHENA_WORKGROUP_PATTERN)
 /** Bound on `NextToken` hops, so a runtime that never stops paging cannot hang a request. */
 const MAX_PAGES = 100
-/** The newest queries kept per list, since each one costs a request. */
+/** The newest queries kept per workgroup and per list, since each one costs a request. */
 const MAX_QUERIES = 100
 const DETAIL_CONCURRENCY = 8
 const STATEMENT_PREVIEW = 80
@@ -58,14 +58,13 @@ export class AwsAthenaAdapter implements CloudServiceAdapter {
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const workGroups = await this.listWorkGroups()
-        const queries = await this.listQueries(workGroups.map((workGroup) => workGroup.Name).filter((name): name is string => !!name))
-        const resources = [
-            ...workGroups.map((workGroup) => workGroupResource(workGroup)),
+        const search = query.search?.trim().toLowerCase()
+        const queries = await this.listQueries(workGroups.map((workGroup) => workGroup.Name).filter((name): name is string => !!name), search)
+        const resources = workGroups.map((workGroup) => workGroupResource(workGroup))
+        return [
+            ...(search ? resources.filter((resource) => matches(resource, search)) : resources),
             ...queries.map((execution) => queryResource(execution)),
         ]
-        const search = query.search?.trim().toLowerCase()
-        if (!search) return resources
-        return resources.filter((resource) => matches(resource, search))
     }
 
     async get(id: string): Promise<CloudResource | null> {
@@ -122,22 +121,32 @@ export class AwsAthenaAdapter implements CloudServiceAdapter {
         return workGroups
     }
 
-    /** Ids from every workgroup, since Athena lists only `primary` unless one is named. */
-    private async listQueries(workGroups: string[]): Promise<QueryExecution[]> {
+    /**
+     * The newest `MAX_QUERIES` ids of each workgroup, since Athena lists only `primary`
+     * unless one is named. Each workgroup is capped on its own so a busy one cannot
+     * crowd the others out; the cut to `MAX_QUERIES` happens after sorting by submission.
+     */
+    private async listQueries(workGroups: string[], search?: string): Promise<QueryExecution[]> {
         const ids = new Set<string>()
         for (const workGroup of workGroups) {
+            const own = new Set<string>()
             let nextToken: string | undefined
-            for (let page = 0; page < MAX_PAGES && ids.size < MAX_QUERIES * 5; page++) {
+            for (let page = 0; page < MAX_PAGES && own.size < MAX_QUERIES; page++) {
                 const response = await this.athena.send(new ListQueryExecutionsCommand({WorkGroup: workGroup, NextToken: nextToken}))
-                for (const id of response.QueryExecutionIds ?? []) ids.add(id)
+                for (const id of response.QueryExecutionIds ?? []) {
+                    if (own.size < MAX_QUERIES) own.add(id)
+                }
                 nextToken = response.NextToken
                 if (!nextToken) break
             }
+            for (const id of own) ids.add(id)
         }
-        const executions = await mapWithLimit([...ids].slice(0, MAX_QUERIES), DETAIL_CONCURRENCY, (id) => this.loadQuery(id))
+        const executions = await mapWithLimit([...ids], DETAIL_CONCURRENCY, (id) => this.loadQuery(id))
         return executions
             .filter((execution): execution is QueryExecution => execution !== null)
+            .filter((execution) => !search || (execution.Query ?? '').toLowerCase().includes(search) || matches(queryResource(execution), search))
             .sort((left, right) => submitted(right) - submitted(left))
+            .slice(0, MAX_QUERIES)
     }
 
     private async loadWorkGroup(name: string): Promise<WorkGroup | null> {

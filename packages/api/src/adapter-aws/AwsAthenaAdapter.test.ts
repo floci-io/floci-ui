@@ -127,6 +127,47 @@ describe('AwsAthenaAdapter', () => {
         expect(rows.filter((row) => row.type === 'athena-query').map((row) => row.id)).toEqual(['query:b', 'query:a'])
     })
 
+    test('keeps the newest query of a later workgroup when an earlier one holds 100 older ones', async () => {
+        const older = Array.from({length: 100}, (_, index) => `old-${index}`)
+        const rows = await createAdapter(async (command) => {
+            if (command instanceof ListWorkGroupsCommand) return {WorkGroups: [{Name: 'primary'}, {Name: 'etl'}]}
+            if (command instanceof ListQueryExecutionsCommand) {
+                return {QueryExecutionIds: command.input.WorkGroup === 'primary' ? older : ['fresh']}
+            }
+            if (command instanceof GetQueryExecutionCommand) {
+                const id = command.input.QueryExecutionId ?? ''
+                return {QueryExecution: execution(id, `SELECT '${id}'`, id === 'fresh' ? '2026-11-09T00:00:00Z' : '2026-11-01T00:00:00Z')}
+            }
+            return {}
+        }).list()
+
+        const queries = rows.filter((row) => row.type === 'athena-query')
+        expect(queries).toHaveLength(100)
+        expect(queries[0].id).toBe('query:fresh')
+    })
+
+    test('reads past 500 ids so a later workgroup is still listed', async () => {
+        const workGroups: Array<string | undefined> = []
+        const rows = await createAdapter(async (command) => {
+            if (command instanceof ListWorkGroupsCommand) {
+                return {WorkGroups: ['w1', 'w2', 'w3', 'w4', 'w5', 'w6'].map((Name) => ({Name}))}
+            }
+            if (command instanceof ListQueryExecutionsCommand) {
+                workGroups.push(command.input.WorkGroup)
+                const own = command.input.WorkGroup ?? ''
+                return {QueryExecutionIds: Array.from({length: 100}, (_, index) => `${own}-${index}`)}
+            }
+            if (command instanceof GetQueryExecutionCommand) {
+                const id = command.input.QueryExecutionId ?? ''
+                return {QueryExecution: execution(id, 'SELECT 1', id.startsWith('w6') ? '2026-11-09T00:00:00Z' : '2026-11-01T00:00:00Z')}
+            }
+            return {}
+        }).list()
+
+        expect(workGroups).toEqual(['w1', 'w2', 'w3', 'w4', 'w5', 'w6'])
+        expect(rows.filter((row) => row.type === 'athena-query')[0].id.startsWith('query:w6')).toBe(true)
+    })
+
     test('is empty when there are no workgroups and no queries', async () => {
         const rows = await createAdapter(async (command) => {
             if (command instanceof ListWorkGroupsCommand) return {WorkGroups: []}
@@ -143,6 +184,22 @@ describe('AwsAthenaAdapter', () => {
         expect((await adapter.list({search: 'failed'})).map((row) => row.id)).toEqual(['query:b'])
         expect((await adapter.list({search: 'nightly'})).map((row) => row.id)).toEqual(['workgroup:etl'])
         expect((await adapter.list({search: 'nothing-matches'}))).toEqual([])
+    })
+
+    test('searches the whole statement, not only its shortened name', async () => {
+        const statement = `SELECT ${'x, '.repeat(60)}needle_column FROM orders`
+        const adapter = createAdapter(async (command) => {
+            if (command instanceof ListWorkGroupsCommand) return {WorkGroups: [{Name: 'primary'}]}
+            if (command instanceof ListQueryExecutionsCommand) return {QueryExecutionIds: ['long']}
+            if (command instanceof GetQueryExecutionCommand) return {QueryExecution: execution('long', statement, '2026-11-08T10:00:00Z')}
+            return {}
+        })
+
+        const rows = await adapter.list({search: 'needle_column'})
+
+        expect(rows.map((row) => row.id)).toEqual(['query:long'])
+        expect(rows[0].name.length).toBeLessThanOrEqual(80)
+        expect(rows[0].name).not.toContain('needle_column')
     })
 
     test('inspects a query with its statement, state, timings and output location', async () => {

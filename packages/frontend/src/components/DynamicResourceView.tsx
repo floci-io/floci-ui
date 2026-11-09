@@ -232,10 +232,10 @@ export function DynamicResourceView({
       ? (resource: CloudResource) => resource.type !== "sagemaker-training-job"
       : isGcpCompute
         ? (resource: CloudResource) => resource.type !== "disk"
-        : emptyingKey !== undefined
-          ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
-          : isAwsAthena
-            ? (resource: CloudResource) => resource.type === "athena-workgroup" && resource.name !== "primary"
+        : isAwsAthena
+          ? (resource: CloudResource) => resource.type === "athena-workgroup" && resource.name !== "primary"
+          : emptyingKey !== undefined
+            ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
             : undefined;
   const sagemakerDashboardResourcesQuery = useQuery({
     queryKey: ["sagemaker-dashboard-resources", accountId, cloud, service],
