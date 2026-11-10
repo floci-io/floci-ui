@@ -8,6 +8,7 @@ import { CloudWatchLogsClient } from "@aws-sdk/client-cloudwatch-logs";
 import { SSMClient } from "@aws-sdk/client-ssm";
 import { ACMClient } from "@aws-sdk/client-acm";
 import { ElastiCacheClient } from "@aws-sdk/client-elasticache";
+import { CodeBuildClient } from "@aws-sdk/client-codebuild";
 import { OpenSearchClient } from "@aws-sdk/client-opensearch";
 import { KMSClient } from "@aws-sdk/client-kms";
 import { SFNClient } from "@aws-sdk/client-sfn";
@@ -93,6 +94,7 @@ export type AwsClients = {
   acm: ACMClient;
   elasticache: ElastiCacheClient;
   opensearch: OpenSearchClient;
+  codebuild: CodeBuildClient;
   sfn: SFNClient;
   elbv2: ElasticLoadBalancingV2Client;
   eventbridge: EventBridgeClient;
@@ -142,6 +144,7 @@ function buildClients(accountId: string): AwsClients {
     acm: new ACMClient(base),
     elasticache: new ElastiCacheClient(base),
     opensearch: new OpenSearchClient(base),
+    codebuild: new CodeBuildClient(base),
     sfn: new SFNClient(base),
     elbv2: new ElasticLoadBalancingV2Client(base),
     eventbridge: new EventBridgeClient(base),

@@ -494,6 +494,46 @@ describe("DynamicResourceView AWS Athena", () => {
   });
 });
 
+describe("DynamicResourceView AWS CodeBuild", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(ACCOUNT_A);
+  });
+
+  it("offers delete on projects only, since builds cannot be deleted", async () => {
+    vi.mocked(getServiceSchema).mockResolvedValue({
+      cloud: "aws",
+      service: "cicd",
+      displayName: "AWS CodeBuild",
+      fields: [],
+      filters: [],
+      actions: ["list", "inspect", "delete"],
+      columns: [{ name: "name", label: "Name" }],
+    });
+    vi.mocked(listCloudResources).mockResolvedValue([
+      { ...summary, id: "project:web", name: "web", service: "cicd", type: "project" },
+      { ...summary, id: "build:web:1", name: "web:1", service: "cicd", type: "build" },
+    ]);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="cicd"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    const projectRow = (await screen.findByText("web")).closest("tr")!;
+    const buildRow = (await screen.findByText("web:1")).closest("tr")!;
+    expect(within(projectRow).queryByRole("button", { name: /delete/i })).not.toBeNull();
+    expect(within(buildRow).queryByRole("button", { name: /delete/i })).toBeNull();
+  });
+});
+
 describe("DynamicResourceView Empty bucket", () => {
   beforeEach(() => {
     vi.clearAllMocks();
