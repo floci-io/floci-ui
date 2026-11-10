@@ -225,15 +225,18 @@ export function DynamicResourceView({
 
   const isAwsSageMaker = cloud === "aws" && service === "sagemaker";
   const isGcpCompute = cloud === "gcp" && service === "compute";
+  const isAwsAthena = cloud === "aws" && service === "analytics";
   const canDeleteResource = viewingDeleted
     ? () => false
     : isAwsSageMaker
       ? (resource: CloudResource) => resource.type !== "sagemaker-training-job"
       : isGcpCompute
         ? (resource: CloudResource) => resource.type !== "disk"
-        : emptyingKey !== undefined
-          ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
-          : undefined;
+        : isAwsAthena
+          ? (resource: CloudResource) => resource.type === "athena-workgroup" && resource.name !== "primary"
+          : emptyingKey !== undefined
+            ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
+            : undefined;
   const sagemakerDashboardResourcesQuery = useQuery({
     queryKey: ["sagemaker-dashboard-resources", accountId, cloud, service],
     queryFn: ({ signal }) => listCloudResources(cloud, service, "", signal),

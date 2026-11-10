@@ -13,6 +13,7 @@
     "@aws-sdk/client-acm": "3.1156.0",
     "@aws-sdk/client-api-gateway": "^3.1156.0",
     "@aws-sdk/client-appconfig": "^3.1156.0",
+    "@aws-sdk/client-athena": "3.1156.0",
     "@aws-sdk/client-cloudformation": "^3.1156.0",
     "@aws-sdk/client-cloudfront": "3.1156.0",
     "@aws-sdk/client-cloudwatch": "^3.1156.0",
