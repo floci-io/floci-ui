@@ -16,6 +16,7 @@ import {AzureStorageAdapter} from './adapter-azure/AzureStorageAdapter'
 import {AzureTableAdapter} from './adapter-azure/AzureTableAdapter'
 import {AzureAksAdapter} from './adapter-azure/AzureAksAdapter'
 import {AzureRegistryAdapter} from './adapter-azure/AzureRegistryAdapter'
+import {AzureCacheAdapter} from './adapter-azure/AzureCacheAdapter'
 import {AzureContainerAppsAdapter} from './adapter-azure/AzureContainerAppsAdapter'
 import {AzureComputeAdapter} from './adapter-azure/AzureComputeAdapter'
 import {AzureNetworkingAdapter} from './adapter-azure/AzureNetworkingAdapter'
@@ -144,6 +145,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AzureAksAdapter(),
         new AzureContainerAppsAdapter(),
         new AzureRegistryAdapter(),
+        new AzureCacheAdapter(),
         new AzureNoSqlAdapter(),
         new AzureComputeAdapter(),
         new AzureNetworkingAdapter(),

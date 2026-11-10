@@ -127,7 +127,7 @@ export const SERVICE_CATALOG = {
     },
     cache: {
         displayName: 'Cache',
-        displayNameByCloud: {aws: 'ElastiCache'},
+        displayNameByCloud: {aws: 'ElastiCache', azure: 'Azure Cache for Redis'},
         description: 'Run in-memory caches and replication groups.',
         iconKey: 'database', group: 'Databases', order: 18,
     },
