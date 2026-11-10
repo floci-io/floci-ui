@@ -185,11 +185,10 @@ export function awsClientsForAccount(accountId?: string | null): AwsClients {
   return clients;
 }
 
-// Default-account singletons, kept for surfaces that are not yet account-aware:
-// the dedicated EC2, EKS, RDS and Secrets Manager routes. These ignore the
-// x-floci-account-id header and always serve the default account, so they do not
-// follow the console's active account. The Cloud Explorer proxy resolves clients
-// per request via awsClientsForAccount() instead.
+// Default-account singletons: the defaults of the service and route factories
+// (and their tests). Request handling resolves clients per account via
+// awsClientsForAccount(): the Cloud Explorer proxy in cloudProxy.ts, and the EC2,
+// EKS and Secrets Manager routes via routes/scoped.ts.
 export const awsClients = awsClientsForAccount(defaultAccountId());
 
 export const s3 = awsClients.s3;
