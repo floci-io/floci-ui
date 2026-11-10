@@ -142,6 +142,12 @@ export const SERVICE_CATALOG = {
         group: 'Databases',
         order: 20,
     },
+    search: {
+        displayName: 'Search',
+        displayNameByCloud: {aws: 'OpenSearch'},
+        description: 'Run search and log analytics domains.',
+        iconKey: 'database', group: 'Databases', order: 25,
+    },
     analytics: {
         displayName: 'Analytics',
         displayNameByCloud: {aws: 'Athena', gcp: 'BigQuery'},
