@@ -311,6 +311,14 @@ export const SERVICE_CATALOG = {
         group: 'Provisioning',
         order: 20,
     },
+    cicd: {
+        displayName: 'CI/CD',
+        displayNameByCloud: {aws: 'CodeBuild'},
+        description: 'Run builds for application projects.',
+        iconKey: 'workflows',
+        group: 'Provisioning',
+        order: 30,
+    },
     scheduler: {
         displayName: 'Scheduler',
         displayNameByCloud: {aws: 'EventBridge Scheduler', gcp: 'Cloud Scheduler'},

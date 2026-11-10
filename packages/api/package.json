@@ -18,6 +18,7 @@
     "@aws-sdk/client-cloudfront": "3.1156.0",
     "@aws-sdk/client-cloudwatch": "^3.1156.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.1156.0",
+    "@aws-sdk/client-codebuild": "^3.1156.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.1156.0",
     "@aws-sdk/client-dsql": "3.1156.0",
     "@aws-sdk/client-dynamodb": "^3.1156.0",

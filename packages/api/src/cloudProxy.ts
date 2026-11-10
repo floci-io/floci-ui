@@ -61,6 +61,7 @@ import {AwsParameterStoreAdapter} from './adapter-aws/AwsParameterStoreAdapter'
 import {AwsAcmAdapter} from './adapter-aws/AwsAcmAdapter'
 import {AwsElastiCacheAdapter} from './adapter-aws/AwsElastiCacheAdapter'
 import {AwsOpenSearchAdapter} from './adapter-aws/AwsOpenSearchAdapter'
+import {AwsCodeBuildAdapter} from './adapter-aws/AwsCodeBuildAdapter'
 import {AwsKmsAdapter} from './adapter-aws/AwsKmsAdapter'
 import {AwsStepFunctionsAdapter} from './adapter-aws/AwsStepFunctionsAdapter'
 import {AwsLoadBalancingAdapter} from './adapter-aws/AwsLoadBalancingAdapter'
@@ -107,6 +108,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new AwsDsqlAdapter(clients.dsql, clients.sts),
         new AwsElastiCacheAdapter(clients.elasticache),
         new AwsOpenSearchAdapter(clients.opensearch),
+        new AwsCodeBuildAdapter(clients.codebuild),
         new AwsComputeAdapter(ec2Service),
         new AwsNetworkingAdapter(ec2Service),
         new AwsServerlessAdapter(clients.lambda, clients.s3, clients.dynamodb, clients.sqs, clients.kinesis),
