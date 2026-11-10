@@ -13,6 +13,7 @@ import { SFNClient } from "@aws-sdk/client-sfn";
 import { AthenaClient } from "@aws-sdk/client-athena";
 import { ElasticLoadBalancingV2Client } from "@aws-sdk/client-elastic-load-balancing-v2";
 import { EventBridgeClient } from "@aws-sdk/client-eventbridge";
+import { EventBridgeV2Client } from "@aws-sdk/client-eventbridgev2";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { SNSClient } from "@aws-sdk/client-sns";
 import { CloudWatchClient } from "@aws-sdk/client-cloudwatch";
@@ -93,6 +94,7 @@ export type AwsClients = {
   sfn: SFNClient;
   elbv2: ElasticLoadBalancingV2Client;
   eventbridge: EventBridgeClient;
+  eventbridgeV2: EventBridgeV2Client;
   sqs: SQSClient;
   sns: SNSClient;
   iam: IAMClient;
@@ -140,6 +142,7 @@ function buildClients(accountId: string): AwsClients {
     sfn: new SFNClient(base),
     elbv2: new ElasticLoadBalancingV2Client(base),
     eventbridge: new EventBridgeClient(base),
+    eventbridgeV2: new EventBridgeV2Client(base),
     sqs: new SQSClient(base),
     sns: new SNSClient(base),
     iam: new IAMClient(base),
