@@ -60,6 +60,7 @@ describe('AwsServerlessAdapter', () => {
             cloud: 'aws',
             service: 'serverless',
             type: 'lambda',
+            region: 'us-east-1',
             status: 'Active',
         })
         // The serverless schema reads these through metadata paths.

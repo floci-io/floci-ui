@@ -28,6 +28,23 @@ function fakeEksService() {
 }
 
 describe('AwsEksAdapter', () => {
+    test('reports the cluster Region from its ARN', async () => {
+        const adapter = new AwsEksAdapter({
+            ...fakeEksService(),
+            describeCluster: async () => ({
+                name: 'cluster-a', arn: 'arn:aws:eks:eu-central-1:000000000000:cluster/cluster-a', tags: {},
+            }),
+        })
+
+        await expect(adapter.get('cluster-a')).resolves.toEqual(expect.objectContaining({region: 'eu-central-1'}))
+    })
+
+    test('leaves the Region empty when the cluster has no ARN', async () => {
+        const adapter = new AwsEksAdapter(fakeEksService())
+
+        await expect(adapter.get('cluster-a')).resolves.toEqual(expect.objectContaining({region: null}))
+    })
+
     test('maps EKS nodegroups through the provider-neutral contract', async () => {
         const adapter = new AwsEksAdapter(fakeEksService())
 

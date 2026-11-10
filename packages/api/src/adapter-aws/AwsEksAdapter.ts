@@ -98,7 +98,7 @@ function toResource(cluster: EksCluster): CloudResource {
         cloud: 'aws',
         service: 'k8s',
         type: 'cluster',
-        region: null,
+        region: regionFromArn(cluster.arn),
         createdAt: cluster.createdAt ?? null,
         status: cluster.status ?? null,
         version: cluster.version ?? null,
@@ -113,6 +113,11 @@ function toResource(cluster: EksCluster): CloudResource {
             tags: Object.entries(cluster.tags).map(([key, value]) => ({key, value})),
         },
     }
+}
+
+/** EKS cluster ARNs name the Region: arn:aws:eks:<region>:<account>:cluster/<name>. */
+function regionFromArn(arn?: string): string | null {
+    return arn?.split(':')[3] || null
 }
 
 function filterBySearch(resources: CloudResource[], search?: string): CloudResource[] {

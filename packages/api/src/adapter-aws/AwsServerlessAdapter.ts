@@ -80,7 +80,7 @@ export class AwsServerlessAdapter implements CloudServiceAdapter {
       cloud: "aws" as const,
       service: "serverless" as const,
       type: "lambda",
-      region: null,
+      region: regionFromArn(fn.FunctionArn),
       createdAt: null,
       status: fn.State ?? null,
       metadata: {
@@ -114,7 +114,7 @@ export class AwsServerlessAdapter implements CloudServiceAdapter {
         cloud: "aws",
         service: "serverless",
         type: "lambda",
-        region: null,
+        region: regionFromArn(config.FunctionArn),
         createdAt: null,
         status: config.State ?? null,
         metadata: {
@@ -195,7 +195,7 @@ exports.handler = async (event) => {
       cloud: "aws",
       service: "serverless",
       type: "lambda",
-      region: null,
+      region: regionFromArn(res.FunctionArn),
       createdAt: null,
       status: res.State ?? null,
       metadata: {
@@ -726,6 +726,11 @@ function decodeLogResult(logResult: string): string {
   } catch {
     return logResult;
   }
+}
+
+/** Lambda function ARNs name the Region: arn:aws:lambda:<region>:<account>:function:<name>. */
+function regionFromArn(arn?: string): string | null {
+  return arn?.split(":")[3] || null;
 }
 
 function filterBySearch(
