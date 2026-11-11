@@ -11,6 +11,7 @@ import {
     isServiceType,
     routeFor,
 } from './serviceCatalog'
+
 describe('SERVICE_CATALOG', () => {
     test('every entry carries the metadata the nav needs', () => {
         for (const entry of SERVICE_CATALOG_ENTRIES) {
@@ -149,7 +150,7 @@ describe('SERVICE_CATALOG', () => {
         expect(descriptionFor(messaging, 'gcp')).toContain('Publish and subscribe')
         expect(descriptionFor(messaging, 'azure')).toBe(messaging.description)
     })
-    
+
     test('derives runtime-specific Floci docs URLs only where a docs slug is declared', () => {
         const k8s = catalogEntry('k8s')!
         expect(docsUrlFor(k8s, 'aws')).toBe('https://floci.io/floci/services/eks/')

@@ -73,6 +73,7 @@ import {toHttpError} from '../cloud-spi/errors'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
 import {endpointFor, runtimeProbes, type RuntimeProbe} from './runtimeProbe'
 import {resolveScopedCloud} from './defaultCloud'
+
 /**
  * Status probes are real network calls and the console polls them on a short
  * interval, so results are memoized briefly. Without this, asking for
