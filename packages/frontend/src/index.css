@@ -1237,7 +1237,6 @@ pre,
     color: var(--accent, var(--text-1));
     font-size: 12px;
     text-decoration: none;
-     opacity: 0.9;
 }
 
 .service-docs-link:hover {
