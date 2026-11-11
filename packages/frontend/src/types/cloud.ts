@@ -53,6 +53,7 @@ export interface CloudServiceDescriptor {
     service: CloudServiceType
     displayName: string
     description: string
+    docsUrl?: string
     availability: CloudAvailability
     /** Why the service is unavailable; always present when coming_soon. */
     reason?: string

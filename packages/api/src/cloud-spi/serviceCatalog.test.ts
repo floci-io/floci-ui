@@ -7,10 +7,10 @@ import {
     catalogEntry,
     descriptionFor,
     displayNameFor,
+    docsUrlFor,
     isServiceType,
     routeFor,
 } from './serviceCatalog'
-
 describe('SERVICE_CATALOG', () => {
     test('every entry carries the metadata the nav needs', () => {
         for (const entry of SERVICE_CATALOG_ENTRIES) {
@@ -148,6 +148,20 @@ describe('SERVICE_CATALOG', () => {
         expect(descriptionFor(messaging, 'aws')).toContain('Queue')
         expect(descriptionFor(messaging, 'gcp')).toContain('Publish and subscribe')
         expect(descriptionFor(messaging, 'azure')).toBe(messaging.description)
+    })
+    
+    test('derives runtime-specific Floci docs URLs only where a docs slug is declared', () => {
+        const k8s = catalogEntry('k8s')!
+        expect(docsUrlFor(k8s, 'aws')).toBe('https://floci.io/floci/services/eks/')
+        expect(docsUrlFor(k8s, 'azure')).toBe('https://floci.io/floci-az/services/aks/')
+        expect(docsUrlFor(k8s, 'gcp')).toBe('https://floci.io/floci-gcp/services/gke/')
+        expect(docsUrlFor(k8s, 'oci')).toBe('https://floci.io/floci-oci/services/containerengine/')
+
+        // Services without a Floci docs page for a given cloud return undefined instead of a broken link.
+        const loadbalancing = catalogEntry('loadbalancing')!
+        expect(docsUrlFor(loadbalancing, 'aws')).toBe('https://floci.io/floci/services/elb/')
+        expect(docsUrlFor(loadbalancing, 'azure')).toBeUndefined()
+        expect(docsUrlFor(catalogEntry('workrequests')!, 'oci')).toBeUndefined()
     })
 })
 

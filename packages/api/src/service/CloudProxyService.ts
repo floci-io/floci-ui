@@ -68,12 +68,11 @@ import type {
 } from '../cloud-spi/childCollections'
 import {ConflictError, NotFoundError, NotSupportedError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
-import {SERVICE_CATALOG_ENTRIES, descriptionFor, displayNameFor, routeFor} from '../cloud-spi/serviceCatalog'
+import {SERVICE_CATALOG_ENTRIES, descriptionFor, displayNameFor, docsUrlFor, routeFor} from '../cloud-spi/serviceCatalog'
 import {toHttpError} from '../cloud-spi/errors'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
 import {endpointFor, runtimeProbes, type RuntimeProbe} from './runtimeProbe'
 import {resolveScopedCloud} from './defaultCloud'
-
 /**
  * Status probes are real network calls and the console polls them on a short
  * interval, so results are memoized briefly. Without this, asking for
@@ -146,6 +145,7 @@ export class CloudProxyService {
                 service: entry.service,
                 displayName,
                 description: descriptionFor(entry, cloud),
+                docsUrl: docsUrlFor(entry, cloud),
                 availability,
                 reason: override.reason ?? unavailableReason(availability, cloud, displayName),
                 route: routeFor(entry, cloud),

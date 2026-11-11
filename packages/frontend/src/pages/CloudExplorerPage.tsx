@@ -1,5 +1,5 @@
 import {useMemo, useState} from 'react'
-import {Cloud, X} from 'lucide-react'
+import {Cloud, X, ExternalLink} from 'lucide-react'
 import {Navigate, useParams} from 'react-router-dom'
 import {useQuery} from '@tanstack/react-query'
 import {Link} from 'react-router-dom'
@@ -54,9 +54,21 @@ export function CloudExplorerPage() {
                 <div className="page-title">
                     <Cloud size={20}/>
                     <div>
-                        <h1>Cloud Explorer</h1>
-                        <p className="muted">{selectedService?.description ?? 'Unified local runtime console'}</p>
-                    </div>
+                    <h1>Cloud Explorer</h1>
+                    <p className="muted cloud-explorer-subtitle">
+                        <span>{selectedService?.description ?? 'Unified local runtime console'}</span>
+                        {selectedService?.docsUrl && (
+                            <a
+                                className="service-docs-link"
+                                href={selectedService.docsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Docs <ExternalLink size={11} aria-hidden="true"/>
+                            </a>
+                        )}
+                    </p>
+                </div>
                 </div>
                 <div className="cloud-header-selectors">
                     <label>
