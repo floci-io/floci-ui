@@ -117,6 +117,20 @@ describe('AwsServerlessAdapter', () => {
         }
     })
 
+    test('reports the Region from the function ARN on get and create', async () => {
+        const arn = 'arn:aws:lambda:eu-west-1:000000000000:function:hello'
+        const {client} = stubLambda((command) => command instanceof GetFunctionCommand
+            ? {Configuration: {FunctionName: 'hello', FunctionArn: arn}}
+            : {FunctionName: 'hello', FunctionArn: arn, State: 'Pending'})
+        const adapter = new AwsServerlessAdapter(client)
+
+        expect((await adapter.get('hello'))?.region).toBe('eu-west-1')
+        const created = await adapter.create({
+            values: {functionName: 'hello', runtime: 'nodejs20.x', handler: 'index.handler', role: 'arn:role'},
+        })
+        expect(created.region).toBe('eu-west-1')
+    })
+
     test('creates a function with a default inline handler', async () => {
         const {client, sent} = stubLambda(() => ({FunctionName: 'hello', State: 'Pending'}))
         await new AwsServerlessAdapter(client).create({
