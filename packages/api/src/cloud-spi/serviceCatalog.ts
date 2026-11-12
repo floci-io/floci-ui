@@ -251,7 +251,9 @@ export const SERVICE_CATALOG = {
     },
     apigateway: {
         displayName: 'API Gateway',
+        displayNameByCloud: {azure: 'API Management'},
         description: 'Create and manage APIs for application clients.',
+        descriptionByCloud: {azure: 'Browse API Management services, APIs, products and backends.'},
         iconKey: 'apigateway', group: 'Integration', order: 10,
     },
     email: {
