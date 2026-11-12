@@ -1223,6 +1223,27 @@ pre,
     gap: 18px;
 }
 
+.cloud-explorer-subtitle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.service-docs-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--accent, var(--text-1));
+    font-size: 12px;
+    text-decoration: none;
+}
+
+.service-docs-link:hover {
+    text-decoration: underline;
+    opacity: 1;
+}
+
 .cloud-header-selectors {
     display: flex;
     flex-wrap: wrap;

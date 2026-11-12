@@ -39,6 +39,7 @@ export interface ServiceCatalogMetadata {
     displayName: string
     /** Per-cloud display override, e.g. 'EKS' vs 'AKS' vs 'GKE'. */
     displayNameByCloud?: Partial<Record<CloudProvider, string>>
+    docsSlugByCloud?: Partial<Record<CloudProvider, string>>
     description: string
     descriptionByCloud?: Partial<Record<CloudProvider, string>>
     /** Resolved to a component client-side; an unknown key degrades to a default. */
@@ -66,12 +67,14 @@ export const SERVICE_CATALOG = {
     compute: {
         displayName: 'Compute',
         description: 'Virtual machines for running applications and workloads.',
+        docsSlugByCloud: {aws: 'ec2', azure: 'vm', gcp: 'compute'},
         iconKey: 'compute', group: 'Compute', order: 10,
     },
     k8s: {
         displayName: 'k8s Engine',
         displayNameByCloud: {aws: 'EKS', azure: 'AKS', gcp: 'GKE', oci: 'OKE'},
         description: 'Managed Kubernetes clusters for containerized workloads.',
+        docsSlugByCloud: {aws: 'eks', azure: 'aks', gcp: 'gke', oci: 'containerengine'},
         iconKey: 'k8s',
         group: 'Compute',
         order: 20,
@@ -80,6 +83,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Serverless',
         displayNameByCloud: {oci: 'Functions'},
         description: 'Run functions without managing servers.',
+        docsSlugByCloud: {aws: 'lambda', azure: 'functions', gcp: 'cloud-functions', oci: 'functions'},
         iconKey: 'serverless',
         group: 'Compute',
         order: 30,
@@ -88,6 +92,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Containers',
         displayNameByCloud: {aws: 'ECS', azure: 'Container Apps', gcp: 'Cloud Run'},
         description: 'Deploy and run containerized applications.',
+        docsSlugByCloud: {aws: 'ecs', azure: 'container-apps', gcp: 'cloud-run'},
         iconKey: 'containers',
         group: 'Compute',
         order: 40,
@@ -96,6 +101,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Container Registry',
         displayNameByCloud: {aws: 'ECR', azure: 'Container Registry'},
         description: 'Store and manage container images.',
+        docsSlugByCloud: {aws: 'ecr', azure: 'acr'},
         iconKey: 'registry',
         group: 'Compute',
         order: 45,
@@ -103,32 +109,38 @@ export const SERVICE_CATALOG = {
     sagemaker: {
         displayName: 'SageMaker AI',
         description: 'Build and host machine learning models.',
+        docsSlugByCloud: {aws: 'sagemaker'},
         iconKey: 'sagemaker', group: 'Compute', order: 50,
     },
     storage: {
         displayName: 'Storage',
         description: 'Store and manage files and objects.',
+        docsSlugByCloud: {aws: 's3', azure: 'blob', gcp: 'gcs', oci: 'object-storage'},
         iconKey: 'storage', group: 'Storage', order: 10,
     },
     table: {
         displayName: 'Table Storage',
         description: 'Manage Azure Storage tables.',
+        docsSlugByCloud: {azure: 'table'},
         iconKey: 'database', group: 'Storage', order: 20,
     },
     database: {
         displayName: 'Database',
         description: 'Create and manage relational databases.',
+        docsSlugByCloud: {aws: 'rds', azure: 'sql', gcp: 'cloud-sql-postgres', oci: 'psql'},
         iconKey: 'database', group: 'Databases', order: 10,
     },
     dsql: {
         displayName: 'Aurora DSQL',
         description: 'Serverless distributed SQL clusters that sign in with IAM.',
+        docsSlugByCloud: {aws: 'dsql'},
         iconKey: 'database', group: 'Databases', order: 15,
     },
     cache: {
         displayName: 'Cache',
         displayNameByCloud: {aws: 'ElastiCache', azure: 'Azure Cache for Redis'},
         description: 'Run in-memory caches and replication groups.',
+        docsSlugByCloud: {aws: 'elasticache', azure: 'redis'},
         iconKey: 'database', group: 'Databases', order: 18,
     },
     nosql: {
@@ -138,6 +150,7 @@ export const SERVICE_CATALOG = {
         // a cloud with no adapter is inert: availability comes from the registry.
         displayNameByCloud: {aws: 'DynamoDB', azure: 'Cosmos DB NoSQL', gcp: 'Firestore'},
         description: 'Store and query non-relational data.',
+        docsSlugByCloud: {aws: 'dynamodb', azure: 'cosmos', gcp: 'firestore'},
         iconKey: 'nosql',
         group: 'Databases',
         order: 20,
@@ -146,23 +159,27 @@ export const SERVICE_CATALOG = {
         displayName: 'Search',
         displayNameByCloud: {aws: 'OpenSearch'},
         description: 'Run search and log analytics domains.',
+        docsSlugByCloud: {aws: 'opensearch'},
         iconKey: 'database', group: 'Databases', order: 25,
     },
     analytics: {
         displayName: 'Analytics',
         displayNameByCloud: {aws: 'Athena', gcp: 'BigQuery'},
         description: 'Browse analytics datasets and the tables inside them.',
+        docsSlugByCloud: {aws: 'athena', gcp: 'bigquery'},
         iconKey: 'analytics', group: 'Databases', order: 30,
     },
     networking: {
         displayName: 'Networking',
         description: 'Connect and isolate cloud resources in virtual networks.',
+        docsSlugByCloud: {aws: 'ec2', azure: 'network'},
         iconKey: 'networking', group: 'Networking', order: 10,
     },
     workflows: {
         displayName: 'Workflows',
         displayNameByCloud: {aws: 'Step Functions'},
         description: 'Coordinate application steps and long-running processes.',
+        docsSlugByCloud: {aws: 'step-functions'},
         iconKey: 'workflows',
         group: 'Integration',
         order: 30,
@@ -171,6 +188,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Load Balancing',
         displayNameByCloud: {aws: 'ELB'},
         description: 'Distribute incoming traffic across application targets.',
+        docsSlugByCloud: {aws: 'elb'},
         iconKey: 'loadbalancing',
         group: 'Networking',
         order: 20,
@@ -179,6 +197,7 @@ export const SERVICE_CATALOG = {
         displayName: 'CDN',
         displayNameByCloud: {aws: 'CloudFront'},
         description: 'Deliver content from edge locations with distributions.',
+        docsSlugByCloud: {aws: 'cloudfront'},
         iconKey: 'networking',
         group: 'Networking',
         order: 30,
@@ -187,6 +206,7 @@ export const SERVICE_CATALOG = {
         displayName: 'DNS',
         displayNameByCloud: {aws: 'Route 53'},
         description: 'Manage DNS zones and the records they hold.',
+        docsSlugByCloud: {aws: 'route53'},
         iconKey: 'networking',
         group: 'Networking',
         order: 40,
@@ -200,6 +220,7 @@ export const SERVICE_CATALOG = {
             gcp: 'Publish and subscribe to messages across applications.',
             oci: 'Queue messages between applications.',
         },
+        docsSlugByCloud: {aws: 'sqs', azure: 'service-bus', gcp: 'pubsub', oci: 'queue'},
         iconKey: 'messaging',
         group: 'Integration',
         order: 10,
@@ -207,11 +228,13 @@ export const SERVICE_CATALOG = {
     sns: {
         displayName: 'SNS',
         description: 'Manage standard and FIFO notification topics.',
+        docsSlugByCloud: {aws: 'sns'},
         iconKey: 'messaging', group: 'Integration', order: 11,
     },
     queue: {
         displayName: 'Queue Storage',
         description: 'Create and inspect Azure Storage queues.',
+        docsSlugByCloud: {azure: 'queue'},
         iconKey: 'queue',
         group: 'Integration',
         order: 11,
@@ -220,6 +243,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Streams',
         displayNameByCloud: {aws: 'Kinesis', azure: 'Event Hubs', gcp: 'Managed Kafka', oci: 'Streaming'},
         description: 'Collect and process streaming data in real time.',
+        docsSlugByCloud: {aws: 'kinesis', azure: 'event-hub', gcp: 'managed-kafka', oci: 'streaming'},
         iconKey: 'streams',
         group: 'Integration',
         order: 12,
@@ -229,6 +253,7 @@ export const SERVICE_CATALOG = {
         displayNameByCloud: {aws: 'EventBridge', azure: 'Event Grid'},
         description: 'Route events from producers to application targets.',
         descriptionByCloud: {azure: 'Manage Event Grid custom topics and browse their event subscriptions.'},
+        docsSlugByCloud: {aws: 'eventbridge', azure: 'event-grid', gcp: 'eventarc'},
         iconKey: 'events',
         group: 'Integration',
         order: 15,
@@ -236,6 +261,7 @@ export const SERVICE_CATALOG = {
     eventsv2: {
         displayName: 'EventBridge V2',
         description: 'Publish events to buses that deliver them to filtered subscribers.',
+        docsSlugByCloud: {aws: 'eventbridgev2'},
         iconKey: 'events',
         group: 'Integration',
         order: 16,
@@ -243,11 +269,13 @@ export const SERVICE_CATALOG = {
     identity: {
         displayName: 'Identity',
         description: 'Manage identities and access to cloud resources.',
+        docsSlugByCloud: {aws: 'iam', azure: 'entra', gcp: 'iam', oci: 'identity'},
         iconKey: 'iam', group: 'Security', order: 5,
     },
     cognito: {
         displayName: 'Cognito',
         description: 'Manage user pools and application sign-in.',
+        docsSlugByCloud: {aws: 'cognito'},
         iconKey: 'iam', group: 'Security', order: 6,
     },
     apigateway: {
@@ -255,12 +283,14 @@ export const SERVICE_CATALOG = {
         displayNameByCloud: {azure: 'API Management'},
         description: 'Create and manage APIs for application clients.',
         descriptionByCloud: {azure: 'Browse API Management services, APIs, products and backends.'},
+        docsSlugByCloud: {aws: 'api-gateway', azure: 'apim'},
         iconKey: 'apigateway', group: 'Integration', order: 10,
     },
     email: {
         displayName: 'Email',
         displayNameByCloud: {aws: 'SES Mailbox'},
         description: 'Send and inspect application email.',
+        docsSlugByCloud: {aws: 'ses', azure: 'email'},
         iconKey: 'email',
         group: 'Integration',
         order: 20,
@@ -269,6 +299,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Key Management',
         displayNameByCloud: {aws: 'KMS', azure: 'Key Vault Keys', gcp: 'Cloud KMS', oci: 'Vault'},
         description: 'Create and manage encryption keys.',
+        docsSlugByCloud: {aws: 'kms', azure: 'key-vault', gcp: 'kms', oci: 'kms-vault'},
         iconKey: 'kms',
         group: 'Security',
         order: 20,
@@ -277,6 +308,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Certificates',
         displayNameByCloud: {aws: 'ACM', azure: 'Key Vault Certificates'},
         description: 'Issue and manage certificates.',
+        docsSlugByCloud: {aws: 'acm', azure: 'key-vault'},
         iconKey: 'kms',
         group: 'Security',
         order: 25,
@@ -284,6 +316,7 @@ export const SERVICE_CATALOG = {
     parameters: {
         displayName: 'Parameter Store',
         description: 'Store configuration values for applications.',
+        docsSlugByCloud: {aws: 'ssm'},
         iconKey: 'parameters',
         group: 'Security',
         order: 30,
@@ -292,6 +325,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Secrets Manager',
         displayNameByCloud: {azure: 'Key Vault', gcp: 'Secret Manager', oci: 'Vault Secrets'},
         description: 'Store and manage application secrets.',
+        docsSlugByCloud: {aws: 'secrets-manager', azure: 'key-vault', gcp: 'secret-manager', oci: 'kms-vault'},
         iconKey: 'secrets',
         group: 'Security',
         order: 10,
@@ -302,6 +336,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Infrastructure as Code',
         displayNameByCloud: {aws: 'CloudFormation', azure: 'ARM Deployments'},
         description: 'Provision resources from infrastructure templates.',
+        docsSlugByCloud: {aws: 'cloudformation', azure: 'deployments'},
         iconKey: 'iac',
         group: 'Provisioning',
         order: 10,
@@ -310,6 +345,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Configuration',
         displayNameByCloud: {aws: 'AppConfig', azure: 'App Configuration'},
         description: 'Manage and deploy application configuration.',
+        docsSlugByCloud: {aws: 'appconfig', azure: 'app-config'},
         iconKey: 'configuration',
         group: 'Provisioning',
         order: 20,
@@ -318,6 +354,7 @@ export const SERVICE_CATALOG = {
         displayName: 'CI/CD',
         displayNameByCloud: {aws: 'CodeBuild'},
         description: 'Run builds for application projects.',
+        docsSlugByCloud: {aws: 'codebuild'},
         iconKey: 'workflows',
         group: 'Provisioning',
         order: 30,
@@ -326,6 +363,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Scheduler',
         displayNameByCloud: {aws: 'EventBridge Scheduler', gcp: 'Cloud Scheduler'},
         description: 'Run jobs on a schedule.',
+        docsSlugByCloud: {aws: 'scheduler', gcp: 'scheduler'},
         iconKey: 'scheduler',
         group: 'Integration',
         order: 20,
@@ -334,6 +372,7 @@ export const SERVICE_CATALOG = {
         displayName: 'Logs',
         displayNameByCloud: {aws: 'CloudWatch Logs', gcp: 'Cloud Logging'},
         description: 'Collect and inspect application logs.',
+        docsSlugByCloud: {aws: 'cloudwatch', azure: 'monitor', gcp: 'logging'},
         iconKey: 'logs',
         group: 'Observability',
         order: 10,
@@ -341,6 +380,7 @@ export const SERVICE_CATALOG = {
     cloudwatch: {
         displayName: 'CloudWatch',
         description: 'Watch metrics and manage alarms.',
+        docsSlugByCloud: {aws: 'cloudwatch', azure: 'monitor', gcp: 'cloud-monitoring'},
         iconKey: 'monitoring',
         group: 'Observability',
         order: 20,
@@ -397,4 +437,16 @@ export function routeFor(entry: ServiceCatalogEntry, cloud?: CloudProvider): str
 export function compareCatalogEntries(a: ServiceCatalogEntry, b: ServiceCatalogEntry): number {
     const groupDelta = SERVICE_GROUP_ORDER.indexOf(a.group) - SERVICE_GROUP_ORDER.indexOf(b.group)
     return groupDelta !== 0 ? groupDelta : a.order - b.order
+}
+
+const DOCS_BASE_URL_BY_CLOUD: Record<CloudProvider, string> = {
+    aws: 'https://floci.io/floci/services',
+    azure: 'https://floci.io/floci-az/services',
+    gcp: 'https://floci.io/floci-gcp/services',
+    oci: 'https://floci.io/floci-oci/services',
+}
+
+export function docsUrlFor(entry: ServiceCatalogEntry, cloud: CloudProvider): string | undefined {
+    const slug = entry.docsSlugByCloud?.[cloud]
+    return slug ? `${DOCS_BASE_URL_BY_CLOUD[cloud]}/${slug}/` : undefined
 }
