@@ -113,7 +113,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Storage | Table Storage | – | ✅ | – | – |
 | Databases | Database | ✅ | ✅ | ✅ | ✅ |
 | Databases | Aurora DSQL | ✅ | – | – | – |
-| Databases | Cache | ✅ | – | – | – |
+| Databases | Cache | ✅ | ✅ | – | – |
 | Databases | NoSQL | ✅ | ✅ | ✅ | – |
 | Databases | Search | ✅ | – | – | – |
 | Databases | Analytics | ✅ | – | ✅ | – |
@@ -126,7 +126,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Integration | SNS | ✅ | – | – | – |
 | Integration | Queue Storage | – | ✅ | – | – |
 | Integration | Streams | ✅ | ✅ | ✅ | ✅ |
-| Integration | Events | ✅ | ✅ | – | – |
+| Integration | Events | ✅ | ✅ | ✅ | – |
 | Integration | EventBridge V2 | ✅ | – | – | – |
 | Integration | Email | 👁 | – | – | – |
 | Integration | Scheduler | ✅ | – | ✅ | – |
