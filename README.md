@@ -122,7 +122,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Networking | CDN | ✅ | – | – | – |
 | Networking | DNS | ✅ | – | – | – |
 | Integration | Messaging | ✅ | ✅ | ✅ | ✅ |
-| Integration | API Gateway | ✅ | – | – | – |
+| Integration | API Gateway | ✅ | 👁 | – | – |
 | Integration | SNS | ✅ | – | – | – |
 | Integration | Queue Storage | – | ✅ | – | – |
 | Integration | Streams | ✅ | ✅ | ✅ | ✅ |
