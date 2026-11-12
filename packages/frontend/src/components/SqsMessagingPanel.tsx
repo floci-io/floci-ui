@@ -1,5 +1,8 @@
 import {useEffect, useRef, useState} from "react";
-import {Inbox, Loader2, Send, Trash2} from "lucide-react";
+import {Icon, Inbox, Loader2, Send, Trash2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {
   deleteQueueMessage,
   purgeQueue,
@@ -10,6 +13,8 @@ import {
 import {useAccountId} from "@/lib/accountStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/sodium/ui/collapsible'
+import {EmptyState} from '@/components/EmptyState'
 
 interface SqsMessagingPanelProps {
   cloud: CloudProvider;
@@ -151,10 +156,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
   if (!resource || resource.service !== "messaging") {
     return (
       <section className="table-panel">
-        <div className="empty compact">
-          <h2>Select a queue</h2>
-          <p>{isOci ? "Select an OCI queue to send, receive, or delete its messages." : "Select an SQS queue to send, receive, or purge its messages."}</p>
-        </div>
+        <EmptyState compact title="Select a queue" description={<>{isOci ? "Select an OCI queue to send, receive, or delete its messages." : "Select an SQS queue to send, receive, or purge its messages."}</>}/>
       </section>
     );
   }
@@ -164,7 +166,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">Queue Actions</p>
-          <h2><Send size={15} /> Messages</h2>
+          <h2><Icon icon={Send}  /> Messages</h2>
           <p className="muted compact-text">
             {isOci ? "Send, receive, and delete OCI Queue messages here." : "Send, peek, and delete messages on this queue without leaving the console."}
           </p>
@@ -177,62 +179,57 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
 
       <div className="resource-create-inline">
         <div className="drawer-tabs">
-          <button type="button" className={`drawer-tab ${tab === "send" ? "active" : ""}`} onClick={() => changeTab("send")}>
-            <Send size={13} /> Send
-          </button>
-          <button type="button" className={`drawer-tab ${tab === "receive" ? "active" : ""}`} onClick={() => changeTab("receive")}>
-            <Inbox size={13} /> Receive
-          </button>
+          <Button variant={tab === "send" ? 'secondary' : 'ghost'} type="button" onClick={() => changeTab("send")}>
+            <Icon icon={Send} size={14} /> Send
+          </Button>
+          <Button variant={tab === "receive" ? 'secondary' : 'ghost'} type="button" onClick={() => changeTab("receive")}>
+            <Icon icon={Inbox} size={14} /> Receive
+          </Button>
           {!isOci && (
-            <button type="button" className={`drawer-tab ${tab === "purge" ? "active" : ""}`} onClick={() => changeTab("purge")}>
-              <Trash2 size={13} /> Purge
-            </button>
+            <Button variant={tab === "purge" ? 'secondary' : 'ghost'} type="button" onClick={() => changeTab("purge")}>
+              <Icon icon={Trash2} size={14} /> Purge
+            </Button>
           )}
         </div>
 
         {tab === "send" && (
           <>
-            <div style={{ marginBottom: "16px" }}>
-              <label className="metric-label" htmlFor="sqs-message-body" style={{ display: "block", marginBottom: "6px" }}>Message body</label>
-              <textarea
+            <div className="mb-4">
+              <label className="metric-label block mb-1.5" htmlFor="sqs-message-body">Message body</label>
+              <Textarea
                 id="sqs-message-body"
-                className="json-editor"
+                className="json-editor w-full block"
                 value={body}
                 disabled={sending}
                 onChange={(event) => setBody(event.target.value)}
                 spellCheck={false}
                 placeholder="Message body"
-                style={{minHeight: 120, width: "100%", display: "block"}}
               />
             </div>
 
-            {!isOci && <div style={{ marginBottom: "16px" }}>
-              <label className="metric-label" style={{ display: "block", marginBottom: "6px" }}>Custom attributes</label>
-              <div style={{display: "flex", gap: "8px", marginBottom: "8px"}}>
-                <input aria-label="Attribute key"
+            {!isOci && <div className="mb-4">
+              <label className="metric-label block mb-1.5">Custom attributes</label>
+              <div className="flex gap-2 mb-2">
+                <Input aria-label="Attribute key"
                   type="text"
-                  className="button"
+                  className="button flex-1 cursor-text"
                   placeholder="Key"
                   value={attrKey}
                   onChange={(e) => setAttrKey(e.target.value)}
                   disabled={sending}
                   maxLength={256}
-                  style={{flex: 1, cursor: "text", padding: "4px 8px", minHeight: 32}}
                 />
-              <input aria-label="Attribute value"
+              <Input aria-label="Attribute value"
                 type="text"
-                className="button"
+                className="button flex-1 cursor-text"
                 placeholder="Value"
                 value={attrValue}
                 onChange={(e) => setAttrValue(e.target.value)}
                 disabled={sending}
-                style={{flex: 1, cursor: "text", padding: "4px 8px", minHeight: 32}}
               />
-              <button
-                className="button"
+              <Button title={Object.keys(customAttributes).length >= 10 ? "Maximum 10 attributes allowed" : ""} variant="secondary"
                 type="button"
                 disabled={!attrKey.trim() || !attrValue.trim() || Object.keys(customAttributes).length >= 10 || sending}
-                title={Object.keys(customAttributes).length >= 10 ? "Maximum 10 attributes allowed" : ""}
                 onClick={() => {
                   setCustomAttributes(prev => Object.fromEntries(
                     Object.entries(prev).concat([[attrKey.trim(), attrValue]])
@@ -242,42 +239,40 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
                 }}
               >
                 Add attribute
-              </button>
+              </Button>
             </div>
             {Object.keys(customAttributes).length > 0 && (
-              <ul className="muted compact-text" style={{listStyle: "none", padding: 0, marginBottom: "16px"}}>
+              <ul className="muted compact-text p-0 mb-4 list-none">
                 {Object.entries(customAttributes).map(([k, v]) => (
-                  <li key={k} style={{display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-muted)", padding: "4px 8px", borderRadius: "4px", marginBottom: "4px"}}>
-                    <span style={{wordBreak: "break-all"}}><strong>{k}</strong>: {v}</span>
-                    <button
-                      className="button"
+                  <li className="flex justify-between items-center py-1 px-2 mb-1 bg-well" key={k}>
+                    <span className="break-all"><strong>{k}</strong>: {v}</span>
+                    <Button variant="secondary"
+                      className="min-w-0"
                       type="button"
                       disabled={sending}
                       aria-label="Remove attribute"
-                      style={{padding: "2px 4px", minWidth: "unset"}}
                       onClick={() => {
                         setCustomAttributes(prev => Object.fromEntries(
                           Object.entries(prev).filter(([key]) => key !== k)
                         ));
                       }}
                     >
-                      <Trash2 size={11} />
-                    </button>
+                      <Icon icon={Trash2} size={14} />
+                    </Button>
                   </li>
                 ))}
               </ul>
             )}
             </div>}
 
-            <button
-              className="button primary"
+            <Button
               type="button"
               disabled={!canUseQueue || !body || sending}
               onClick={() => void submitSend()}
             >
-              {sending ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
+              {sending ? <Icon icon={Loader2} size={14} className="spin" /> : <Icon icon={Send} size={14} />}
               {sending ? "Sending" : "Send"}
-            </button>
+            </Button>
             {sendError && <p className="error-text compact-text">{sendError}</p>}
             {sendResult && (
               <p className="muted compact-text">
@@ -295,16 +290,15 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
                 : "A receive is a non-consuming peek: messages stay in the queue until you delete them here."}
             </p>
             <label className="metric-label" htmlFor="sqs-max-messages">Max messages (up to 10)</label>
-            <input
+            <Input
               id="sqs-max-messages"
               type="number"
-              className="button"
-              value={maxMessages}
+              className="button w-16 text-center mb-3 block"
+              value={String(maxMessages)}
               min={1}
               max={10}
               disabled={!canUseQueue || receiving}
               aria-label="Max messages to receive"
-              style={{width: 64, padding: "2px 6px", textAlign: "center", marginBottom: 12, display: "block"}}
               onChange={(event) => {
                 if (event.target.value === "") {
                   setMaxMessages("");
@@ -319,15 +313,14 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
                 setMaxMessages(clamped);
               }}
             />
-            <button
-              className="button primary"
+            <Button
               type="button"
               disabled={!canUseQueue || receiving}
               onClick={() => void loadMessages()}
             >
-              {receiving ? <Loader2 size={13} className="spin" /> : <Inbox size={13} />}
+              {receiving ? <Icon icon={Loader2} size={14} className="spin" /> : <Icon icon={Inbox} size={14} />}
               {receiving ? "Receiving" : "Receive messages"}
-            </button>
+            </Button>
             {receiveError && <p className="error-text compact-text">{receiveError}</p>}
             {!receiving && messages.length === 0 && !hasPolled && (
               <p className="muted compact-text">No messages received yet. Click &ldquo;Receive messages&rdquo; to poll the queue.</p>
@@ -346,55 +339,54 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
                   <p className="metric-label">
                     <code>{message.messageId}</code>
                   </p>
-                  <button
-                    className="button"
+                  <Button variant="secondary"
                     type="button"
                     disabled={deletingHandle === message.receiptHandle}
                     onClick={() => void removeMessage(message.receiptHandle)}
                   >
                     {deletingHandle === message.receiptHandle ? (
-                      <Loader2 size={13} className="spin" />
+                      <Icon icon={Loader2} size={14} className="spin" />
                     ) : (
-                      <Trash2 size={13} />
+                      <Icon icon={Trash2} size={14} />
                     )}
                     Delete
-                  </button>
+                  </Button>
                 </div>
                 <pre className="invoke-result success">{message.body}</pre>
                 {message.messageAttributes && Object.keys(message.messageAttributes).length > 0 && (
-                  <details style={{marginTop: 4}}>
-                    <summary className="metric-label" style={{cursor: "pointer", userSelect: "none"}}>
-                      Custom Attributes ({Object.keys(message.messageAttributes).length})
-                    </summary>
-                    <table style={{width: "100%", borderCollapse: "collapse", marginTop: 4, fontSize: "0.8em"}}>
+                  <Collapsible>
+                    <CollapsibleTrigger>Custom Attributes ({Object.keys(message.messageAttributes).length})</CollapsibleTrigger>
+                    <CollapsibleContent>
+                    <table className="w-full border-collapse mt-1 type-caption">
                       <tbody>
                         {Object.entries(message.messageAttributes).map(([key, attribute]) => (
                           <tr key={key}>
-                            <td className="metric-label" style={{paddingRight: 12, verticalAlign: "top", whiteSpace: "nowrap"}}>{key}</td>
-                            <td className="metric-label" style={{paddingRight: 12, verticalAlign: "top", whiteSpace: "nowrap"}}>{attribute.dataType}</td>
-                            <td><code style={{wordBreak: "break-all"}}>{attribute.value}</code></td>
+                            <td className="metric-label pr-3 align-top whitespace-nowrap">{key}</td>
+                            <td className="metric-label pr-3 align-top whitespace-nowrap">{attribute.dataType}</td>
+                            <td><code className="break-all">{attribute.value}</code></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                  </details>
+                  </CollapsibleContent>
+                  </Collapsible>
                 )}
                 {message.attributes && Object.keys(message.attributes).length > 0 && (
-                  <details style={{marginTop: 4}}>
-                    <summary className="metric-label" style={{cursor: "pointer", userSelect: "none"}}>
-                      System Attributes ({Object.keys(message.attributes).length})
-                    </summary>
-                    <table style={{width: "100%", borderCollapse: "collapse", marginTop: 4, fontSize: "0.8em"}}>
+                  <Collapsible>
+                    <CollapsibleTrigger>System Attributes ({Object.keys(message.attributes).length})</CollapsibleTrigger>
+                    <CollapsibleContent>
+                    <table className="w-full border-collapse mt-1 type-caption">
                       <tbody>
                         {Object.entries(message.attributes).map(([key, value]) => (
                           <tr key={key}>
-                            <td className="metric-label" style={{paddingRight: 12, verticalAlign: "top", whiteSpace: "nowrap"}}>{key}</td>
-                            <td><code style={{wordBreak: "break-all"}}>{value}</code></td>
+                            <td className="metric-label pr-3 align-top whitespace-nowrap">{key}</td>
+                            <td><code className="break-all">{value}</code></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                  </details>
+                  </CollapsibleContent>
+                  </Collapsible>
                 )}
               </div>
             ))}
@@ -407,31 +399,29 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
               Purging deletes every message currently in this queue. This cannot be undone.
             </p>
             {!purgeConfirming ? (
-              <button
-                className="button"
+              <Button variant="secondary"
                 type="button"
                 disabled={!canUseQueue}
                 onClick={() => setPurgeConfirming(true)}
               >
-                <Trash2 size={13} /> Purge queue
-              </button>
+                <Icon icon={Trash2} size={14} /> Purge queue
+              </Button>
             ) : (
               <div className="resource-create-inline">
                 <p className="error-text compact-text">
                   Delete all messages in {resource.name}? This cannot be undone.
                 </p>
-                <button
-                  className="button primary"
+                <Button
                   type="button"
                   disabled={purging}
                   onClick={() => void submitPurge()}
                 >
-                  {purging ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
+                  {purging ? <Icon icon={Loader2} size={14} className="spin" /> : <Icon icon={Trash2} size={14} />}
                   {purging ? "Purging" : "Confirm purge"}
-                </button>
-                <button className="button" type="button" disabled={purging} onClick={() => setPurgeConfirming(false)}>
+                </Button>
+                <Button variant="secondary" type="button" disabled={purging} onClick={() => setPurgeConfirming(false)}>
                   Cancel
-                </button>
+                </Button>
               </div>
             )}
             {purgeError && <p className="error-text compact-text">{purgeError}</p>}

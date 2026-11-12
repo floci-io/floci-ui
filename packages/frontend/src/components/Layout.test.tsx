@@ -49,7 +49,7 @@ describe('TopbarSearch during navigation', () => {
         expect(window.location.pathname).toBe('/settings')
         expect(screen.queryByText('Settings page')).not.toBeInTheDocument()
 
-        const input = screen.getByRole('textbox', {name: /search services/i})
+        const input = screen.getByRole('searchbox', {name: /search services/i})
         fireEvent.change(input, {target: {value: 'storage'}})
         await waitFor(() => expect(window.location.pathname + window.location.search).toBe('/settings?search=storage'))
         expect(input).toHaveValue('storage')
@@ -65,7 +65,7 @@ describe('TopbarSearch during navigation', () => {
         window.history.replaceState(null, '', '/cloud-explorer/aws/storage')
         const releaseImport = renderWithDelayedSettings()
         fireEvent.click(screen.getByRole('button', {name: 'Settings'}))
-        const input = screen.getByRole('textbox', {name: /search services/i})
+        const input = screen.getByRole('searchbox', {name: /search services/i})
         fireEvent.change(input, {target: {value: 'stale'}})
         await waitFor(() => expect(window.location.pathname + window.location.search).toBe('/settings?search=stale'))
         expect(input).toHaveValue('stale')
@@ -83,7 +83,7 @@ describe('TopbarSearch during navigation', () => {
     test('commits an ordinary search and clears it on Escape', async () => {
         window.history.replaceState(null, '', '/settings')
         render(<BrowserRouter><TopbarSearch/></BrowserRouter>)
-        const input = screen.getByRole('textbox', {name: /search services/i})
+        const input = screen.getByRole('searchbox', {name: /search services/i})
 
         fireEvent.change(input, {target: {value: 'queue'}})
         await waitFor(() => expect(window.location.search).toBe('?search=queue'))
@@ -106,7 +106,7 @@ describe('TopbarSearch during navigation', () => {
             )
         }
         render(<BrowserRouter><SearchShell/></BrowserRouter>)
-        const input = screen.getByRole('textbox', {name: /search services/i})
+        const input = screen.getByRole('searchbox', {name: /search services/i})
         fireEvent.change(input, {target: {value: 'stale'}})
         fireEvent.click(screen.getByRole('button', {name: 'Go elsewhere'}))
 

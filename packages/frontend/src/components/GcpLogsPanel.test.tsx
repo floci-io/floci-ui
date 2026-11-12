@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {queryFlatItems} from '@/api/cloudProxyClient'
 import {GcpLogsPanel} from './GcpLogsPanel'
+import {chooseOption} from '@/test/selectOption'
 
 vi.mock('@/api/cloudProxyClient', () => ({queryFlatItems: vi.fn()}))
 
@@ -32,7 +33,7 @@ describe('GcpLogsPanel', () => {
         renderPanel()
         await screen.findByText('No log entries match these filters.')
 
-        await user.selectOptions(screen.getByLabelText('Minimum severity'), 'WARNING')
+        await chooseOption(user, screen.getByLabelText('Minimum severity'), 'WARNING')
         fireEvent.change(screen.getByLabelText('Start time'), {target: {value: '2026-10-17T08:00'}})
         await user.click(screen.getByRole('button', {name: 'Apply filters'}))
 

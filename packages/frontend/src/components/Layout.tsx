@@ -1,5 +1,4 @@
-import {NavLink, Outlet, useLocation, useSearchParams} from 'react-router-dom'
-import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Search, Settings} from 'lucide-react'
+import {NavLink, Outlet, useLocation, useMatch, useSearchParams} from 'react-router-dom'
 import {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react'
 import flociWhite from '@/assets/floci-white.svg'
 import flociBlack from '@/assets/floci-black.svg'
@@ -12,36 +11,56 @@ import {useQuery} from '@tanstack/react-query'
 import {getCloudStatus} from '@/api/cloudProxyClient'
 import {useCloudServicesQuery} from '@/api/queries/cloudQueries'
 import {ThemeToggle} from '@/components/ThemeToggle'
+import {Button} from '@/components/sodium/ui/button'
+import {Status} from '@/components/sodium/ui/status'
+import {Input} from '@/components/sodium/ui/input'
+import {AppBreadcrumbs} from '@/components/AppBreadcrumbs'
+import {ScrollArea} from '@/components/ScrollArea'
+import {Skeleton} from '@/components/sodium/ui/skeleton'
+import {Tag} from '@/components/sodium/ui/tag'
+import {ChevronLeft, ChevronRight, Icon, Meter, Settings, WarningAlt, type SodiumIcon} from '@/components/sodium/icon'
+import {cn} from '@/lib/sodium/utils'
 import {serviceIcon} from '@/components/serviceIcons'
 import type {CloudProvider, CloudServiceDescriptor, RuntimeReachability} from '@/types/cloud'
+import {Hint} from '@/components/Hint'
 
 /** The runtime's reachability, plus the state before the status query answers. */
 type ConnectionStatus = RuntimeReachability | 'unknown'
 
 /**
- * Only a definitive answer gets a colour.
+ * Only a definitive answer gets an outcome colour.
  *
- * `unknown` (status query still in flight — which is first paint and every
- * cloud switch) and `coming_soon` (runtime not wired) keep the neutral base
- * grey. Colouring anything that is not `reachable` red made the dot flash
- * green → red → green on each switch, and start red on load.
+ * `unknown` (status query still in flight, which is first paint and every cloud switch)
+ * and `coming_soon` (runtime not wired) stay `idle`. Mapping anything that is not
+ * `reachable` to a failure made the mark flash ok, fail, ok on each switch.
  */
-function connectionDotClass(status: ConnectionStatus): string {
-    if (status === 'reachable') return 'dot healthy'
-    if (status === 'unavailable') return 'dot unavailable'
-    return 'dot'
+function connectionStatus(status: ConnectionStatus): 'ok' | 'fail' | 'idle' {
+    if (status === 'reachable') return 'ok'
+    if (status === 'unavailable') return 'fail'
+    return 'idle'
 }
+
+const NAV_ROW = 'flex h-8 items-center gap-2 px-3 type-label-sm text-text-2 hover:bg-hover hover:text-text-1'
+const NAV_GROUP_LABEL = 'sidebar-label block px-3 pb-1 pt-3 type-micro text-text-3'
+const NAV_SECTION_LABEL = 'sidebar-label block px-3 pb-1 pt-4 type-micro text-text-3'
 
 /** Matches today's service count, so the real nav causes no layout jump. */
 const SKELETON_ROWS = 7
 
-function NavItem({to, icon, label, collapsed, state}: { to: string; icon: React.ElementType; label: string; collapsed: boolean; state?: {cloud: CloudProvider; fromCloudExplorer: boolean} }) {
-    const Icon = icon
+function NavItem({to, icon, label, collapsed, state}: { to: string; icon: SodiumIcon; label: string; collapsed: boolean; state?: {cloud: CloudProvider; fromCloudExplorer: boolean} }) {
+    // Decided here, not by NavLink's className function: the tooltip's render prop merges plain class strings only.
+    const active = useMatch({path: to.split('?')[0], end: false}) !== null
     return (
-        <NavLink className="nav-link" to={to} state={state} title={collapsed ? label : undefined}>
-            <Icon size={14} aria-hidden="true"/>
-            <span>{label}</span>
-        </NavLink>
+        <Hint label={label} side="right" disabled={!collapsed}>
+            <NavLink
+                className={cn(NAV_ROW, active && 'selected text-text-1')}
+                to={to}
+                state={state}
+            >
+                <Icon icon={icon}/>
+                <span className="sidebar-fade truncate">{label}</span>
+            </NavLink>
+        </Hint>
     )
 }
 
@@ -63,15 +82,15 @@ function CloudServiceNav({collapsed, cloud}: {collapsed: boolean; cloud: CloudPr
 
     if (isError) {
         return (
-            <div className="nav-section cloud-service-nav">
-                <span className="nav-label">Cloud Services · {cloudLabel}</span>
-                <div className="nav-link disabled nav-error">
-                    <AlertTriangle size={14} aria-hidden="true"/>
+            <div className="cloud-service-nav">
+                <span className={NAV_SECTION_LABEL}>Cloud services · {cloudLabel}</span>
+                <div className={cn(NAV_ROW, 'text-fail-text')} aria-disabled="true">
+                    <Icon icon={WarningAlt}/>
                     <span>Services unavailable</span>
                 </div>
-                <button className="nav-retry" type="button" disabled={isFetching} onClick={() => void refetch()}>
+                <Button variant="secondary" size="sm" className="mx-3 mt-2" disabled={isFetching} onClick={() => void refetch()}>
                     {isFetching ? 'Retrying…' : 'Retry'}
-                </button>
+                </Button>
             </div>
         )
     }
@@ -89,16 +108,16 @@ function CloudServiceNav({collapsed, cloud}: {collapsed: boolean; cloud: CloudPr
     const groups = groupByGroup(filteredServices)
 
     return (
-        <div className="nav-section cloud-service-nav">
-            <span className="nav-label">Cloud Services · {cloudLabel}</span>
+        <div className="cloud-service-nav">
+            <span className={NAV_SECTION_LABEL}>Cloud services · {cloudLabel}</span>
             {filteredServices.length === 0 && search ? (
-                <div className="nav-link disabled">
+                <div className={cn(NAV_ROW, 'text-text-3')} aria-disabled="true">
                     <span>No matching services</span>
                 </div>
             ) : (
                 groups.map(([group, services]) => (
-                    <div className="nav-group" key={group}>
-                        <span className="nav-group-label">{group}</span>
+                    <div key={group} className="sidebar-group">
+                        <span className={NAV_GROUP_LABEL}>{group}</span>
                         {services.map((service) => (
                             <CloudServiceNavItem key={service.service} cloud={cloud} service={service} collapsed={collapsed}/>
                         ))}
@@ -110,37 +129,39 @@ function CloudServiceNav({collapsed, cloud}: {collapsed: boolean; cloud: CloudPr
 }
 
 function CloudServiceNavItem({cloud, service, collapsed}: {cloud: CloudProvider; service: CloudServiceDescriptor; collapsed: boolean}) {
-    const Icon = serviceIcon(service.iconKey)
-    const reasonTitle = service.reason ? `${service.displayName} — ${service.reason}` : service.displayName
+    const glyph = serviceIcon(service.iconKey)
+    const reasonTitle = service.reason ? `${service.displayName}, ${service.reason}` : service.displayName
 
     if (service.availability === 'available') {
         const target = service.route.startsWith('/')
             ? service.route
             : `/cloud-explorer/${cloud}/${service.route}`
-        return <NavItem to={target} icon={Icon} label={service.displayName} collapsed={collapsed}/>
+        return <NavItem to={target} icon={glyph} label={service.displayName} collapsed={collapsed}/>
     }
 
-    // Title duplicates the visible label when the sidebar is expanded, which WAVE
-    // flags as redundant. Keep it on the rail, where the label is hidden.
+    // The label is already visible when the sidebar is open, so the tooltip only speaks on the rail or to say why.
     return (
-        <div
-            className="nav-link disabled"
-            title={collapsed || service.reason ? reasonTitle : undefined}
-        >
-            <Icon size={14} aria-hidden="true"/>
-            <span>{service.displayName}</span>
-            <span className="nav-soon">Soon</span>
-        </div>
+        <Hint label={reasonTitle} side="right" disabled={!collapsed && !service.reason}>
+            <div
+                className={cn(NAV_ROW, 'cursor-not-allowed text-text-disabled hover:bg-transparent hover:text-text-disabled')}
+                aria-disabled="true"
+                tabIndex={0}
+            >
+                <Icon icon={glyph}/>
+                <span className="sidebar-fade truncate">{service.displayName}</span>
+                <Tag size="sm" variant="outline" className="sidebar-fade ms-auto">Soon</Tag>
+            </div>
+        </Hint>
     )
 }
 
 function CloudServiceNavSkeleton({cloudLabel}: {cloudLabel: string}) {
     return (
-        <div className="nav-section cloud-service-nav">
-            <span className="nav-label">Cloud Services · {cloudLabel}</span>
+        <div className="cloud-service-nav">
+            <span className={NAV_SECTION_LABEL}>Cloud services · {cloudLabel}</span>
             {Array.from({length: SKELETON_ROWS}, (_, index) => (
-                <div className="nav-link nav-skeleton" key={index} aria-hidden="true">
-                    <span className="skeleton-bar"/>
+                <div className="flex h-8 items-center px-3" key={index} aria-hidden="true">
+                    <Skeleton className="h-3 w-full"/>
                 </div>
             ))}
         </div>
@@ -174,65 +195,63 @@ export function Layout() {
     const connectionLabel = isConnected ? 'Connected' : 'Not connected'
     const connectionTarget = data?.endpoint ?? activeCloud
     return (
-        <div className="app">
-            <a className="skip-link" href="#main-content">Skip to content</a>
-            <aside className="sidebar">
-                <div className="sidebar-inner">
-                    <div className="brand">
-                        <img className="brand-logo" src={isDark ? flociWhite : flociBlack} alt="Floci"/>
-                        <img className="brand-mark" src={isDark ? flociMarkWhite : flociMarkBlack} alt="" aria-hidden="true"/>
-                        <p>Any Cloud. Locally.</p>
-                    </div>
+        <div className="flex h-full min-h-0">
+            <a className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-panel focus:px-3 focus:py-2 type-label-sm" href="#main-content">Skip to content</a>
+            <aside className="sidebar-shell flex h-full shrink-0 flex-col overflow-hidden border-e border-line bg-panel" data-collapsed={collapsed ? '' : undefined}>
+                <div className="relative flex h-14 shrink-0 items-center border-b border-line px-3">
+                    <img className="sidebar-logo-full h-5" src={isDark ? flociWhite : flociBlack} alt="Floci"/>
+                    <img className="sidebar-logo-mark h-5" src={isDark ? flociMarkWhite : flociMarkBlack} alt="" aria-hidden="true"/>
+                </div>
 
-                    <nav className="nav" aria-label="Console">
-                        <div className="nav-section">
-                            <span className="nav-label">General</span>
-                            <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home" collapsed={collapsed}/>
-                            <NavItem
-                                to="/settings"
-                                icon={Settings}
-                                label="Settings"
-                                collapsed={collapsed}
-                                state={{cloud: activeCloud, fromCloudExplorer: location.pathname.startsWith('/cloud-explorer/') || location.state?.fromCloudExplorer === true}}
-                            />
-                        </div>
-                        <CloudServiceNav collapsed={collapsed} cloud={activeCloud}/>
-                    </nav>
-
-                    <div className="sidebar-footer">
-                        <span className="sidebar-footer-text">Floci DevTools · Local</span>
-                        <button
-                            ref={toggleRef}
-                            className="icon-btn"
-                            type="button"
-                            onClick={toggleSidebar}
-                            aria-expanded={!collapsed}
-                            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                        >
-                            {collapsed ? <ChevronsRight size={14}/> : <ChevronsLeft size={14}/>}
-                        </button>
+                <ScrollArea as="nav" aria-label="Console" wrapperClassName="flex-1" className="pb-2">
+                    <div className="sidebar-group">
+                        <span className={NAV_SECTION_LABEL}>General</span>
+                        <NavItem to={`/console/${activeCloud}`} icon={Meter} label="Console Home" collapsed={collapsed}/>
+                        <NavItem
+                            to="/settings"
+                            icon={Settings}
+                            label="Settings"
+                            collapsed={collapsed}
+                            state={{cloud: activeCloud, fromCloudExplorer: location.pathname.startsWith('/cloud-explorer/') || location.state?.fromCloudExplorer === true}}
+                        />
                     </div>
+                    <CloudServiceNav collapsed={collapsed} cloud={activeCloud}/>
+                </ScrollArea>
+
+                <div className="sidebar-footer flex h-10 shrink-0 items-center justify-between border-t border-line ps-3 pe-1">
+                    <span className="sidebar-footer-text type-micro text-text-3">Floci DevTools · Local</span>
+                    <Hint label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}><Button
+                        ref={toggleRef}
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleSidebar}
+                        aria-expanded={!collapsed}
+                        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    >
+                        {collapsed ? <Icon icon={ChevronRight}/> : <Icon icon={ChevronLeft}/>}
+                    </Button></Hint>
                 </div>
             </aside>
 
-            <div className="shell">
-                <header className="topbar">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-page px-4">
                     <TopbarSearch/>
                     <ThemeToggle/>
-                    <div id="topbar-status" className="topbar-status"/>
                     <div
-                        className={`connection ${isConnected ? 'connected' : 'disconnected'}`}
-                        title={`${connectionLabel} — ${connectionTarget}`}
+                        className="ms-auto flex items-center gap-3"
+                        title={`${connectionLabel}, ${connectionTarget}`}
                     >
-                        <span className={connectionDotClass(status)} aria-hidden="true"/>
-                        <span className="connection-state">{connectionLabel}</span>
-                        <span className="connection-target">{connectionTarget}</span>
+                        <div id="topbar-status" className="flex items-center gap-2 empty:hidden"/>
+                        <span className="shrink-0 whitespace-nowrap"><Status status={connectionStatus(status)}>{connectionLabel}</Status></span>
+                        <span className="type-code hidden truncate text-text-2 xl:inline">{connectionTarget}</span>
                     </div>
                 </header>
-                <main id="main-content" className="main" tabIndex={-1}>
-                    <Outlet/>
-                </main>
+                <AppBreadcrumbs/>
+                <ScrollArea as="main" id="main-content" tabIndex={-1} wrapperClassName="flex-1">
+                    <div key={location.pathname} className="page-enter min-h-full">
+                        <Outlet/>
+                    </div>
+                </ScrollArea>
             </div>
         </div>
     )
@@ -305,10 +324,9 @@ export function TopbarSearch() {
         else debounceRef.current = setTimeout(flush, delay)
     }
 
-    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
+    const handleChange = (value: string) => {
         setDraft(value)
-        scheduleCommit(value, 300)
+        scheduleCommit(value, value === '' ? 0 : 300)
     }
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -357,32 +375,18 @@ export function TopbarSearch() {
         window.addEventListener('popstate', onPopState)
         return () => window.removeEventListener('popstate', onPopState)
     }, [])
-    /** Focus on `/` when no other input/textarea/select is active. */
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== '/') return
-            const tag = (event.target as HTMLElement).tagName
-            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
-            event.preventDefault()
-            inputRef.current?.focus()
-        }
-        window.addEventListener('keydown', onKeyDown)
-        return () => window.removeEventListener('keydown', onKeyDown)
-    }, [])
-
 
     return (
-        <div className="search">
-            <Search size={14} aria-hidden="true"/>
-            <input
-                ref={inputRef}
-                value={draft}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="Search services, features, docs, and more"
-                aria-label="Search services, features, docs, and more"
-            />
-            <span className="kbd" aria-hidden="true">/</span>
-        </div>
+        <Input
+            ref={inputRef}
+            mode="search"
+            shortcut="/"
+            className="w-full max-w-md"
+            value={draft}
+            onValueChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Search services, features, docs, and more"
+            aria-label="Search services, features, docs, and more"
+        />
     )
 }

@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import {Icon, PlusSquared as Plus, Trash2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import {
   useCreateRouteMutation,
   useDeleteRouteMutation,
@@ -8,6 +11,7 @@ import {
 } from '@/api/aws/ec2.mutations'
 import { isValidCidr } from './validators'
 import type { Ec2Route, Ec2RouteTableAssociation, Ec2InternetGateway, Ec2NatGateway, Ec2Subnet } from '@/api/aws/ec2.api'
+import {Hint} from '@/components/Hint'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,7 +33,7 @@ function targetLabel(r: Ec2Route): string {
   if (r.gatewayId) return r.gatewayId
   if (r.natGatewayId) return r.natGatewayId
   if (r.vpcPeeringConnectionId) return r.vpcPeeringConnectionId
-  return '—'
+  return ', '
 }
 
 function canDeleteRoute(r: Ec2Route): boolean {
@@ -121,7 +125,7 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="flex flex-col gap-5">
       {/* ── Routes ──────────────────────────────────────────────────── */}
       <div className="table-panel">
         <div className="widget-header">
@@ -134,30 +138,28 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
               <th>Target</th>
               <th>Status</th>
               <th>Origin</th>
-              <th style={{ width: 32 }}></th>
+              <th className="w-8"></th>
             </tr>
           </thead>
           <tbody>
             {routes.map((r, i) => (
               <tr key={i}>
-                <td className="mono" style={{ fontSize: 12 }}>{r.destinationCidrBlock ?? '—'}</td>
-                <td className="mono" style={{ fontSize: 12 }}>{targetLabel(r)}</td>
+                <td className="mono type-caption">{r.destinationCidrBlock ?? ', '}</td>
+                <td className="mono type-caption">{targetLabel(r)}</td>
                 <td>
                   <span className={`status ${r.state === 'active' ? 'healthy' : 'unknown'}`}>
-                    {r.state ?? '—'}
+                    {r.state ?? ', '}
                   </span>
                 </td>
-                <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.origin ?? '—'}</td>
+                <td className="type-caption text-text-3">{r.origin ?? ', '}</td>
                 <td>
                   {canDeleteRoute(r) && (
-                    <button
-                      className="icon-btn"
-                      title="Delete route"
+                    <Hint label="Delete route"><Button variant="ghost" size="icon-sm" aria-label="Delete route"
                       disabled={deleteRouteMut.isPending}
                       onClick={() => void handleDeleteRoute(r.destinationCidrBlock ?? '')}
                     >
-                      <Trash2 size={12} />
-                    </button>
+                      <Icon icon={Trash2} size={14} />
+                    </Button></Hint>
                   )}
                 </td>
               </tr>
@@ -165,55 +167,46 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
             {/* New route row */}
             <tr>
               <td>
-                <input aria-label="Destination CIDR"
-                  className="input"
-                  style={{
-                    fontSize: 12, padding: '2px 6px',
-                    borderColor: newCidr && (!cidrValid || isDuplicateRoute) ? 'var(--status-error)' : undefined,
-                  }}
+                <Input aria-label="Destination CIDR"
+                 
+                  aria-invalid={(newCidr && (!cidrValid || isDuplicateRoute)) ? true : undefined}
                   placeholder="0.0.0.0/0"
                   value={newCidr}
                   onChange={(e) => { setNewCidr(e.target.value); setRouteErr('') }}
                 />
               </td>
-              <td colSpan={3} style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 8px' }}>
-                <select aria-label="Target type"
-                  className="input"
-                  style={{ fontSize: 12, padding: '2px 6px', flex: '0 0 auto' }}
+              <td className="flex gap-1 items-center py-1 px-2" colSpan={3}>
+                <OptionSelect aria-label="Target type" className="flex-none"
                   value={targetKind}
-                  onChange={(e) => { setTargetKind(e.target.value as TargetKind); setTargetId('') }}
+                  onValueChange={(value) => { setTargetKind(value as TargetKind); setTargetId('') }}
                 >
                   <option value="igw">Internet Gateway</option>
                   <option value="nat">NAT Gateway</option>
                   {/* VPC peering shown only if we add peering support later */}
-                </select>
-                <select aria-label="Target"
-                  className="input"
-                  style={{ fontSize: 12, padding: '2px 6px', flex: 1 }}
+                </OptionSelect>
+                <OptionSelect aria-label="Target" className="flex-1"
                   value={targetId}
-                  onChange={(e) => setTargetId(e.target.value)}
+                  onValueChange={(value) => setTargetId(value)}
                 >
-                  <option value="">— select target —</option>
+                  <option value="">, select target, </option>
                   {targets.map((t) => (
                     <option key={t.id} value={t.id}>{t.label}</option>
                   ))}
-                </select>
+                </OptionSelect>
               </td>
               <td>
-                <button
-                  className="icon-btn"
-                  title="Add route"
+                <Hint label="Add route"><Button variant="ghost" size="icon-sm" aria-label="Add route"
                   disabled={!canAddRoute || createRouteMut.isPending}
                   onClick={() => void handleAddRoute()}
                 >
-                  <Plus size={12} />
-                </button>
+                  <Icon icon={Plus} size={14} />
+                </Button></Hint>
               </td>
             </tr>
           </tbody>
         </table>
-        {isDuplicateRoute && <p style={{ color: 'var(--status-error)', fontSize: 11, padding: '4px 8px' }}>Route already exists</p>}
-        {routeErr && <p style={{ color: 'var(--status-error)', fontSize: 11, padding: '4px 8px' }}>{routeErr}</p>}
+        {isDuplicateRoute && <p className="text-fail-text type-caption py-1 px-2">Route already exists</p>}
+        {routeErr && <p className="text-fail-text type-caption py-1 px-2">{routeErr}</p>}
       </div>
 
       {/* ── Subnet Associations ──────────────────────────────────────── */}
@@ -227,25 +220,23 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
               <th>Association ID</th>
               <th>Subnet ID</th>
               <th>Main</th>
-              <th style={{ width: 32 }}></th>
+              <th className="w-8"></th>
             </tr>
           </thead>
           <tbody>
             {associations.map((a) => (
               <tr key={a.associationId}>
-                <td className="mono" style={{ fontSize: 12 }}>{a.associationId}</td>
-                <td className="mono" style={{ fontSize: 12 }}>{a.subnetId ?? '—'}</td>
-                <td>{a.isMain ? <span className="status healthy">Yes</span> : '—'}</td>
+                <td className="mono type-caption">{a.associationId}</td>
+                <td className="mono type-caption">{a.subnetId ?? ', '}</td>
+                <td>{a.isMain ? <span className="status healthy">Yes</span> : ', '}</td>
                 <td>
                   {!a.isMain && (
-                    <button
-                      className="icon-btn"
-                      title="Disassociate"
+                    <Hint label="Disassociate"><Button variant="ghost" size="icon-sm" aria-label="Disassociate"
                       disabled={disassociateMut.isPending}
                       onClick={() => void handleDisassociate(a.associationId)}
                     >
-                      <Trash2 size={12} />
-                    </button>
+                      <Icon icon={Trash2} size={14} />
+                    </Button></Hint>
                   )}
                 </td>
               </tr>
@@ -254,35 +245,31 @@ export function RouteTableEditor({ rtbId, routes, associations, igws, natGws, su
             {availableSubnets.length > 0 && (
               <tr>
                 <td colSpan={3}>
-                  <select aria-label="Subnet to associate"
-                    className="input"
-                    style={{ fontSize: 12, padding: '2px 6px', width: '100%' }}
+                  <OptionSelect aria-label="Subnet to associate" className="w-full"
                     value={newSubnetId}
-                    onChange={(e) => { setNewSubnetId(e.target.value); setAssocErr('') }}
+                    onValueChange={(value) => { setNewSubnetId(value); setAssocErr('') }}
                   >
-                    <option value="">— associate a subnet —</option>
+                    <option value="">, associate a subnet, </option>
                     {availableSubnets.map((s) => (
                       <option key={s.subnetId} value={s.subnetId}>
-                        {s.subnetId} — {s.cidrBlock}
+                        {s.subnetId} , {s.cidrBlock}
                       </option>
                     ))}
-                  </select>
+                  </OptionSelect>
                 </td>
                 <td>
-                  <button
-                    className="icon-btn"
-                    title="Associate"
+                  <Hint label="Associate"><Button variant="ghost" size="icon-sm" aria-label="Associate"
                     disabled={!newSubnetId || associateMut.isPending}
                     onClick={() => void handleAssociate()}
                   >
-                    <Plus size={12} />
-                  </button>
+                    <Icon icon={Plus} size={14} />
+                  </Button></Hint>
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-        {assocErr && <p style={{ color: 'var(--status-error)', fontSize: 11, padding: '4px 8px' }}>{assocErr}</p>}
+        {assocErr && <p className="text-fail-text type-caption py-1 px-2">{assocErr}</p>}
       </div>
     </div>
   )

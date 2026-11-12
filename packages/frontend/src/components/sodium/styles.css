@@ -1,0 +1,548 @@
+/* Sodium's Tailwind entry. Import it once, in the root layout, as its own stylesheet, and put the sodium class on the
+   element that holds Sodium UI (usually body).
+
+   Scoping, so none of this reaches the rest of your app:
+   - No preflight. base.css applies inside .sodium and [data-system="sodium"] only.
+   - The theme is `inline reference`: utilities compile to var(--sodium-token) and nothing is written to :root, so your
+     own --color-*, --space-* and --font-* tokens stay as they are.
+   - Utilities come only from the folders the @source lines name (source(none)), nested under the scope when installed.
+   - base.css comes before the utilities, so a utility beats a base rule of the same specificity.
+   - Utilities are unlayered on purpose, so an app's unlayered global rules do not beat them.
+
+   Recipes, below the theme. Each is the one way Sodium draws that thing, so a component reads it instead of
+   restating it:
+   - type-*: the type roles. The label roles (type-label-lg, type-label, type-label-sm, type-micro) are mono capitals
+     with their tracking; nothing else in Sodium sets capitals or opens tracking.
+   - mono: mono inside a sentence of sans, at --mono-scale of the text around it.
+   - frame, panel, rule-row, rule-col, panel-head, panel-head-actions: structure by rules. A frame is a region's one outer edge; inside
+     it, parts are divided by rules, never boxed again.
+   - slab, edged, quiet, slab-fail: the button surfaces: the one primary (the yellow slab in light, the yellow tint
+     and line in dark), the secondary with a rule edge, the ghost, and the destructive primary. slab and edged are lit
+     from below (--k), lighter under the pointer with a 1px halo, and unlit when held; quiet and slab-fail are flat.
+   - selected, bracketed: the selection wash and a machine action's [LABEL].
+   - checked: a value chosen inside a small control (a ticked box, a chosen radio, the switch on), yellow and lit
+     from below; light-motion: how it, and the empty control under it, change.
+   - field-surface, field: a field's states in the secondary button's light, and the one-line field on it.
+   - overlay, menu-row: a menu, popover or dialog surface (the panel with a rule edge, no shadow), and a list row's
+     highlighted and selected states.
+   - well, code-surface: an inset, and where a block of code sits.
+   - dots, rail: the dot-matrix gutter (decoration, large empty areas only) and the perforated rail at a quote's start.
+   - focus-ring, focus-ring-inset: the focus ring where base.css cannot put it.
+   - overlay-motion, wipe, draw, caret, pending: how things move. */
+
+@import "./tokens.css";
+@import "./base.css";
+:where(.sodium, [data-system="sodium"]) {
+  @tailwind utilities source(none);
+}
+
+/* The folders to scan, but not the lint: it names every class Sodium has and many it bans, and none of it is markup. */
+@source "../../app";
+@source "../../pages";
+@source "../../src";
+@source "../../components";
+@source "../../features";
+@source "../../App.tsx";
+@source "../../lib/sodium";
+@source "../../hooks/sodium";
+@source not "../../lib/sodium/lint";
+
+/* dark: matches inside the dark theme. Components never use it (tokens flip instead); the lint flags it in app code. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* A docs page or a test can show a state by setting data-force-hover, data-force-focus, data-force-focus-visible or
+   data-force-active on a component's root. These variants answer to the attribute as well as the real pseudo-class,
+   so a forced state is the component's own style. Hover keeps Tailwind's guard: it only fires on devices that hover. */
+@custom-variant hover { @media (hover: hover) { &:hover { @slot; } } &[data-force-hover] { @slot; } }
+@custom-variant focus { &:focus { @slot; } &[data-force-focus] { @slot; } }
+@custom-variant focus-visible { &:focus-visible { @slot; } &[data-force-focus-visible] { @slot; } }
+@custom-variant active { &:active { @slot; } &[data-force-active] { @slot; } }
+
+/* The same goes for reduced motion: data-force-reduced-motion on a wrapper. */
+@custom-variant motion-reduce { @media (prefers-reduced-motion: reduce) { @slot; } &:where([data-force-reduced-motion], [data-force-reduced-motion] *) { @slot; } }
+@custom-variant motion-safe { @media (prefers-reduced-motion: no-preference) { &:not(:where([data-force-reduced-motion], [data-force-reduced-motion] *)) { @slot; } } }
+
+/* The same durations tokens.css zeroes under the media query, for a forced wrapper. */
+.sodium [data-force-reduced-motion], [data-system="sodium"] [data-force-reduced-motion] { --dur-press: 0ms; --dur-light: 0ms; --dur-glow: 0ms; --dur-state: 0ms; --dur-overlay: 0ms; --dur-wipe: 0ms; --dur-draw: 0ms; --dur-type: 0ms; --dur-scramble: 0ms; }
+
+@theme inline reference {
+  --*: initial;
+
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+
+  --container-2xs: 18rem;
+  --container-xs: 20rem;
+  --container-sm: 24rem;
+  --container-md: 28rem;
+  --container-lg: 32rem;
+  --container-xl: 36rem;
+  --container-2xl: 42rem;
+  --container-3xl: 48rem;
+  --container-overlay-sm: var(--overlay-sm);
+  --container-overlay: var(--overlay);
+  --container-overlay-lg: var(--overlay-lg);
+  --container-popover: var(--popover);
+  --container-measure: var(--measure);
+  --container-measure-hint: var(--measure-hint);
+
+  /* 4px base: p-1 is 4px, p-3 is 12px. */
+  --spacing: var(--space-1);
+  /* The region's one inset: px-inset, p-inset, ps-inset. */
+  --spacing-inset: var(--inset);
+
+  /* The semantic names generic components expect, pointed at Sodium's roles. */
+  --color-background: var(--page);
+  --color-foreground: var(--text-1);
+  --color-card: var(--page);
+  --color-card-foreground: var(--text-1);
+  --color-popover: var(--panel);
+  --color-popover-foreground: var(--text-1);
+  --color-primary: var(--primary-bg);
+  --color-primary-foreground: var(--primary-text);
+  --color-muted: var(--well);
+  --color-muted-foreground: var(--text-2);
+  --color-accent: var(--hover);
+  --color-accent-foreground: var(--text-1);
+  --color-destructive: var(--fail);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--focus);
+
+  /* Sodium's own roles. There is no text-accent: yellow as text exists only as text-accent-text. */
+  --color-page: var(--page);
+  --color-panel: var(--panel);
+  --color-well: var(--well);
+  --color-code-surface: var(--code-surface);
+  --color-hover: var(--hover);
+  --color-pressed: var(--pressed);
+  --color-selected: var(--selected);
+  --color-selected-strong: var(--selected-strong);
+  --color-scrim: var(--scrim);
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-inverse: var(--text-inverse);
+  --color-line-faint: var(--line-faint);
+  --color-line: var(--line);
+  --color-line-control: var(--line-control);
+  --color-mark: var(--mark);
+  --color-accent-fill: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-edge: var(--accent-edge);
+  --color-secondary-bg: var(--secondary-bg);
+  --color-check-off: var(--check-off);
+  --color-check-off-hover: var(--check-off-hover);
+  --color-check-range: var(--check-range);
+  --color-focus: var(--focus);
+  --color-ok: var(--ok);
+  --color-ok-text: var(--ok-text);
+  --color-ok-tint: var(--ok-tint);
+  --color-warn: var(--warn);
+  --color-warn-text: var(--warn-text);
+  --color-warn-tint: var(--warn-tint);
+  --color-fail: var(--fail);
+  --color-fail-text: var(--fail-text);
+  --color-fail-tint: var(--fail-tint);
+  --color-data-1: var(--data-1);
+  --color-data-2: var(--data-2);
+  --color-data-3: var(--data-3);
+  --color-data-4: var(--data-4);
+  --color-data-5: var(--data-5);
+  --color-data-6: var(--data-6);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --font-weight-normal: var(--weight-normal);
+
+  --tracking-display: var(--tracking-display);
+  --tracking-title: var(--tracking-title);
+  --tracking-heading: var(--tracking-heading);
+  --tracking-body: var(--tracking-body);
+  --tracking-normal: 0em;
+
+  /* Zero radius. Every stock corner name is 0, so a corner reached for out of habit stays square, and the lint
+     (no-radius) says so. */
+  --radius-none: 0px;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  /* No shadows. Every stock shadow name draws nothing, and the lint (no-shadow) says so. */
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+  --shadow-xl: 0 0 #0000;
+  --shadow-2xl: 0 0 #0000;
+  --drop-shadow-sm: 0 0 #0000;
+  --drop-shadow-md: 0 0 #0000;
+  --drop-shadow-lg: 0 0 #0000;
+
+  --ease-out: var(--ease-out);
+  --ease-soft: var(--ease-soft);
+  --ease-in: var(--ease-in);
+  --ease-linear: var(--ease-linear);
+
+  --animate-pending: sodium-pending var(--dur-pending) steps(4) infinite;
+}
+
+/* One utility per type role. Prose and headlines track by size; the label roles are mono capitals. */
+@utility type-display { font: var(--type-display); letter-spacing: var(--tracking-display); }
+@utility type-title { font: var(--type-title); letter-spacing: var(--tracking-title); }
+@utility type-heading { font: var(--type-heading); letter-spacing: var(--tracking-heading); }
+@utility type-heading-sm { font: var(--type-heading-sm); letter-spacing: var(--tracking-heading); }
+@utility type-figure { font: var(--type-figure); letter-spacing: var(--tracking-title); font-variant-numeric: tabular-nums; }
+@utility type-body { font: var(--type-body); letter-spacing: var(--tracking-body); }
+@utility type-body-sm { font: var(--type-body-sm); letter-spacing: var(--tracking-body); }
+@utility type-caption { font: var(--type-caption); letter-spacing: var(--tracking-body); }
+/* The interface voice: mono capitals. The case and the tracking come with the role, so a label never sets either. */
+@utility type-label-lg { font: var(--type-label-lg); letter-spacing: var(--tracking-label-lg); text-transform: uppercase; font-variant-numeric: tabular-nums; }
+@utility type-label { font: var(--type-label); letter-spacing: var(--tracking-label); text-transform: uppercase; font-variant-numeric: tabular-nums; }
+@utility type-label-sm { font: var(--type-label-sm); letter-spacing: var(--tracking-label-sm); text-transform: uppercase; font-variant-numeric: tabular-nums; }
+@utility type-micro { font: var(--type-micro); letter-spacing: var(--tracking-label-sm); text-transform: uppercase; font-variant-numeric: tabular-nums; }
+/* Code and values as written: mono, no capitals, no tracking. */
+@utility type-code { font: var(--type-code); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+@utility type-code-sm { font: var(--type-code-sm); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+/* data: tabular figures in the sans, for counts, durations and amounts in prose. */
+@utility data { font-variant-numeric: tabular-nums; }
+
+/* mono: mono inside a sentence of sans, at --mono-scale of the size around it (15px prose takes 12.75px mono). It
+   keeps the parent's line height and baseline and adds no padding, so the line never grows. */
+@utility mono { font-family: var(--font-mono); font-size: calc(1em * var(--mono-scale)); letter-spacing: 0; }
+
+/* Focus. base.css rings every :focus-visible element; these are the same ring where it has to sit elsewhere.
+   focus-ring-inset draws it inside the edge, for a row or a cell that a container would clip. */
+@utility focus-ring { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+@utility focus-ring-inset { outline: var(--focus-width) solid var(--focus); outline-offset: calc(var(--focus-width) * -1); }
+
+/* frame: a region's one outer edge, a 1px --line box on the page. Parts inside a frame are divided by rules
+   (rule-row, rule-col, panel-head), never boxed again. */
+@utility frame { position: relative; min-width: 0; background-color: var(--page); border: var(--line-width) solid var(--line); }
+/* panel: a raised region with its own edge, standing on its own on the page (not inside a frame). */
+@utility panel { min-width: 0; background-color: var(--panel); border: var(--line-width) solid var(--line); }
+/* panel-head: the header row of a frame or panel: the panel fill, a rule under it, the region's name in mono as
+   written. It is --head (38px) tall, so a 13px name's ink sits 12.7 to 13.9px under the top edge and 11.3 to 13.8px
+   over the rule, and its --inset (12px) side inset plus Commit Mono's side bearing puts the first glyph 12.4 to 13.6px
+   in: the ink sits about 13px from every edge, within 1.3px side against vertical (measured, 2026-10-25). That inset is the region's one inset: body, footer, table cells, log and code
+   lines all start on it. */
+@utility panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: var(--head);
+  padding-inline: var(--inset);
+  background-color: var(--panel);
+  border-block-end: var(--line-width) solid var(--line);
+  font: var(--type-code);
+  color: var(--text-1);
+}
+/* panel-head-actions: a header's ghost icon buttons (26px, icon-sm) at its end, 8px apart, 6px clear of the 38px
+   header's top and rule. The group reaches past the side inset by the ghost's own clear space round its glyph,
+   (26 - 16) / 2, so the last glyph, the nearest thing you see, sits on the 12px inset as the name does at the start. */
+@utility panel-head-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+  margin-inline-end: calc((var(--control-sm) - var(--icon)) / -2);
+}
+/* rule-row: the faint rule under a row; the last row drops it, so the frame's edge closes the list. */
+@utility rule-row {
+  border-block-end: var(--line-width) solid var(--line-faint);
+  &:last-child { border-block-end-width: 0; }
+}
+/* rule-col: the rule between columns that share an edge, with no gap; the last column drops it. */
+@utility rule-col {
+  border-inline-end: var(--line-width) solid var(--line);
+  &:last-child { border-inline-end-width: 0; }
+}
+
+/* --k: the colour of a button's light from below. Registered as a colour so it transitions; slab and edged set it, and
+   it is transparent everywhere else, so nothing else is lit. */
+@property --k { syntax: '<color>'; inherits: true; initial-value: transparent; }
+
+/* slab: the one primary. Light: the solid sodium slab with ink text and a 1px edge. Dark: a dark yellow tint with a
+   1px yellow line and a yellow label. Both are lit from below: --k rises from under the bottom edge and catches the
+   top more faintly. Hover lightens the fill, the edge and the light on --dur-light and --dur-glow, and draws a 1px
+   halo (--primary-ring) flush outside the edge; held settles the fill back, puts the light out on --dur-press and
+   keeps the halo. Light only ever lightens, and nothing scales. Disabled and pending
+   are unlit; disabled is the well with the disabled label. */
+@utility slab {
+  --k: var(--primary-light);
+  color: var(--primary-text);
+  background-color: var(--primary-bg);
+  background-image: radial-gradient(95% 140% at 50% 150%, var(--k), transparent 68%), linear-gradient(color-mix(in srgb, var(--k) 45%, transparent), transparent 40%);
+  border: var(--line-width) solid var(--primary-edge);
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 0 var(--line-width) transparent;
+  transition-property: background-color, color, border-color, box-shadow, --k;
+  transition-duration: var(--dur-light), var(--dur-light), var(--dur-light), var(--dur-light), var(--dur-glow);
+  transition-timing-function: var(--ease-soft);
+  @media (hover: hover) { &:hover:not(:disabled, [data-disabled], [aria-busy="true"]) { --k: var(--primary-light-hover); box-shadow: 0 0 0 var(--line-width) var(--primary-ring); background-color: var(--primary-hover); border-color: var(--primary-edge-hover); } }
+  &[data-force-hover]:not(:disabled, [data-disabled]) { --k: var(--primary-light-hover); box-shadow: 0 0 0 var(--line-width) var(--primary-ring); background-color: var(--primary-hover); border-color: var(--primary-edge-hover); }
+  &:is(:active, [data-force-active]):not(:disabled, [data-disabled]) { --k: transparent; box-shadow: 0 0 0 var(--line-width) var(--primary-ring); background-color: var(--primary-pressed); border-color: var(--primary-edge); transition-duration: var(--dur-press); transition-timing-function: var(--ease-out); }
+  &[aria-busy="true"] { --k: transparent; }
+  &:is(:disabled, [data-disabled], [aria-disabled="true"]):not([aria-busy="true"]) { --k: transparent; box-shadow: none; background-color: var(--well); border-color: var(--line); color: var(--text-disabled); }
+  @media (forced-colors: active) { border-color: ButtonText; background-image: none; box-shadow: none; }
+}
+/* slab-fail: the destructive primary: the failure tint with a failure edge and the failure word's colour. It is the
+   group's one primary, as the yellow slab is. */
+@utility slab-fail {
+  color: var(--fail-text);
+  background-color: var(--fail-tint);
+  border: var(--line-width) solid var(--fail);
+  -webkit-tap-highlight-color: transparent;
+  transition-property: background-color, color, border-color;
+  transition-duration: var(--dur-press);
+  transition-timing-function: var(--ease-out);
+  @media (hover: hover) { &:hover:not(:disabled, [data-disabled], [aria-busy="true"]) { background-image: linear-gradient(var(--hover), var(--hover)); } }
+  &[data-force-hover]:not(:disabled, [data-disabled]) { background-image: linear-gradient(var(--hover), var(--hover)); }
+  &:is(:active, [data-force-active]):not(:disabled, [data-disabled]) { background-image: linear-gradient(var(--pressed), var(--pressed)); }
+  &:is(:disabled, [data-disabled], [aria-disabled="true"]):not([aria-busy="true"]) { background-color: var(--well); border-color: var(--line); color: var(--text-disabled); }
+  @media (forced-colors: active) { border-color: ButtonText; }
+}
+/* edged: the secondary. A body a hair off the page (--secondary-bg) with a 1px --line edge, the same rule a card and
+   a field draw, and a text-1 label, lit from below like the slab with a fainter --k. Hover lightens the body, the edge
+   and the light and draws a 1px halo (--secondary-ring) flush outside the edge; held settles them back to rest, puts
+   the light out and keeps the halo. Disabled keeps the edge and reads by the well
+   fill and the text-disabled label, unlit. */
+@utility edged {
+  --k: var(--secondary-light);
+  color: var(--text-1);
+  background-color: var(--secondary-bg);
+  background-image: radial-gradient(95% 140% at 50% 150%, var(--k), transparent 68%), linear-gradient(color-mix(in srgb, var(--k) 45%, transparent), transparent 40%);
+  border: var(--line-width) solid var(--secondary-edge);
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 0 var(--line-width) transparent;
+  transition-property: background-color, color, border-color, box-shadow, --k;
+  transition-duration: var(--dur-light), var(--dur-light), var(--dur-light), var(--dur-light), var(--dur-glow);
+  transition-timing-function: var(--ease-soft);
+  @media (hover: hover) { &:hover:not(:disabled, [data-disabled], [aria-busy="true"]) { --k: var(--secondary-light-hover); box-shadow: 0 0 0 var(--line-width) var(--secondary-ring); background-color: var(--secondary-hover); border-color: var(--secondary-edge-hover); } }
+  &[data-force-hover]:not(:disabled, [data-disabled]) { --k: var(--secondary-light-hover); box-shadow: 0 0 0 var(--line-width) var(--secondary-ring); background-color: var(--secondary-hover); border-color: var(--secondary-edge-hover); }
+  &:is(:active, [data-force-active]):not(:disabled, [data-disabled]) { --k: transparent; box-shadow: 0 0 0 var(--line-width) var(--secondary-ring); background-color: var(--secondary-pressed); border-color: var(--secondary-edge); transition-duration: var(--dur-press); transition-timing-function: var(--ease-out); }
+  &[aria-busy="true"] { --k: transparent; }
+  &:is(:disabled, [data-disabled], [aria-disabled="true"]):not([aria-busy="true"]) { --k: transparent; box-shadow: none; background-color: var(--well); color: var(--text-disabled); }
+  @media (forced-colors: active) { background-image: none; box-shadow: none; }
+}
+/* quiet: the ghost. No edge, text-2 that turns text-1 with a wash under the pointer. */
+@utility quiet {
+  color: var(--text-2);
+  background-color: transparent;
+  border: var(--line-width) solid transparent;
+  -webkit-tap-highlight-color: transparent;
+  transition-property: background-color, color;
+  transition-duration: var(--dur-press);
+  transition-timing-function: var(--ease-out);
+  @media (hover: hover) { &:hover:not(:disabled, [data-disabled], [aria-busy="true"]) { background-color: var(--hover); color: var(--text-1); } }
+  &[data-force-hover]:not(:disabled, [data-disabled]) { background-color: var(--hover); color: var(--text-1); }
+  &:is(:active, [data-force-active]):not(:disabled, [data-disabled]) { background-color: var(--pressed); color: var(--text-1); }
+  &:is(:disabled, [data-disabled], [aria-disabled="true"]):not([aria-busy="true"]) { color: var(--text-disabled); }
+}
+
+/* selected: a place you are, or a thing your hand is on: the selection wash under text-1, like a terminal selection.
+   In dark the wash is a yellow tint, and text-1 still reads on it at 11.7:1. */
+@utility selected { background-color: var(--selected); color: var(--text-1); }
+/* bracketed: a machine action's label, in brackets: [BROWSER TOOL]. The brackets are drawn, not typed, so the label
+   reads as its own words to a screen reader. */
+@utility bracketed {
+  &::before { content: "[" / ""; }
+  &::after { content: "]" / ""; }
+}
+
+/* checked: a value chosen inside a small control. Light: sodium yellow with a gold edge and an ink mark. Dark: the
+   yellow tint with a yellow edge and a yellow mark. Lit from below like the slab, on the slab's --primary-light: the
+   light brightens under the pointer and goes out while held. No halo. Disabled and forced colours are unlit. */
+@utility checked {
+  --k: var(--primary-light);
+  background-color: var(--check-bg);
+  background-image: radial-gradient(95% 140% at 50% 150%, var(--k), transparent 68%), linear-gradient(color-mix(in srgb, var(--k) 45%, transparent), transparent 40%);
+  border: var(--line-width) solid var(--check-edge);
+  color: var(--check-mark);
+  @media (hover: hover) { &:hover:not([data-disabled], [data-readonly]) { --k: var(--primary-light-hover); } }
+  &[data-force-hover]:not([data-disabled]) { --k: var(--primary-light-hover); }
+  &:is(:active, [data-force-active], [data-dragging]):not([data-disabled], [data-readonly]) { --k: transparent; }
+  &[data-disabled] { --k: transparent; background-image: none; }
+  @media (forced-colors: active) { background-image: none; }
+}
+/* light-motion: how a lit control's fill, edge and light change: --dur-light for the colours, --dur-glow for the
+   light, on --ease-soft. Reduced motion zeroes both. */
+@utility light-motion {
+  transition-property: background-color, border-color, color, --k;
+  transition-duration: var(--dur-light), var(--dur-light), var(--dur-light), var(--dur-glow);
+  transition-timing-function: var(--ease-soft);
+}
+
+/* field-surface: how a field looks in each state, in the secondary button's light, with no light from below: text
+   sits in it. At rest the secondary's hair-off-white body (--field-bg) and the 1px --line edge. Under the pointer the
+   body lifts toward white, the edge lightens and a 1px halo (--field-ring-hover) draws flush outside it, as on the
+   secondary. With the cursor in it, or its list open, the body is white (the page in dark), the edge turns the lighter
+   gold --field-focus-edge (one line, 3:1 on white) and a pale yellow halo (--field-ring-focus) sits outside. Invalid
+   is the --fail edge with a pale red halo, doubled while focused. Disabled sits on the well, flat; read-only has no
+   hover lift. Colours change on --dur-light with --ease-soft, which reduced motion zeroes. textarea and the prompt
+   input take it alone; field adds the one-line layout. */
+@utility field-surface {
+  background-color: var(--field-bg);
+  border: var(--line-width) solid var(--field-edge);
+  color: var(--text-1);
+  box-shadow: 0 0 0 var(--line-width) transparent;
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: var(--dur-light);
+  transition-timing-function: var(--ease-soft);
+  -webkit-tap-highlight-color: transparent;
+  &::placeholder, & ::placeholder { color: var(--text-3); }
+  &:is(:focus-visible, [data-force-focus-visible]) { outline: none; }
+  @media (hover: hover) { &:hover:not(:focus-within, [data-popup-open], :disabled, [data-disabled], :has([data-control]:disabled), [readonly], [data-readonly], :has([data-control][readonly]), [aria-invalid="true"], [data-invalid], :has([data-control][aria-invalid="true"])) { background-color: var(--field-hover); border-color: var(--field-edge-hover); box-shadow: 0 0 0 var(--line-width) var(--field-ring-hover); } }
+  &[data-force-hover]:not(:disabled, [data-disabled], [readonly], [data-readonly]) { background-color: var(--field-hover); border-color: var(--field-edge-hover); box-shadow: 0 0 0 var(--line-width) var(--field-ring-hover); }
+  &:is(:focus-within, [data-popup-open], [data-force-focus], [data-force-focus-visible]) { background-color: var(--field-focus-bg); border-color: var(--field-focus-edge); box-shadow: 0 0 0 var(--line-width) var(--field-ring-focus); }
+  &:is([aria-invalid="true"], [data-invalid], :has([data-control][aria-invalid="true"])) { border-color: var(--fail); box-shadow: 0 0 0 var(--line-width) var(--field-ring-fail); }
+  &:is([aria-invalid="true"], [data-invalid], :has([data-control][aria-invalid="true"])):is(:focus-within, [data-popup-open], [data-force-focus], [data-force-focus-visible]) { background-color: var(--field-focus-bg); box-shadow: inset 0 0 0 var(--line-width) var(--fail), 0 0 0 var(--line-width) var(--field-ring-fail); }
+  &:is(:disabled, [data-disabled], :has([data-control]:disabled)) { background-color: var(--well); border-color: var(--line); color: var(--text-disabled); box-shadow: none; }
+  &:is(:disabled, [data-disabled], :has([data-control]:disabled))::placeholder, &:is(:disabled, [data-disabled], :has([data-control]:disabled)) ::placeholder { color: var(--text-disabled); }
+  /* Forced colours drop box-shadow, so focus there is an outline on the edge. */
+  @media (forced-colors: active) { &:is(:focus-within, [data-popup-open]) { outline: var(--focus-width) solid Highlight; outline-offset: calc(var(--focus-width) * -1); } }
+}
+/* field: one line of text in field-surface: --field-h tall (the default control unless a size sets it), the sans,
+   and the side inset the padding rule sets: the nearest thing you see sits as far from the side as from the top and
+   bottom. Text starts --field-px in (--field-inset at 32px, -sm at 26, -lg at 36; a size sets --field-px and
+   --field-size). A glyph, a key or a chevron is not text, so it takes its own: --field-glyph is (size - glyph) / 2
+   from the inside of the edge, and the --field-pull-* values move a slot from the text inset out to it. A flush action
+   cell pulls the whole inset (--field-pull-cell). Mark a bare input inside a field box data-control, so base.css
+   leaves its ring off. */
+@utility field {
+  @apply field-surface;
+  --field-glyph: calc((var(--field-size, var(--control)) - var(--field-icon, var(--icon))) / 2 - var(--line-width));
+  --field-pull-glyph: calc(var(--field-glyph) - var(--field-px, var(--field-inset)));
+  /* A chevron's ink is narrower than its box by an eighth of the glyph on each side more than it is shorter. */
+  --field-pull-chevron: calc(var(--field-glyph) - var(--field-icon, var(--icon)) / 8 - var(--field-px, var(--field-inset)));
+  /* A key cap is 20px tall (Kbd, min-h-5). */
+  --field-pull-kbd: calc((var(--field-size, var(--control)) - var(--space-1) * 5) / 2 - var(--line-width) - var(--field-px, var(--field-inset)));
+  --field-pull-cell: calc(var(--field-px, var(--field-inset)) * -1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--field-h, var(--control));
+  padding-inline: var(--field-px, var(--field-inset));
+  font: var(--type-body-sm);
+  letter-spacing: var(--tracking-body);
+}
+.sodium :where([data-control]):is(:focus-visible, [data-force-focus-visible]) { outline: none; }
+
+/* overlay: a menu, popover or dialog surface. The panel fill with a 1px --line edge, the rule a card draws, square,
+   no shadow: it reads as one more ruled region, set apart by its panel fill and its place over the content. */
+@utility overlay { background-color: var(--panel); border: var(--line-width) solid var(--line); color: var(--text-1); }
+
+/* menu-row: how a row in a list popup (menu, select, combobox, command) answers, in the field's light. Highlighted,
+   by the pointer or the arrow keys, it lifts to white off the panel (--row-highlight) between two hairline rules
+   (--row-highlight-edge), the field's hover drawn as a row, in text-1. A checked or chosen row shows only its ink
+   tick, never a fill: three ticked rows in a short menu would be three yellow bands. The selection wash stays with a
+   selected table row. The change takes --dur-state on --ease-soft, quick enough to follow the arrow keys. A row needs
+   no other focus mark: the lift is where the keys are. */
+@utility menu-row {
+  transition-property: background-color, box-shadow, color;
+  transition-duration: var(--dur-state);
+  transition-timing-function: var(--ease-soft);
+  &[data-highlighted] { color: var(--text-1); background-color: var(--row-highlight); box-shadow: inset 0 var(--line-width) 0 var(--row-highlight-edge), inset 0 calc(var(--line-width) * -1) 0 var(--row-highlight-edge); }
+  &:first-child[data-highlighted] { box-shadow: inset 0 calc(var(--line-width) * -1) 0 var(--row-highlight-edge); }
+  &:last-child[data-highlighted] { box-shadow: inset 0 var(--line-width) 0 var(--row-highlight-edge); }
+  @media (forced-colors: active) { &[data-highlighted] { outline: var(--focus-width) solid Highlight; outline-offset: calc(var(--focus-width) * -1); } }
+}
+
+/* well: an inset, for output and tracks. code-surface: a block of code or logs on its own, the well with a rule edge;
+   inside a frame that already draws the edge, use bg-code-surface alone. */
+@utility well { background-color: var(--well); }
+@utility code-surface { background-color: var(--code-surface); border: var(--line-width) solid var(--line); }
+
+/* dots: the dot-matrix texture, 1px dots on a --dot-pitch square, for a large empty gutter only (20px or wider,
+   nothing in it). Never behind text, never across a page or a frame: Sodium draws no grid behind content. */
+@utility dots {
+  background-image: radial-gradient(circle at center, var(--dot) 0.75px, transparent 1px);
+  background-size: var(--dot-pitch) var(--dot-pitch);
+  background-position: center;
+}
+/* rail: the perforated edge at the start of a quote in a response: a column of square dots, like a tractor-feed
+   edge. Give it a width (w-(--rail)) and let it stretch to the quote's height. Rows do not draw it. */
+@utility rail {
+  background-image: linear-gradient(var(--mark) 0 var(--rail-dot), transparent var(--rail-dot));
+  background-size: var(--rail-dot) var(--rail-pitch);
+  background-repeat: repeat-y;
+  background-position: center top;
+  @media (forced-colors: active) { background-image: none; }
+}
+
+/* How every overlay comes and goes: in on --dur-overlay with --ease-out, out on --dur-state with --ease-in, fading
+   as it moves. An anchored overlay travels --overlay-shift in from its trigger. A modal one only fades: it has no
+   side to come from and nothing in Sodium scales. Reduced motion zeroes the durations, so it cuts. */
+@utility overlay-motion {
+  transition-property: opacity, translate;
+  transition-duration: var(--dur-overlay);
+  transition-timing-function: var(--ease-out);
+  &:is([data-starting-style], [data-ending-style]) { opacity: 0; }
+  &[data-ending-style] { transition-duration: var(--dur-state); transition-timing-function: var(--ease-in); }
+  &:is([data-side="bottom"]):is([data-starting-style], [data-ending-style]) { translate: 0 calc(var(--overlay-shift) * -1); }
+  &:is([data-side="top"]):is([data-starting-style], [data-ending-style]) { translate: 0 var(--overlay-shift); }
+  &:is([data-side="right"], [data-side="inline-end"]):is([data-starting-style], [data-ending-style]) { translate: calc(var(--overlay-shift) * -1) 0; }
+  &:is([data-side="left"], [data-side="inline-start"]):is([data-starting-style], [data-ending-style]) { translate: var(--overlay-shift) 0; }
+}
+
+/* wipe: a region arriving along its rule, a linear clip from the start edge to the end over --dur-wipe. It answers
+   to data-starting-style, as Base UI marks a mounting part. */
+@utility wipe {
+  clip-path: inset(0);
+  transition: clip-path var(--dur-wipe) var(--ease-linear);
+  &[data-starting-style] { clip-path: inset(0 100% 0 0); }
+  &:dir(rtl)[data-starting-style] { clip-path: inset(0 0 0 100%); }
+}
+/* draw: a connector drawing out from where it starts, on --dur-draw with --ease-out. */
+@utility draw {
+  transform-origin: left center;
+  transition: scale var(--dur-draw) var(--ease-out);
+  &:dir(rtl) { transform-origin: right center; }
+  &[data-starting-style] { scale: 0 1; }
+}
+/* caret: the thin bar that trails text while it types. It shows only while the text is typing and never blinks at
+   rest: a blinking cursor pulls the eye after the words are done. */
+@utility caret {
+  display: inline-block;
+  width: 0.08em;
+  height: 0.85em;
+  margin-inline-start: 0.04em;
+  vertical-align: -0.06em;
+  background-color: var(--caret);
+}
+/* pending: four square cells, one lit in currentColor and three at a third of it, the lit one stepping start to end
+   once per --dur-pending, in steps with no easing. Sodium's spinner: square, like everything else. It takes the
+   colour of the text it sits in, so it reads on the slab, an edged button and a field alike. Reduced motion keeps it
+   still, with the first cell lit. */
+@utility pending {
+  display: inline-block;
+  flex: none;
+  width: calc(var(--pending-cell) * 4 + var(--space-0-5) * 3);
+  height: var(--pending-cell);
+  background-image: linear-gradient(currentColor, currentColor),
+    repeating-linear-gradient(to right, color-mix(in srgb, currentColor 32%, transparent) 0 var(--pending-cell), transparent var(--pending-cell) calc(var(--pending-cell) + var(--space-0-5)));
+  background-size: var(--pending-cell) var(--pending-cell), 100% 100%;
+  background-repeat: no-repeat;
+  animation: var(--animate-pending);
+  @media (prefers-reduced-motion: reduce) { animation: none; }
+  :where([data-force-reduced-motion]) & { animation: none; }
+  &:dir(rtl) { scale: -1 1; }
+}
+
+/* The pending cell steps across four places. */
+@keyframes sodium-pending { from { background-position: 0 0, 0 0; } to { background-position: calc((var(--pending-cell) + var(--space-0-5)) * 4) 0, 0 0; } }

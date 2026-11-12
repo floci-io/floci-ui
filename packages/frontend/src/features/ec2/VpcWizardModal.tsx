@@ -1,5 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Network, CheckCircle2, Loader2, AlertCircle, X, Plus, Trash2 } from 'lucide-react'
+import {Icon, Network, CheckCircle2, Loader2, AlertCircle, XSquared as X, PlusSquared as Plus, Trash2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createVpcWizard } from '@/api/aws/ec2.api'
 import type { SubnetGroup, VpcWizardInput, VpcWizardResult } from '@/api/aws/ec2.api'
@@ -7,6 +10,7 @@ import { calculateSubnetCidrs, isSubnetLayoutWithinBlock } from '@/lib/network'
 import { isValidCidr } from './validators'
 import { ec2QueryKeys } from '@/api/aws/ec2.queries'
 import { ModalOverlay } from '@/components/ModalOverlay'
+import {Hint} from '@/components/Hint'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,17 +35,17 @@ const DEFAULT_GROUPS: SubnetGroup[] = [
 ]
 
 // Muted palette for private groups so they're visually distinct from each other
-const PRIVATE_COLORS = ['#94a3b8', '#a78bfa', '#fb923c', '#f472b6']
+const GROUP_TONES = ['text-data-1', 'text-data-2', 'text-data-3', 'text-data-4'] as const
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function ResourceRow({ label, id }: { label: string; id: string }) {
   return (
     <tr>
-      <td style={{ color: 'var(--text-muted)', paddingRight: 16, whiteSpace: 'nowrap', fontSize: 12 }}>
+      <td className="text-text-3 pr-4 whitespace-nowrap type-caption">
         {label}
       </td>
-      <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{id}</td>
+      <td className="type-code-sm">{id}</td>
     </tr>
   )
 }
@@ -120,40 +124,38 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
 
   // ── Private-group color assignment ─────────────────────────────────────────
   // Track a stable color per private group by their declaration order
-  const privateColors = useMemo(() => {
+  const groupTones = useMemo(() => {
     let pi = 0
-    return groups.map((g) => g.isPublic ? '#34d399' : PRIVATE_COLORS[pi++ % PRIVATE_COLORS.length])
+    return groups.map((g) => g.isPublic ? 'text-ok-text' : GROUP_TONES[pi++ % GROUP_TONES.length])
   }, [groups])
 
   return (
     <ModalOverlay onClose={onClose}>
       <div
-        className="create-table-modal"
-        style={{ width: 860, maxWidth: '96vw' }}
+        className="create-table-modal w-215 max-w-[96vw]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Network size={15} style={{ color: 'var(--accent)' }} />
+        <div className="modal-header flex items-center gap-2">
+          <Icon icon={Network} className="text-accent-text"  />
           <span>VPC Wizard</span>
-          <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onClose} aria-label="Close" title="Close">
-            <X size={13} />
-          </button>
+          <Hint label="Close"><Button variant="ghost" size="icon-sm" className="ml-auto" onClick={onClose} aria-label="Close">
+            <Icon icon={X} size={14} />
+          </Button></Hint>
         </div>
 
         {/* ── Form ──────────────────────────────────────────────────────── */}
         {step === 'form' && (
           <>
-            <div style={{ display: 'flex', gap: 0 }}>
+            <div className="flex gap-0">
               {/* Left panel — inputs */}
-              <div style={{ flex: '0 0 380px', padding: '16px 20px', borderRight: '1px solid var(--border)', overflowY: 'auto', maxHeight: '70vh' }}>
+              <div className="py-4 px-5 border-r border-line overflow-y-auto grow-0 shrink-0 basis-95 max-h-[70vh]">
 
                 <div className="modal-section">
                   <div className="section-title">Identity</div>
                   <div className="field-row">
                     <label>Name</label>
-                    <input aria-label="Name"
-                      className="input"
+                    <Input aria-label="Name"
                       placeholder="my-vpc"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -161,15 +163,14 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                   </div>
                   <div className="field-row">
                     <label>IPv4 CIDR block</label>
-                    <input aria-label="IPv4 CIDR block"
-                      className="input"
+                    <Input aria-label="IPv4 CIDR block"
                       placeholder="10.0.0.0/16"
                       value={cidrBlock}
                       onChange={(e) => setCidrBlock(e.target.value)}
-                      style={{ borderColor: cidrBlock && !cidrValid ? 'var(--status-error)' : undefined }}
+                      aria-invalid={(cidrBlock && !cidrValid) ? true : undefined}
                     />
                     {cidrBlock && !cidrValid && (
-                      <span style={{ color: 'var(--status-error)', fontSize: 11, marginTop: 2 }}>
+                      <span className="text-fail-text type-caption mt-0.5">
                         Invalid CIDR
                       </span>
                     )}
@@ -177,124 +178,68 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                 </div>
 
                 <div className="modal-section">
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-                    <div className="section-title" style={{ margin: 0 }}>Subnet groups</div>
-                    <button
-                      className="button compact"
-                      style={{ marginLeft: 'auto', fontSize: 11 }}
+                  <div className="flex items-center mb-2">
+                    <div className="section-title m-0">Subnet groups</div>
+                    <Button variant="secondary" size="sm"
+                      className="ml-auto"
                       onClick={addGroup}
                     >
-                      <Plus size={11} /> Add group
-                    </button>
+                      <Icon icon={Plus} size={14} /> Add group
+                    </Button>
                   </div>
 
                   {groups.length === 0 && (
-                    <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                    <p className="text-text-3 mb-2">
                       No groups defined. Add at least one.
                     </p>
                   )}
 
-                  {groups.length > 0 && (
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'minmax(0, 1fr) 44px 80px 54px 52px auto',
-                      gap: 4,
-                      padding: '0 6px',
-                      marginBottom: 2,
-                    }}>
-                      {['Name', '#', 'Type', 'Mask', 'AZ', ''].map((h) => (
-                        <span key={h} style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</span>
-                      ))}
-                    </div>
-                  )}
-
                   {groups.map((g, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'minmax(60px, 1fr) 38px 70px 46px 44px auto',
-                        gap: 4,
-                        alignItems: 'center',
-                        marginBottom: 4,
-                        background: 'var(--bg-primary)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 5,
-                        padding: '5px 6px',
-                      }}
-                    >
-                      {/* Name */}
-                      <input aria-label="Subnet group name"
-                        style={{
-                          minWidth: 0, fontSize: 12, padding: '3px 7px',
-                          background: 'transparent', border: 'none', outline: 'none',
-                          color: 'var(--text)',
-                        }}
-                        placeholder="group name"
-                        value={g.name}
-                        onChange={(e) => updateGroup(idx, { name: e.target.value })}
-                      />
-                      {/* Count */}
-                      <select aria-label="Subnet count"
-                        className="input"
-                        style={{ minWidth: 0, width: '100%', fontSize: 12, padding: '2px 4px', height: 26 }}
-                        value={g.count}
-                        onChange={(e) => updateGroup(idx, { count: Number(e.target.value) })}
-                      >
-                        {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                      {/* Public / Private toggle */}
-                      <select aria-label="Subnet visibility"
-                        className="input"
-                        style={{
-                          minWidth: 0, width: '100%', fontSize: 11, padding: '2px 4px', height: 26,
-                          color: g.isPublic ? 'var(--status-ok)' : 'var(--text-muted)',
-                        }}
-                        value={g.isPublic ? 'public' : 'private'}
-                        onChange={(e) => updateGroup(idx, { isPublic: e.target.value === 'public' })}
-                      >
-                        <option value="public">Public</option>
-                        <option value="private">Private</option>
-                      </select>
-                      {/* Prefix / mask */}
-                      <select
-                        className="input"
-                        style={{ minWidth: 0, width: '100%', fontSize: 11, padding: '2px 2px', height: 26 }}
-                        value={g.prefix ?? 'auto'}
-                        onChange={(e) => updateGroup(idx, { prefix: e.target.value === 'auto' ? undefined : Number(e.target.value) })}
-                        title="Subnet prefix length"
-                      >
-                        <option value="auto">auto</option>
-                        {[20, 21, 22, 23, 24, 25, 26, 27, 28].map((p) => (
-                          <option key={p} value={p}>/{p}</option>
-                        ))}
-                      </select>
-                      {/* AZ */}
-                      <select
-                        className="input"
-                        style={{ minWidth: 0, width: '100%', fontSize: 11, padding: '2px 2px', height: 26 }}
-                        value={g.az ?? '(auto)'}
-                        onChange={(e) => updateGroup(idx, { az: e.target.value === '(auto)' ? undefined : e.target.value })}
-                        title="Availability zone"
-                      >
-                        {AZ_OPTIONS.map((a) => (
-                          <option key={a} value={a}>{AZ_LABELS[a]}</option>
-                        ))}
-                      </select>
-                      {/* Remove */}
-                      <button
-                        className="icon-btn danger"
-                        onClick={() => removeGroup(idx)}
-                        title="Remove group"
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                    <div className="flex flex-col gap-2 mb-2 p-2 bg-page border border-line" key={idx}>
+                      <div className="flex items-center gap-2">
+                        <Input className="min-w-0 flex-1" aria-label="Subnet group name"
+                          placeholder="group name"
+                          value={g.name}
+                          onChange={(e) => updateGroup(idx, {name: e.target.value})}
+                        />
+                        <Hint label="Remove group"><Button variant="ghost" size="icon-sm" aria-label="Remove group" onClick={() => removeGroup(idx)}>
+                          <Icon icon={Trash2} size={14}/>
+                        </Button></Hint>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex min-w-0 flex-col gap-1">
+                          <span className="type-micro text-text-3">Count</span>
+                          <OptionSelect aria-label="Subnet count" value={String(g.count)} onValueChange={(value) => updateGroup(idx, {count: Number(value)})}>
+                            {[1, 2, 3, 4].map((n) => <option key={n} value={String(n)}>{n}</option>)}
+                          </OptionSelect>
+                        </label>
+                        <label className="flex min-w-0 flex-col gap-1">
+                          <span className="type-micro text-text-3">Type</span>
+                          <OptionSelect aria-label="Subnet visibility" value={g.isPublic ? 'public' : 'private'} onValueChange={(value) => updateGroup(idx, {isPublic: value === 'public'})}>
+                            <option value="public">Public</option>
+                            <option value="private">Private</option>
+                          </OptionSelect>
+                        </label>
+                        <label className="flex min-w-0 flex-col gap-1">
+                          <span className="type-micro text-text-3">Mask</span>
+                          <OptionSelect aria-label="Subnet prefix length" value={String(g.prefix ?? 'auto')} onValueChange={(value) => updateGroup(idx, {prefix: value === 'auto' ? undefined : Number(value)})}>
+                            <option value="auto">auto</option>
+                            {[20, 21, 22, 23, 24, 25, 26, 27, 28].map((p) => <option key={p} value={String(p)}>/{p}</option>)}
+                          </OptionSelect>
+                        </label>
+                        <label className="flex min-w-0 flex-col gap-1">
+                          <span className="type-micro text-text-3">AZ</span>
+                          <OptionSelect aria-label="Availability zone" value={g.az ?? '(auto)'} onValueChange={(value) => updateGroup(idx, {az: value === '(auto)' ? undefined : value})}>
+                            {AZ_OPTIONS.map((a) => <option key={a} value={a}>{AZ_LABELS[a]}</option>)}
+                          </OptionSelect>
+                        </label>
+                      </div>
                     </div>
                   ))}
 
                   {/* Validation hints */}
                   {groups.some((g) => !g.name.trim()) && (
-                    <p style={{ fontSize: 11, color: 'var(--status-error)', marginTop: 4 }}>
+                    <p className="type-caption text-fail-text mt-1">
                       All groups need a name.
                     </p>
                   )}
@@ -304,49 +249,33 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
               </div>
 
               {/* Right panel — preview */}
-              <div style={{ flex: 1, padding: '16px 20px', background: 'var(--bg-subtle, var(--bg-secondary))', overflowY: 'auto', maxHeight: '70vh' }}>
-                <div className="section-title" style={{ marginBottom: 12 }}>Preview</div>
+              <div className="flex-1 py-4 px-5 overflow-y-auto bg-well max-h-[70vh]">
+                <div className="section-title mb-3">Preview</div>
 
                 {/* VPC block */}
-                <div style={{
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  background: 'var(--bg-primary)',
-                  padding: '10px 14px',
-                  marginBottom: 10,
-                }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>VPC</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{cidrValid ? cidrBlock : '—'}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                <div className="py-2.5 px-3.5 mb-2.5 border border-line bg-page">
+                  <div className="type-caption text-accent-text mb-1">VPC</div>
+                  <div className="type-code-sm">{cidrValid ? cidrBlock : ', '}</div>
+                  <div className="type-caption text-text-3 mt-0.5">
                     + Internet Gateway
                   </div>
                 </div>
 
                 {/* Subnet group columns */}
                 {preview && preview.length > 0 ? (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div className="flex gap-2 flex-wrap">
                     {preview.map((grp, idx) => {
-                      const color = privateColors[idx]
-                      const borderColor = `${color}60`
-                      const bgColor = `${color}10`
+                      const tone = groupTones[idx]
                       return (
-                        <div key={idx} style={{ minWidth: 100, flex: '1 1 100px' }}>
-                          <div style={{ fontSize: 11, fontWeight: 600, color, marginBottom: 6 }}>
+                        <div className="min-w-25 grow shrink basis-25" key={idx}>
+                          <div className={`type-caption mb-1.5 ${tone}`}>
                             {grp.name || <em>unnamed</em>} ({grp.cidrs.length})
-                            <span style={{ fontWeight: 400, marginLeft: 4, opacity: 0.7 }}>
+                            <span className="ml-1 opacity-70">
                               {grp.isPublic ? '· public' : '· private'}
                             </span>
                           </div>
                           {grp.cidrs.map((cidr, i) => (
-                            <div key={i} style={{
-                              border: `1px solid ${borderColor}`,
-                              borderRadius: 4,
-                              padding: '5px 9px',
-                              marginBottom: 5,
-                              background: bgColor,
-                              fontFamily: 'var(--mono)',
-                              fontSize: 11,
-                            }}>
+                            <div className="py-1.5 px-2.5 mb-1.5 type-code-sm border border-line" key={i}>
                               {cidr}
                             </div>
                           ))}
@@ -355,12 +284,12 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
                     })}
                   </div>
                 ) : (
-                  <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                  <div className="text-text-3 type-caption">
                     {cidrValid ? 'Add subnet groups to preview.' : 'Enter a valid CIDR to preview.'}
                   </div>
                 )}
                 {preview && !previewValid && (
-                  <p style={{ color: 'var(--status-error)', fontSize: 11, marginTop: 8 }}>
+                  <p className="text-fail-text type-caption mt-2">
                     Requested subnet layout is invalid or does not fit the VPC CIDR.
                   </p>
                 )}
@@ -368,20 +297,20 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
             </div>
 
             <div className="modal-footer">
-              <button className="button" onClick={onClose}>Cancel</button>
-              <button className="button primary" disabled={!canSubmit} onClick={handleCreate}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button disabled={!canSubmit} onClick={handleCreate}>
                 Create VPC
-              </button>
+              </Button>
             </div>
           </>
         )}
 
         {/* ── Creating ─────────────────────────────────────────────────── */}
         {step === 'creating' && (
-          <div style={{ padding: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-            <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: 'var(--accent)' }} />
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Creating VPC infrastructure…</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+          <div className="p-12 flex flex-col items-center gap-3.5">
+            <Icon icon={Loader2} className="text-accent-text animate-pending" size={24} />
+            <div className="type-caption">Creating VPC infrastructure…</div>
+            <div className="type-caption text-text-3 text-center">
               Provisioning VPC, Internet Gateway, {totalSubnets} subnet{totalSubnets !== 1 ? 's' : ''}, route tables…
             </div>
           </div>
@@ -390,12 +319,12 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
         {/* ── Done ─────────────────────────────────────────────────────── */}
         {step === 'done' && result && (
           <>
-            <div style={{ padding: '24px 28px', maxHeight: '70vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                <CheckCircle2 size={18} style={{ color: 'var(--status-ok)' }} />
-                <span style={{ fontWeight: 600 }}>VPC created successfully</span>
+            <div className="py-6 px-7 overflow-y-auto max-h-[70vh]">
+              <div className="flex items-center gap-2 mb-5">
+                <Icon icon={CheckCircle2} className="text-ok-text"  />
+                <span>VPC created successfully</span>
               </div>
-              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <table className="border-collapse w-full">
                 <tbody>
                   <ResourceRow label="VPC" id={result.vpcId} />
                   <ResourceRow label="Internet Gateway" id={result.igwId} />
@@ -422,7 +351,7 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
               </table>
             </div>
             <div className="modal-footer">
-              <button className="button primary" onClick={onClose}>Close</button>
+              <Button onClick={onClose}>Close</Button>
             </div>
           </>
         )}
@@ -430,18 +359,18 @@ export function VpcWizardModal({ onClose, onCreated }: Props) {
         {/* ── Error ────────────────────────────────────────────────────── */}
         {step === 'error' && (
           <>
-            <div style={{ padding: '24px 28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <AlertCircle size={18} style={{ color: 'var(--status-error)' }} />
-                <span style={{ fontWeight: 600 }}>Creation failed</span>
+            <div className="py-6 px-7">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon icon={AlertCircle} className="text-fail-text"  />
+                <span>Creation failed</span>
               </div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--status-error)', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4 }}>
+              <div className="type-code-sm text-fail-text p-3 bg-well">
                 {errorMsg}
               </div>
             </div>
             <div className="modal-footer">
-              <button className="button" onClick={() => setStep('form')}>Back</button>
-              <button className="button" onClick={onClose}>Close</button>
+              <Button variant="secondary" onClick={() => setStep('form')}>Back</Button>
+              <Button variant="secondary" onClick={onClose}>Close</Button>
             </div>
           </>
         )}

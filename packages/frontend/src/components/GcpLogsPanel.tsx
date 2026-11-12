@@ -2,6 +2,9 @@ import {useState, type FormEvent} from 'react'
 import {useQuery} from '@tanstack/react-query'
 import {queryFlatItems} from '@/api/cloudProxyClient'
 import {formatDateTime} from '@/lib/format'
+import {Button} from '@/components/sodium/ui/button'
+import {OptionSelect} from '@/components/OptionSelect'
+import {DateTimeInput} from '@/components/DateTimeInput'
 
 const SEVERITIES = ['DEFAULT', 'DEBUG', 'INFO', 'NOTICE', 'WARNING', 'ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY']
 
@@ -41,18 +44,18 @@ export function GcpLogsPanel({logName, runtimeReachable}: {logName: string; runt
             <h3>Log entries</h3>
             <form onSubmit={applyFilter}>
                 <label>Minimum severity
-                    <select className="input" value={severity} onChange={(event) => setSeverity(event.target.value)}>
+                    <OptionSelect value={severity} onValueChange={(value) => setSeverity(value)}>
                         <option value="">All</option>
                         {SEVERITIES.map((value) => <option key={value} value={value}>{value}</option>)}
-                    </select>
+                    </OptionSelect>
                 </label>
                 <label>Start time
-                    <input className="input" type="datetime-local" value={from} onChange={(event) => setFrom(event.target.value)}/>
+                    <DateTimeInput aria-label="Start time" value={from} onValueChange={setFrom}/>
                 </label>
                 <label>End time
-                    <input className="input" type="datetime-local" value={until} onChange={(event) => setUntil(event.target.value)}/>
+                    <DateTimeInput aria-label="End time" value={until} onValueChange={setUntil}/>
                 </label>
-                <button className="button" type="submit" disabled={!runtimeReachable}>Apply filters</button>
+                <Button variant="secondary" type="submit" disabled={!runtimeReachable}>Apply filters</Button>
             </form>
             {error && <p role="alert" className="form-error">{error}</p>}
             {entries.error instanceof Error && <p role="alert" className="form-error">{entries.error.message}</p>}
@@ -77,9 +80,9 @@ export function GcpLogsPanel({logName, runtimeReachable}: {logName: string; runt
             )}
             {entries.isSuccess && (
                 <div>
-                    {cursors.length > 1 && <button className="button" type="button" onClick={() => setCursors((current) => current.slice(0, -1))}>Previous page</button>}
-                    {entries.data.nextCursor && <button className="button" type="button" onClick={() => setCursors((current) => [...current, entries.data.nextCursor ?? undefined])}>Next page</button>}
-                    <button className="button" type="button" disabled={entries.isFetching} onClick={() => void entries.refetch()}>Refresh</button>
+                    {cursors.length > 1 && <Button variant="secondary" type="button" onClick={() => setCursors((current) => current.slice(0, -1))}>Previous page</Button>}
+                    {entries.data.nextCursor && <Button variant="secondary" type="button" onClick={() => setCursors((current) => [...current, entries.data.nextCursor ?? undefined])}>Next page</Button>}
+                    <Button variant="secondary" type="button" disabled={entries.isFetching} onClick={() => void entries.refetch()}>Refresh</Button>
                 </div>
             )}
         </section>

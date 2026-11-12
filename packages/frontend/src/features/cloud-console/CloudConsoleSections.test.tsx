@@ -1,6 +1,6 @@
 import {render, screen} from '@testing-library/react'
-import {Cloud} from 'lucide-react'
 import {describe, expect, it, vi} from 'vitest'
+import {Cube} from '@/components/sodium/icon'
 import {ServiceGrid} from './CloudConsoleSections'
 
 describe('ServiceGrid', () => {
@@ -13,7 +13,7 @@ describe('ServiceGrid', () => {
                     description: 'Managed Kubernetes clusters for containerized workloads.',
                     status: 'available',
                     count: 2,
-                    icon: Cloud,
+                    icon: Cube,
                     route: '/cloud-explorer/aws/k8s',
                     meta: 'resources',
                 }]}
@@ -22,8 +22,8 @@ describe('ServiceGrid', () => {
             />,
         )
 
-        const card = screen.getByRole('button', {name: /EKS/})
-        expect(card).toHaveTextContent('Managed Kubernetes clusters for containerized workloads.')
-        expect(card).toHaveTextContent('available')
+        expect(screen.getByRole('link', {name: 'EKS'})).toHaveAttribute('href', '/cloud-explorer/aws/k8s')
+        expect(screen.getByText('Managed Kubernetes clusters for containerized workloads.')).toBeInTheDocument()
+        expect(screen.getByText(/available/)).toBeInTheDocument()
     })
 })

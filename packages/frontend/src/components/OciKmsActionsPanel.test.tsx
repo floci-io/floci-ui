@@ -44,7 +44,7 @@ describe("OciKmsActionsPanel", () => {
     vi.mocked(verifyKmsResource).mockResolvedValue({isSignatureValid: true});
     render(<OciKmsActionsPanel resource={ecdsaKey} runtimeReachable={true} onChanged={vi.fn()}/>);
 
-    expect(screen.getByLabelText("Signing algorithm")).toHaveValue("ECDSA_SHA_384");
+    expect(screen.getByLabelText("Signing algorithm")).toHaveAttribute("data-value", "ECDSA_SHA_384");
     await user.type(screen.getByLabelText("Message (UTF-8)"), "café");
     const signButtons = screen.getAllByRole("button", {name: "Sign"});
     await user.click(signButtons[signButtons.length - 1]);

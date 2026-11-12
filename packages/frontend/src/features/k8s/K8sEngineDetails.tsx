@@ -1,6 +1,8 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {useState} from 'react'
-import {Plus, Trash2} from 'lucide-react'
+import {Icon, PlusSquared as Plus, Trash2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
 import {
     createKubernetesFargateProfile,
     createKubernetesNodegroup,
@@ -17,6 +19,7 @@ import {
     type KubernetesNodegroup,
 } from '@/types/resource'
 import type {CloudProvider} from '@/types/cloud'
+import {Hint} from '@/components/Hint'
 
 interface K8sEngineDetailsProps {
     cloud: CloudProvider
@@ -73,9 +76,9 @@ function EksNodegroupsSection({cloud, clusterName}: {cloud: CloudProvider; clust
         <section className="inspector-section">
             <div className="inspector-section-header">
                 <p className="metric-label">Managed Nodegroups</p>
-                <button className="button compact" type="button" onClick={() => nodegroupsQuery.refetch()}>
+                <Button variant="secondary" size="sm" type="button" onClick={() => nodegroupsQuery.refetch()}>
                     Refresh
-                </button>
+                </Button>
             </div>
             <form
                 className="inspector-action-form"
@@ -96,17 +99,17 @@ function EksNodegroupsSection({cloud, clusterName}: {cloud: CloudProvider; clust
                     })
                 }}
             >
-                <input aria-label="Nodegroup name" className="input" value={form.name} onChange={(event) => setForm({...form, name: event.target.value})} placeholder="Nodegroup name"/>
-                <input aria-label="Node role ARN" className="input" value={form.nodeRole} onChange={(event) => setForm({...form, nodeRole: event.target.value})} placeholder="Node role ARN"/>
-                <input aria-label="Subnets" className="input" value={form.subnets} onChange={(event) => setForm({...form, subnets: event.target.value})} placeholder="subnet-a, subnet-b"/>
-                <input aria-label="Instance type" className="input" value={form.instanceTypes} onChange={(event) => setForm({...form, instanceTypes: event.target.value})} placeholder="t3.medium"/>
-                <input aria-label="Minimum nodes" className="input" type="number" min="0" value={form.minSize} onChange={(event) => setForm({...form, minSize: event.target.value})} placeholder="Min"/>
-                <input aria-label="Desired nodes" className="input" type="number" min="0" value={form.desiredSize} onChange={(event) => setForm({...form, desiredSize: event.target.value})} placeholder="Desired"/>
-                <input aria-label="Maximum nodes" className="input" type="number" min="1" value={form.maxSize} onChange={(event) => setForm({...form, maxSize: event.target.value})} placeholder="Max"/>
-                <button className="button compact" type="submit" disabled={!canCreate || createNodegroup.isPending}>
-                    <Plus size={13}/>
+                <Input aria-label="Nodegroup name" value={form.name} onChange={(event) => setForm({...form, name: event.target.value})} placeholder="Nodegroup name"/>
+                <Input aria-label="Node role ARN" value={form.nodeRole} onChange={(event) => setForm({...form, nodeRole: event.target.value})} placeholder="Node role ARN"/>
+                <Input aria-label="Subnets" value={form.subnets} onChange={(event) => setForm({...form, subnets: event.target.value})} placeholder="subnet-a, subnet-b"/>
+                <Input aria-label="Instance type" value={form.instanceTypes} onChange={(event) => setForm({...form, instanceTypes: event.target.value})} placeholder="t3.medium"/>
+                <Input aria-label="Minimum nodes" type="number" min="0" value={form.minSize} onChange={(event) => setForm({...form, minSize: event.target.value})} placeholder="Min"/>
+                <Input aria-label="Desired nodes" type="number" min="0" value={form.desiredSize} onChange={(event) => setForm({...form, desiredSize: event.target.value})} placeholder="Desired"/>
+                <Input aria-label="Maximum nodes" type="number" min="1" value={form.maxSize} onChange={(event) => setForm({...form, maxSize: event.target.value})} placeholder="Max"/>
+                <Button variant="secondary" size="sm" type="submit" disabled={!canCreate || createNodegroup.isPending}>
+                    <Icon icon={Plus} size={14}/>
                     {createNodegroup.isPending ? 'Creating' : 'Create'}
-                </button>
+                </Button>
             </form>
             {createNodegroup.isError && <p className="error-text compact-text">{errorMessage(createNodegroup.error)}</p>}
             {deleteNodegroup.isError && <p className="error-text compact-text">{errorMessage(deleteNodegroup.error)}</p>}
@@ -157,9 +160,9 @@ function EksFargateProfilesSection({cloud, clusterName}: {cloud: CloudProvider; 
         <section className="inspector-section">
             <div className="inspector-section-header">
                 <p className="metric-label">Fargate Profiles</p>
-                <button className="button compact" type="button" onClick={() => profilesQuery.refetch()}>
+                <Button variant="secondary" size="sm" type="button" onClick={() => profilesQuery.refetch()}>
                     Refresh
-                </button>
+                </Button>
             </div>
             <form
                 className="inspector-action-form"
@@ -178,15 +181,15 @@ function EksFargateProfilesSection({cloud, clusterName}: {cloud: CloudProvider; 
                     })
                 }}
             >
-                <input aria-label="Profile name" className="input" value={form.name} onChange={(event) => setForm({...form, name: event.target.value})} placeholder="Profile name"/>
-                <input aria-label="Pod execution role ARN" className="input" value={form.roleArn} onChange={(event) => setForm({...form, roleArn: event.target.value})} placeholder="Pod execution role ARN"/>
-                <input aria-label="Namespace" className="input" value={form.namespace} onChange={(event) => setForm({...form, namespace: event.target.value})} placeholder="Namespace"/>
-                <input aria-label="Pod selector labels" className="input" value={form.labels} onChange={(event) => setForm({...form, labels: event.target.value})} placeholder="app=api, tier=backend"/>
-                <input aria-label="Subnets" className="input" value={form.subnets} onChange={(event) => setForm({...form, subnets: event.target.value})} placeholder="Optional subnets"/>
-                <button className="button compact" type="submit" disabled={!canCreate || createProfile.isPending}>
-                    <Plus size={13}/>
+                <Input aria-label="Profile name" value={form.name} onChange={(event) => setForm({...form, name: event.target.value})} placeholder="Profile name"/>
+                <Input aria-label="Pod execution role ARN" value={form.roleArn} onChange={(event) => setForm({...form, roleArn: event.target.value})} placeholder="Pod execution role ARN"/>
+                <Input aria-label="Namespace" value={form.namespace} onChange={(event) => setForm({...form, namespace: event.target.value})} placeholder="Namespace"/>
+                <Input aria-label="Pod selector labels" value={form.labels} onChange={(event) => setForm({...form, labels: event.target.value})} placeholder="app=api, tier=backend"/>
+                <Input aria-label="Subnets" value={form.subnets} onChange={(event) => setForm({...form, subnets: event.target.value})} placeholder="Optional subnets"/>
+                <Button variant="secondary" size="sm" type="submit" disabled={!canCreate || createProfile.isPending}>
+                    <Icon icon={Plus} size={14}/>
                     {createProfile.isPending ? 'Creating' : 'Create'}
-                </button>
+                </Button>
             </form>
             {createProfile.isError && <p className="error-text compact-text">{errorMessage(createProfile.error)}</p>}
             {deleteProfile.isError && <p className="error-text compact-text">{errorMessage(deleteProfile.error)}</p>}
@@ -240,19 +243,18 @@ function NodegroupsList({
                     </div>
                     {deleteCandidate === nodegroup.name ? (
                         <span className="inline-actions">
-                            <button className="button compact danger" type="button" onClick={() => onConfirmDelete(nodegroup.name)}>Delete</button>
-                            <button className="button compact" type="button" onClick={onCancelDelete}>Cancel</button>
+                            <Button variant="destructive" size="sm" type="button" onClick={() => onConfirmDelete(nodegroup.name)}>Delete</Button>
+                            <Button variant="secondary" size="sm" type="button" onClick={onCancelDelete}>Cancel</Button>
                         </span>
                     ) : (
-                        <button
+                        <Hint label={`Delete ${nodegroup.name}`}><Button variant="ghost" size="icon-sm"
                             aria-label={`Delete ${nodegroup.name}`}
-                            className="icon-btn danger"
                             type="button"
                             disabled={deletingName === nodegroup.name}
                             onClick={() => onRequestDelete(nodegroup.name)}
                         >
-                            <Trash2 size={13}/>
-                        </button>
+                            <Icon icon={Trash2} size={14}/>
+                        </Button></Hint>
                     )}
                 </div>
             ))}
@@ -293,19 +295,18 @@ function FargateProfilesList({
                     </div>
                     {deleteCandidate === profile.name ? (
                         <span className="inline-actions">
-                            <button className="button compact danger" type="button" onClick={() => onConfirmDelete(profile.name)}>Delete</button>
-                            <button className="button compact" type="button" onClick={onCancelDelete}>Cancel</button>
+                            <Button variant="destructive" size="sm" type="button" onClick={() => onConfirmDelete(profile.name)}>Delete</Button>
+                            <Button variant="secondary" size="sm" type="button" onClick={onCancelDelete}>Cancel</Button>
                         </span>
                     ) : (
-                        <button
+                        <Hint label={`Delete ${profile.name}`}><Button variant="ghost" size="icon-sm"
                             aria-label={`Delete ${profile.name}`}
-                            className="icon-btn danger"
                             type="button"
                             disabled={deletingName === profile.name}
                             onClick={() => onRequestDelete(profile.name)}
                         >
-                            <Trash2 size={13}/>
-                        </button>
+                            <Icon icon={Trash2} size={14}/>
+                        </Button></Hint>
                     )}
                 </div>
             ))}

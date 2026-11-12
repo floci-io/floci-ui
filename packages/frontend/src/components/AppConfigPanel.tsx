@@ -1,5 +1,9 @@
 import {FormEvent, useEffect, useMemo, useState} from 'react'
-import {Pencil, Plus, RefreshCw, Rocket, SlidersHorizontal, Trash2, Undo2} from 'lucide-react'
+import {Icon, PencilSquared as Pencil, PlusSquared as Plus, RefreshCwSquared as RefreshCw, Rocket, SlidersHorizontal, Trash2, Undo2Squared as Undo2} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {
     createAppConfigConfigurationProfile,
@@ -21,6 +25,9 @@ import {
 import type {CloudProvider} from '@/types/cloud'
 import type {AppConfigDeployment, CloudResource} from '@/types/resource'
 import {useAccountId} from '@/lib/accountStore'
+import {Dialog, DialogAction, DialogBody, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/sodium/ui/dialog'
+import {EmptyState} from '@/components/EmptyState'
+import {Hint} from '@/components/Hint'
 
 const TERMINAL_DEPLOYMENT_STATES = new Set(['COMPLETE', 'ROLLED_BACK', 'STOPPED'])
 const PROFILE_TYPES = ['AWS.Freeform', 'AWS.AppConfig.FeatureFlags']
@@ -62,6 +69,7 @@ interface AccountScopedAppConfigPanelProps extends AppConfigPanelProps {
 }
 
 function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachable}: AccountScopedAppConfigPanelProps) {
+    const [pendingEditVersion, setPendingEditVersion] = useState<number | null>(null)
     const qc = useQueryClient()
     const applicationId = resource?.id
     const [selectedProfileId, setSelectedProfileId] = useState<string>()
@@ -276,10 +284,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
     if (!applicationId) {
         return (
             <section className="cosmos-panel appconfig-panel">
-                <div className="empty compact">
-                    <h2>Select an application</h2>
-                    <p>Environments, configuration profiles, hosted versions, and deployments are loaded after an application is selected.</p>
-                </div>
+                <EmptyState compact title="Select an application" description="Environments, configuration profiles, hosted versions, and deployments are loaded after an application is selected."/>
             </section>
         )
     }
@@ -325,7 +330,10 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
     }
 
     function editFromVersion(versionNumber: number) {
-        if (dirty && !window.confirm('Discard your unsaved changes and edit this version instead?')) return
+        if (dirty) {
+            setPendingEditVersion(versionNumber)
+            return
+        }
         discardDraft(versionNumber)
     }
 
@@ -344,14 +352,33 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
 
     return (
         <section className="cosmos-panel appconfig-panel">
+            <Dialog open={pendingEditVersion !== null} onOpenChange={(open) => { if (!open) setPendingEditVersion(null) }}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Discard unsaved changes</DialogTitle></DialogHeader>
+                    <DialogBody>
+                        <DialogDescription>Your unsaved changes will be lost and this version will open for editing instead.</DialogDescription>
+                    </DialogBody>
+                    <DialogFooter>
+                        <DialogClose>Keep editing</DialogClose>
+                        <DialogAction
+                            onAction={() => {
+                                if (pendingEditVersion !== null) discardDraft(pendingEditVersion)
+                                setPendingEditVersion(null)
+                            }}
+                        >
+                            Discard changes
+                        </DialogAction>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
             <div className="cosmos-column">
                 <ColumnHeader eyebrow="Environments" title={resource?.name ?? ''} detail={`${environments.length} environments`}/>
                 <form className="cosmos-inline-form" onSubmit={submitEnvironment}>
-                    <input aria-label="Environment name" className="input" value={environmentName} onChange={(event) => setEnvironmentName(event.target.value)} placeholder="Environment name" disabled={!runtimeReachable}/>
-                    <button className="button" type="submit" disabled={!runtimeReachable || createEnvironmentMut.isPending || !environmentName.trim()}>
-                        <Plus size={14}/>
+                    <Input aria-label="Environment name" value={environmentName} onChange={(event) => setEnvironmentName(event.target.value)} placeholder="Environment name" disabled={!runtimeReachable}/>
+                    <Button variant="secondary" type="submit" disabled={!runtimeReachable || createEnvironmentMut.isPending || !environmentName.trim()}>
+                        <Icon icon={Plus} size={14}/>
                         {createEnvironmentMut.isPending ? 'Creating' : 'Create'}
-                    </button>
+                    </Button>
                 </form>
                 {createEnvironmentMut.error instanceof Error && <div className="form-error">{createEnvironmentMut.error.message}</div>}
                 {environmentsQuery.error instanceof Error && <div className="form-error">{environmentsQuery.error.message}</div>}
@@ -360,7 +387,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                     {environmentsQuery.isLoading && <div className="muted padded">Loading environments</div>}
                     {!environmentsQuery.isLoading && environments.length === 0 && <div className="muted padded">No environments</div>}
                     {environments.map((environment) => (
-                        <button
+                        <Button variant="secondary"
                             key={environment.id}
                             className={`cosmos-list-row ${deployEnvironmentId === environment.id ? 'selected' : ''}`}
                             type="button"
@@ -382,15 +409,15 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                                     Confirm
                                 </em>
                             ) : (
-                                <Trash2
-                                    size={13}
+                                <Icon icon={Trash2}
+                                    size={14}
                                     onClick={(event) => {
                                         event.stopPropagation()
                                         setConfirmEnvironment(environment.id)
                                     }}
                                 />
                             )}
-                        </button>
+                        </Button>
                     ))}
                 </div>
             </div>
@@ -398,14 +425,14 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
             <div className="cosmos-column">
                 <ColumnHeader eyebrow="Configuration profiles" title="Profiles" detail={`${profiles.length} profiles`}/>
                 <form className="cosmos-inline-form" onSubmit={submitProfile}>
-                    <input aria-label="Profile name" className="input" value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder="Profile name" disabled={!runtimeReachable}/>
-                    <select aria-label="Profile type" className="input" value={profileType} onChange={(event) => setProfileType(event.target.value)} disabled={!runtimeReachable}>
+                    <Input aria-label="Profile name" value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder="Profile name" disabled={!runtimeReachable}/>
+                    <OptionSelect aria-label="Profile type" value={profileType} onValueChange={(value) => setProfileType(value)} disabled={!runtimeReachable}>
                         {PROFILE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                    <button className="button" type="submit" disabled={!runtimeReachable || createProfileMut.isPending || !profileName.trim()}>
-                        <Plus size={14}/>
+                    </OptionSelect>
+                    <Button variant="secondary" type="submit" disabled={!runtimeReachable || createProfileMut.isPending || !profileName.trim()}>
+                        <Icon icon={Plus} size={14}/>
                         {createProfileMut.isPending ? 'Creating' : 'Create'}
-                    </button>
+                    </Button>
                 </form>
                 {createProfileMut.error instanceof Error && <div className="form-error">{createProfileMut.error.message}</div>}
                 {profilesQuery.error instanceof Error && <div className="form-error">{profilesQuery.error.message}</div>}
@@ -414,7 +441,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                     {profilesQuery.isLoading && <div className="muted padded">Loading profiles</div>}
                     {!profilesQuery.isLoading && profiles.length === 0 && <div className="muted padded">No configuration profiles</div>}
                     {profiles.map((profile) => (
-                        <button
+                        <Button variant="secondary"
                             key={profile.id}
                             className={`cosmos-list-row ${selectedProfileId === profile.id ? 'selected' : ''}`}
                             type="button"
@@ -436,15 +463,15 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                                     Confirm
                                 </em>
                             ) : (
-                                <Trash2
-                                    size={13}
+                                <Icon icon={Trash2}
+                                    size={14}
                                     onClick={(event) => {
                                         event.stopPropagation()
                                         setConfirmProfile(profile.id)
                                     }}
                                 />
                             )}
-                        </button>
+                        </Button>
                     ))}
                 </div>
             </div>
@@ -467,21 +494,21 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                     {dirty && <em className="appconfig-unsaved">Unsaved changes</em>}
                 </div>
                 <form className="cosmos-inline-form" onSubmit={submitVersion}>
-                    <input className="input" value={editorContentType} onChange={(event) => setContentTypeDraft(event.target.value)} placeholder="Content type" aria-label="Content type" disabled={!selectedProfileId || !runtimeReachable}/>
-                    <input className="input" value={versionDescription} onChange={(event) => setVersionDescription(event.target.value)} placeholder="Description (optional)" aria-label="Version description" disabled={!selectedProfileId || !runtimeReachable}/>
-                    <button className="button primary" type="submit" disabled={!canSave || createVersionMut.isPending}>
-                        <Plus size={14}/>
+                    <Input value={editorContentType} onChange={(event) => setContentTypeDraft(event.target.value)} placeholder="Content type" aria-label="Content type" disabled={!selectedProfileId || !runtimeReachable}/>
+                    <Input value={versionDescription} onChange={(event) => setVersionDescription(event.target.value)} placeholder="Description (optional)" aria-label="Version description" disabled={!selectedProfileId || !runtimeReachable}/>
+                    <Button type="submit" disabled={!canSave || createVersionMut.isPending}>
+                        <Icon icon={Plus} size={14}/>
                         {createVersionMut.isPending ? 'Publishing' : 'Create new version'}
-                    </button>
-                    <button className="button" type="button" onClick={() => discardDraft()} disabled={!dirty}>
-                        <Undo2 size={14}/>
+                    </Button>
+                    <Button variant="secondary" type="button" onClick={() => discardDraft()} disabled={!dirty}>
+                        <Icon icon={Undo2} size={14}/>
                         Discard changes
-                    </button>
-                    <button className="button" type="button" onClick={formatJson} disabled={!/json/i.test(editorContentType) || Boolean(contentError) || !editorContent.trim()}>
+                    </Button>
+                    <Button variant="secondary" type="button" onClick={formatJson} disabled={!/json/i.test(editorContentType) || Boolean(contentError) || !editorContent.trim()}>
                         Format JSON
-                    </button>
+                    </Button>
                 </form>
-                <textarea
+                <Textarea
                     className={`textarea code-textarea ${contentError ? 'invalid' : ''}`}
                     value={editorContent}
                     onChange={(event) => setDraft(event.target.value)}
@@ -513,15 +540,15 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                                     <td onClick={() => setSelectedVersionNumber(version.versionNumber)}>{version.contentType ?? '-'}</td>
                                     <td onClick={() => setSelectedVersionNumber(version.versionNumber)}>{version.description ?? '-'}</td>
                                     <td className="table-actions">
-                                        <button className="icon-btn" type="button" title={`Edit from version ${version.versionNumber}`} onClick={() => editFromVersion(version.versionNumber)}>
-                                            <Pencil size={13}/>
-                                        </button>
+                                        <Hint label={`Edit from version ${version.versionNumber}`}><Button variant="ghost" size="icon-sm" type="button" aria-label={`Edit from version ${version.versionNumber}`} onClick={() => editFromVersion(version.versionNumber)}>
+                                            <Icon icon={Pencil} size={14}/>
+                                        </Button></Hint>
                                         {confirmVersion === version.versionNumber ? (
-                                            <button className="button danger compact" type="button" onClick={() => deleteVersionMut.mutate(version.versionNumber)}>Confirm</button>
+                                            <Button variant="destructive" size="sm" type="button" onClick={() => deleteVersionMut.mutate(version.versionNumber)}>Confirm</Button>
                                         ) : (
-                                            <button className="icon-btn danger" type="button" title={`Delete version ${version.versionNumber}`} onClick={() => setConfirmVersion(version.versionNumber)}>
-                                                <Trash2 size={13}/>
-                                            </button>
+                                            <Hint label={`Delete version ${version.versionNumber}`}><Button variant="ghost" size="icon-sm" type="button" aria-label={`Delete version ${version.versionNumber}`} onClick={() => setConfirmVersion(version.versionNumber)}>
+                                                <Icon icon={Trash2} size={14}/>
+                                            </Button></Hint>
                                         )}
                                     </td>
                                 </tr>
@@ -529,7 +556,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                         </tbody>
                     </table>
                     {selectedProfileId && !versionsQuery.isLoading && versions.length === 0 && (
-                        <div className="empty compact"><h2>No hosted versions</h2><p>Write the configuration above and create the first version.</p></div>
+                        <EmptyState compact title="No hosted versions" description="Write the configuration above and create the first version."/>
                     )}
                 </div>
                 {selectedVersionNumber !== undefined && (
@@ -550,31 +577,31 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                     event.preventDefault()
                     if (canDeploy) startDeploymentMut.mutate()
                 }}>
-                    <select aria-label="Environment" className="input" value={deployEnvironmentId} onChange={(event) => setDeployEnvironmentId(event.target.value)} disabled={!runtimeReachable}>
+                    <OptionSelect aria-label="Environment" value={deployEnvironmentId} onValueChange={(value) => setDeployEnvironmentId(value)} disabled={!runtimeReachable}>
                         <option value="">Select environment</option>
                         {environments.map((environment) => <option key={environment.id} value={environment.id}>{environment.name}</option>)}
-                    </select>
-                    <select aria-label="Configuration profile" className="input" value={deployProfileId} onChange={(event) => {
-                        setDeployProfileId(event.target.value)
+                    </OptionSelect>
+                    <OptionSelect aria-label="Configuration profile" value={deployProfileId} onValueChange={(value) => {
+                        setDeployProfileId(value)
                         setDeployVersion('')
                     }} disabled={!runtimeReachable}>
                         <option value="">Select profile</option>
                         {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-                    </select>
-                    <select aria-label="Configuration version" className="input" value={deployVersion} onChange={(event) => setDeployVersion(event.target.value)} disabled={!runtimeReachable || !deployProfileId}>
+                    </OptionSelect>
+                    <OptionSelect aria-label="Configuration version" value={deployVersion} onValueChange={(value) => setDeployVersion(value)} disabled={!runtimeReachable || !deployProfileId}>
                         <option value="">Select version</option>
                         {(deployVersionsQuery.data ?? []).map((version) => (
                             <option key={version.id} value={String(version.versionNumber)}>v{version.versionNumber}</option>
                         ))}
-                    </select>
-                    <select aria-label="Deployment strategy" className="input" value={deployStrategyId} onChange={(event) => setDeployStrategyId(event.target.value)} disabled={!runtimeReachable}>
+                    </OptionSelect>
+                    <OptionSelect aria-label="Deployment strategy" value={deployStrategyId} onValueChange={(value) => setDeployStrategyId(value)} disabled={!runtimeReachable}>
                         <option value="">Select strategy</option>
                         {strategies.map((strategy) => <option key={strategy.id} value={strategy.id}>{strategy.name}</option>)}
-                    </select>
-                    <button className="button primary" type="submit" disabled={!canDeploy || startDeploymentMut.isPending}>
-                        <Rocket size={14}/>
+                    </OptionSelect>
+                    <Button type="submit" disabled={!canDeploy || startDeploymentMut.isPending}>
+                        <Icon icon={Rocket} size={14}/>
                         {startDeploymentMut.isPending ? 'Deploying' : 'Start deployment'}
-                    </button>
+                    </Button>
                 </form>
                 {startDeploymentMut.error instanceof Error && <div className="form-error">{startDeploymentMut.error.message}</div>}
                 {deployment && (
@@ -588,9 +615,9 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                                 </small>
                             </span>
                             {!TERMINAL_DEPLOYMENT_STATES.has(deployment.state ?? '') && (
-                                <button className="icon-btn" type="button" title="Refresh deployment" onClick={() => deploymentQuery.refetch()}>
-                                    <RefreshCw size={13}/>
-                                </button>
+                                <Hint label="Refresh deployment"><Button variant="ghost" size="icon-sm" type="button" aria-label="Refresh deployment" onClick={() => deploymentQuery.refetch()}>
+                                    <Icon icon={RefreshCw} size={14}/>
+                                </Button></Hint>
                             )}
                         </div>
                     </div>
@@ -598,12 +625,12 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
 
                 <ColumnHeader eyebrow="Strategies" title="Deployment strategies" detail={`${strategies.length} strategies`}/>
                 <form className="cosmos-inline-form" onSubmit={submitStrategy}>
-                    <input aria-label="Immediate strategy name" className="input" value={strategyName} onChange={(event) => setStrategyName(event.target.value)} placeholder="Immediate strategy name" disabled={!runtimeReachable}/>
-                    <input aria-label="Bake min" className="input" type="number" min={0} value={strategyBake} onChange={(event) => setStrategyBake(event.target.value)} placeholder="Bake min" disabled={!runtimeReachable}/>
-                    <button className="button" type="submit" disabled={!runtimeReachable || createStrategyMut.isPending || !strategyName.trim()}>
-                        <Plus size={14}/>
+                    <Input aria-label="Immediate strategy name" value={strategyName} onChange={(event) => setStrategyName(event.target.value)} placeholder="Immediate strategy name" disabled={!runtimeReachable}/>
+                    <Input aria-label="Bake min" type="number" min={0} value={strategyBake} onChange={(event) => setStrategyBake(event.target.value)} placeholder="Bake min" disabled={!runtimeReachable}/>
+                    <Button variant="secondary" type="submit" disabled={!runtimeReachable || createStrategyMut.isPending || !strategyName.trim()}>
+                        <Icon icon={Plus} size={14}/>
                         {createStrategyMut.isPending ? 'Creating' : 'Create'}
-                    </button>
+                    </Button>
                 </form>
                 {createStrategyMut.error instanceof Error && <div className="form-error">{createStrategyMut.error.message}</div>}
                 {strategiesQuery.error instanceof Error && <div className="form-error">{strategiesQuery.error.message}</div>}
@@ -622,7 +649,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
                             {confirmStrategy === strategy.id ? (
                                 <em role="button" tabIndex={0} onClick={() => deleteStrategyMut.mutate(strategy.id)}>Confirm</em>
                             ) : (
-                                <Trash2 size={13} onClick={() => setConfirmStrategy(strategy.id)}/>
+                                <Icon icon={Trash2} size={14} onClick={() => setConfirmStrategy(strategy.id)}/>
                             )}
                         </div>
                     ))}
@@ -635,7 +662,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
 function ColumnHeader({eyebrow, title, detail}: {eyebrow: string; title: string; detail: string}) {
     return (
         <div className="cosmos-panel-header">
-            <SlidersHorizontal size={15}/>
+            <Icon icon={SlidersHorizontal} />
             <span>
                 <small>{eyebrow}</small>
                 <strong>{title}</strong>

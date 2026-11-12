@@ -112,5 +112,6 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
         resourceCount,
         resourceDetail: resourceDetailFor(status, statusQuery.isLoading, resourcesLoading, resourcesError),
         serviceCards,
+        servicesLoading: servicesQuery.isLoading,
     }
 }

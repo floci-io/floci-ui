@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronUp, Info, Loader2, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import {Icon, ErrorOutline, Time, ChevronDown, ChevronUp, InfoSquared as Info, PlusSquared as Plus, RefreshCwSquared as RefreshCw, Trash2, XSquared as X} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCloudResource,
@@ -45,6 +48,10 @@ import {
   writeLandsIn,
   type StorageTarget,
 } from "@/lib/storageQueryKeys";
+import {EmptyState} from '@/components/EmptyState'
+import {PageSkeleton, RowsSkeleton} from '@/components/PageSkeleton'
+import {PanelEnter, Reveal} from '@/components/PanelReveal'
+import {Hint} from '@/components/Hint'
 
 const ComputePanel = lazyPanel(() => import("@/components/ComputePanel").then((m) => m.ComputePanel));
 const ComputePowerPanel = lazyPanel(() => import("@/components/ComputePowerPanel").then((m) => m.ComputePowerPanel));
@@ -520,9 +527,7 @@ export function DynamicResourceView({
     return (
       <div className="dynamic-resource-view">
         <TopbarServiceInfo onOpenInfo={onOpenInfo} />
-        <div className="empty compact">
-          <h2>Loading schema</h2>
-        </div>
+        <PageSkeleton label="Loading schema"/>
       </div>
     );
   }
@@ -641,40 +646,36 @@ export function DynamicResourceView({
       >
         <section className="resource-main">
           {isAwsDatabase && (
-            <div className="drawer-tabs" style={{ marginBottom: 12 }}>
-              <button
+            <div className="drawer-tabs mb-3">
+              <Button variant={databaseTab === "instances" ? 'secondary' : 'ghost'}
                 type="button"
-                className={`drawer-tab ${databaseTab === "instances" ? "active" : ""}`}
                 onClick={() => handleDatabaseTabChange("instances")}
               >
                 Instances
-              </button>
-              <button
+              </Button>
+              <Button variant={databaseTab === "snapshots" ? 'secondary' : 'ghost'}
                 type="button"
-                className={`drawer-tab ${databaseTab === "snapshots" ? "active" : ""}`}
                 onClick={() => handleDatabaseTabChange("snapshots")}
               >
                 Snapshots
-              </button>
+              </Button>
             </div>
           )}
 
           {isAwsLogs && (
-            <div className="drawer-tabs" style={{ marginBottom: 12 }}>
-              <button
+            <div className="drawer-tabs mb-3">
+              <Button variant={logsTab === "groups" ? 'secondary' : 'ghost'}
                 type="button"
-                className={`drawer-tab ${logsTab === "groups" ? "active" : ""}`}
                 onClick={() => handleLogsTabChange("groups")}
               >
                 Log groups
-              </button>
-              <button
+              </Button>
+              <Button variant={logsTab === "insights" ? 'secondary' : 'ghost'}
                 type="button"
-                className={`drawer-tab ${logsTab === "insights" ? "active" : ""}`}
                 onClick={() => handleLogsTabChange("insights")}
               >
                 Logs Insights
-              </button>
+              </Button>
             </div>
           )}
 
@@ -709,20 +710,18 @@ export function DynamicResourceView({
                 </div>
                 <div className="resource-table-tools">
                   <div className="search-box">
-                    <input aria-label="Filter resources"
-                      className="input"
+                    <Input aria-label="Filter resources"
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                       placeholder="Filter resources"
                     />
                   </div>
                   {viewStateFilter && (
-                    <select
+                    <OptionSelect
                       aria-label={viewStateFilter.label}
-                      className="input"
                       value={viewState}
-                      onChange={(event) => {
-                        setViewState(event.target.value);
+                      onValueChange={(value) => {
+                        setViewState(value);
                         selectResource(undefined);
                         setIsDeleteMulti(false);
                         setSelectedItems([]);
@@ -731,55 +730,50 @@ export function DynamicResourceView({
                       {viewStateFilter.options?.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
-                    </select>
+                    </OptionSelect>
                   )}
                   {service === "email" && (
                     clearConfirm ? (
                       <>
-                        <button
-                          className="button danger"
+                        <Button variant="destructive"
                           type="button"
                           disabled={!canUseRuntime || clearInboxMut.isPending}
                           onClick={() => clearInboxMut.mutate()}
                         >
-                          <Trash2 size={14} />
+                          <Icon icon={Trash2} size={14} />
                           {clearInboxMut.isPending ? "Clearing" : "Confirm clear"}
-                        </button>
-                        <button className="button" type="button" disabled={clearInboxMut.isPending} onClick={() => setClearConfirm(false)}>
+                        </Button>
+                        <Button variant="secondary" type="button" disabled={clearInboxMut.isPending} onClick={() => setClearConfirm(false)}>
                           Cancel
-                        </button>
+                        </Button>
                       </>
                     ) : (
-                      <button
-                        className="button danger"
+                      <Button variant="destructive"
                         type="button"
                         disabled={!canUseRuntime}
                         onClick={() => setClearConfirm(true)}
                       >
-                        <Trash2 size={14} />
+                        <Icon icon={Trash2} size={14} />
                         Clear inbox
-                      </button>
+                      </Button>
                     )
                   )}
                   {canCreate && (
-                    <button
-                      className="button"
+                    <Button title={createCapability?.reason} variant="secondary"
                       type="button"
                       disabled={!canCreateResource}
-                      title={createCapability?.reason}
                       onClick={() => setCreateOpen((open) => !open)}
                     >
-                      <Plus size={14} />
+                      <Icon icon={Plus} size={14} />
                       {createResourceLabel}
                       {createOpen ? (
-                        <ChevronUp size={13} />
+                        <Icon icon={ChevronUp} size={14} />
                       ) : (
-                        <ChevronDown size={13} />
+                        <Icon icon={ChevronDown} size={14} />
                       )}
-                    </button>
+                    </Button>
                   )}
-                  <button
-                    className="button"
+                  <Button variant="secondary"
                     type="button"
                     disabled={
                       !canUseRuntime || resourcesQuery.isFetching || resourceDetailQuery.isFetching
@@ -803,57 +797,52 @@ export function DynamicResourceView({
                       }
                     }}
                   >
-                    <RefreshCw size={14} />
+                    <Icon icon={RefreshCw} size={14} />
                     {resourcesQuery.isFetching || resourceDetailQuery.isFetching
                       ? "Loading"
                       : "Refresh"}
-                  </button>
+                  </Button>
                   {emptyCapability && (
-                    <button
-                      className="button danger"
-                      type="button"
-                      disabled={!canEmptyBucket}
-                      title={
+                    <Button title={
                         !storageTarget
                           ? "Select a bucket to empty it."
                           : objectWritesPending
                             ? "Waiting for object writes to this bucket to finish."
                             : emptyCapability.reason
-                      }
+                      } variant="destructive"
+                      type="button"
+                      disabled={!canEmptyBucket}
                       onClick={() => {
                         if (storageTarget) setEmptyConfirm(storageTarget);
                       }}
                     >
-                      <Trash2 size={14} />
+                      <Icon icon={Trash2} size={14} />
                       {emptyMut.isPending ? "Emptying" : "Empty bucket"}
-                    </button>
+                    </Button>
                   )}
                   {canDelete && !viewingDeleted && (
                     deleteConfirm ? (
                       <>
-                        <button
-                          className="button danger"
+                        <Button variant="destructive"
                           type="button"
                           disabled={!canUseRuntime || deleteMultipleMut.isPending || emptyMut.isPending}
                           onClick={() => deleteMultipleMut.mutate(selectedItems)}
                         >
-                          <Trash2 size={14} />
+                          <Icon icon={Trash2} size={14} />
                           {deleteMultipleMut.isPending
                             ? "Deleting..."
                             : `Confirm Delete (${selectedItems.length})`}
-                        </button>
-                        <button
-                          className="button"
+                        </Button>
+                        <Button variant="secondary"
                           type="button"
                           disabled={deleteMultipleMut.isPending}
                           onClick={() => setDeleteConfirm(false)}
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </>
                     ) : (
-                      <button
-                        className="button danger"
+                      <Button variant="destructive"
                         type="button"
                         disabled={
                           !canUseRuntime ||
@@ -872,41 +861,41 @@ export function DynamicResourceView({
                           }
                         }}
                       >
-                        <Trash2 size={14} />
+                        <Icon icon={Trash2} size={14} />
                         {isDeleteMulti && selectedItems.length > 0
                           ? `Delete Selected (${selectedItems.length})`
                           : isDeleteMulti
                           ? "Cancel Selection"
                           : "Delete Multiple"}
-                      </button>
+                      </Button>
                     )
                   )}
                 </div>
               </div>
               {service === "email" && clearInboxMut.isError && (
-                <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
+                <p className="error-text compact-text mt-0 mx-3 mb-2.5">
                   {clearInboxMut.error instanceof Error
                     ? clearInboxMut.error.message
                     : "Unable to clear the inbox."}
                 </p>
               )}
               {bulkDeleteError?.accountId === accountId && (
-                <p className="error-text compact-text" style={{ margin: "0 12px 10px", whiteSpace: "pre-line" }}>
+                <p className="error-text compact-text mt-0 mx-3 mb-2.5 whitespace-pre-line">
                   {bulkDeleteError.message}
                 </p>
               )}
               {bucketDeleteError?.accountId === accountId && (
-                <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
+                <p className="error-text compact-text mt-0 mx-3 mb-2.5">
                   {bucketDeleteError.message}
                 </p>
               )}
               {showEmptyError && (
-                <p className="error-text compact-text" style={{ margin: "0 12px 10px", whiteSpace: "pre-line" }}>
+                <p className="error-text compact-text mt-0 mx-3 mb-2.5 whitespace-pre-line">
                   Empty bucket did not finish for {emptyMut.variables?.bucketId}. The bucket was kept;
                   any versions deleted before the failure are gone. {errorMessage(emptyMut.error)}
                 </p>
               )}
-              {canCreate && createOpen && (
+              <Reveal open={Boolean(canCreate && createOpen)}>
                 <div className="resource-create-inline">
                   {/*
                  * AWS only. LaunchInstanceForm is an EC2 form: it asks for an AMI id,
@@ -952,7 +941,7 @@ export function DynamicResourceView({
                     />
                   )}
                 </div>
-              )}
+              </Reveal>
               {renderResourceSurface({
                 schema,
                 resources,
@@ -995,13 +984,15 @@ export function DynamicResourceView({
           )}
         </section>
         {activeSelected && !showDatabaseSnapshots && !showLogsInsights && (
-          <ResourceInspector
-            resource={inspectedResource}
-            object={selectedObject}
-            cloud={cloud}
-            runtimeReachable={canUseRuntime}
-            serviceName={schema.displayName}
-          />
+          <PanelEnter className="min-w-0">
+            <ResourceInspector
+              resource={inspectedResource}
+              object={selectedObject}
+              cloud={cloud}
+              runtimeReachable={canUseRuntime}
+              serviceName={schema.displayName}
+            />
+          </PanelEnter>
         )}
       </div>
       {service === "storage" && (
@@ -1127,29 +1118,23 @@ export function DynamicResourceView({
           }}
         >
           <div
-            className="create-table-modal"
-            style={{ width: 520, maxWidth: "90vw" }}
+            className="create-table-modal w-130 max-w-[90vw]"
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="modal-header"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
+              className="modal-header flex items-center justify-between"
             >
-              <h2 style={{ margin: 0 }}>
+              <h2 className="m-0">
                 Edit {schema.displayName}: {editingResource.name || editingResource.id}
               </h2>
-              <button
-                className="icon-btn"
+              <Hint label="Close"><Button variant="ghost" size="icon-sm"
                 type="button"
+                aria-label="Close"
                 disabled={updateMut.isPending}
                 onClick={() => setEditingResource(null)}
               >
-                <X size={14} />
-              </button>
+                <Icon icon={X} size={14} />
+              </Button></Hint>
             </div>
             <DynamicFormRenderer
               key={editingResource.id}
@@ -1173,12 +1158,11 @@ export function DynamicResourceView({
           }}
         >
           <div
-            className="create-table-modal"
-            style={{ width: 480, maxWidth: "90vw" }}
+            className="create-table-modal w-120 max-w-[90vw]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 style={{ margin: 0 }}>Empty bucket {emptyConfirm.bucketId}?</h2>
+              <h2 className="m-0">Empty bucket {emptyConfirm.bucketId}?</h2>
             </div>
             <p>
               This permanently deletes every object, every object version and
@@ -1191,17 +1175,15 @@ export function DynamicResourceView({
                 Emptying. Closing the page does not stop deletions already sent.
               </p>
             )}
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                className="button"
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary"
                 type="button"
                 disabled={emptyMut.isPending}
                 onClick={() => setEmptyConfirm(null)}
               >
                 Cancel
-              </button>
-              <button
-                className="button danger"
+              </Button>
+              <Button variant="destructive"
                 type="button"
                 disabled={emptyMut.isPending || objectWritesPending}
                 onClick={() => {
@@ -1212,29 +1194,16 @@ export function DynamicResourceView({
                   emptyMut.mutate(emptyConfirm);
                 }}
               >
-                <Trash2 size={14} />
+                <Icon icon={Trash2} size={14} />
                 {emptyMut.isPending ? "Emptying" : "Empty bucket"}
-              </button>
+              </Button>
             </div>
           </div>
         </ModalOverlay>
       )}
       {successToast && (
-        <div
+        <div className="fixed py-2.5 px-4.5 type-caption bottom-6 right-6 z-(--z-overlay) bg-primary text-primary-foreground"
           role="status"
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            background: "var(--accent)",
-            color: "var(--on-accent)",
-            padding: "10px 18px",
-            borderRadius: 6,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
-            zIndex: 1000,
-            fontSize: 13,
-            fontWeight: 500,
-          }}
         >
           {successToast}
         </div>
@@ -1254,14 +1223,12 @@ function TopbarServiceInfo({ onOpenInfo }: { onOpenInfo: () => void }) {
   }, []);
   if (!slot) return null;
   return createPortal(
-    <button
-      className="icon-btn"
+    <Hint label="Service information"><Button variant="ghost" size="icon-sm"
       type="button"
-      onClick={onOpenInfo}
-      title="Service information"
+      onClick={onOpenInfo} aria-label="Service information"
     >
-      <Info size={14} />
-    </button>,
+      <Icon icon={Info} size={14} />
+    </Button></Hint>,
     slot,
   );
 }
@@ -1329,13 +1296,7 @@ function renderResourceSurface({
   isAllSelected?: boolean;
 }) {
   if (statusLoading) {
-    return (
-      <RuntimeNotice
-        title="Loading service"
-        detail="Waiting for the proxy to describe this service and confirm its runtime."
-        state="pending"
-      />
-    );
+    return <RowsSkeleton rows={8} label="Loading service"/>;
   }
   if (serviceAvailability !== "available") {
     return (
@@ -1376,14 +1337,7 @@ function renderResourceSurface({
     );
   }
   if (resourcesLoading) {
-    return (
-      <RuntimeNotice
-        title={`Loading ${schema.displayName}...`}
-        detail={`Reading ${schema.displayName} resources from the runtime.`}
-        state="pending"
-        showSpinner={true}
-      />
-    );
+    return <RowsSkeleton rows={8} label={`Loading ${schema.displayName}`}/>;
   }
 
   return (
@@ -1414,7 +1368,6 @@ function RuntimeNotice({
   detail,
   error,
   state,
-  showSpinner,
   isRetrying,
   onRetry,
 }: {
@@ -1422,33 +1375,26 @@ function RuntimeNotice({
   detail: string;
   error?: string;
   state: "pending" | "unavailable";
-  showSpinner?: boolean;
   isRetrying?: boolean;
   onRetry?: () => void;
 }) {
   return (
-    <div className={`runtime-notice ${state}`}>
-      {(showSpinner || isRetrying) && (
-        <Loader2
-          size={24}
-          className="spin"
-          style={{ marginBottom: 8, color: "var(--accent)" }}
-        />
-      )}
-      <h2>{title}</h2>
-      <p>{detail}</p>
-      {error && <code>{error}</code>}
+    <EmptyState
+      reason={state === "unavailable" ? "error" : "empty"}
+      icon={state === "unavailable" ? ErrorOutline : Time}
+      title={title}
+      description={detail}
+    >
+      {error && <code className="mono break-all text-text-2">{error}</code>}
       {onRetry && (
-        <button
-          className="button"
+        <Button variant="secondary"
           type="button"
-          style={{ marginTop: 12 }}
           disabled={isRetrying}
           onClick={() => { if (!isRetrying) onRetry(); }}
         >
           {isRetrying ? "Retrying\u2026" : "Retry"}
-        </button>
+        </Button>
       )}
-    </div>
+    </EmptyState>
   );
 }

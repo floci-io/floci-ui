@@ -1,4 +1,4 @@
-import {Activity, Info} from 'lucide-react'
+import {Icon, Activity, InfoSquared as Info} from '@/components/sodium/icon'
 import {EmptyState} from '@/components/EmptyState'
 
 export function PlaceholderPage({title, description}: { title: string; description: string }) {
@@ -8,7 +8,7 @@ export function PlaceholderPage({title, description}: { title: string; descripti
                 <div className="page-title">
                     <h1>{title}</h1>
                     <span className="info-link">
-            <Info size={11}/>
+            <Icon icon={Info} size={14}/>
             Info
           </span>
                 </div>

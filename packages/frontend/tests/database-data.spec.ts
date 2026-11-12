@@ -369,7 +369,6 @@ test('account changes never display records cached for the previous account', as
     await page.goto(workspacePath(dynamo))
     await expect(page.getByRole('cell', {name: '{"id":"000000000000"}', exact: true})).toBeVisible()
     await page.getByRole('link', {name: 'Settings', exact: true}).click()
-    await page.getByRole('button', {name: /Switch AWS account/}).click()
     await page.getByRole('textbox', {name: 'New account id'}).fill('111111111111')
     await page.getByRole('button', {name: 'Switch', exact: true}).click()
     await page.goBack()
@@ -399,7 +398,7 @@ for (const operation of ['create', 'delete']) {
             await page.getByRole('button', {name: 'Create', exact: true}).click()
             await expect(page.getByRole('button', {name: 'Creating', exact: true})).toBeVisible()
         } else {
-            await page.locator('.cosmos-list-row.selected svg').click()
+            await page.locator('.cosmos-list-row.selected').getByRole('button', {name: /^Delete /}).click()
             const deletion = page.waitForRequest((request) => request.method() === 'DELETE')
             await page.getByRole('button', {name: 'Confirm', exact: true}).click()
             await deletion

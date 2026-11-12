@@ -1,6 +1,9 @@
 import {FormEvent, useEffect, useState} from 'react'
-import {X} from 'lucide-react'
+import {Icon, XSquared as X} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {ModalOverlay} from './ModalOverlay'
+import {Hint} from '@/components/Hint'
 
 interface JsonRecordModalProps {
     open: boolean
@@ -57,11 +60,11 @@ export function JsonRecordModal({
                         <h2>{title}</h2>
                         <p>{description}</p>
                     </div>
-                    <button className="icon-btn" type="button" aria-label="Close" disabled={isPending} onClick={onClose}>
-                        <X size={15}/>
-                    </button>
+                    <Hint label="Close"><Button variant="ghost" size="icon-sm" type="button" aria-label="Close" disabled={isPending} onClick={onClose}>
+                        <Icon icon={X} />
+                    </Button></Hint>
                 </div>
-                <textarea
+                <Textarea
                     className={`textarea code-textarea record-modal-editor ${validationError ? 'invalid' : ''}`}
                     aria-label="Record JSON"
                     value={value}
@@ -75,10 +78,10 @@ export function JsonRecordModal({
                 />
                 {(validationError || submitError) && <div className="form-error">{validationError ?? submitError}</div>}
                 <div className="modal-footer">
-                    <button className="button" type="button" disabled={isPending} onClick={onClose}>Cancel</button>
-                    <button className="button primary" type="submit" disabled={isPending}>
+                    <Button variant="secondary" type="button" disabled={isPending} onClick={onClose}>Cancel</Button>
+                    <Button type="submit" disabled={isPending}>
                         {isPending ? 'Adding' : 'Add record'}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </ModalOverlay>

@@ -1,17 +1,22 @@
 import {useMemo, useState} from 'react'
-import {Cloud, X} from 'lucide-react'
+import {Icon, Cloud, XSquared as X} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import {Navigate, useParams} from 'react-router-dom'
 import {useQuery} from '@tanstack/react-query'
 import {Link} from 'react-router-dom'
 import {getServiceSchema} from '@/api/cloudProxyClient'
 import {useCloudServicesQuery, useCloudStatusQuery} from '@/api/queries/cloudQueries'
 import {DynamicResourceView} from '@/components/DynamicResourceView'
-import {EmptyState} from '@/components/EmptyState'
 import {normalizeCapabilities, withRuntimeState, withServiceAvailability} from '@/lib/capabilities'
 import {isCloudProvider} from '@/lib/cloudProvider'
 import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatus} from '@/types/cloud'
 import type {ServiceSchema} from '@/types/schema'
 import { ModalOverlay } from '@/components/ModalOverlay'
+import {EmptyState} from '@/components/EmptyState'
+import {Hint} from '@/components/Hint'
+import {PageHeader} from '@/components/PageHeader'
+import {StatusMark} from '@/components/sodium/ui/status'
+import {Tag} from '@/components/sodium/ui/tag'
 
 export function CloudExplorerPage() {
     const params = useParams()
@@ -50,21 +55,16 @@ export function CloudExplorerPage() {
 
     return (
         <>
-            <div className="page-header cloud-explorer-header">
-                <div className="page-title">
-                    <Cloud size={20}/>
-                    <div>
-                        <h1>Cloud Explorer</h1>
-                        <p className="muted">{selectedService?.description ?? 'Unified local runtime console'}</p>
-                    </div>
+            <PageHeader
+                icon={Cloud}
+                title="Cloud Explorer"
+                description={selectedService?.description ?? 'Unified local runtime console'}
+            >
+                <div className="flex shrink-0 flex-col gap-1">
+                    <span className="type-micro text-text-3">Service</span>
+                    <span className="type-body-sm min-w-40 border border-line bg-page px-3 py-1.5 text-text-1">{selectedService?.displayName ?? service}</span>
                 </div>
-                <div className="cloud-header-selectors">
-                    <label>
-                        <span>Service</span>
-                        <div className="service-selector-readonly">{selectedService?.displayName ?? service}</div>
-                    </label>
-                </div>
-            </div>
+            </PageHeader>
             <div className="content cloud-explorer">
                 <DynamicResourceView
                     cloud={cloud}
@@ -137,9 +137,9 @@ function ServiceInfoDialog({
                         <h2>{schema?.displayName ?? descriptor?.displayName ?? service}</h2>
                         {descriptor?.description && <p className="muted">{descriptor.description}</p>}
                     </div>
-                    <button className="icon-btn" type="button" onClick={onClose} aria-label="Close" title="Close">
-                        <X size={14} aria-hidden="true"/>
-                    </button>
+                    <Hint label="Close"><Button variant="ghost" size="icon-sm" type="button" onClick={onClose} aria-label="Close">
+                        <Icon icon={X} size={14} aria-hidden="true"/>
+                    </Button></Hint>
                 </div>
                 <div className="service-info-grid">
                     <InfoCard label="Proxy API" value={`/api/clouds/${cloud}/services/${service}`} detail="Single entry point used by the UI"/>
@@ -154,13 +154,13 @@ function ServiceInfoDialog({
                     {capabilityList.length ? (
                         <div className="capability-strip">
                             {capabilityList.map((capability) => (
-                                <span
-                                    key={capability.name}
-                                    className={`capability-pill ${capability.status}`}
-                                    title={capability.reason}
-                                >
-                                    {capability.label}
-                                </span>
+                                <Hint key={capability.name} label={capability.reason ?? capability.label} disabled={!capability.reason}>
+                                    <span tabIndex={capability.reason ? 0 : undefined}>
+                                        <Tag size="sm" variant={capability.status === 'available' ? 'outline' : capability.status === 'blocked' ? 'warn' : 'neutral'}>
+                                            {capability.label}
+                                        </Tag>
+                                    </span>
+                                </Hint>
                             ))}
                         </div>
                     ) : (
@@ -190,9 +190,12 @@ function InfoCard({
     state?: 'ready' | 'pending' | 'unavailable'
 }) {
     return (
-        <div className={`service-info-card ${state ?? ''}`}>
+        <div className="service-info-card">
             <span>{label}</span>
-            <strong>{value}</strong>
+            <strong className="flex items-center gap-2">
+                {state && <StatusMark status={state === 'ready' ? 'ok' : state === 'unavailable' ? 'fail' : 'idle'} label={detail}/>}
+                {value}
+            </strong>
             <small>{detail}</small>
         </div>
     )
@@ -264,15 +267,7 @@ function UnknownServiceNotice({
 
     return (
         <>
-            <div className="page-header cloud-explorer-header">
-                <div className="page-title">
-                    <Cloud size={20}/>
-                    <div>
-                        <h1>Cloud Explorer</h1>
-                        <p className="muted">Unified local runtime console</p>
-                    </div>
-                </div>
-            </div>
+            <PageHeader icon={Cloud} title="Cloud Explorer" description="Unified local runtime console"/>
             <div className="content cloud-explorer">
                 <EmptyState
                     icon={Cloud}

@@ -1,5 +1,9 @@
 import {useEffect, useRef, useState} from "react";
-import {Inbox, Loader2, Send} from "lucide-react";
+import {Icon, Inbox, Loader2, Send} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {
   putStreamMessages,
   readStreamMessages,
@@ -10,6 +14,8 @@ import {
 import {useAccountId} from "@/lib/accountStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
+import {DateTimeInput} from '@/components/DateTimeInput'
+import {EmptyState} from '@/components/EmptyState'
 
 interface StreamMessagesPanelProps {
   cloud: CloudProvider;
@@ -166,10 +172,7 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
   if (!resource || resource.service !== "streams") {
     return (
       <section className="table-panel">
-        <div className="empty compact">
-          <h2>Select a stream</h2>
-          <p>Select an OCI stream to put messages on it or read them back.</p>
-        </div>
+        <EmptyState compact title="Select a stream" description="Select an OCI stream to put messages on it or read them back."/>
       </section>
     );
   }
@@ -181,7 +184,7 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
       <div className="dynamic-stage-header">
         <div>
           <p className="eyebrow">Stream Actions</p>
-          <h2><Send size={15} /> Messages</h2>
+          <h2><Icon icon={Send}  /> Messages</h2>
           <p className="muted compact-text">
             Put a message on this stream, or read a partition from the position you choose. Reads do not consume messages.
           </p>
@@ -193,55 +196,52 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
 
       <div className="resource-create-inline">
         <div className="drawer-tabs">
-          <button type="button" className={`drawer-tab ${tab === "put" ? "active" : ""}`} onClick={() => changeTab("put")}>
-            <Send size={13} /> Put
-          </button>
-          <button type="button" className={`drawer-tab ${tab === "read" ? "active" : ""}`} onClick={() => changeTab("read")}>
-            <Inbox size={13} /> Read
-          </button>
+          <Button variant={tab === "put" ? 'secondary' : 'ghost'} type="button" onClick={() => changeTab("put")}>
+            <Icon icon={Send} size={14} /> Put
+          </Button>
+          <Button variant={tab === "read" ? 'secondary' : 'ghost'} type="button" onClick={() => changeTab("read")}>
+            <Icon icon={Inbox} size={14} /> Read
+          </Button>
         </div>
 
         {tab === "put" && (
           <>
-            <div style={{marginBottom: "16px"}}>
-              <label className="metric-label" htmlFor="stream-message-key" style={{display: "block", marginBottom: "6px"}}>
+            <div className="mb-4">
+              <label className="metric-label block mb-1.5" htmlFor="stream-message-key">
                 Key (optional)
               </label>
-              <input
+              <Input
                 id="stream-message-key"
                 type="text"
-                className="button"
+                className="button w-full cursor-text"
                 value={key}
                 disabled={putting}
                 onChange={(event) => setKey(event.target.value)}
                 placeholder="Messages with the same key go to the same partition"
-                style={{width: "100%", cursor: "text", padding: "4px 8px", minHeight: 32}}
               />
             </div>
-            <div style={{marginBottom: "16px"}}>
-              <label className="metric-label" htmlFor="stream-message-value" style={{display: "block", marginBottom: "6px"}}>
+            <div className="mb-4">
+              <label className="metric-label block mb-1.5" htmlFor="stream-message-value">
                 Message value
               </label>
-              <textarea
+              <Textarea
                 id="stream-message-value"
-                className="json-editor"
+                className="json-editor w-full block"
                 value={value}
                 disabled={putting}
                 onChange={(event) => setValue(event.target.value)}
                 spellCheck={false}
                 placeholder="Message value"
-                style={{minHeight: 120, width: "100%", display: "block"}}
               />
             </div>
-            <button
-              className="button primary"
+            <Button
               type="button"
               disabled={!canUseStream || !value || putting}
               onClick={() => void submitPut()}
             >
-              {putting ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
+              {putting ? <Icon icon={Loader2} size={14} className="spin" /> : <Icon icon={Send} size={14} />}
               {putting ? "Putting" : "Put message"}
-            </button>
+            </Button>
             {putError && <p className="error-text compact-text">{putError}</p>}
             {putEntry && (
               <p className="muted compact-text">
@@ -253,72 +253,65 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
 
         {tab === "read" && (
           <>
-            <div style={{display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "12px"}}>
+            <div className="flex gap-3 flex-wrap mb-3">
               <div>
-                <label className="metric-label" htmlFor="stream-partition" style={{display: "block", marginBottom: "6px"}}>Partition</label>
-                <select
+                <label className="metric-label block mb-1.5" htmlFor="stream-partition">Partition</label>
+                <OptionSelect
                   id="stream-partition"
-                  className="button"
                   value={partition}
                   disabled={!canUseStream || reading}
-                  onChange={(event) => changeReadPosition(() => setPartition(event.target.value))}
+                  onValueChange={(value) => changeReadPosition(() => setPartition(value))}
                 >
                   {partitions.map((id) => <option key={id} value={id}>{id}</option>)}
-                </select>
+                </OptionSelect>
               </div>
               <div>
-                <label className="metric-label" htmlFor="stream-cursor-type" style={{display: "block", marginBottom: "6px"}}>Start from</label>
-                <select
+                <label className="metric-label block mb-1.5" htmlFor="stream-cursor-type">Start from</label>
+                <OptionSelect
                   id="stream-cursor-type"
-                  className="button"
                   value={cursorType}
                   disabled={!canUseStream || reading}
-                  onChange={(event) => changeReadPosition(() => setCursorType(event.target.value as StreamCursorType))}
+                  onValueChange={(value) => changeReadPosition(() => setCursorType(value as StreamCursorType))}
                 >
                   {CURSOR_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-                </select>
+                </OptionSelect>
               </div>
               {needsOffset && (
                 <div>
-                  <label className="metric-label" htmlFor="stream-offset" style={{display: "block", marginBottom: "6px"}}>Offset</label>
-                  <input
+                  <label className="metric-label block mb-1.5" htmlFor="stream-offset">Offset</label>
+                  <Input
                     id="stream-offset"
                     type="number"
                     min={0}
-                    className="button"
+                    className="button w-24 cursor-text"
                     value={offset}
                     disabled={!canUseStream || reading}
                     onChange={(event) => changeReadPosition(() => setOffset(event.target.value))}
-                    style={{width: 96, cursor: "text", padding: "4px 8px", minHeight: 32}}
                   />
                 </div>
               )}
               {needsTime && (
                 <div>
-                  <label className="metric-label" htmlFor="stream-time" style={{display: "block", marginBottom: "6px"}}>Time</label>
-                  <input
+                  <label className="metric-label block mb-1.5" htmlFor="stream-time">Time</label>
+                  <DateTimeInput
                     id="stream-time"
-                    type="datetime-local"
-                    className="button"
                     value={time}
                     disabled={!canUseStream || reading}
-                    onChange={(event) => changeReadPosition(() => setTime(event.target.value))}
-                    style={{cursor: "text", padding: "4px 8px", minHeight: 32}}
+                    onValueChange={(next) => changeReadPosition(() => setTime(next))}
                   />
                 </div>
               )}
               <div>
-                <label className="metric-label" htmlFor="stream-limit" style={{display: "block", marginBottom: "6px"}}>Limit (up to 100)</label>
-                <input
+                <label className="metric-label block mb-1.5" htmlFor="stream-limit">Limit (up to 100)</label>
+                <Input
                   id="stream-limit"
                   type="number"
                   min={1}
                   max={100}
-                  className="button"
-                  value={limit}
+                  className="button w-18 text-center"
+                  value={String(limit)}
                   disabled={!canUseStream || reading}
                   aria-label="Max messages to read"
-                  style={{width: 72, padding: "4px 8px", textAlign: "center", minHeight: 32}}
                   onChange={(event) => {
                     if (event.target.value === "") {
                       setLimit("");
@@ -335,15 +328,15 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
               </div>
             </div>
 
-            <div style={{display: "flex", gap: "8px", marginBottom: "8px"}}>
-              <button className="button primary" type="button" disabled={!readReady || reading} onClick={() => void read()}>
-                {reading ? <Loader2 size={13} className="spin" /> : <Inbox size={13} />}
+            <div className="flex gap-2 mb-2">
+              <Button type="button" disabled={!readReady || reading} onClick={() => void read()}>
+                {reading ? <Icon icon={Loader2} size={14} className="spin" /> : <Icon icon={Inbox} size={14} />}
                 {reading ? "Reading" : "Read messages"}
-              </button>
+              </Button>
               {hasRead && nextCursor && (
-                <button className="button" type="button" disabled={!readReady || reading} onClick={() => void read(nextCursor)}>
+                <Button variant="secondary" type="button" disabled={!readReady || reading} onClick={() => void read(nextCursor)}>
                   Read next
-                </button>
+                </Button>
               )}
             </div>
 

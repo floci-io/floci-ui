@@ -1,11 +1,17 @@
 import {useId, useMemo, useState, type FormEvent, type KeyboardEvent} from 'react'
-import {Braces, Play, Plus, RefreshCw, Search, TableProperties} from 'lucide-react'
+import {Icon, Braces, Play, PlusSquared as Plus, RefreshCwSquared as RefreshCw, Search, TableProperties} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {useMutation, useQueries, useQueryClient} from '@tanstack/react-query'
 import {listFlatItems, putFlatItem, queryFlatItems, queryFlatItemsByKey} from '@/api/cloudProxyClient'
 import {JsonRecordModal} from '@/components/JsonRecordModal'
 import {useAccountId} from '@/lib/accountStore'
 import type {CloudProvider} from '@/types/cloud'
 import type {ChildItem, CloudResource, CollectionPage, KeyConditionOperator, KeyQuery} from '@/types/resource'
+import {SegmentedControl, SegmentedControlItem} from '@/components/sodium/ui/segmented-control'
+import {EmptyState} from '@/components/EmptyState'
 
 interface DynamoDbTableExplorerProps {
     cloud: CloudProvider
@@ -34,10 +40,7 @@ export function DynamoDbTableExplorer({cloud, resource, runtimeReachable}: Dynam
     if (!resource) {
         return (
             <section className="dynamodb-explorer">
-                <div className="empty compact">
-                    <h2>Select a DynamoDB table</h2>
-                    <p>Records and their contents load after a table is selected.</p>
-                </div>
+                <EmptyState compact title="Select a DynamoDB table" description="Records and their contents load after a table is selected."/>
             </section>
         )
     }
@@ -108,28 +111,17 @@ function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExpl
         <section className="dynamodb-explorer">
             <div className="cosmos-column cosmos-column--wide">
                 <PanelHeader
-                    icon={<TableProperties size={15}/>}
+                    icon={<Icon icon={TableProperties} />}
                     eyebrow="Table explorer"
                     title={tableName}
                     detail={mode === 'query' && !keyQuery ? 'Enter a partition key to query' : recordCount(records)}
                 />
                 <div className="cosmos-toolbar">
-                    <div className="settings-toggle-group dynamodb-mode" role="radiogroup" aria-label="Read mode">
-                        {(['scan', 'query'] as const).map((option) => (
-                            <button
-                                key={option}
-                                type="button"
-                                className={`settings-toggle-btn${mode === option ? ' active' : ''}`}
-                                role="radio"
-                                aria-checked={mode === option}
-                                onClick={() => changeMode(option)}
-                            >
-                                {option === 'scan' ? 'Scan' : 'Query'}
-                            </button>
-                        ))}
-                    </div>
-                    <button
-                        className="button primary"
+                    <SegmentedControl aria-label="Read mode" value={mode} onValueChange={(next) => changeMode(next as 'scan' | 'query')}>
+                        <SegmentedControlItem value="scan">Scan</SegmentedControlItem>
+                        <SegmentedControlItem value="query">Query</SegmentedControlItem>
+                    </SegmentedControl>
+                    <Button
                         type="button"
                         disabled={!runtimeReachable}
                         onClick={() => {
@@ -137,13 +129,13 @@ function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExpl
                             setAddRecordOpen(true)
                         }}
                     >
-                        <Plus size={14}/>
+                        <Icon icon={Plus} size={14}/>
                         Add record
-                    </button>
-                    <button className="button" type="button" disabled={records.isRefreshing || (mode === 'query' && !keyQuery)} onClick={records.refresh}>
-                        <RefreshCw size={14}/>
+                    </Button>
+                    <Button variant="secondary" type="button" disabled={records.isRefreshing || (mode === 'query' && !keyQuery)} onClick={records.refresh}>
+                        <Icon icon={RefreshCw} size={14}/>
                         {records.isRefreshing ? 'Loading' : 'Refresh'}
-                    </button>
+                    </Button>
                 </div>
                 {/* Hidden rather than unmounted, so the inputs still match
                     the query results when the user comes back from Scan. */}
@@ -158,7 +150,7 @@ function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExpl
                 {records.error && (
                     <div className="form-error">
                         {records.error.message}
-                        {records.retry && <button className="button" type="button" onClick={records.retry}>Retry</button>}
+                        {records.retry && <Button variant="secondary" type="button" onClick={records.retry}>Retry</Button>}
                     </div>
                 )}
                 <RecordsTable
@@ -170,11 +162,11 @@ function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExpl
             </div>
 
             <div className="cosmos-column">
-                <PanelHeader icon={<Braces size={15}/>} eyebrow="Record contents" title={selectedItem ? formatJson(itemKey(selectedItem)) : 'Select record'} detail={showsProjection ? `Attributes projected into ${queriedPath?.index}` : 'DynamoDB attributes normalized to JSON'}/>
+                <PanelHeader icon={<Icon icon={Braces} />} eyebrow="Record contents" title={selectedItem ? formatJson(itemKey(selectedItem)) : 'Select record'} detail={showsProjection ? `Attributes projected into ${queriedPath?.index}` : 'DynamoDB attributes normalized to JSON'}/>
                 {selectedItem ? (
                     <pre className="dynamodb-document">{JSON.stringify(selectedItem.body, null, 2)}</pre>
                 ) : (
-                    <div className="empty compact"><h2>Select a record</h2><p>{showsProjection ? 'Attributes projected into the index appear here.' : 'Full record contents appear here.'}</p></div>
+                    <EmptyState compact title="Select a record" description={<>{showsProjection ? 'Attributes projected into the index appear here.' : 'Full record contents appear here.'}</>}/>
                 )}
                 <PartiqlPanel cloud={cloud} tableName={tableName} runtimeReachable={runtimeReachable} onTableChanged={refreshRecords}/>
             </div>
@@ -292,9 +284,9 @@ function RecordsTable({records, emptyMessage, selectedItemId, onSelect}: Records
                     {records.items.map((item) => (
                         <tr key={item.id} className={selectedItemId === item.id ? 'selected' : ''}>
                             <td>
-                                <button className="link-button" type="button" aria-pressed={selectedItemId === item.id} onClick={() => onSelect(item.id)}>
+                                <Button variant="ghost" type="button" aria-pressed={selectedItemId === item.id} onClick={() => onSelect(item.id)}>
                                     <code>{formatJson(itemKey(item))}</code>
-                                </button>
+                                </Button>
                             </td>
                             <td>{summarize(item)}</td>
                         </tr>
@@ -302,12 +294,12 @@ function RecordsTable({records, emptyMessage, selectedItemId, onSelect}: Records
                 </tbody>
             </table>
             {records.isLoading && <div className="muted padded">Loading records</div>}
-            {records.isEmpty && <div className="empty compact"><h2>No records</h2><p>{emptyMessage}</p></div>}
+            {records.isEmpty && <EmptyState compact title="No records" description={<>{emptyMessage}</>}/>}
             {records.nextCursor && (
                 <div className="dynamodb-load-more">
-                    <button className="button" type="button" disabled={records.isFetching} onClick={records.loadMore}>
+                    <Button variant="secondary" type="button" disabled={records.isFetching} onClick={records.loadMore}>
                         {records.isLoadingMore ? 'Loading…' : 'Load more'}
-                    </button>
+                    </Button>
                 </div>
             )}
         </div>
@@ -342,7 +334,7 @@ function KeyQueryForm({accessPaths, runtimeReachable, isRunning, onRun}: KeyQuer
     const path = accessPaths.find((candidate) => (candidate.index ?? '') === pathId) ?? accessPaths[0]
 
     if (!path) {
-        return <div className="empty compact"><h2>No key schema</h2><p>This table does not describe a partition key to query.</p></div>
+        return <EmptyState compact title="No key schema" description="This table does not describe a partition key to query."/>
     }
 
     const sortKey = path.sortKey
@@ -371,17 +363,17 @@ function KeyQueryForm({accessPaths, runtimeReachable, isRunning, onRun}: KeyQuer
         <form className="cosmos-query" aria-label="Query by key" onSubmit={submit}>
             <div className="field-row">
                 <label htmlFor={`${id}-path`}>Table or index</label>
-                <select id={`${id}-path`} className="input" value={path.index ?? ''} onChange={(event) => setPathId(event.target.value)}>
+                <OptionSelect id={`${id}-path`} value={path.index ?? ''} onValueChange={(value) => setPathId(value)}>
                     {accessPaths.map((candidate) => (
                         <option key={candidate.index ?? ''} value={candidate.index ?? ''}>{candidate.label}</option>
                     ))}
-                </select>
+                </OptionSelect>
             </div>
             <div className="field-row">
                 <label htmlFor={`${id}-pk`}>Partition key</label>
-                <input
+                <Input
+                    aria-label="Partition key"
                     id={`${id}-pk`}
-                    className="input"
                     value={partitionValue}
                     placeholder={keyPlaceholder(path.partitionKey)}
                     onChange={(event) => setPartitionValue(event.target.value)}
@@ -390,19 +382,17 @@ function KeyQueryForm({accessPaths, runtimeReachable, isRunning, onRun}: KeyQuer
             {sortKey && (
                 <div className="field-row">
                     <label htmlFor={`${id}-op`}>Sort key</label>
-                    <select
+                    <OptionSelect
                         id={`${id}-op`}
-                        className="input"
                         aria-label="Sort key condition"
                         value={activeOperator}
-                        onChange={(event) => setOperator(event.target.value as KeyConditionOperator | '')}
+                        onValueChange={(value) => setOperator(value as KeyConditionOperator | '')}
                     >
                         <option value="">Any {sortKey.name}</option>
                         {operators.map(({value, label}) => <option key={value} value={value}>{label}</option>)}
-                    </select>
+                    </OptionSelect>
                     {activeOperator && (
-                        <input
-                            className="input"
+                        <Input
                             aria-label={activeOperator === 'between' ? 'Sort key lower bound' : 'Sort key value'}
                             value={sortValue}
                             placeholder={keyPlaceholder(sortKey)}
@@ -410,8 +400,7 @@ function KeyQueryForm({accessPaths, runtimeReachable, isRunning, onRun}: KeyQuer
                         />
                     )}
                     {activeOperator === 'between' && (
-                        <input
-                            className="input"
+                        <Input
                             aria-label="Sort key upper bound"
                             value={sortTo}
                             placeholder={keyPlaceholder(sortKey)}
@@ -422,15 +411,15 @@ function KeyQueryForm({accessPaths, runtimeReachable, isRunning, onRun}: KeyQuer
             )}
             <div className="field-row">
                 <label htmlFor={`${id}-order`}>Order</label>
-                <select id={`${id}-order`} className="input" value={descending ? 'desc' : 'asc'} onChange={(event) => setDescending(event.target.value === 'desc')}>
+                <OptionSelect id={`${id}-order`} value={descending ? 'desc' : 'asc'} onValueChange={(value) => setDescending(value === 'desc')}>
                     <option value="asc">Ascending</option>
                     <option value="desc">Descending</option>
-                </select>
+                </OptionSelect>
             </div>
-            <button className="button" type="submit" disabled={!canRun}>
-                <Search size={14}/>
+            <Button variant="secondary" type="submit" disabled={!canRun}>
+                <Icon icon={Search} size={14}/>
                 {isRunning ? 'Running' : 'Run query'}
-            </button>
+            </Button>
         </form>
     )
 }
@@ -487,20 +476,20 @@ function PartiqlPanel({cloud, tableName, runtimeReachable, onTableChanged}: Part
 
     return (
         <>
-            <PanelHeader icon={<Play size={15}/>} eyebrow="PartiQL" title="ExecuteStatement" detail="Name the table in the statement. ⌘/Ctrl+Enter runs it."/>
+            <PanelHeader icon={<Icon icon={Play} />} eyebrow="PartiQL" title="ExecuteStatement" detail="Name the table in the statement. ⌘/Ctrl+Enter runs it."/>
             <div className="cosmos-query">
-                <textarea
-                    className="textarea code-textarea small"
+                <Textarea
+                    className="code-textarea small"
                     aria-label="PartiQL statement"
                     value={statement}
                     onChange={(event) => setStatement(event.target.value)}
                     onKeyDown={onKeyDown}
                     spellCheck={false}
                 />
-                <button className="button" type="button" disabled={!runtimeReachable || !statement.trim() || statementMut.isPending} onClick={run}>
-                    <Play size={14}/>
+                <Button variant="secondary" type="button" disabled={!runtimeReachable || !statement.trim() || statementMut.isPending} onClick={run}>
+                    <Icon icon={Play} size={14}/>
                     {statementMut.isPending && !loadingMore ? 'Running' : 'Run statement'}
-                </button>
+                </Button>
                 {statementMut.error instanceof Error && <div className="form-error">{statementMut.error.message}</div>}
                 {result && (
                     <>
@@ -512,9 +501,9 @@ function PartiqlPanel({cloud, tableName, runtimeReachable, onTableChanged}: Part
                         )}
                         {result.nextCursor && (
                             <div className="dynamodb-load-more">
-                                <button className="button" type="button" disabled={!runtimeReachable || statementMut.isPending} onClick={loadMore}>
+                                <Button variant="secondary" type="button" disabled={!runtimeReachable || statementMut.isPending} onClick={loadMore}>
                                     {loadingMore ? 'Loading…' : 'Load more rows'}
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </>

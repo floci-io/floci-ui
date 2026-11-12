@@ -1,0 +1,74 @@
+/* Scoped base for Sodium. Replaces Tailwind preflight inside .sodium only; imported before the utilities. */
+
+[data-system="sodium"], .sodium {
+  background: var(--page);
+  color: var(--text-1);
+  font: var(--type-body);
+  letter-spacing: var(--tracking-body);
+  text-wrap: pretty;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: light;
+}
+/* The same four dark selectors as tokens.css, so native controls and scrollbars turn dark with the tokens. */
+[data-system="sodium"][data-theme="dark"], .sodium[data-theme="dark"], [data-theme="dark"] [data-system="sodium"], [data-theme="dark"] .sodium { color-scheme: dark; }
+/* The reset sits in the base layer, beside Tailwind's own preflight, so a project's layered utilities (mx-auto,
+   px-4) beat it, and Sodium's unlayered ones still do. What must win over a page's own rules stays out of the layer:
+   the selection colour, the focus ring and the phone zoom guard. */
+@layer base {
+  .sodium :where(*, ::before, ::after), [data-system="sodium"] :where(*, ::before, ::after) { box-sizing: border-box; border: 0 solid var(--line); border-radius: 0; margin: 0; padding: 0; }
+  .sodium :where(h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, pre) { margin: 0; font: inherit; }
+  .sodium :where(ul, ol) { list-style: none; }
+  .sodium :where(a) { color: inherit; text-decoration: inherit; }
+  .sodium :where(button, input, select, textarea) { font: inherit; letter-spacing: inherit; color: inherit; background: transparent; }
+  .sodium :where(button, [role="button"]) { cursor: pointer; }
+  .sodium :where(button:disabled, [aria-disabled="true"]) { cursor: not-allowed; }
+  .sodium :where(img, video, canvas, svg) { display: block; max-width: 100%; }
+  /* Lucide draws a few glyphs' boxes with rounded corners (Copy, Calendar, Lock); Sodium is square everywhere. */
+  .sodium :where(svg.lucide rect) { rx: 0; ry: 0; }
+  .sodium :where(table) { border-collapse: collapse; }
+  /* Mono in a sentence of sans: Commit Mono's letters are 22% wider than Inter Display's at one size, so it takes
+     --mono-scale of the text around it and keeps that text's line height and baseline. A block of code sets its own
+     role (type-code). */
+  .sodium :where(code, kbd, samp) { font-family: var(--font-mono); font-size: calc(1em * var(--mono-scale)); letter-spacing: 0; }
+  .sodium :where(pre) { font-family: var(--font-mono); }
+  /* Code inside a pre is the block's own line, not mono inside a sentence, so it keeps the block's size. */
+  .sodium :where(pre code, pre kbd, pre samp) { font-size: inherit; }
+  .sodium :where(td, th, time, data, output) { font-variant-numeric: tabular-nums; }
+  /* Every interactive element declares its transition, so no control cuts while its neighbour tweens. */
+  .sodium :where(a, button, summary, input, select, textarea, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="checkbox"], [role="radio"]) {
+    transition-property: color, background-color, border-color, opacity;
+    transition-duration: var(--dur-state);
+    transition-timing-function: var(--ease-out);
+  }
+  /* The ring's colour is set at rest, so a control that transitions its colours never fades the ring in from black. */
+  .sodium :where(*, ::before, ::after), [data-system="sodium"] :where(*, ::before, ::after) { outline-color: var(--focus); }
+}
+.sodium ::selection { background: var(--selected); color: var(--text-1); }
+/* Focus is a 2px outline in --focus (dark gold in light, yellow in dark), 2px out and square, on every focusable. Two
+   classes of specificity beat a site-wide a:focus-visible. A field (the field recipe) draws its own focus on its edge. */
+.sodium :where(*):is(:focus-visible, [data-force-focus-visible]) { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+/* One thin square scrollbar for every scrolling region, portalled overlays included: a 6px thumb in --scrollbar-thumb
+   with --scrollbar-gap of clear around it (a transparent border, the background clipped inside it), no track, no
+   arrows. The thumb shows only while the pointer is over the region or focus is in it, the way the OS overlay bars
+   do, so a log or a table at rest shows its content and no chrome. Browsers with the ::-webkit-scrollbar parts draw it
+   from them; the standard pair goes only to the others. */
+@supports selector(::-webkit-scrollbar) {
+  @layer base { .sodium, .sodium *, [data-system="sodium"], [data-system="sodium"] * { scrollbar-color: auto; } }
+}
+.sodium ::-webkit-scrollbar, .sodium::-webkit-scrollbar, [data-system="sodium"] ::-webkit-scrollbar { width: var(--scrollbar-size); height: var(--scrollbar-size); background: transparent; }
+.sodium ::-webkit-scrollbar-thumb, .sodium::-webkit-scrollbar-thumb, [data-system="sodium"] ::-webkit-scrollbar-thumb { background-color: transparent; background-clip: padding-box; border: var(--scrollbar-gap) solid transparent; border-radius: var(--radius); }
+.sodium :is(:hover, :focus-within)::-webkit-scrollbar-thumb, .sodium:is(:hover, :focus-within)::-webkit-scrollbar-thumb, [data-system="sodium"] :is(:hover, :focus-within)::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb); }
+.sodium ::-webkit-scrollbar-track, .sodium ::-webkit-scrollbar-corner, [data-system="sodium"] ::-webkit-scrollbar-track, [data-system="sodium"] ::-webkit-scrollbar-corner { background: transparent; }
+.sodium ::-webkit-scrollbar-button, [data-system="sodium"] ::-webkit-scrollbar-button { display: none; }
+@supports not selector(::-webkit-scrollbar) {
+  .sodium, .sodium *, [data-system="sodium"], [data-system="sodium"] * { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .sodium :is(:hover, :focus-within), [data-system="sodium"] :is(:hover, :focus-within) { scrollbar-color: var(--scrollbar-thumb) transparent; }
+}
+
+/* A phone browser zooms the page when a field under 16px takes focus. On a coarse pointer every text field is at least 16px. */
+@media (pointer: coarse) {
+  .sodium input:not([type="checkbox"], [type="radio"], [type="range"], [type="button"], [type="submit"], [type="file"]),
+  .sodium textarea,
+  .sodium select { font-size: max(16px, 1em); }
+}

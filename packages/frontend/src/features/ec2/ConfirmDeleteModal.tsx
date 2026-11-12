@@ -1,6 +1,9 @@
 import { useState } from 'react'
-import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react'
+import {Icon, AlertTriangle, Loader2, Trash2, XSquared as X} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
 import { ModalOverlay } from '@/components/ModalOverlay'
+import {Hint} from '@/components/Hint'
 
 type Props = {
   /** Title line, e.g. "Delete VPC" */
@@ -28,43 +31,31 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="create-table-modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
+      <div className="create-table-modal w-105" onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <AlertTriangle size={14} style={{ color: 'var(--status-error)', flexShrink: 0 }} />
+        <div className="modal-header flex items-center gap-2">
+          <Icon icon={AlertTriangle} className="text-fail-text shrink-0" size={14} />
           <span>{title}</span>
-          <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={onClose} aria-label="Close" title="Close">
-            <X size={13} />
-          </button>
+          <Hint label="Close"><Button variant="ghost" size="icon-sm" className="ml-auto" onClick={onClose} aria-label="Close">
+            <Icon icon={X} size={14} />
+          </Button></Hint>
         </div>
 
         <div className="modal-section">
           {/* Resource ID + optional subtitle */}
-          <div style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            borderRadius: 4,
-            padding: '8px 12px',
-            marginBottom: warnings && warnings.length > 0 ? 10 : 14,
-          }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 13 }}>{resourceId}</div>
+          <div className={`py-2 px-3 bg-well border border-line ${warnings && warnings.length > 0 ? 'mb-2.5' : 'mb-3.5'}`}>
+            <div className="type-code">{resourceId}</div>
             {subtitle && (
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{subtitle}</div>
+              <div className="type-caption text-text-3 mt-1">{subtitle}</div>
             )}
           </div>
 
           {/* Cascade / extra warnings */}
           {warnings && warnings.length > 0 && (
-            <div style={{
-              background: 'color-mix(in srgb, var(--status-warn) 8%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--status-warn) 30%, transparent)',
-              borderRadius: 4,
-              padding: '8px 12px',
-              marginBottom: 14,
-            }}>
+            <div className="py-2 px-3 mb-3.5 bg-warn-tint border border-warn">
               {warnings.map((w, i) => (
-                <div key={i} style={{ fontSize: 12, color: 'var(--status-warn)', lineHeight: 1.5 }}>
+                <div className="type-caption text-warn-text" key={i}>
                   {w}
                 </div>
               ))}
@@ -72,26 +63,25 @@ export function ConfirmDeleteModal({ title, resourceId, subtitle, warnings, isPe
           )}
 
           {/* Confirmation input */}
-          <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
-            Type <strong style={{ color: 'var(--text)', fontFamily: 'var(--mono)' }}>delete</strong> to confirm
+          <label className="type-caption text-text-3 block mb-1.5">
+            Type <strong className="text-text-1 type-code">delete</strong> to confirm
           </label>
-          <input aria-label="Type delete to confirm"
-            className="input"
+          <Input aria-label="Type delete to confirm"
             placeholder="delete"
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') void handleConfirm() }}
             autoFocus
-            style={{ borderColor: typed && typed !== 'delete' ? 'var(--status-error)' : undefined }}
+            aria-invalid={(typed && typed !== 'delete') ? true : undefined}
           />
         </div>
 
         <div className="modal-footer">
-          <button className="button" onClick={onClose} disabled={isPending}>Cancel</button>
-          <button className="button danger" onClick={() => void handleConfirm()} disabled={!canDelete}>
-            {isPending ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={13} />}
+          <Button variant="secondary" onClick={onClose} disabled={isPending}>Cancel</Button>
+          <Button variant="destructive" onClick={() => void handleConfirm()} disabled={!canDelete}>
+            {isPending ? <Icon className="animate-pending" icon={Loader2} size={14} /> : <Icon icon={Trash2} size={14} />}
             Delete
-          </button>
+          </Button>
         </div>
 
       </div>

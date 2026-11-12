@@ -1,10 +1,16 @@
 import {useEffect, useMemo, useRef, useState, type KeyboardEvent} from 'react'
-import {Maximize2, Minimize2, Play, Terminal} from 'lucide-react'
+import {Icon, Maximize2, Minimize2, Play, Terminal} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {Textarea} from '@/components/sodium/ui/textarea'
 import {useMutation} from '@tanstack/react-query'
 import {queryLogs, queryLogsAcrossGroups} from '@/api/cloudProxyClient'
 import {ExpandablePanel} from '@/components/ExpandablePanel'
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource, LogsInsightsQueryResult} from '@/types/resource'
+import {Checkbox} from '@/components/sodium/ui/checkbox'
+import {EmptyState} from '@/components/EmptyState'
+import {Hint} from '@/components/Hint'
 
 const DEFAULT_QUERY = 'fields @timestamp, @message\n| sort @timestamp desc\n| limit 20'
 const MAX_QUERY_LOG_GROUPS = 50
@@ -149,7 +155,7 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
     const panel = (
         <section className="logs-query-panel">
             <div className="logs-query-header">
-                <Terminal size={15}/>
+                <Icon icon={Terminal} />
                 <span>
                     <small>{isMultiGroup ? 'Cross-group Insights query' : 'Insights query'}</small>
                     <strong>
@@ -159,7 +165,7 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
                 </span>
                 <div className="logs-query-range" role="group" aria-label="Time range">
                     {RANGE_OPTIONS.map((option) => (
-                        <button
+                        <Button variant="secondary"
                             key={option.minutes}
                             type="button"
                             className={option.minutes === rangeMinutes ? 'active' : ''}
@@ -167,22 +173,20 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
                             onClick={() => setRangeMinutes(option.minutes)}
                         >
                             {option.label}
-                        </button>
+                        </Button>
                     ))}
                 </div>
-                <button
-                    className="icon-btn"
-                    type="button"
-                    title={expanded ? 'Collapse' : 'Expand to full page'}
+                <Hint label={expanded ? 'Collapse' : 'Expand to full page'}><Button variant="ghost" size="icon-sm"
+                    type="button" aria-label={expanded ? 'Collapse' : 'Expand to full page'}
                     onClick={() => setExpanded((value) => !value)}
                 >
-                    {expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}
-                </button>
+                    {expanded ? <Icon icon={Minimize2} size={14}/> : <Icon icon={Maximize2} size={14}/>}
+                </Button></Hint>
             </div>
             {isMultiGroup && (
                 <div className="logs-scope">
                     <div className="logs-scope-row">
-                        <input
+                        <Input
                             value={namePrefix}
                             onChange={(event) => handlePrefixChange(event.target.value)}
                             placeholder="Filter by log group name prefix…"
@@ -195,10 +199,9 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
                     <div className="logs-scope-list" role="group" aria-label="Log groups to query">
                         {matchingGroups.map((group) => (
                             <label className="logs-scope-option" key={group.id}>
-                                <input
-                                    type="checkbox"
+                                <Checkbox
                                     checked={selectedGroups.has(group.id)}
-                                    onChange={() => toggleGroup(group.id)}
+                                    onCheckedChange={() => toggleGroup(group.id)}
                                 />
                                 {group.id}
                             </label>
@@ -206,13 +209,13 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
                         {matchingGroups.length === 0 && <p className="muted">No log groups match this prefix.</p>}
                     </div>
                     {selectedGroups.size > MAX_QUERY_LOG_GROUPS && (
-                        <p className="form-error">Select at most {MAX_QUERY_LOG_GROUPS} log groups — CloudWatch Logs' own limit.</p>
+                        <p className="form-error">Select at most {MAX_QUERY_LOG_GROUPS} log groups, CloudWatch Logs' own limit.</p>
                     )}
                 </div>
             )}
             <div className="logs-query-editor-wrap">
                 {isMultiGroup && <div className="logs-query-source-line">{sourceLine}</div>}
-                <textarea aria-label="Logs Insights query"
+                <Textarea aria-label="Logs Insights query"
                     className={isMultiGroup ? 'logs-query-textarea with-source-line' : 'logs-query-textarea'}
                     value={queryText}
                     onChange={(event) => setQueryText(event.target.value)}
@@ -222,15 +225,14 @@ export function LogsQueryPanel({cloud, runtimeReachable, logGroupName, allLogGro
                 />
                 <div className="logs-query-actions">
                     <span className="logs-query-shortcut">{macShortcut()}+Enter</span>
-                    <button
-                        className="button primary"
+                    <Button
                         type="button"
                         disabled={!runtimeReachable || queryMut.isPending || !queryText.trim() || selectionInvalid}
                         onClick={submit}
                     >
-                        <Play size={14}/>
+                        <Icon icon={Play} size={14}/>
                         {queryMut.isPending ? 'Running' : 'Run query'}
-                    </button>
+                    </Button>
                 </div>
             </div>
             {queryMut.error instanceof Error && <div className="form-error">{queryMut.error.message}</div>}
@@ -254,10 +256,7 @@ const STILL_RUNNING_STATUSES = new Set(['Running', 'Scheduled'])
 function LogsQueryResults({result, expanded}: {result?: LogsInsightsQueryResult; expanded: boolean}) {
     if (!result) {
         return (
-            <div className="empty compact sql-results-empty">
-                <h2>No query results</h2>
-                <p>Run an Insights query to see matching log events.</p>
-            </div>
+            <EmptyState compact className="sql-results-empty" title="No query results" description="Run an Insights query to see matching log events."/>
         )
     }
 
@@ -275,7 +274,7 @@ function LogsQueryResults({result, expanded}: {result?: LogsInsightsQueryResult;
             </div>
             {stillRunning && (
                 <div className="muted padded">
-                    Floci hadn't finished this query when the console stopped waiting — these rows are a partial,
+                    Floci hadn't finished this query when the console stopped waiting, these rows are a partial,
                     in-progress result, not the full answer. Run the query again to see if it has finished
                     (query id: {result.queryId}).
                 </div>

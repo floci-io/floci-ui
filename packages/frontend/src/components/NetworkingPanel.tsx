@@ -1,9 +1,9 @@
 import {useEffect, useMemo, useState} from 'react'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
-import {
-    AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Globe,
-    Key, Loader2, Network, Plus, Router, Server, Shield, Trash2, X,
-} from 'lucide-react'
+import {Icon, type SodiumIcon, AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Globe, Key, Loader2, Network, PlusSquared as Plus, Router, ServerSquared as Server, Shield, Trash2, XSquared as X} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
+import {Input} from '@/components/sodium/ui/input'
+import {OptionSelect} from '@/components/OptionSelect'
 import {
     allocateEc2ElasticIp,
     associateEc2ElasticIp,
@@ -59,6 +59,8 @@ import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource} from '@/types/resource'
 import {calculateSubnetCidrs, isSubnetLayoutWithinBlock, isValidCidr, isValidPort} from '@/lib/network'
 import {ModalOverlay} from './ModalOverlay'
+import {Switch} from '@/components/sodium/ui/switch'
+import {Hint} from '@/components/Hint'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -125,7 +127,7 @@ function protocolLabel(p: string): string {
 function portDisplay(from: number | null, to: number | null, protocol: string): string {
     if (protocol === '-1') return 'All'
     if (protocol === 'icmp') return 'N/A'
-    if (from === null) return '—'
+    if (from === null) return ', '
     if (from === to) return String(from)
     return `${from}–${to}`
 }
@@ -178,23 +180,23 @@ function ConfirmDeleteModal({title, detail, onConfirm, onClose, isPending}: {
 }) {
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{width: 380}} onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                    <AlertTriangle size={14} style={{color: 'var(--status-error)', flexShrink: 0}}/>
+            <div className="create-table-modal w-95" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header flex items-center gap-2">
+                    <Icon icon={AlertTriangle} className="text-fail-text shrink-0" size={14}/>
                     <span>{title}</span>
-                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose} aria-label="Close" title="Close">
-                        <X size={13} aria-hidden="true"/>
-                    </button>
+                    <Hint label="Close"><Button variant="ghost" size="icon-sm" className="ml-auto" onClick={onClose} aria-label="Close">
+                        <Icon icon={X} size={14} aria-hidden="true"/>
+                    </Button></Hint>
                 </div>
                 <div className="modal-section">
-                    <p style={{fontSize: 12, color: 'var(--text-muted)', margin: 0}}>{detail}</p>
+                    <p className="type-caption text-text-3 m-0">{detail}</p>
                 </div>
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={isPending}>Cancel</button>
-                    <button className="button danger" onClick={onConfirm} disabled={isPending}>
-                        {isPending ? <Loader2 size={13}/> : <Trash2 size={13}/>}
+                    <Button variant="secondary" onClick={onClose} disabled={isPending}>Cancel</Button>
+                    <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
+                        {isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Trash2} size={14}/>}
                         Delete
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -226,19 +228,19 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
     return (
         <div>
             {rules.length === 0 ? (
-                <div style={{border: '1px solid var(--border)', borderRadius: 4, padding: '10px 12px', fontSize: 12, color: 'var(--text-2)', marginBottom: 8}}>
+                <div className="py-2.5 px-3 type-caption text-text-2 mb-2 border border-line">
                     No rules. Click Add rule to add one.
                 </div>
             ) : (
-                <div style={{border: '1px solid var(--border)', borderRadius: 4, marginBottom: 8}}>
-                    <table style={{width: '100%', borderCollapse: 'collapse', fontSize: 12}}>
+                <div className="mb-2 border border-line">
+                    <table className="w-full border-collapse type-caption">
                         <thead>
-                            <tr style={{borderBottom: '1px solid var(--border)'}}>
+                            <tr className="border-b border-line">
                                 <th style={thS}>Type</th>
                                 <th style={thS}>Proto</th>
                                 <th style={thS}>Ports</th>
                                 <th style={thS}>CIDR</th>
-                                <th style={{...thS, width: 28}}/>
+                                <th className="w-7" style={{...thS}}/>
                             </tr>
                         </thead>
                         <tbody>
@@ -248,60 +250,58 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
                                 const fromErr = isCustom(r) && r.fromPort !== '' && !isValidPort(r.fromPort)
                                 const toErr   = isCustom(r) && r.toPort   !== '' && !isValidPort(r.toPort)
                                 return (
-                                    <tr key={r.rid} style={{borderBottom: idx < rules.length - 1 ? '1px solid var(--border-faint)' : 'none'}}>
+                                    <tr key={r.rid} className={idx < rules.length - 1 ? 'border-b border-line-faint' : undefined}>
                                         <td style={tdS}>
-                                            <select aria-label="Rule type"
-                                                className="input"
-                                                style={{width: 130, fontSize: 12}}
+                                            <OptionSelect aria-label="Rule type" className="w-32.5"
                                                 value={pKey}
-                                                onChange={(e) => handlePreset(r.rid, e.target.value)}
+                                                onValueChange={(value) => handlePreset(r.rid, value)}
                                             >
                                                 {RULE_PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-                                            </select>
+                                            </OptionSelect>
                                         </td>
-                                        <td style={{...tdS, color: 'var(--text-2)'}}>
+                                        <td className="text-text-2" style={{...tdS}}>
                                             {protocolLabel(r.protocol)}
                                         </td>
                                         <td style={tdS}>
                                             {r.protocol === '-1' || r.protocol === 'icmp' ? (
-                                                <span style={{color: 'var(--text-2)'}}>—</span>
+                                                <span className="text-text-2">, </span>
                                             ) : isCustom(r) ? (
-                                                <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                                                    <input aria-label="From port"
-                                                        className="input"
-                                                        style={{width: 48, fontSize: 12, minWidth: 'unset', borderColor: fromErr ? 'var(--status-error)' : undefined}}
+                                                <div className="flex items-center gap-1">
+                                                    <Input aria-label="From port"
+                                                        className="w-12 min-w-0"
+                                                        aria-invalid={(fromErr) ? true : undefined}
                                                         placeholder="From"
                                                         value={r.fromPort}
                                                         onChange={(e) => update(r.rid, {fromPort: e.target.value})}
                                                     />
-                                                    <span style={{color: 'var(--text-2)'}}>–</span>
-                                                    <input aria-label="To port"
-                                                        className="input"
-                                                        style={{width: 48, fontSize: 12, minWidth: 'unset', borderColor: toErr ? 'var(--status-error)' : undefined}}
+                                                    <span className="text-text-2">–</span>
+                                                    <Input aria-label="To port"
+                                                        className="w-12 min-w-0"
+                                                        aria-invalid={(toErr) ? true : undefined}
                                                         placeholder="To"
                                                         value={r.toPort}
                                                         onChange={(e) => update(r.rid, {toPort: e.target.value})}
                                                     />
                                                 </div>
                                             ) : (
-                                                <span style={{color: 'var(--text-2)', fontSize: 12}}>
+                                                <span className="text-text-2">
                                                     {r.fromPort === r.toPort ? r.fromPort : `${r.fromPort}–${r.toPort}`}
                                                 </span>
                                             )}
                                         </td>
                                         <td style={tdS}>
-                                            <input aria-label="Source CIDR"
-                                                className="input"
-                                                style={{width: 140, fontSize: 12, minWidth: 'unset', borderColor: cidrErr ? 'var(--status-error)' : undefined}}
+                                            <Input aria-label="Source CIDR"
+                                                className="w-35 min-w-0"
+                                                aria-invalid={(cidrErr) ? true : undefined}
                                                 placeholder="0.0.0.0/0"
                                                 value={r.cidr}
                                                 onChange={(e) => update(r.rid, {cidr: e.target.value})}
                                             />
                                         </td>
-                                        <td style={{...tdS, textAlign: 'center'}}>
-                                            <button className="icon-btn danger" type="button" onClick={() => removeRule(r.rid)}>
-                                                <Trash2 size={12}/>
-                                            </button>
+                                        <td className="text-center" style={{...tdS}}>
+                                            <Hint label="Remove rule"><Button variant="ghost" size="icon-sm" type="button" aria-label="Remove rule" onClick={() => removeRule(r.rid)}>
+                                                <Icon icon={Trash2} size={14}/>
+                                            </Button></Hint>
                                         </td>
                                     </tr>
                                 )
@@ -310,9 +310,9 @@ function EditRuleTable({rules, onChange}: {rules: EditRule[]; onChange: (rules: 
                     </table>
                 </div>
             )}
-            <button className="button" type="button" onClick={addRule} style={{fontSize: 12}}>
+            <Button variant="secondary" type="button" onClick={addRule}>
                 + Add rule
-            </button>
+            </Button>
         </div>
     )
 }
@@ -340,32 +340,32 @@ function CreateSgModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) {
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{maxWidth: 400}}>
+            <div className="create-table-modal max-w-100">
                 <h2>Create Security Group</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">Name</p>
-                    <input aria-label="Name" className="input" style={{width: '100%', minWidth: 'unset'}} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mut.mutate()}/>
+                    <Input aria-label="Name" className="w-full min-w-0" autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mut.mutate()}/>
                 </div>
                 <div className="modal-section">
                     <p className="modal-section-title">Description</p>
-                    <input aria-label="Description" className="input" style={{width: '100%', minWidth: 'unset'}} value={description} onChange={(e) => setDescription(e.target.value)}/>
+                    <Input aria-label="Description" className="w-full min-w-0" value={description} onChange={(e) => setDescription(e.target.value)}/>
                 </div>
                 {vpcs.length > 0 && (
                     <div className="modal-section">
-                        <p className="modal-section-title">VPC — optional</p>
-                        <select aria-label="VPC" className="input" style={{width: '100%', minWidth: 'unset'}} value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
+                        <p className="modal-section-title">VPC, optional</p>
+                        <OptionSelect aria-label="VPC" className="w-full min-w-0" value={vpcId} onValueChange={(value) => setVpcId(value)}>
                             <option value="">Default VPC</option>
                             {vpcs.map((v) => <option key={v.vpcId} value={v.vpcId}>{nameTag(v.tags) || v.vpcId} ({v.cidrBlock})</option>)}
-                        </select>
+                        </OptionSelect>
                     </div>
                 )}
-                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
-                    <button className="button primary" disabled={!name.trim() || !description.trim() || mut.isPending} onClick={() => mut.mutate()}>
-                        {mut.isPending ? <Loader2 size={13}/> : <Shield size={13}/>}
+                    <Button variant="secondary" onClick={onClose} disabled={mut.isPending}>Cancel</Button>
+                    <Button disabled={!name.trim() || !description.trim() || mut.isPending} onClick={() => mut.mutate()}>
+                        {mut.isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Shield} size={14}/>}
                         Create
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -408,27 +408,27 @@ function EditSgRulesModal({sg, onClose}: {sg: Ec2SecurityGroup; onClose: () => v
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{maxWidth: 680}}>
-                <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                    <Shield size={14} style={{color: 'var(--accent)'}}/>
-                    <span>Edit rules — {sg.groupName}</span>
-                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose} aria-label="Close" title="Close"><X size={13} aria-hidden="true"/></button>
+            <div className="create-table-modal max-w-170">
+                <div className="modal-header flex items-center gap-2">
+                    <Icon icon={Shield} className="text-accent-text" size={14}/>
+                    <span>Edit rules, {sg.groupName}</span>
+                    <Hint label="Close"><Button variant="ghost" size="icon-sm" className="ml-auto" onClick={onClose} aria-label="Close"><Icon icon={X} size={14} aria-hidden="true"/></Button></Hint>
                 </div>
                 <div className="modal-section">
-                    <p className="modal-section-title" style={{marginBottom: 8}}>Inbound rules</p>
+                    <p className="modal-section-title mb-2">Inbound rules</p>
                     <EditRuleTable rules={inbound} onChange={setInbound}/>
                 </div>
                 <div className="modal-section">
-                    <p className="modal-section-title" style={{marginBottom: 8}}>Outbound rules</p>
+                    <p className="modal-section-title mb-2">Outbound rules</p>
                     <EditRuleTable rules={outbound} onChange={setOutbound}/>
                 </div>
-                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
-                    <button className="button primary" disabled={mut.isPending} onClick={() => mut.mutate()}>
-                        {mut.isPending ? <Loader2 size={13}/> : null}
+                    <Button variant="secondary" onClick={onClose} disabled={mut.isPending}>Cancel</Button>
+                    <Button disabled={mut.isPending} onClick={() => mut.mutate()}>
+                        {mut.isPending ? <Icon icon={Loader2} size={14}/> : null}
                         Save rules
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -440,30 +440,27 @@ function EditSgRulesModal({sg, onClose}: {sg: Ec2SecurityGroup; onClose: () => v
 function PemDisplay({material, onClose}: {material: Ec2KeyPairMaterial; onClose: () => void}) {
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{maxWidth: 600}} onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                    <Key size={14} style={{color: 'var(--status-ok)'}}/>
-                    <span>Save your private key — {material.keyName}</span>
-                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose} aria-label="Close" title="Close"><X size={13} aria-hidden="true"/></button>
+            <div className="create-table-modal max-w-150" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header flex items-center gap-2">
+                    <Icon icon={Key} className="text-ok-text" size={14}/>
+                    <span>Save your private key, {material.keyName}</span>
+                    <Hint label="Close"><Button variant="ghost" size="icon-sm" className="ml-auto" onClick={onClose} aria-label="Close"><Icon icon={X} size={14} aria-hidden="true"/></Button></Hint>
                 </div>
                 <div className="modal-section">
-                    <p style={{fontSize: 12, color: 'var(--status-error)', marginBottom: 8}}>
+                    <p className="type-caption text-fail-text mb-2">
                         This is the only time the private key material is available. Copy and save it now.
                     </p>
-                    <pre style={{
-                        background: 'var(--surface-2)', padding: 12, borderRadius: 4, fontSize: 11,
-                        whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 300, overflowY: 'auto', margin: 0,
-                    }}>
+                    <pre className="p-3 type-caption whitespace-pre-wrap break-all max-h-75 overflow-y-auto m-0 bg-panel">
                         {material.keyMaterial}
                     </pre>
                 </div>
                 <div className="modal-footer">
-                    <button className="button primary" onClick={() => {
+                    <Button onClick={() => {
                         navigator.clipboard.writeText(material.keyMaterial).catch(() => undefined)
                     }}>
                         Copy PEM
-                    </button>
-                    <button className="button" onClick={onClose}>Close</button>
+                    </Button>
+                    <Button variant="secondary" onClick={onClose}>Close</Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -487,30 +484,30 @@ function CreateKpModal({onClose, onCreated}: {onClose: () => void; onCreated: (m
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{maxWidth: 380}}>
+            <div className="create-table-modal max-w-95">
                 <h2>Create Key Pair</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">Name</p>
-                    <input aria-label="Name"
-                        className="input" style={{width: '100%', minWidth: 'unset'}} autoFocus
+                    <Input aria-label="Name"
+                        className="w-full min-w-0" autoFocus
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && name.trim() && mut.mutate()}
                         placeholder="my-key-pair"
                     />
                     {name && !isValidKeyPairName(name) && (
-                        <p style={{fontSize: 11, color: 'var(--status-error)', margin: '4px 0 0'}}>
+                        <p className="type-caption text-fail-text mt-1 mx-0 mb-0">
                             Letters, numbers, hyphens, underscores, dots, @ only
                         </p>
                     )}
                 </div>
-                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
-                    <button className="button primary" disabled={!name.trim() || !isValidKeyPairName(name) || mut.isPending} onClick={() => mut.mutate()}>
-                        {mut.isPending ? <Loader2 size={13}/> : <Key size={13}/>}
+                    <Button variant="secondary" onClick={onClose} disabled={mut.isPending}>Cancel</Button>
+                    <Button disabled={!name.trim() || !isValidKeyPairName(name) || mut.isPending} onClick={() => mut.mutate()}>
+                        {mut.isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Key} size={14}/>}
                         Create
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -537,25 +534,25 @@ function CreateVpcModal({onClose}: {onClose: () => void}) {
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{maxWidth: 360}}>
+            <div className="create-table-modal max-w-90">
                 <h2>Create VPC</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">IPv4 CIDR block</p>
-                    <input aria-label="IPv4 CIDR block"
-                        className="input" style={{width: '100%', minWidth: 'unset', borderColor: cidr && !cidrValid ? 'var(--status-error)' : undefined}}
+                    <Input aria-label="IPv4 CIDR block"
+                        className="w-full min-w-0" aria-invalid={(cidr && !cidrValid) ? true : undefined}
                         autoFocus value={cidr}
                         onChange={(e) => setCidr(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && cidrValid && mut.mutate()}
                     />
-                    {cidr && !cidrValid && <p style={{fontSize: 11, color: 'var(--status-error)', margin: '4px 0 0'}}>Invalid CIDR</p>}
+                    {cidr && !cidrValid && <p className="type-caption text-fail-text mt-1 mx-0 mb-0">Invalid CIDR</p>}
                 </div>
-                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
-                    <button className="button primary" disabled={!cidrValid || mut.isPending} onClick={() => mut.mutate()}>
-                        {mut.isPending ? <Loader2 size={13}/> : <Network size={13}/>}
+                    <Button variant="secondary" onClick={onClose} disabled={mut.isPending}>Cancel</Button>
+                    <Button disabled={!cidrValid || mut.isPending} onClick={() => mut.mutate()}>
+                        {mut.isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Network} size={14}/>}
                         Create
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -573,7 +570,7 @@ const DEFAULT_SUBNET_GROUPS: SubnetGroup[] = [
     {name: 'public',  count: 2, isPublic: true},
     {name: 'private', count: 2, isPublic: false},
 ]
-const PRIVATE_PALETTE = ['#94a3b8', '#a78bfa', '#fb923c', '#f472b6']
+const GROUP_TONES = ['text-data-1', 'text-data-2', 'text-data-3', 'text-data-4'] as const
 
 type WizardStep = 'form' | 'creating' | 'done' | 'error'
 
@@ -596,9 +593,9 @@ function WizardModal({onClose}: {onClose: () => void}) {
     )
     const previewValid = preview !== null && isSubnetLayoutWithinBlock(cidrBlock, groups)
 
-    const privateColors = useMemo(() => {
+    const groupTones = useMemo(() => {
         let pi = 0
-        return groups.map((g) => g.isPublic ? '#34d399' : PRIVATE_PALETTE[pi++ % PRIVATE_PALETTE.length])
+        return groups.map((g) => g.isPublic ? 'text-ok-text' : GROUP_TONES[pi++ % GROUP_TONES.length])
     }, [groups])
 
     const mut = useMutation({
@@ -630,117 +627,133 @@ function WizardModal({onClose}: {onClose: () => void}) {
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{width: 860, maxWidth: '96vw'}} onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header" style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                    <Network size={15} style={{color: 'var(--accent)'}}/>
+            <div className="create-table-modal w-215 max-w-[96vw]" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header flex items-center gap-2">
+                    <Icon icon={Network} className="text-accent-text" />
                     <span>VPC Wizard</span>
-                    <button className="icon-btn" style={{marginLeft: 'auto'}} onClick={onClose} aria-label="Close" title="Close"><X size={13} aria-hidden="true"/></button>
+                    <Hint label="Close"><Button variant="ghost" size="icon-sm" className="ml-auto" onClick={onClose} aria-label="Close"><Icon icon={X} size={14} aria-hidden="true"/></Button></Hint>
                 </div>
 
                 {step === 'form' && (
                     <>
-                        <div style={{display: 'flex', gap: 0}}>
-                            <div style={{flex: '0 0 380px', padding: '16px 20px', borderRight: '1px solid var(--border)', overflowY: 'auto', maxHeight: '70vh'}}>
+                        <div className="flex gap-0">
+                            <div className="py-4 px-5 border-r border-line overflow-y-auto grow-0 shrink-0 basis-95 max-h-[70vh]">
                                 <div className="modal-section">
                                     <div className="section-title">Identity</div>
                                     <div className="field-row">
                                         <label>Name</label>
-                                        <input aria-label="Name" className="input" placeholder="my-vpc" value={wizName} onChange={(e) => setWizName(e.target.value)}/>
+                                        <Input aria-label="Name" placeholder="my-vpc" value={wizName} onChange={(e) => setWizName(e.target.value)}/>
                                     </div>
                                     <div className="field-row">
                                         <label>IPv4 CIDR</label>
-                                        <input aria-label="IPv4 CIDR" className="input" placeholder="10.0.0.0/16" value={cidrBlock} onChange={(e) => setCidrBlock(e.target.value)} style={{borderColor: cidrBlock && !cidrValid ? 'var(--status-error)' : undefined}}/>
-                                        {cidrBlock && !cidrValid && <span style={{color: 'var(--status-error)', fontSize: 11, marginTop: 2}}>Invalid CIDR</span>}
+                                        <Input aria-label="IPv4 CIDR" placeholder="10.0.0.0/16" value={cidrBlock} onChange={(e) => setCidrBlock(e.target.value)} aria-invalid={(cidrBlock && !cidrValid) ? true : undefined}/>
+                                        {cidrBlock && !cidrValid && <span className="text-fail-text type-caption mt-0.5">Invalid CIDR</span>}
                                     </div>
                                 </div>
                                 <div className="modal-section">
-                                    <div style={{display: 'flex', alignItems: 'center', marginBottom: 8}}>
-                                        <div className="section-title" style={{margin: 0}}>Subnet groups</div>
-                                        <button className="button compact" style={{marginLeft: 'auto', fontSize: 11}} onClick={addGroup}>
-                                            <Plus size={11}/> Add group
-                                        </button>
+                                    <div className="flex items-center mb-2">
+                                        <div className="section-title m-0">Subnet groups</div>
+                                        <Button variant="secondary" size="sm" className="ml-auto" onClick={addGroup}>
+                                            <Icon icon={Plus} size={14}/> Add group
+                                        </Button>
                                     </div>
-                                    {groups.length === 0 && <p style={{fontSize: 12, color: 'var(--text-muted)', marginBottom: 8}}>Add at least one group.</p>}
-                                    {groups.length > 0 && (
-                                        <div style={{display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 44px 80px 54px 52px auto', gap: 4, padding: '0 6px', marginBottom: 2}}>
-                                            {['Name', '#', 'Type', 'Mask', 'AZ', ''].map((h) => (
-                                                <span key={h} style={{fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em'}}>{h}</span>
-                                            ))}
-                                        </div>
-                                    )}
+                                    {groups.length === 0 && <p className="text-text-3 mb-2">Add at least one group.</p>}
                                     {groups.map((g, idx) => (
-                                        <div key={idx} style={{display: 'grid', gridTemplateColumns: 'minmax(60px,1fr) 38px 70px 46px 44px auto', gap: 4, alignItems: 'center', marginBottom: 4, background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 5, padding: '5px 6px'}}>
-                                            <input aria-label="Subnet group name" style={{minWidth: 0, fontSize: 12, padding: '3px 7px', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)'}} placeholder="name" value={g.name} onChange={(e) => updateGroup(idx, {name: e.target.value})}/>
-                                            <select aria-label="Subnet count" className="input" style={{minWidth: 0, width: '100%', fontSize: 12, padding: '2px 4px', height: 26}} value={g.count} onChange={(e) => updateGroup(idx, {count: Number(e.target.value)})}>
-                                                {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
-                                            </select>
-                                            <select aria-label="Subnet visibility" className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 4px', height: 26, color: g.isPublic ? 'var(--status-ok)' : 'var(--text-muted)'}} value={g.isPublic ? 'public' : 'private'} onChange={(e) => updateGroup(idx, {isPublic: e.target.value === 'public'})}>
-                                                <option value="public">Public</option>
-                                                <option value="private">Private</option>
-                                            </select>
-                                            <select aria-label="Subnet prefix length" className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 2px', height: 26}} value={g.prefix ?? 'auto'} onChange={(e) => updateGroup(idx, {prefix: e.target.value === 'auto' ? undefined : Number(e.target.value)})}>
-                                                <option value="auto">auto</option>
-                                                {[20,21,22,23,24,25,26,27,28].map((p) => <option key={p} value={p}>/{p}</option>)}
-                                            </select>
-                                            <select aria-label="Availability Zone" className="input" style={{minWidth: 0, width: '100%', fontSize: 11, padding: '2px 2px', height: 26}} value={g.az ?? '(auto)'} onChange={(e) => updateGroup(idx, {az: e.target.value === '(auto)' ? undefined : e.target.value})}>
-                                                {AZ_OPTIONS.map((a) => <option key={a} value={a}>{AZ_LABELS[a]}</option>)}
-                                            </select>
-                                            <button className="icon-btn danger" onClick={() => removeGroup(idx)}><Trash2 size={12}/></button>
+                                      <div className="flex flex-col gap-2 mb-2 p-2 bg-page border border-line" key={idx}>
+                                        <div className="flex items-center gap-2">
+                                          <Input className="min-w-0 flex-1" aria-label="Subnet group name"
+                                            placeholder="group name"
+                                            value={g.name}
+                                            onChange={(e) => updateGroup(idx, {name: e.target.value})}
+                                          />
+                                          <Hint label="Remove group"><Button variant="ghost" size="icon-sm" aria-label="Remove group" onClick={() => removeGroup(idx)}>
+                                            <Icon icon={Trash2} size={14}/>
+                                          </Button></Hint>
                                         </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <label className="flex min-w-0 flex-col gap-1">
+                                            <span className="type-micro text-text-3">Count</span>
+                                            <OptionSelect aria-label="Subnet count" value={String(g.count)} onValueChange={(value) => updateGroup(idx, {count: Number(value)})}>
+                                              {[1, 2, 3, 4].map((n) => <option key={n} value={String(n)}>{n}</option>)}
+                                            </OptionSelect>
+                                          </label>
+                                          <label className="flex min-w-0 flex-col gap-1">
+                                            <span className="type-micro text-text-3">Type</span>
+                                            <OptionSelect aria-label="Subnet visibility" value={g.isPublic ? 'public' : 'private'} onValueChange={(value) => updateGroup(idx, {isPublic: value === 'public'})}>
+                                              <option value="public">Public</option>
+                                              <option value="private">Private</option>
+                                            </OptionSelect>
+                                          </label>
+                                          <label className="flex min-w-0 flex-col gap-1">
+                                            <span className="type-micro text-text-3">Mask</span>
+                                            <OptionSelect aria-label="Subnet prefix length" value={String(g.prefix ?? 'auto')} onValueChange={(value) => updateGroup(idx, {prefix: value === 'auto' ? undefined : Number(value)})}>
+                                              <option value="auto">auto</option>
+                                              {[20, 21, 22, 23, 24, 25, 26, 27, 28].map((p) => <option key={p} value={String(p)}>/{p}</option>)}
+                                            </OptionSelect>
+                                          </label>
+                                          <label className="flex min-w-0 flex-col gap-1">
+                                            <span className="type-micro text-text-3">AZ</span>
+                                            <OptionSelect aria-label="Availability zone" value={g.az ?? '(auto)'} onValueChange={(value) => updateGroup(idx, {az: value === '(auto)' ? undefined : value})}>
+                                              {AZ_OPTIONS.map((a) => <option key={a} value={a}>{AZ_LABELS[a]}</option>)}
+                                            </OptionSelect>
+                                          </label>
+                                        </div>
+                                      </div>
                                     ))}
-                                    {groups.some((g) => !g.name.trim()) && <p style={{fontSize: 11, color: 'var(--status-error)', marginTop: 4}}>All groups need a name.</p>}
+
+                                    {groups.some((g) => !g.name.trim()) && <p className="type-caption text-fail-text mt-1">All groups need a name.</p>}
                                 </div>
                             </div>
-                            <div style={{flex: 1, padding: '16px 20px', background: 'var(--bg-subtle, var(--bg-secondary))', overflowY: 'auto', maxHeight: '70vh'}}>
-                                <div className="section-title" style={{marginBottom: 12}}>Preview</div>
-                                <div style={{border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-primary)', padding: '10px 14px', marginBottom: 10}}>
-                                    <div style={{fontSize: 11, fontWeight: 600, color: 'var(--accent)', marginBottom: 4}}>VPC</div>
-                                    <div style={{fontFamily: 'var(--mono)', fontSize: 12}}>{cidrValid ? cidrBlock : '—'}</div>
-                                    <div style={{fontSize: 11, color: 'var(--text-muted)', marginTop: 2}}>+ Internet Gateway</div>
+                            <div className="flex-1 py-4 px-5 overflow-y-auto bg-well max-h-[70vh]">
+                                <div className="section-title mb-3">Preview</div>
+                                <div className="py-2.5 px-3.5 mb-2.5 border border-line bg-page">
+                                    <div className="type-caption text-accent-text mb-1">VPC</div>
+                                    <div className="type-code-sm">{cidrValid ? cidrBlock : ', '}</div>
+                                    <div className="type-caption text-text-3 mt-0.5">+ Internet Gateway</div>
                                 </div>
                                 {preview && preview.length > 0 ? (
-                                    <div style={{display: 'flex', gap: 8, flexWrap: 'wrap'}}>
+                                    <div className="flex gap-2 flex-wrap">
                                         {preview.map((grp, idx) => {
-                                            const color = privateColors[idx]
+                                            const tone = groupTones[idx]
                                             return (
-                                                <div key={idx} style={{minWidth: 100, flex: '1 1 100px'}}>
-                                                    <div style={{fontSize: 11, fontWeight: 600, color, marginBottom: 6}}>
+                                                <div className="min-w-25 grow shrink basis-25" key={idx}>
+                                                    <div className={`type-caption mb-1.5 ${tone}`}>
                                                         {grp.name || <em>unnamed</em>} ({grp.cidrs.length})
-                                                        <span style={{fontWeight: 400, marginLeft: 4, opacity: 0.7}}>{grp.isPublic ? '· public' : '· private'}</span>
+                                                        <span className="ml-1 opacity-70">{grp.isPublic ? '· public' : '· private'}</span>
                                                     </div>
                                                     {grp.cidrs.map((cidr, i) => (
-                                                        <div key={i} style={{border: `1px solid ${color}60`, borderRadius: 4, padding: '5px 9px', marginBottom: 5, background: `${color}10`, fontFamily: 'var(--mono)', fontSize: 11}}>{cidr}</div>
+                                                        <div className="py-1.5 px-2.5 mb-1.5 type-code-sm border border-line" key={i}>{cidr}</div>
                                                     ))}
                                                 </div>
                                             )
                                         })}
                                     </div>
                                 ) : (
-                                    <div style={{color: 'var(--text-muted)', fontSize: 12}}>
+                                    <div className="text-text-3 type-caption">
                                         {cidrValid ? 'Add subnet groups to preview.' : 'Enter a valid CIDR to preview.'}
                                     </div>
                                 )}
                                 {preview && !previewValid && (
-                                    <p style={{color: 'var(--status-error)', fontSize: 11, marginTop: 8}}>
+                                    <p className="text-fail-text type-caption mt-2">
                                         Requested subnet layout is invalid or does not fit the VPC CIDR.
                                     </p>
                                 )}
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="button" onClick={onClose}>Cancel</button>
-                            <button className="button primary" disabled={!canSubmit} onClick={handleCreate}>
+                            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+                            <Button disabled={!canSubmit} onClick={handleCreate}>
                                 Create VPC
-                            </button>
+                            </Button>
                         </div>
                     </>
                 )}
 
                 {step === 'creating' && (
-                    <div style={{padding: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14}}>
-                        <Loader2 size={28} style={{animation: 'spin 1s linear infinite', color: 'var(--accent)'}}/>
-                        <div style={{fontSize: 13, fontWeight: 500}}>Creating VPC infrastructure…</div>
-                        <div style={{fontSize: 12, color: 'var(--text-muted)', textAlign: 'center'}}>
+                    <div className="p-12 flex flex-col items-center gap-3.5">
+                        <Icon icon={Loader2} className="text-accent-text animate-pending" size={24}/>
+                        <div className="type-caption">Creating VPC infrastructure…</div>
+                        <div className="type-caption text-text-3 text-center">
                             Provisioning VPC, Internet Gateway, {totalSubnets} subnet{totalSubnets !== 1 ? 's' : ''}, route tables…
                         </div>
                     </div>
@@ -748,12 +761,12 @@ function WizardModal({onClose}: {onClose: () => void}) {
 
                 {step === 'done' && result && (
                     <>
-                        <div style={{padding: '24px 28px', maxHeight: '70vh', overflowY: 'auto'}}>
-                            <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20}}>
-                                <CheckCircle2 size={18} style={{color: 'var(--status-ok)'}}/>
-                                <span style={{fontWeight: 600}}>VPC created successfully</span>
+                        <div className="py-6 px-7 overflow-y-auto max-h-[70vh]">
+                            <div className="flex items-center gap-2 mb-5">
+                                <Icon icon={CheckCircle2} className="text-ok-text" />
+                                <span>VPC created successfully</span>
                             </div>
-                            <table style={{borderCollapse: 'collapse', width: '100%'}}>
+                            <table className="border-collapse w-full">
                                 <tbody>
                                     {[
                                         ['VPC', result.vpcId],
@@ -764,35 +777,35 @@ function WizardModal({onClose}: {onClose: () => void}) {
                                         ...(result.eipAllocationId ? [['Elastic IP', result.eipAllocationId]] : []),
                                     ].map(([label, id]) => (
                                         <tr key={label}>
-                                            <td style={{color: 'var(--text-muted)', paddingRight: 16, whiteSpace: 'nowrap', fontSize: 12}}>{label}</td>
-                                            <td style={{fontFamily: 'var(--mono)', fontSize: 12}}>{id}</td>
+                                            <td className="text-text-3 pr-4 whitespace-nowrap type-caption">{label}</td>
+                                            <td className="type-code-sm">{id}</td>
                                         </tr>
                                     ))}
                                     {result.subnetGroups.map((grp) => grp.subnetIds.map((id, i) => (
                                         <tr key={id}>
-                                            <td style={{color: 'var(--text-muted)', paddingRight: 16, whiteSpace: 'nowrap', fontSize: 12}}>{grp.name} {i + 1}</td>
-                                            <td style={{fontFamily: 'var(--mono)', fontSize: 12}}>{id}</td>
+                                            <td className="text-text-3 pr-4 whitespace-nowrap type-caption">{grp.name} {i + 1}</td>
+                                            <td className="type-code-sm">{id}</td>
                                         </tr>
                                     )))}
                                 </tbody>
                             </table>
                         </div>
-                        <div className="modal-footer"><button className="button primary" onClick={onClose}>Close</button></div>
+                        <div className="modal-footer"><Button onClick={onClose}>Close</Button></div>
                     </>
                 )}
 
                 {step === 'error' && (
                     <>
-                        <div style={{padding: '24px 28px'}}>
-                            <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12}}>
-                                <AlertCircle size={18} style={{color: 'var(--status-error)'}}/>
-                                <span style={{fontWeight: 600}}>Creation failed</span>
+                        <div className="py-6 px-7">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Icon icon={AlertCircle} className="text-fail-text" />
+                                <span>Creation failed</span>
                             </div>
-                            <div style={{fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--status-error)', background: 'var(--bg-secondary)', padding: 12, borderRadius: 4}}>{errMsg}</div>
+                            <div className="type-code-sm text-fail-text p-3 bg-well">{errMsg}</div>
                         </div>
                         <div className="modal-footer">
-                            <button className="button" onClick={() => setStep('form')}>Back</button>
-                            <button className="button" onClick={onClose}>Close</button>
+                            <Button variant="secondary" onClick={() => setStep('form')}>Back</Button>
+                            <Button variant="secondary" onClick={onClose}>Close</Button>
                         </div>
                     </>
                 )}
@@ -823,33 +836,33 @@ function CreateSubnetModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{maxWidth: 400}}>
+            <div className="create-table-modal max-w-100">
                 <h2>Create Subnet</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">VPC</p>
-                    <select aria-label="VPC" className="input" style={{width: '100%', minWidth: 'unset'}} value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
+                    <OptionSelect aria-label="VPC" className="w-full min-w-0" value={vpcId} onValueChange={(value) => setVpcId(value)}>
                         {vpcs.map((v) => <option key={v.vpcId} value={v.vpcId}>{nameTag(v.tags) || v.vpcId} ({v.cidrBlock})</option>)}
-                    </select>
+                    </OptionSelect>
                 </div>
                 <div className="modal-section">
                     <p className="modal-section-title">IPv4 CIDR</p>
-                    <input aria-label="IPv4 CIDR" className="input" style={{width: '100%', minWidth: 'unset', borderColor: cidr && !cidrValid ? 'var(--status-error)' : undefined}} placeholder="10.0.1.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)}/>
-                    {cidr && !cidrValid && <p style={{fontSize: 11, color: 'var(--status-error)', margin: '4px 0 0'}}>Invalid CIDR</p>}
+                    <Input aria-label="IPv4 CIDR" className="w-full min-w-0" aria-invalid={(cidr && !cidrValid) ? true : undefined} placeholder="10.0.1.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)}/>
+                    {cidr && !cidrValid && <p className="type-caption text-fail-text mt-1 mx-0 mb-0">Invalid CIDR</p>}
                 </div>
                 <div className="modal-section">
-                    <p className="modal-section-title">Availability Zone — optional</p>
-                    <select aria-label="Availability Zone" className="input" style={{width: '100%', minWidth: 'unset'}} value={az} onChange={(e) => setAz(e.target.value)}>
+                    <p className="modal-section-title">Availability Zone, optional</p>
+                    <OptionSelect aria-label="Availability Zone" className="w-full min-w-0" value={az} onValueChange={(value) => setAz(value)}>
                         <option value="">No preference</option>
                         {AZ_OPTIONS.filter((a) => a !== '(auto)').map((a) => <option key={a} value={a}>{a}</option>)}
-                    </select>
+                    </OptionSelect>
                 </div>
-                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
-                    <button className="button primary" disabled={!vpcId || !cidrValid || mut.isPending} onClick={() => mut.mutate()}>
-                        {mut.isPending ? <Loader2 size={13}/> : <Router size={13}/>}
+                    <Button variant="secondary" onClick={onClose} disabled={mut.isPending}>Cancel</Button>
+                    <Button disabled={!vpcId || !cidrValid || mut.isPending} onClick={() => mut.mutate()}>
+                        {mut.isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Router} size={14}/>}
                         Create
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -874,19 +887,19 @@ function CreateIgwModal({onClose}: {onClose: () => void}) {
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{maxWidth: 360}}>
+            <div className="create-table-modal max-w-90">
                 <h2>Create Internet Gateway</h2>
                 <div className="modal-section">
-                    <p className="modal-section-title">Name — optional</p>
-                    <input aria-label="Name" className="input" style={{width: '100%', minWidth: 'unset'}} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mut.mutate()} placeholder="my-igw"/>
+                    <p className="modal-section-title">Name, optional</p>
+                    <Input aria-label="Name" className="w-full min-w-0" autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mut.mutate()} placeholder="my-igw"/>
                 </div>
-                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
-                    <button className="button primary" disabled={mut.isPending} onClick={() => mut.mutate()}>
-                        {mut.isPending ? <Loader2 size={13}/> : <Globe size={13}/>}
+                    <Button variant="secondary" onClick={onClose} disabled={mut.isPending}>Cancel</Button>
+                    <Button disabled={mut.isPending} onClick={() => mut.mutate()}>
+                        {mut.isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Globe} size={14}/>}
                         Create
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -912,25 +925,25 @@ function CreateRtbModal({vpcs, onClose}: {vpcs: Ec2Vpc[]; onClose: () => void}) 
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{maxWidth: 380}}>
+            <div className="create-table-modal max-w-95">
                 <h2>Create Route Table</h2>
                 <div className="modal-section">
                     <p className="modal-section-title">VPC</p>
-                    <select aria-label="VPC" className="input" style={{width: '100%', minWidth: 'unset'}} value={vpcId} onChange={(e) => setVpcId(e.target.value)}>
+                    <OptionSelect aria-label="VPC" className="w-full min-w-0" value={vpcId} onValueChange={(value) => setVpcId(value)}>
                         {vpcs.map((v) => <option key={v.vpcId} value={v.vpcId}>{nameTag(v.tags) || v.vpcId} ({v.cidrBlock})</option>)}
-                    </select>
+                    </OptionSelect>
                 </div>
                 <div className="modal-section">
-                    <p className="modal-section-title">Name — optional</p>
-                    <input aria-label="Name" className="input" style={{width: '100%', minWidth: 'unset'}} value={name} onChange={(e) => setName(e.target.value)} placeholder="my-rtb"/>
+                    <p className="modal-section-title">Name, optional</p>
+                    <Input aria-label="Name" className="w-full min-w-0" value={name} onChange={(e) => setName(e.target.value)} placeholder="my-rtb"/>
                 </div>
-                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
-                    <button className="button primary" disabled={!vpcId || mut.isPending} onClick={() => mut.mutate()}>
-                        {mut.isPending ? <Loader2 size={13}/> : <Router size={13}/>}
+                    <Button variant="secondary" onClick={onClose} disabled={mut.isPending}>Cancel</Button>
+                    <Button disabled={!vpcId || mut.isPending} onClick={() => mut.mutate()}>
+                        {mut.isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Router} size={14}/>}
                         Create
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -954,20 +967,20 @@ function AllocateEipModal({onClose}: {onClose: () => void}) {
 
     return (
         <ModalOverlay onClose={onClose}>
-            <div className="create-table-modal" style={{maxWidth: 340}}>
+            <div className="create-table-modal max-w-85">
                 <h2>Allocate Elastic IP</h2>
                 <div className="modal-section">
-                    <p style={{fontSize: 12, color: 'var(--text-muted)', margin: 0}}>
+                    <p className="type-caption text-text-3 m-0">
                         Allocates a new Elastic IP address from Amazon's pool for use in your account.
                     </p>
                 </div>
-                {err && <p style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{err}</p>}
+                {err && <p className="type-caption text-fail-text mt-0 mx-0 mb-2">{err}</p>}
                 <div className="modal-footer">
-                    <button className="button" onClick={onClose} disabled={mut.isPending}>Cancel</button>
-                    <button className="button primary" disabled={mut.isPending} onClick={() => mut.mutate()}>
-                        {mut.isPending ? <Loader2 size={13}/> : <Globe size={13}/>}
+                    <Button variant="secondary" onClick={onClose} disabled={mut.isPending}>Cancel</Button>
+                    <Button disabled={mut.isPending} onClick={() => mut.mutate()}>
+                        {mut.isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Globe} size={14}/>}
                         Allocate
-                    </button>
+                    </Button>
                 </div>
             </div>
         </ModalOverlay>
@@ -986,11 +999,11 @@ function SgDetail({sg, vpcs, onEdit, onDelete}: {
     return (
         <div className="widget">
             <div className="widget-header">
-                <Shield size={14} style={{color: 'var(--accent)'}}/>
-                <h2 style={{marginLeft: 6}}>{sg.groupName}</h2>
-                <div style={{marginLeft: 'auto', display: 'flex', gap: 6}}>
-                    <button className="button compact" onClick={onEdit}>Edit rules</button>
-                    <button className="button compact danger" onClick={onDelete}><Trash2 size={12}/> Delete</button>
+                <Icon icon={Shield} className="text-accent-text" size={14}/>
+                <h2 className="ml-1.5">{sg.groupName}</h2>
+                <div className="ml-auto flex gap-1.5">
+                    <Button variant="secondary" size="sm" onClick={onEdit}>Edit rules</Button>
+                    <Button variant="destructive" size="sm" onClick={onDelete}><Icon icon={Trash2} size={14}/> Delete</Button>
                 </div>
             </div>
             <div className="widget-body">
@@ -998,11 +1011,11 @@ function SgDetail({sg, vpcs, onEdit, onDelete}: {
                     ['Group ID', sg.groupId],
                     ['Name', sg.groupName],
                     ['Description', sg.description],
-                    ['VPC', vpcName ? `${nameTag(vpcName.tags) || vpcName.vpcId}` : sg.vpcId ?? '—'],
+                    ['VPC', vpcName ? `${nameTag(vpcName.tags) || vpcName.vpcId}` : sg.vpcId ?? ', '],
                 ]}/>
-                <p className="modal-section-title" style={{marginTop: 12, marginBottom: 6}}>Inbound rules ({sg.inboundRules.length})</p>
+                <p className="modal-section-title mt-3 mb-1.5">Inbound rules ({sg.inboundRules.length})</p>
                 <IpPermTable perms={sg.inboundRules}/>
-                <p className="modal-section-title" style={{marginTop: 12, marginBottom: 6}}>Outbound rules ({sg.outboundRules.length})</p>
+                <p className="modal-section-title mt-3 mb-1.5">Outbound rules ({sg.outboundRules.length})</p>
                 <IpPermTable perms={sg.outboundRules}/>
             </div>
         </div>
@@ -1010,12 +1023,12 @@ function SgDetail({sg, vpcs, onEdit, onDelete}: {
 }
 
 function IpPermTable({perms}: {perms: Ec2IpPermission[]}) {
-    if (perms.length === 0) return <p style={{fontSize: 12, color: 'var(--text-2)'}}>No rules.</p>
+    if (perms.length === 0) return <p className="type-caption text-text-2">No rules.</p>
     return (
-        <div style={{border: '1px solid var(--border)', borderRadius: 4}}>
-            <table style={{width: '100%', borderCollapse: 'collapse', fontSize: 12}}>
+        <div className="border border-line">
+            <table className="w-full border-collapse type-caption">
                 <thead>
-                    <tr style={{borderBottom: '1px solid var(--border)'}}>
+                    <tr className="border-b border-line">
                         <th style={thS}>Protocol</th>
                         <th style={thS}>Ports</th>
                         <th style={thS}>Source/Dest</th>
@@ -1024,16 +1037,16 @@ function IpPermTable({perms}: {perms: Ec2IpPermission[]}) {
                 <tbody>
                     {perms.map((p, i) => (
                         p.ipRanges.length > 0 ? p.ipRanges.map((cidr, j) => (
-                            <tr key={`${i}-${j}`} style={{borderBottom: 'none'}}>
+                            <tr key={`${i}-${j}`}>
                                 <td style={tdS}>{protocolLabel(p.protocol)}</td>
                                 <td style={tdS}>{portDisplay(p.fromPort, p.toPort, p.protocol)}</td>
-                                <td style={{...tdS, fontFamily: 'var(--mono)'}}>{cidr}</td>
+                                <td className="type-code" style={{...tdS}}>{cidr}</td>
                             </tr>
                         )) : (
                             <tr key={i}>
                                 <td style={tdS}>{protocolLabel(p.protocol)}</td>
                                 <td style={tdS}>{portDisplay(p.fromPort, p.toPort, p.protocol)}</td>
-                                <td style={{...tdS, color: 'var(--text-2)'}}>—</td>
+                                <td className="text-text-2" style={{...tdS}}>, </td>
                             </tr>
                         )
                     ))}
@@ -1049,17 +1062,17 @@ function KpDetail({kp, onDelete}: {kp: Ec2KeyPair; onDelete: () => void}) {
     return (
         <div className="widget">
             <div className="widget-header">
-                <Key size={14} style={{color: 'var(--accent)'}}/>
-                <h2 style={{marginLeft: 6}}>{kp.keyName}</h2>
-                <div style={{marginLeft: 'auto'}}>
-                    <button className="button compact danger" onClick={onDelete}><Trash2 size={12}/> Delete</button>
+                <Icon icon={Key} className="text-accent-text" size={14}/>
+                <h2 className="ml-1.5">{kp.keyName}</h2>
+                <div className="ml-auto">
+                    <Button variant="destructive" size="sm" onClick={onDelete}><Icon icon={Trash2} size={14}/> Delete</Button>
                 </div>
             </div>
             <div className="widget-body">
                 <MetaGrid rows={[
                     ['Key Pair ID', kp.keyPairId],
                     ['Name', kp.keyName],
-                    ['Fingerprint', kp.keyFingerprint ?? '—'],
+                    ['Fingerprint', kp.keyFingerprint ?? ', '],
                 ]}/>
             </div>
         </div>
@@ -1085,27 +1098,27 @@ function VpcDetail({vpc, onDelete, deleteError}: {vpc: Ec2Vpc; onDelete: () => v
     return (
         <div className="widget">
             <div className="widget-header">
-                <Network size={14} style={{color: 'var(--accent)'}}/>
-                <h2 style={{marginLeft: 6}}>{nameTag(vpc.tags) || vpc.vpcId}</h2>
-                {vpc.isDefault && <span className="status pending" style={{marginLeft: 8, fontSize: 11}}>default</span>}
-                <div style={{marginLeft: 'auto'}}>
-                    <button className="button compact danger" onClick={onDelete} disabled={vpc.isDefault} title={vpc.isDefault ? 'Cannot delete the default VPC' : undefined}>
-                        <Trash2 size={12}/> Delete
-                    </button>
+                <Icon icon={Network} className="text-accent-text" size={14}/>
+                <h2 className="ml-1.5">{nameTag(vpc.tags) || vpc.vpcId}</h2>
+                {vpc.isDefault && <span className="status pending ml-2 type-caption">default</span>}
+                <div className="ml-auto">
+                    <Button title={vpc.isDefault ? 'Cannot delete the default VPC' : undefined} variant="destructive" size="sm" onClick={onDelete} disabled={vpc.isDefault}>
+                        <Icon icon={Trash2} size={14}/> Delete
+                    </Button>
                 </div>
             </div>
             <div className="widget-body">
-                {deleteError && <p role="alert" style={{fontSize: 12, color: 'var(--status-error)', margin: '0 0 8px'}}>{deleteError}</p>}
+                {deleteError && <p className="type-caption text-fail-text mt-0 mx-0 mb-2" role="alert">{deleteError}</p>}
                 <MetaGrid rows={[
                     ['VPC ID', vpc.vpcId],
                     ['CIDR', vpc.cidrBlock],
-                    ['State', vpc.state ?? '—'],
+                    ['State', vpc.state ?? ', '],
                     ['Default', vpc.isDefault ? 'Yes' : 'No'],
                 ]}/>
-                <p className="modal-section-title" style={{marginTop: 12, marginBottom: 8}}>DNS settings</p>
-                {attrsQuery.isLoading && <p style={{fontSize: 12, color: 'var(--text-2)'}}>Loading…</p>}
+                <p className="modal-section-title mt-3 mb-2">DNS settings</p>
+                {attrsQuery.isLoading && <p className="type-caption text-text-2">Loading…</p>}
                 {attrsQuery.data && (
-                    <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
+                    <div className="flex flex-col gap-2">
                         <ToggleRow
                             label="DNS hostnames"
                             checked={attrsQuery.data.enableDnsHostnames}
@@ -1139,10 +1152,10 @@ function SubnetDetail({subnet, vpcs, onDelete}: {subnet: Ec2Subnet; vpcs: Ec2Vpc
     return (
         <div className="widget">
             <div className="widget-header">
-                <Server size={14} style={{color: 'var(--accent)'}}/>
-                <h2 style={{marginLeft: 6}}>{nameTag(subnet.tags) || subnet.subnetId}</h2>
-                <div style={{marginLeft: 'auto'}}>
-                    <button className="button compact danger" onClick={onDelete}><Trash2 size={12}/> Delete</button>
+                <Icon icon={Server} className="text-accent-text" size={14}/>
+                <h2 className="ml-1.5">{nameTag(subnet.tags) || subnet.subnetId}</h2>
+                <div className="ml-auto">
+                    <Button variant="destructive" size="sm" onClick={onDelete}><Icon icon={Trash2} size={14}/> Delete</Button>
                 </div>
             </div>
             <div className="widget-body">
@@ -1151,10 +1164,10 @@ function SubnetDetail({subnet, vpcs, onDelete}: {subnet: Ec2Subnet; vpcs: Ec2Vpc
                     ['VPC', vpc ? `${nameTag(vpc.tags) || vpc.vpcId}` : subnet.vpcId],
                     ['CIDR', subnet.cidrBlock],
                     ['AZ', subnet.availabilityZone],
-                    ['Available IPs', subnet.availableIpAddressCount !== undefined ? String(subnet.availableIpAddressCount) : '—'],
-                    ['State', subnet.state ?? '—'],
+                    ['Available IPs', subnet.availableIpAddressCount !== undefined ? String(subnet.availableIpAddressCount) : ', '],
+                    ['State', subnet.state ?? ', '],
                 ]}/>
-                <div style={{marginTop: 12}}>
+                <div className="mt-3">
                     <ToggleRow
                         label="Auto-assign public IPv4"
                         checked={subnet.mapPublicIpOnLaunch}
@@ -1189,39 +1202,39 @@ function IgwDetail({igw, vpcs, onDelete}: {igw: Ec2InternetGateway; vpcs: Ec2Vpc
     return (
         <div className="widget">
             <div className="widget-header">
-                <Globe size={14} style={{color: 'var(--accent)'}}/>
-                <h2 style={{marginLeft: 6}}>{nameTag(igw.tags) || igw.internetGatewayId}</h2>
-                <div style={{marginLeft: 'auto'}}>
-                    <button className="button compact danger" onClick={onDelete} disabled={attached.length > 0} title={attached.length > 0 ? 'Detach from VPC first' : undefined}>
-                        <Trash2 size={12}/> Delete
-                    </button>
+                <Icon icon={Globe} className="text-accent-text" size={14}/>
+                <h2 className="ml-1.5">{nameTag(igw.tags) || igw.internetGatewayId}</h2>
+                <div className="ml-auto">
+                    <Button title={attached.length > 0 ? 'Detach from VPC first' : undefined} variant="destructive" size="sm" onClick={onDelete} disabled={attached.length > 0}>
+                        <Icon icon={Trash2} size={14}/> Delete
+                    </Button>
                 </div>
             </div>
             <div className="widget-body">
                 <MetaGrid rows={[['IGW ID', igw.internetGatewayId]]}/>
-                <p className="modal-section-title" style={{marginTop: 12, marginBottom: 8}}>Attached VPCs</p>
+                <p className="modal-section-title mt-3 mb-2">Attached VPCs</p>
                 {igw.attachments.length === 0 ? (
-                    <p style={{fontSize: 12, color: 'var(--text-2)'}}>Not attached to any VPC.</p>
+                    <p className="type-caption text-text-2">Not attached to any VPC.</p>
                 ) : (
-                    <div style={{display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8}}>
+                    <div className="flex flex-col gap-1 mb-2">
                         {igw.attachments.map((a) => (
-                            <div key={a.vpcId} className="field-row" style={{gap: 6}}>
-                                <span style={{fontFamily: 'var(--mono)', fontSize: 12, flex: 1}}>{a.vpcId}</span>
-                                <span style={{fontSize: 11, color: 'var(--text-2)'}}>{a.state}</span>
-                                <button className="button compact danger" disabled={detachMut.isPending} onClick={() => detachMut.mutate(a.vpcId)}>Detach</button>
+                            <div key={a.vpcId} className="field-row gap-1.5">
+                                <span className="type-code-sm flex-1">{a.vpcId}</span>
+                                <span className="type-caption text-text-2">{a.state}</span>
+                                <Button variant="destructive" size="sm" disabled={detachMut.isPending} onClick={() => detachMut.mutate(a.vpcId)}>Detach</Button>
                             </div>
                         ))}
                     </div>
                 )}
                 {unattachedVpcs.length > 0 && (
-                    <div className="field-row" style={{gap: 6}}>
-                        <select aria-label="VPC to attach" className="input" style={{flex: 1, fontSize: 12, minWidth: 0}} value={attachVpcId} onChange={(e) => setAttachVpcId(e.target.value)}>
+                    <div className="field-row gap-1.5">
+                        <OptionSelect aria-label="VPC to attach" className="flex-1 min-w-0" value={attachVpcId} onValueChange={(value) => setAttachVpcId(value)}>
                             <option value="">Select VPC to attach…</option>
                             {unattachedVpcs.map((v) => <option key={v.vpcId} value={v.vpcId}>{nameTag(v.tags) || v.vpcId}</option>)}
-                        </select>
-                        <button className="button compact" disabled={!attachVpcId || attachMut.isPending} onClick={() => attachMut.mutate(attachVpcId)}>
-                            {attachMut.isPending ? <Loader2 size={12}/> : null}Attach
-                        </button>
+                        </OptionSelect>
+                        <Button variant="secondary" size="sm" disabled={!attachVpcId || attachMut.isPending} onClick={() => attachMut.mutate(attachVpcId)}>
+                            {attachMut.isPending ? <Icon icon={Loader2} size={14}/> : null}Attach
+                        </Button>
                     </div>
                 )}
             </div>
@@ -1265,13 +1278,13 @@ function RtbDetail({rtb, vpcs, igws, onDelete}: {rtb: Ec2RouteTable; vpcs: Ec2Vp
     return (
         <div className="widget">
             <div className="widget-header">
-                <Router size={14} style={{color: 'var(--accent)'}}/>
-                <h2 style={{marginLeft: 6}}>{nameTag(rtb.tags) || rtb.routeTableId}</h2>
-                {isMain && <span className="status pending" style={{marginLeft: 8, fontSize: 11}}>main</span>}
-                <div style={{marginLeft: 'auto'}}>
-                    <button className="button compact danger" onClick={onDelete} disabled={isMain} title={isMain ? 'Cannot delete the main route table' : undefined}>
-                        <Trash2 size={12}/> Delete
-                    </button>
+                <Icon icon={Router} className="text-accent-text" size={14}/>
+                <h2 className="ml-1.5">{nameTag(rtb.tags) || rtb.routeTableId}</h2>
+                {isMain && <span className="status pending ml-2 type-caption">main</span>}
+                <div className="ml-auto">
+                    <Button title={isMain ? 'Cannot delete the main route table' : undefined} variant="destructive" size="sm" onClick={onDelete} disabled={isMain}>
+                        <Icon icon={Trash2} size={14}/> Delete
+                    </Button>
                 </div>
             </div>
             <div className="widget-body">
@@ -1279,31 +1292,31 @@ function RtbDetail({rtb, vpcs, igws, onDelete}: {rtb: Ec2RouteTable; vpcs: Ec2Vp
                     ['RTB ID', rtb.routeTableId],
                     ['VPC', vpc ? `${nameTag(vpc.tags) || vpc.vpcId}` : rtb.vpcId],
                 ]}/>
-                <p className="modal-section-title" style={{marginTop: 12, marginBottom: 6}}>Routes</p>
+                <p className="modal-section-title mt-3 mb-1.5">Routes</p>
                 {rtb.routes.length === 0 ? (
-                    <p style={{fontSize: 12, color: 'var(--text-2)'}}>No routes.</p>
+                    <p className="type-caption text-text-2">No routes.</p>
                 ) : (
-                    <div style={{border: '1px solid var(--border)', borderRadius: 4, marginBottom: 8}}>
-                        <table style={{width: '100%', borderCollapse: 'collapse', fontSize: 12}}>
+                    <div className="mb-2 border border-line">
+                        <table className="w-full border-collapse type-caption">
                             <thead>
-                                <tr style={{borderBottom: '1px solid var(--border)'}}>
+                                <tr className="border-b border-line">
                                     <th style={thS}>Destination</th>
                                     <th style={thS}>Target</th>
                                     <th style={thS}>State</th>
-                                    <th style={{...thS, width: 28}}/>
+                                    <th className="w-7" style={{...thS}}/>
                                 </tr>
                             </thead>
                             <tbody>
                                 {rtb.routes.map((r, i) => (
-                                    <tr key={i} style={{borderBottom: i < rtb.routes.length - 1 ? '1px solid var(--border-faint)' : 'none'}}>
-                                        <td style={{...tdS, fontFamily: 'var(--mono)'}}>{r.destinationCidrBlock ?? '—'}</td>
-                                        <td style={{...tdS, fontFamily: 'var(--mono)', fontSize: 11}}>{r.gatewayId ?? r.natGatewayId ?? r.vpcPeeringConnectionId ?? '—'}</td>
-                                        <td style={{...tdS, color: 'var(--text-2)'}}>{r.state ?? '—'}</td>
-                                        <td style={{...tdS, textAlign: 'center'}}>
+                                    <tr key={i} className={i < rtb.routes.length - 1 ? 'border-b border-line-faint' : undefined}>
+                                        <td className="type-code" style={{...tdS}}>{r.destinationCidrBlock ?? ', '}</td>
+                                        <td className="type-code-sm" style={{...tdS}}>{r.gatewayId ?? r.natGatewayId ?? r.vpcPeeringConnectionId ?? ', '}</td>
+                                        <td className="text-text-2" style={{...tdS}}>{r.state ?? ', '}</td>
+                                        <td className="text-center" style={{...tdS}}>
                                             {r.origin !== 'CreateRouteTable' && r.destinationCidrBlock && (
-                                                <button className="icon-btn danger" disabled={deleteRouteMut.isPending} onClick={() => deleteRouteMut.mutate(r.destinationCidrBlock!)}>
-                                                    <Trash2 size={11}/>
-                                                </button>
+                                                <Hint label="Delete route"><Button variant="ghost" size="icon-sm" aria-label="Delete route" disabled={deleteRouteMut.isPending} onClick={() => deleteRouteMut.mutate(r.destinationCidrBlock!)}>
+                                                    <Icon icon={Trash2} size={14}/>
+                                                </Button></Hint>
                                             )}
                                         </td>
                                     </tr>
@@ -1312,22 +1325,22 @@ function RtbDetail({rtb, vpcs, igws, onDelete}: {rtb: Ec2RouteTable; vpcs: Ec2Vp
                         </table>
                     </div>
                 )}
-                <p className="modal-section-title" style={{marginBottom: 6}}>Add route</p>
-                <div className="field-row" style={{gap: 6, flexWrap: 'wrap'}}>
-                    <input aria-label="Destination CIDR"
-                        className="input" placeholder="Destination CIDR" style={{width: 150, fontSize: 12, minWidth: 'unset'}}
+                <p className="modal-section-title mb-1.5">Add route</p>
+                <div className="field-row gap-1.5 flex-wrap">
+                    <Input aria-label="Destination CIDR"
+                        className="w-37.5 min-w-0" placeholder="Destination CIDR"
                         value={newCidr} onChange={(e) => setNewCidr(e.target.value)}
                     />
-                    <select aria-label="Route target" className="input" style={{flex: 1, fontSize: 12, minWidth: 120}} value={newTarget} onChange={(e) => setNewTarget(e.target.value)}>
+                    <OptionSelect aria-label="Route target" className="flex-1 min-w-30" value={newTarget} onValueChange={(value) => setNewTarget(value)}>
                         <option value="">Select target…</option>
                         {igws.map((g) => <option key={g.internetGatewayId} value={g.internetGatewayId}>{g.internetGatewayId} (IGW)</option>)}
-                    </select>
-                    <button className="button compact" disabled={!isValidCidr(newCidr) || !newTarget || createRouteMut.isPending} onClick={() => createRouteMut.mutate()}>
-                        {createRouteMut.isPending ? <Loader2 size={12}/> : <Plus size={12}/>}
+                    </OptionSelect>
+                    <Button variant="secondary" size="sm" disabled={!isValidCidr(newCidr) || !newTarget || createRouteMut.isPending} onClick={() => createRouteMut.mutate()}>
+                        {createRouteMut.isPending ? <Icon icon={Loader2} size={14}/> : <Icon icon={Plus} size={14}/>}
                         Add
-                    </button>
+                    </Button>
                 </div>
-                {routeErr && <p style={{fontSize: 11, color: 'var(--status-error)', marginTop: 4}}>{routeErr}</p>}
+                {routeErr && <p className="type-caption text-fail-text mt-1">{routeErr}</p>}
             </div>
         </div>
     )
@@ -1358,38 +1371,38 @@ function EipDetail({eip, instances, onRelease}: {
     return (
         <div className="widget">
             <div className="widget-header">
-                <Globe size={14} style={{color: 'var(--accent)'}}/>
-                <h2 style={{marginLeft: 6, fontFamily: 'var(--mono)'}}>{eip.publicIp}</h2>
-                <div style={{marginLeft: 'auto'}}>
-                    <button className="button compact danger" onClick={onRelease} disabled={!!eip.associationId} title={eip.associationId ? 'Disassociate before releasing' : undefined}>
-                        <Trash2 size={12}/> Release
-                    </button>
+                <Icon icon={Globe} className="text-accent-text" size={14}/>
+                <h2 className="ml-1.5 type-code">{eip.publicIp}</h2>
+                <div className="ml-auto">
+                    <Button title={eip.associationId ? 'Disassociate before releasing' : undefined} variant="destructive" size="sm" onClick={onRelease} disabled={!!eip.associationId}>
+                        <Icon icon={Trash2} size={14}/> Release
+                    </Button>
                 </div>
             </div>
             <div className="widget-body">
                 <MetaGrid rows={[
                     ['Allocation ID', eip.allocationId],
                     ['Public IP', eip.publicIp],
-                    ['Domain', eip.domain ?? '—'],
-                    ['Association ID', eip.associationId ?? '—'],
-                    ['Instance', eip.instanceId ?? '—'],
+                    ['Domain', eip.domain ?? ', '],
+                    ['Association ID', eip.associationId ?? ', '],
+                    ['Instance', eip.instanceId ?? ', '],
                 ]}/>
-                <div style={{marginTop: 12}}>
+                <div className="mt-3">
                     {eip.associationId ? (
-                        <button className="button compact" disabled={disassociateMut.isPending} onClick={() => disassociateMut.mutate()}>
-                            {disassociateMut.isPending ? <Loader2 size={12}/> : null}
+                        <Button variant="secondary" size="sm" disabled={disassociateMut.isPending} onClick={() => disassociateMut.mutate()}>
+                            {disassociateMut.isPending ? <Icon icon={Loader2} size={14}/> : null}
                             Disassociate
-                        </button>
+                        </Button>
                     ) : (
-                        <div className="field-row" style={{gap: 6}}>
-                            <select aria-label="Instance to associate" className="input" style={{flex: 1, fontSize: 12, minWidth: 0}} value={selectedInstance} onChange={(e) => setSelectedInstance(e.target.value)}>
+                        <div className="field-row gap-1.5">
+                            <OptionSelect aria-label="Instance to associate" className="flex-1 min-w-0" value={selectedInstance} onValueChange={(value) => setSelectedInstance(value)}>
                                 <option value="">Associate with instance…</option>
                                 {instances.map((inst) => <option key={inst.instanceId} value={inst.instanceId}>{inst.name || inst.instanceId}</option>)}
-                            </select>
-                            <button className="button compact" disabled={!selectedInstance || associateMut.isPending} onClick={() => associateMut.mutate()}>
-                                {associateMut.isPending ? <Loader2 size={12}/> : null}
+                            </OptionSelect>
+                            <Button variant="secondary" size="sm" disabled={!selectedInstance || associateMut.isPending} onClick={() => associateMut.mutate()}>
+                                {associateMut.isPending ? <Icon icon={Loader2} size={14}/> : null}
                                 Associate
-                            </button>
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -1406,7 +1419,7 @@ function MetaGrid({rows}: {rows: [string, string][]}) {
             {rows.map(([label, value]) => (
                 <div key={label} className="meta-row">
                     <span className="meta-label">{label}</span>
-                    <span className="meta-value" style={{fontFamily: label.endsWith('ID') || label === 'CIDR' || label === 'Fingerprint' ? 'var(--mono)' : undefined, fontSize: label.endsWith('ID') ? 11 : undefined}}>
+                    <span className={`meta-value ${label.endsWith('ID') ? 'type-code-sm' : label === 'CIDR' || label === 'Fingerprint' ? 'type-code' : ''}`}>
                         {value}
                     </span>
                 </div>
@@ -1417,13 +1430,10 @@ function MetaGrid({rows}: {rows: [string, string][]}) {
 
 function ToggleRow({label, checked, onChange, disabled}: {label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean}) {
     return (
-        <div className="field-row" style={{alignItems: 'center', gap: 8}}>
-            <label className="toggle-switch" style={{width: 32, height: 18}}>
-                <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)}/>
-                <span className="toggle-track"/>
-            </label>
-            <span style={{fontSize: 12}}>{label}</span>
-            {disabled && <Loader2 size={12} style={{animation: 'spin 1s linear infinite', color: 'var(--text-2)'}}/>}
+        <div className="field-row items-center gap-2">
+            <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} aria-label={label}/>
+            <span className="type-caption">{label}</span>
+            {disabled && <Icon icon={Loader2} className="text-text-2 animate-pending" size={14}/>}
         </div>
     )
 }
@@ -1431,10 +1441,10 @@ function ToggleRow({label, checked, onChange, disabled}: {label: string; checked
 // ─── Collapsible section ──────────────────────────────────────────────────────
 
 function NetSection({
-    title, icon: Icon, items, section, selected, onSelect, onCreate, isLoading, wizardButton,
+    title, icon: Glyph, items, section, selected, onSelect, onCreate, isLoading, wizardButton,
 }: {
     title: string
-    icon: React.ElementType
+    icon: SodiumIcon
     items: Array<{id: string; label: string; sub?: string}>
     section: Section
     selected: Selection
@@ -1447,51 +1457,40 @@ function NetSection({
     const isActive = selected?.section === section
 
     return (
-        <div style={{borderBottom: '1px solid var(--border)'}}>
-            <div
-                style={{display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', cursor: 'pointer', userSelect: 'none'}}
+        <div className="border-b border-line">
+            <div className="flex items-center gap-2 py-2 px-2.5 cursor-pointer select-none"
                 onClick={() => setOpen((o) => !o)}
             >
-                {open ? <ChevronDown size={13}/> : <ChevronRight size={13}/>}
-                <Icon size={13} style={{color: 'var(--text-2)'}}/>
-                <span style={{fontSize: 12, fontWeight: 600, flex: 1}}>{title}</span>
-                {isLoading && <Loader2 size={11} style={{animation: 'spin 1s linear infinite', color: 'var(--text-2)'}}/>}
-                <span style={{fontSize: 11, color: 'var(--text-2)', marginRight: 4}}>{items.length}</span>
+                {open ? <Icon icon={ChevronDown} size={14}/> : <Icon icon={ChevronRight} size={14}/>}
+                <Icon icon={Glyph} className="text-text-2" size={14}/>
+                <span className="type-caption flex-1">{title}</span>
+                {isLoading && <Icon icon={Loader2} className="text-text-2 animate-pending" size={14}/>}
+                <span className="type-caption text-text-2 mr-1">{items.length}</span>
                 {wizardButton && (
-                    <button
-                        className="icon-btn" title="VPC Wizard" aria-label="VPC Wizard"
+                    <Hint label="VPC Wizard"><Button variant="ghost" size="icon-sm" aria-label="VPC Wizard"
                         onClick={(e) => {e.stopPropagation(); wizardButton()}}
-                        style={{fontSize: 11, padding: '2px 6px', color: 'var(--accent)'}}
                     >
                         Wizard
-                    </button>
+                    </Button></Hint>
                 )}
-                <button
-                    className="icon-btn" title={`Create ${title}`} aria-label={`Create ${title}`}
+                <Hint label={`Create ${title}`}><Button variant="ghost" size="icon-sm" aria-label={`Create ${title}`}
                     onClick={(e) => {e.stopPropagation(); onCreate()}}
                 >
-                    <Plus size={12}/>
-                </button>
+                    <Icon icon={Plus} size={14}/>
+                </Button></Hint>
             </div>
             {open && (
                 <div>
                     {items.length === 0 ? (
-                        <p style={{fontSize: 11, color: 'var(--text-2)', padding: '4px 28px 10px', margin: 0}}>None</p>
+                        <p className="text-text-2 pt-1 px-7 pb-2.5 m-0">None</p>
                     ) : (
                         items.map((item) => (
-                            <div
+                            <div className={`pt-1.5 pr-2.5 pb-1.5 pl-7 cursor-pointer type-caption ${isActive && selected?.id === item.id ? 'selected' : ''}`}
                                 key={item.id}
                                 onClick={() => onSelect(isActive && selected?.id === item.id ? null : {section, id: item.id})}
-                                style={{
-                                    padding: '5px 10px 5px 28px',
-                                    cursor: 'pointer',
-                                    background: isActive && selected?.id === item.id ? 'var(--surface-active, var(--surface-2))' : 'transparent',
-                                    borderLeft: isActive && selected?.id === item.id ? '2px solid var(--accent)' : '2px solid transparent',
-                                    fontSize: 12,
-                                }}
                             >
-                                <div style={{fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{item.label}</div>
-                                {item.sub && <div style={{fontSize: 11, color: 'var(--text-2)', fontFamily: 'var(--mono)'}}>{item.sub}</div>}
+                                <div className="overflow-hidden text-ellipsis whitespace-nowrap">{item.label}</div>
+                                {item.sub && <div className="type-code-sm text-text-2">{item.sub}</div>}
                             </div>
                         ))
                     )}
@@ -1573,8 +1572,8 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
 
     if (cloud !== 'aws') {
         return (
-            <div className="widget" style={{marginTop: 16}}>
-                <div className="widget-header"><Network size={14}/><h2 style={{marginLeft: 6}}>Networking</h2></div>
+            <div className="widget mt-4">
+                <div className="widget-header"><Icon icon={Network} size={14}/><h2 className="ml-1.5">Networking</h2></div>
                 <div className="widget-body">
                     {/*
                       * Azure has a working VNet adapter, so the table above this panel is
@@ -1582,7 +1581,7 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
                       * can already see. What is genuinely AWS-only is this panel's extra
                       * workflows (subnets, security groups, gateways, route tables, EIPs).
                       */}
-                    <p style={{fontSize: 12, color: 'var(--text-2)'}}>
+                    <p className="type-caption text-text-2">
                         {cloud === 'azure'
                             ? 'Virtual networks are managed in the table above. Subnets, security groups, gateways and route tables are AWS-only today.'
                             : cloud === 'gcp'
@@ -1642,12 +1641,12 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
                 />
             )}
 
-            <div className="widget" style={{marginTop: 16}}>
+            <div className="widget mt-4">
                 <div className="widget-header">
-                    <Network size={14} style={{color: 'var(--accent)'}}/>
-                    <h2 style={{marginLeft: 6}}>Networking</h2>
+                    <Icon icon={Network} className="text-accent-text" size={14}/>
+                    <h2 className="ml-1.5">Networking</h2>
                 </div>
-                <div className="widget-body" style={{padding: 0}}>
+                <div className="widget-body p-0">
                     <div className="net-split">
 
                         {/* Left pane — section list */}
@@ -1698,9 +1697,9 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
                         </div>
 
                         {/* Right pane — detail */}
-                        <div className="net-split-detail" style={{padding: hasDetail ? 0 : 16}}>
+                        <div className={`net-split-detail ${hasDetail ? 'p-0' : 'p-4'}`}>
                             {!hasDetail && (
-                                <p style={{fontSize: 12, color: 'var(--text-2)'}}>Select a resource to view details.</p>
+                                <p className="type-caption text-text-2">Select a resource to view details.</p>
                             )}
 
                             {selectedSg && (

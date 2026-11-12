@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, ChevronDown, ChevronUp, Copy, Zap } from 'lucide-react'
+import {Icon, CheckSquared as Check, ChevronDown, ChevronUp, Copy, ZapSquared as Zap} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
 import { listLambdaTriggers } from "@/api/cloudProxyClient";
 import type { CloudProvider } from "@/types/cloud";
@@ -8,6 +9,7 @@ import type { CloudResource, StorageObject } from "@/types/resource";
 import { formatBytes } from "@/lib/format";
 import { InspectorTabs, type InspectorTab } from "@/components/InspectorTabs";
 import { lazyPanel } from "@/lib/lazyPanel";
+import {Hint} from '@/components/Hint'
 
 const LogsExplorerPanel = lazyPanel(() => import("@/components/LogsExplorerPanel").then((m) => m.LogsExplorerPanel));
 const LogsQueryPanel = lazyPanel(() => import("@/components/LogsQueryPanel").then((m) => m.LogsQueryPanel));
@@ -122,40 +124,25 @@ export function ResourceInspector({
           </div>
         )}
         {activeTab === 'json' && (
-          <div
+          <div className="relative"
             role="tabpanel"
             id="object-tabpanel-json"
             aria-labelledby="object-tab-json"
-            style={{ position: "relative" }}
           >
-            <button
-              className="button compact"
+            <Hint label="Copy JSON data"><Button variant="secondary" size="sm"
+              className="absolute inline-flex items-center gap-1 top-2 right-2 z-2"
               type="button"
-              title="Copy JSON data"
-              style={{
-                position: "absolute",
-                top: "8px",
-                right: "8px",
-                zIndex: 2,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "11px",
-                padding: "2px 8px",
-                height: "24px",
-              }}
               onClick={() => handleCopyJson(object.metadata)}
             >
               {copiedJson ? (
-                <Check size={12} style={{ color: "var(--status-ok)" }} />
+                <Icon icon={Check} className="text-ok-text" size={14} />
               ) : (
-                <Copy size={12} />
+                <Icon icon={Copy} size={14} />
               )}
               <span>{copiedJson ? "Copied" : "Copy"}</span>
-            </button>
+            </Button></Hint>
             <pre
-              className="metadata-block"
-              style={{ borderTop: "none", paddingTop: "36px" }}
+              className="metadata-block pt-9 border-t-0"
             >
               {JSON.stringify(object.metadata, null, 2)}
             </pre>
@@ -197,44 +184,27 @@ export function ResourceInspector({
 
   return (
     <aside className="resource-inspector">
-      <div className="widget-header" style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-        <h2
+      <div className="widget-header flex items-center gap-2 min-w-0">
+        <h2 className="m-0 overflow-hidden text-ellipsis whitespace-nowrap min-w-0 flex-auto"
           title={resource.name}
-          style={{
-            margin: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flex: "1 1 auto",
-            minWidth: 0,
-          }}
         >
           {resource.name}
         </h2>
-        <span className="badge neutral" style={{ flexShrink: 0 }}>
+        <span className="badge neutral shrink-0">
           {resource.type}
         </span>
         {isLambda && resource.cloud === "aws" && (
-          <button
-            style={{
-              marginLeft: "auto",
-              flexShrink: 0,
-              whiteSpace: "nowrap",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-            className={`button compact ${showTriggers ? "primary" : "success"}`}
+          <Button size="sm" variant={showTriggers ? 'primary' : 'secondary'} className="ml-auto shrink-0 whitespace-nowrap inline-flex items-center gap-1.5"
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               setShowTriggers((prev) => !prev);
             }}
           >
-            <Zap size={13} style={{ flexShrink: 0 }} />
+            <Icon icon={Zap} className="shrink-0" size={14} />
             <span>Register Trigger ({triggerCount})</span>
-            {showTriggers ? <ChevronUp size={12} style={{ flexShrink: 0 }} /> : <ChevronDown size={12} style={{ flexShrink: 0 }} />}
-          </button>
+            {showTriggers ? <Icon icon={ChevronUp} className="shrink-0" size={14} /> : <Icon icon={ChevronDown} className="shrink-0" size={14} />}
+          </Button>
         )}
       </div>
       {isLambda && resource.cloud === "aws" && showTriggers && (
@@ -481,40 +451,25 @@ export function ResourceInspector({
       )}
 
       {activeTab === 'json' && (
-        <div
+        <div className="relative"
           role="tabpanel"
           id="inspector-tabpanel-json"
           aria-labelledby="inspector-tab-json"
-          style={{ position: "relative" }}
         >
-          <button
-            className="button compact"
+          <Hint label="Copy JSON data"><Button variant="secondary" size="sm"
+            className="absolute inline-flex items-center gap-1 top-2 right-2 z-2"
             type="button"
-            title="Copy JSON data"
-            style={{
-              position: "absolute",
-              top: "8px",
-              right: "8px",
-              zIndex: 2,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-              fontSize: "11px",
-              padding: "2px 8px",
-              height: "24px",
-            }}
             onClick={() => handleCopyJson(resource.metadata)}
           >
             {copiedJson ? (
-              <Check size={12} style={{ color: "var(--status-ok)" }} />
+              <Icon icon={Check} className="text-ok-text" size={14} />
             ) : (
-              <Copy size={12} />
+              <Icon icon={Copy} size={14} />
             )}
             <span>{copiedJson ? "Copied" : "Copy"}</span>
-          </button>
+          </Button></Hint>
           <pre
-            className="metadata-block"
-            style={{ borderTop: "none", paddingTop: "36px" }}
+            className="metadata-block pt-9 border-t-0"
           >
             {JSON.stringify(resource.metadata, null, 2)}
           </pre>
@@ -570,25 +525,24 @@ function EmailInspector({ resource }: { resource: CloudResource }) {
         <InspectorItem label="Captured At" value={resource.createdAt ?? '-'} />
       </div>
       <section className="inspector-section">
-        <div className="drawer-tabs" style={{ marginBottom: 10 }}>
-          <button className={`drawer-tab ${activeTab === 'preview' ? 'active' : ''}`} disabled={!hasPreview} onClick={() => setTab('preview')}>Preview</button>
-          <button className={`drawer-tab ${activeTab === 'text' ? 'active' : ''}`} disabled={!textBody} onClick={() => setTab('text')}>Text</button>
-          <button className={`drawer-tab ${activeTab === 'raw' ? 'active' : ''}`} disabled={!rawData} onClick={() => setTab('raw')}>Raw</button>
+        <div className="drawer-tabs mb-2.5">
+          <Button variant={activeTab === 'preview' ? 'secondary' : 'ghost'} disabled={!hasPreview} onClick={() => setTab('preview')}>Preview</Button>
+          <Button variant={activeTab === 'text' ? 'secondary' : 'ghost'} disabled={!textBody} onClick={() => setTab('text')}>Text</Button>
+          <Button variant={activeTab === 'raw' ? 'secondary' : 'ghost'} disabled={!rawData} onClick={() => setTab('raw')}>Raw</Button>
         </div>
         {activeTab === 'preview' && htmlBody ? (
-          <iframe
+          <iframe className="email-preview-frame w-full min-h-65 border border-line"
             title="Email HTML preview"
             sandbox=""
             referrerPolicy="no-referrer"
             srcDoc={safeEmailDocument(htmlBody)}
-            style={{ width: '100%', minHeight: 260, border: '1px solid var(--border)', borderRadius: 4, background: '#fff' }}
           />
         ) : activeTab === 'preview' ? (
-          <pre className="metadata-block" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{textBody ?? 'No preview content captured.'}</pre>
+          <pre className="metadata-block whitespace-pre-wrap m-0">{textBody ?? 'No preview content captured.'}</pre>
         ) : activeTab === 'text' ? (
-          <pre className="metadata-block" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{textBody ?? 'No text body captured.'}</pre>
+          <pre className="metadata-block whitespace-pre-wrap m-0">{textBody ?? 'No text body captured.'}</pre>
         ) : (
-          <pre className="metadata-block" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>{rawData ?? 'No raw MIME data captured.'}</pre>
+          <pre className="metadata-block whitespace-pre-wrap break-all m-0">{rawData ?? 'No raw MIME data captured.'}</pre>
         )}
       </section>
     </aside>
@@ -668,12 +622,12 @@ function DatabaseLifecycleSection({ status }: { status?: string | null }) {
     <section className="inspector-section">
       <p className="metric-label">Lifecycle</p>
       <div className="lifecycle-actions">
-        <button className="button compact" type="button" disabled>
+        <Button variant="secondary" size="sm" type="button" disabled>
           Start
-        </button>
-        <button className="button compact" type="button" disabled>
+        </Button>
+        <Button variant="secondary" size="sm" type="button" disabled>
           Stop
-        </button>
+        </Button>
       </div>
       <p className="muted compact-text">
         Current status: {status ?? "unknown"}. Start and stop are not supported

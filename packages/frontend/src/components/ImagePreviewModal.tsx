@@ -1,7 +1,9 @@
 import {useEffect, useState} from 'react'
-import {AlertTriangle, Download, Loader2, X} from 'lucide-react'
+import {Icon, AlertTriangle, Download, Loader2, XSquared as X} from '@/components/sodium/icon'
+import {Button} from '@/components/sodium/ui/button'
 import type {ObjectPreviewKind} from '@/lib/format'
 import {ModalOverlay} from './ModalOverlay'
+import {Hint} from '@/components/Hint'
 
 interface ObjectPreviewModalProps {
     kind: ObjectPreviewKind
@@ -28,17 +30,17 @@ export function ImagePreviewModal({kind, name, src, onClose}: ObjectPreviewModal
                     <span className="image-preview-name" title={name}>{name}</span>
                     <div className="image-preview-actions">
                         <a className="icon-btn" href={src} title={`Download ${name}`}>
-                            <Download size={14}/>
+                            <Icon icon={Download} size={14}/>
                         </a>
-                        <button className="icon-btn" type="button" onClick={onClose} title="Close" aria-label="Close">
-                            <X size={14}/>
-                        </button>
+                        <Hint label="Close"><Button variant="ghost" size="icon-sm" type="button" onClick={onClose} aria-label="Close">
+                            <Icon icon={X} size={14}/>
+                        </Button></Hint>
                     </div>
                 </div>
                 <div className="image-preview-body">
                     {kind === 'image' && <ImagePreview src={src} name={name}/>}
                     {kind === 'video' && <video src={src} controls autoPlay={false}/>}
-                    {kind === 'audio' && <audio src={src} controls autoPlay={false} style={{width: '100%'}}/>}
+                    {kind === 'audio' && <audio className="w-full" src={src} controls autoPlay={false}/>}
                     {kind === 'text' && <TextPreview src={src}/>}
                 </div>
             </div>
@@ -55,7 +57,7 @@ function ImagePreview({src, name}: {src: string; name: string}) {
             <img
                 src={src}
                 alt={name}
-                style={{display: status === 'loaded' ? 'block' : 'none'}}
+                className={status === 'loaded' ? 'block' : 'hidden'}
                 onLoad={() => setStatus('loaded')}
                 onError={() => setStatus('error')}
             />
@@ -137,7 +139,7 @@ async function readTextPreview(src: string, signal: AbortSignal): Promise<{text:
 function PreviewStatus({label, isError}: {label: string; isError?: boolean}) {
     return (
         <div className="image-preview-status">
-            {isError ? <AlertTriangle size={20}/> : <Loader2 size={20} className="spin"/>}
+            {isError ? <Icon icon={AlertTriangle} size={20}/> : <Icon icon={Loader2} size={20} className="spin"/>}
             <span>{label}</span>
         </div>
     )

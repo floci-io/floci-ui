@@ -17,25 +17,33 @@ function toggle() {
 }
 
 describe("ThemeToggle", () => {
-  test("names the current setting and the one a click moves to", () => {
+  test("names the current setting and the one a click moves to", async () => {
+    const user = userEvent.setup();
     render(<ThemeToggle/>);
 
     expect(toggle()).toHaveAccessibleName("Theme: Dark");
-    expect(toggle()).toHaveAttribute("title", "Theme: Dark. Switch to Light.");
+    await user.hover(toggle());
+    expect(await screen.findByText("Theme: Dark. Switch to Light.", {}, {timeout: 2500})).toBeInTheDocument();
+    await user.unhover(toggle());
   });
 
   test("steps through Dark, Light and System in the order Settings lists them", async () => {
+    const user = userEvent.setup();
     render(<ThemeToggle/>);
 
     await userEvent.click(toggle());
     expect(toggle()).toHaveAccessibleName("Theme: Light");
-    expect(toggle()).toHaveAttribute("title", "Theme: Light. Switch to System.");
+    await user.hover(toggle());
+    expect(await screen.findByText("Theme: Light. Switch to System.", {}, {timeout: 2500})).toBeInTheDocument();
+    await user.unhover(toggle());
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
     expect(localStorage.getItem("floci-theme")).toBe("light");
 
     await userEvent.click(toggle());
     expect(toggle()).toHaveAccessibleName("Theme: System");
-    expect(toggle()).toHaveAttribute("title", "Theme: System. Switch to Dark.");
+    await user.hover(toggle());
+    expect(await screen.findByText("Theme: System. Switch to Dark.", {}, {timeout: 2500})).toBeInTheDocument();
+    await user.unhover(toggle());
     expect(localStorage.getItem("floci-theme")).toBe("system");
 
     await userEvent.click(toggle());
