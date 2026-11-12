@@ -126,7 +126,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Integration | SNS | ✅ | – | – | – |
 | Integration | Queue Storage | – | ✅ | – | – |
 | Integration | Streams | ✅ | ✅ | ✅ | ✅ |
-| Integration | Events | ✅ | – | – | – |
+| Integration | Events | ✅ | ✅ | – | – |
 | Integration | EventBridge V2 | ✅ | – | – | – |
 | Integration | Email | 👁 | – | – | – |
 | Integration | Scheduler | ✅ | – | ✅ | – |
