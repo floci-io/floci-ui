@@ -250,7 +250,7 @@ export const SERVICE_CATALOG = {
     },
     events: {
         displayName: 'Events',
-        displayNameByCloud: {aws: 'EventBridge', azure: 'Event Grid'},
+        displayNameByCloud: {aws: 'EventBridge', azure: 'Event Grid', gcp: 'Eventarc'},
         description: 'Route events from producers to application targets.',
         descriptionByCloud: {azure: 'Manage Event Grid custom topics and browse their event subscriptions.'},
         docsSlugByCloud: {aws: 'eventbridge', azure: 'event-grid', gcp: 'eventarc'},
