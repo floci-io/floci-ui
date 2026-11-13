@@ -25,6 +25,7 @@ function fakeService(overrides: Partial<{
     listInstances: () => Promise<Ec2Instance[]>
     describeInstance: (id: string) => Promise<Ec2Instance>
     terminateInstance: (id: string) => Promise<void>
+    deregisterImage: (id: string) => Promise<void>
     listAmis: () => Promise<[]>
     runInstance: (input: RunInstanceInput) => Promise<Ec2Instance>
 }> = {}) {
@@ -32,6 +33,7 @@ function fakeService(overrides: Partial<{
         listInstances: async () => [baseInstance],
         describeInstance: async (_id: string) => baseInstance,
         terminateInstance: async (_id: string) => {},
+        deregisterImage: async (_id: string) => {},
         listAmis: async () => [] as [],
         runInstance: async (_input: RunInstanceInput) => baseInstance,
         ...overrides,
@@ -129,6 +131,20 @@ describe('AwsComputeAdapter', () => {
         }))
         await adapter.delete('i-0abc123def456')
         expect(terminated).toEqual(['i-0abc123def456'])
+    })
+
+    test('delete deregisters an AMI instead of terminating it as an instance', async () => {
+        const terminated: string[] = []
+        const deregistered: string[] = []
+        const adapter = new AwsComputeAdapter(fakeService({
+            terminateInstance: async (id) => { terminated.push(id) },
+            deregisterImage: async (id) => { deregistered.push(id) },
+        }))
+
+        await adapter.delete('ami-0abcdef1234567891')
+
+        expect(deregistered).toEqual(['ami-0abcdef1234567891'])
+        expect(terminated).toEqual([])
     })
 
     test('schema returns aws compute schema', () => {

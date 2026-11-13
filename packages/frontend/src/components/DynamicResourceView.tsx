@@ -109,9 +109,9 @@ export function DynamicResourceView({
   const [bulkDeleteError, setBulkDeleteError] = useState<
     { accountId: string; message: string } | null
   >(null);
-  // A refused bucket delete, kept with the account and bucket it was for.
-  const [bucketDeleteError, setBucketDeleteError] = useState<
-    { accountId: string; bucketId: string; message: string } | null
+  // A refused single delete, kept with the account and resource it was for.
+  const [deleteError, setDeleteError] = useState<
+    { accountId: string; resourceId: string; message: string } | null
   >(null);
   // The bucket the open Empty bucket dialog was opened for, captured at that moment.
   const [emptyConfirm, setEmptyConfirm] = useState<StorageTarget | null>(null);
@@ -205,8 +205,8 @@ export function DynamicResourceView({
       if (storageTargetKeyRef.current !== targetKey(target)) return;
       setSelectedObject(undefined);
       // A "not empty" refusal for this bucket no longer holds.
-      setBucketDeleteError((refusal) =>
-        refusal?.accountId === target.accountId && refusal.bucketId === target.bucketId ? null : refusal,
+      setDeleteError((refusal) =>
+        refusal?.accountId === target.accountId && refusal.resourceId === target.bucketId ? null : refusal,
       );
       setSuccessToast(
         `Emptied ${target.bucketId}: permanently deleted ${result.deleted} object version(s) and delete marker(s).`,
@@ -305,14 +305,14 @@ export function DynamicResourceView({
     mutationFn: (resource: CloudResource) =>
       deleteCloudResource(cloud, service, resource.id),
     onMutate: () => {
-      setBucketDeleteError(null);
+      setDeleteError(null);
       return { accountId };
     },
     onError: (error, resource, context) => {
-      if (resource.service !== "storage" || !context) return;
-      setBucketDeleteError({
+      if (!context) return;
+      setDeleteError({
         accountId: context.accountId,
-        bucketId: resource.id,
+        resourceId: resource.id,
         message: `Could not delete ${resource.name || resource.id}: ${errorMessage(error)}`,
       });
     },
@@ -486,7 +486,7 @@ export function DynamicResourceView({
     setClearConfirm(false);
     setDeleteConfirm(false);
     setBulkDeleteError(null);
-    setBucketDeleteError(null);
+    setDeleteError(null);
     setEditingResource(null);
     setUpdateError(null);
     setSearch("");
@@ -895,9 +895,9 @@ export function DynamicResourceView({
                   {bulkDeleteError.message}
                 </p>
               )}
-              {bucketDeleteError?.accountId === accountId && (
+              {deleteError?.accountId === accountId && (
                 <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
-                  {bucketDeleteError.message}
+                  {deleteError.message}
                 </p>
               )}
               {showEmptyError && (
