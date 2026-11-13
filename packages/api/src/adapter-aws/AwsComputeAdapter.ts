@@ -12,6 +12,7 @@ type Ec2ServiceShape = {
     listInstances(): Promise<Ec2Instance[]>
     describeInstance(instanceId: string): Promise<Ec2Instance>
     terminateInstance(instanceId: string): Promise<void>
+    deregisterImage(imageId: string): Promise<void>
     listAmis(): Promise<Ec2Image[]>
     runInstance(input: RunInstanceInput): Promise<Ec2Instance>
 }
@@ -64,7 +65,10 @@ export class AwsComputeAdapter implements CloudServiceAdapter {
     }
 
     async delete(id: string): Promise<void> {
-        await this.service_.terminateInstance(id)
+        // The list mixes instances and AMIs, and they have different removal
+        // APIs: an AMI id handed to TerminateInstances is a 404, not a delete.
+        if (id.startsWith('ami-')) await this.service_.deregisterImage(id)
+        else await this.service_.terminateInstance(id)
     }
 }
 

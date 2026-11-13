@@ -430,6 +430,53 @@ describe("DynamicResourceView GCP compute", () => {
   });
 });
 
+describe("DynamicResourceView AWS compute", () => {
+  const computeSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "compute",
+    displayName: "EC2 Compute",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect", "delete"],
+    columns: [{ name: "name", label: "Name" }],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(computeSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([
+      { ...summary, id: "ami-0abcdef1234567891", name: "al2023-ami", cloud: "aws", service: "compute", type: "image" },
+    ]);
+  });
+
+  it("shows why a resource could not be deleted, instead of failing silently", async () => {
+    const user = userEvent.setup();
+    vi.mocked(deleteCloudResource).mockRejectedValue(
+      new Error("Not authorized for images: [ami-0abcdef1234567891] (access_denied)"),
+    );
+
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <DynamicResourceView
+          cloud="aws"
+          service="compute"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Delete al2023-ami" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(
+      await screen.findByText(/Could not delete al2023-ami: .*Not authorized for images/),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("DynamicResourceView AWS Athena", () => {
   const athenaSchema: ServiceSchema = {
     cloud: "aws",
