@@ -38,6 +38,7 @@ import {GcpNetworkingAdapter} from './adapter-gcp/GcpNetworkingAdapter'
 import {GcpBigQueryAdapter} from './adapter-gcp/GcpBigQueryAdapter'
 import {GcpKmsAdapter} from './adapter-gcp/GcpKmsAdapter'
 import {GcpManagedKafkaAdapter} from './adapter-gcp/GcpManagedKafkaAdapter'
+import {GcpMonitoringAdapter} from './adapter-gcp/GcpMonitoringAdapter'
 import {GcpIdentityAdapter} from './adapter-gcp/GcpIdentityAdapter'
 import {OciStorageAdapter} from './adapter-oci/OciStorageAdapter'
 import {OciIdentityAdapter} from './adapter-oci/OciIdentityAdapter'
@@ -165,6 +166,7 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
         new GcpSchedulerAdapter(),
         new GcpEventarcAdapter(),
         new GcpLoggingAdapter(),
+        new GcpMonitoringAdapter(),
         new GcpFirestoreAdapter(),
         new GcpNetworkingAdapter(),
         new GcpKmsAdapter(),
