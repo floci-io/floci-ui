@@ -86,22 +86,23 @@ import {AwsCloudFrontAdapter} from './adapter-aws/AwsCloudFrontAdapter'
 import {AwsRoute53Adapter} from './adapter-aws/AwsRoute53Adapter'
 import {AwsSchedulerAdapter} from './adapter-aws/AwsSchedulerAdapter'
 import {AwsAthenaAdapter} from './adapter-aws/AwsAthenaAdapter'
-import {awsClientsForAccount, resolveAccountId} from './aws'
+import {awsClientsForAccount, resolveAccountId, resolveRegion} from './aws'
 import {createEc2Service} from './services/ec2'
 import {createEksService} from './services/eks'
 import {createRdsService} from './services/rds'
 
 /**
- * Build the adapter registry for an account. The account id drives the AWS SDK
- * credentials (see aws.ts), so every AWS call is isolated to that account; Azure,
- * GCP and OCI adapters use their own runtime auth model and are account-neutral.
+ * Build the adapter registry for an account and AWS region. The account id
+ * drives the AWS SDK credentials and the region the SDK clients' region (see
+ * aws.ts), so every AWS call is isolated to that account and region; Azure, GCP
+ * and OCI adapters use their own runtime auth model and are account-neutral.
  *
  * Exported separately from the service so tests can assert registry contents —
  * notably that every adapter implements what its schema advertises — without
  * reaching into private state.
  */
-export function createCloudAdapterRegistry(accountId?: string | null): CloudAdapterRegistry {
-    const clients = awsClientsForAccount(accountId)
+export function createCloudAdapterRegistry(accountId?: string | null, region?: string | null): CloudAdapterRegistry {
+    const clients = awsClientsForAccount(accountId, region)
     const ec2Service = createEc2Service(clients.ec2)
 
     return new CloudAdapterRegistry([
@@ -194,19 +195,22 @@ export function createCloudAdapterRegistry(accountId?: string | null): CloudAdap
     ])
 }
 
-export function createCloudProxyService(accountId?: string | null): CloudProxyService {
-    return new CloudProxyService(createCloudAdapterRegistry(accountId))
+export function createCloudProxyService(accountId?: string | null, region?: string | null): CloudProxyService {
+    const resolvedRegion = resolveRegion(region)
+    return new CloudProxyService(createCloudAdapterRegistry(accountId, resolvedRegion), undefined, undefined, resolvedRegion)
 }
 
 const serviceCache = new Map<string, CloudProxyService>()
 
-/** Return a cached account-scoped CloudProxyService, building it on first use. */
-export function serviceForAccount(accountId?: string | null): CloudProxyService {
+/** Return a cached account- and region-scoped CloudProxyService, building it on first use. */
+export function serviceForAccount(accountId?: string | null, region?: string | null): CloudProxyService {
     const id = resolveAccountId(accountId)
-    let service = serviceCache.get(id)
+    const resolvedRegion = resolveRegion(region)
+    const key = `${id}/${resolvedRegion}`
+    let service = serviceCache.get(key)
     if (!service) {
-        service = createCloudProxyService(id)
-        serviceCache.set(id, service)
+        service = createCloudProxyService(id, resolvedRegion)
+        serviceCache.set(key, service)
     }
     return service
 }
