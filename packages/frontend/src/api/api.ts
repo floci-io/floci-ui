@@ -258,6 +258,9 @@ export const apiEndpointKeys = {
       vpcWizard: "aws.ec2.vpc-wizard",
     },
   },
+  activity: {
+    list: "activity.list",
+  },
 } as const;
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -270,6 +273,14 @@ export const endpointRegistry: EndpointRegistry = new Map([
       path: "/clouds",
       method: "GET",
       telemetry: { provider: "system", service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.activity.list,
+    {
+      path: "/activity",
+      method: "GET",
+      telemetry: { provider: "system", service: "activity" },
     },
   ],
   [
