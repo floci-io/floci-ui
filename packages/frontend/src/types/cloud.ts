@@ -73,6 +73,8 @@ export interface CloudStatus {
     endpoint: string | null
     checkedAt: string
     error: string | null
+    /** AWS only: the region the request was served in. */
+    region?: string
     services?: CloudServiceStatus[]
 }
 

@@ -90,7 +90,7 @@ docker run -p 4500:4500 -e FLOCI_ENDPOINT=http://host.docker.internal:4566 floci
 | Workflows and logs | Step Functions execution history; CloudWatch Logs streams, events and Logs Insights; GCP Cloud Logging entries with severity and time filters |
 | Security | Secrets (reveal on demand), KMS encrypt and decrypt, IAM users, roles and policies |
 | Email | SES mailbox with HTML, text and raw MIME preview |
-| Settings | Light, dark or system theme; account switcher |
+| Settings | Light, dark or system theme; account and AWS region switchers |
 
 For SES raw messages, the mailbox decodes the captured MIME headers and bodies
 for search and preview while preserving the original `RawData`. Explicit fields
