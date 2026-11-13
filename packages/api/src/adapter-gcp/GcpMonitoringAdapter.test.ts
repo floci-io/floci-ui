@@ -123,6 +123,38 @@ describe('GcpMonitoringAdapter list and get', () => {
         ])
     })
 
+    test('follows nextPageToken across time series pages before choosing the newest points', async () => {
+        const calls = record((sent) => {
+            if (!sent.url.includes('timeSeries')) return json(descriptor('custom.googleapis.com/demo'))
+            return sent.url.includes('pageToken=p2')
+                ? json({timeSeries: [series({int64Value: '9'}, '2026-11-12T15:09:00Z')]})
+                : json({timeSeries: [series({int64Value: '1'}, '2026-11-12T15:01:00Z')], nextPageToken: 'p2'})
+        })
+        const resource = await adapter().get('custom.googleapis.com/demo')
+
+        expect((resource?.metadata.latestPoints as {value: unknown}[]).map((point) => point.value)).toEqual([9, 1])
+        expect(calls).toHaveLength(3)
+    })
+
+    test('refuses a partial point read when the runtime never stops paging', async () => {
+        record((sent) =>
+            sent.url.includes('timeSeries')
+                ? json({timeSeries: [series({int64Value: '1'}, '2026-11-12T15:01:00Z')], nextPageToken: 'again'})
+                : json(descriptor('custom.googleapis.com/demo')),
+        )
+        await expect(adapter().get('custom.googleapis.com/demo')).rejects.toThrow('refusing a partial read')
+    })
+
+    test('keeps an int64 beyond the safe integer range as the string the runtime sent', async () => {
+        record((sent) =>
+            sent.url.includes('timeSeries')
+                ? json({timeSeries: [series({int64Value: '9007199254740993'}, '2026-11-12T15:01:00Z')]})
+                : json(descriptor('custom.googleapis.com/demo')),
+        )
+        const resource = await adapter().get('custom.googleapis.com/demo')
+        expect((resource?.metadata.latestPoints as {value: unknown}[])[0].value).toBe('9007199254740993')
+    })
+
     test('the point read names one metric and both ends of the interval', async () => {
         const calls = record((sent) => (sent.url.includes('timeSeries') ? json({}) : json(descriptor('custom.googleapis.com/demo'))))
         const resource = await adapter().get('custom.googleapis.com/demo')

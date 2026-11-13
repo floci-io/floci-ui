@@ -71,6 +71,7 @@ interface TimeSeries {
 
 interface TimeSeriesList {
     timeSeries?: TimeSeries[]
+    nextPageToken?: string
 }
 
 export class GcpMonitoringAdapter implements CloudServiceAdapter {
@@ -144,14 +145,25 @@ export class GcpMonitoringAdapter implements CloudServiceAdapter {
             view: 'FULL',
             pageSize: String(POINTS_PAGE_SIZE),
         })
-        const page = await this.client.json<TimeSeriesList>(`${this.timeSeriesPath()}?${params}`)
-        return (page?.timeSeries ?? [])
-            .flatMap((series) =>
-                (series.points ?? []).map((point) => ({
+        const series: TimeSeries[] = []
+        let token: string | undefined
+        for (let hop = 0; ; hop += 1) {
+            if (hop === MAX_PAGES) {
+                throw new RuntimeError(`Cloud Monitoring kept returning pages after ${MAX_PAGES}; refusing a partial read`)
+            }
+            if (token) params.set('pageToken', token)
+            const page = await this.client.json<TimeSeriesList>(`${this.timeSeriesPath()}?${params}`)
+            series.push(...(page?.timeSeries ?? []))
+            token = page?.nextPageToken || undefined
+            if (!token) break
+        }
+        return series
+            .flatMap((entry) =>
+                (entry.points ?? []).map((point) => ({
                     time: point.interval?.endTime ?? null,
                     value: valueOf(point.value),
-                    labels: series.metric?.labels ?? {},
-                    resourceType: series.resource?.type ?? null,
+                    labels: entry.metric?.labels ?? {},
+                    resourceType: entry.resource?.type ?? null,
                 })),
             )
             .sort((a, b) => Date.parse(b.time ?? '') - Date.parse(a.time ?? ''))
@@ -208,10 +220,16 @@ function toResource(descriptor: MetricDescriptor): CloudResource {
 function valueOf(value: TypedValue | undefined): unknown {
     if (!value) return null
     if (value.doubleValue !== undefined) return value.doubleValue
-    if (value.int64Value !== undefined) return Number(value.int64Value)
+    if (value.int64Value !== undefined) return int64Of(value.int64Value)
     if (value.boolValue !== undefined) return value.boolValue
     if (value.stringValue !== undefined) return value.stringValue
     return value.distributionValue ?? null
+}
+
+/** The wire carries int64 as a string; a number would round it past 2^53, so only safe integers are converted. */
+function int64Of(value: string | number): string | number {
+    const number = Number(value)
+    return Number.isSafeInteger(number) ? number : String(value)
 }
 
 function metricTypeOf(value: unknown, pattern: RegExp): string {
