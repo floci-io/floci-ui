@@ -24,7 +24,7 @@ function readRegion(): string | null {
         const stored = localStorage.getItem(REGION_KEY)
         if (isRegion(stored)) return stored
     } catch {
-        // localStorage unavailable (private mode / SSR) — fall back to the default.
+        // localStorage unavailable (private mode / SSR): fall back to the default.
     }
     return null
 }
@@ -64,7 +64,7 @@ function emit(): void {
     for (const listener of listeners) listener()
 }
 
-/** Selected region, or null for the console's default — read synchronously by the request interceptor. */
+/** Selected region, or null for the console's default. Read synchronously by the request interceptor. */
 export function getRegion(): string | null {
     return currentRegion
 }
