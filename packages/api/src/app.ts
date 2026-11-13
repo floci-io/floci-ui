@@ -2,9 +2,12 @@ import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import eks from "./routes/eks";
-import ec2 from "./routes/ec2";
-import secretsmanager from "./routes/secretsmanager";
+import { createEksRouter } from "./routes/eks";
+import { createEc2Router } from "./routes/ec2";
+import { createSecretsManagerRouter } from "./routes/secretsmanager";
+import { scopedAwsRoutes } from "./routes/scoped";
+import { createEc2Service } from "./services/ec2";
+import { createEksService } from "./services/eks";
 import clouds from "./routes/clouds";
 import { createHealthRoutes } from "./routes/health";
 import { NotFoundError, toHttpError } from "./cloud-spi/errors";
@@ -83,9 +86,16 @@ export function createApiApp(
     });
   }
 
-  app.route("/api/eks", eks);
-  app.route("/api/ec2", ec2);
-  app.route("/api/secretsmanager", secretsmanager);
+  // Like /api/clouds, these follow the account each request names.
+  app.route("/api/eks", scopedAwsRoutes("/api/eks", (clients) => createEksRouter(createEksService(clients.eks))));
+  app.route(
+    "/api/ec2",
+    scopedAwsRoutes("/api/ec2", (clients) => createEc2Router(createEc2Service(clients.ec2, clients.elbv2))),
+  );
+  app.route(
+    "/api/secretsmanager",
+    scopedAwsRoutes("/api/secretsmanager", (clients) => createSecretsManagerRouter(clients.secretsManager)),
+  );
   app.route("/api/clouds", cloudRoutes);
   // Console Contract v2: what an emulator that starts this console polls.
   app.route("/api/health", healthRoutes);
