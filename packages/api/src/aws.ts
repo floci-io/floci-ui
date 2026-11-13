@@ -40,7 +40,28 @@ import { cloudEndpoint } from "./service/endpoints";
 // send every call to real AWS. Adapters that reach Floci beyond the SDK, such
 // as Aurora DSQL's data connection, use it too.
 export const endpoint = cloudEndpoint("aws");
-const region = process.env.AWS_REGION || "us-east-1";
+
+// Region names: a geography prefix, one or more location words, and an ordinal
+// (us-east-1, eu-central-1, us-gov-west-1, cn-north-1, ap-southeast-5).
+const REGION_PATTERN = /^[a-z]{2}(-[a-z]+)+-\d{1,2}$/;
+
+export function isRegion(value: string | null | undefined): value is string {
+  return typeof value === "string" && REGION_PATTERN.test(value);
+}
+
+/**
+ * The region used when a request does not (validly) name one: AWS_REGION, as
+ * before requests could name one, so a console that never sends a region
+ * behaves as it did.
+ */
+export function defaultRegion(): string {
+  return process.env.AWS_REGION || "us-east-1";
+}
+
+/** A caller-supplied region if it looks like one, otherwise the default. */
+export function resolveRegion(raw?: string | null): string {
+  return isRegion(raw) ? raw : defaultRegion();
+}
 
 // Floci derives the AWS account from AWS_ACCESS_KEY_ID: a value that is exactly
 // 12 digits is used verbatim as the account id, and resources are isolated per
@@ -123,7 +144,7 @@ export type AwsClientName = keyof AwsClients;
 
 const clientCache = new Map<string, AwsClients>();
 
-function buildClients(accountId: string): AwsClients {
+function buildClients(accountId: string, region: string): AwsClients {
   const base = {
     region,
     credentials: credentialsForAccount(accountId),
@@ -171,24 +192,26 @@ function buildClients(accountId: string): AwsClients {
 }
 
 /**
- * Return the cached AWS SDK client set bound to a given account. Clients are
- * cheap to build but each holds connection state, so we memoize one set per
- * resolved account id.
+ * Return the cached AWS SDK client set bound to a given account and region.
+ * Clients are cheap to build but each holds connection state, so we memoize one
+ * set per resolved account id and region.
  */
-export function awsClientsForAccount(accountId?: string | null): AwsClients {
+export function awsClientsForAccount(accountId?: string | null, region?: string | null): AwsClients {
   const id = resolveAccountId(accountId);
-  let clients = clientCache.get(id);
+  const resolvedRegion = resolveRegion(region);
+  const key = `${id}/${resolvedRegion}`;
+  let clients = clientCache.get(key);
   if (!clients) {
-    clients = buildClients(id);
-    clientCache.set(id, clients);
+    clients = buildClients(id, resolvedRegion);
+    clientCache.set(key, clients);
   }
   return clients;
 }
 
-// Default-account singletons: the defaults of the service and route factories
-// (and their tests). Request handling resolves clients per account via
-// awsClientsForAccount(): the Cloud Explorer proxy in cloudProxy.ts, and the EC2,
-// EKS and Secrets Manager routes via routes/scoped.ts.
+// Default-account singletons in the default region: the defaults of the service
+// and route factories (and their tests). Request handling resolves clients per
+// account and region via awsClientsForAccount(): the Cloud Explorer proxy in
+// cloudProxy.ts, and the EC2, EKS and Secrets Manager routes via routes/scoped.ts.
 export const awsClients = awsClientsForAccount(defaultAccountId());
 
 export const s3 = awsClients.s3;
