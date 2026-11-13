@@ -9,6 +9,8 @@ import { scopedAwsRoutes } from "./routes/scoped";
 import { createEc2Service } from "./services/ec2";
 import { createEksService } from "./services/eks";
 import clouds from "./routes/clouds";
+import { activityRecorder, createActivityRoutes } from "./routes/activity";
+import { activityLog } from "./service/activityLog";
 import { createHealthRoutes } from "./routes/health";
 import { NotFoundError, toHttpError } from "./cloud-spi/errors";
 import type { CloudProvider } from "./cloud-spi/types";
@@ -74,6 +76,11 @@ export function createApiApp(
   );
   app.use("*", logger());
 
+  // Mounted before every route it observes: one recorder covers the generic
+  // SPI routes and the legacy AWS-only routes alike. GET /api/activity below
+  // reads what this records.
+  app.use("/api/*", activityRecorder(activityLog));
+
   // EKS, EC2 and Secrets Manager predate /api/clouds and are AWS only, so a console
   // scoped to another cloud does not serve them either.
   if (scope !== null && scope !== "aws") {
@@ -99,6 +106,8 @@ export function createApiApp(
   app.route("/api/clouds", cloudRoutes);
   // Console Contract v2: what an emulator that starts this console polls.
   app.route("/api/health", healthRoutes);
+  // What this console changed, across every cloud it serves (issue #446).
+  app.route("/api/activity", createActivityRoutes(activityLog));
 
   // Serve static frontend files when public/ directory is present (production)
   app.use("*", serveStatic({ root: "./public" }));

@@ -1,4 +1,5 @@
 import { API_BASE_URL, apiClient, apiEndpointKeys } from "./api";
+import type { ActivityPage, ActivityQuery } from "@/types/activity";
 import type {
   CloudDescriptor,
   CloudProvider,
@@ -60,6 +61,30 @@ export async function listClouds(
   const res = await apiClient.call<CloudDescriptor[]>(
     apiEndpointKeys.clouds.list,
     { signal },
+  );
+  return res.data;
+}
+
+/** The console's recorded changes across every cloud it serves. */
+export async function listActivity(
+  query: ActivityQuery,
+  signal?: AbortSignal,
+): Promise<ActivityPage> {
+  const params: Record<string, string | number | boolean | undefined> = {
+    cloud: query.cloud,
+    service: query.service,
+    operation: query.operation,
+    status: query.status,
+    resourceType: query.resourceType,
+    search: query.search,
+    from: query.from,
+    to: query.to,
+    cursor: query.cursor,
+    limit: query.limit,
+  };
+  const res = await apiClient.call<ActivityPage>(
+    apiEndpointKeys.activity.list,
+    { signal, params },
   );
   return res.data;
 }
