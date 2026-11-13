@@ -2,6 +2,7 @@ import {Settings} from 'lucide-react'
 import {useLocation, useNavigate} from 'react-router-dom'
 import {AccountSwitcher} from '@/components/AccountSwitcher'
 import {CloudSwitcher} from '@/components/CloudSwitcher'
+import {RegionSwitcher} from '@/components/RegionSwitcher'
 import {useCloudsQuery} from '@/api/queries/cloudQueries'
 import {useActiveCloud} from '@/lib/useActiveCloud'
 import {useTheme} from '@/lib/useTheme'
@@ -51,6 +52,15 @@ export function SettingsPage() {
                         </div>
                         <AccountSwitcher/>
                     </div>
+                    {cloud === 'aws' && (
+                        <div className="settings-row">
+                            <div className="settings-row-text">
+                                <span className="settings-label">Region</span>
+                                <span className="settings-description">AWS region used for regional resources</span>
+                            </div>
+                            <RegionSwitcher/>
+                        </div>
+                    )}
                 </section>
                 <div className="settings-section">
                     <h2>Appearance</h2>
