@@ -363,6 +363,20 @@ describe('cloud schema routes', () => {
         expect(body.runtime).toBe('reachable')
     })
 
+    test('reports the region on the AWS status only', async () => {
+        const service = new CloudProxyService(
+            new CloudAdapterRegistry([mockAdapter('aws'), mockAdapter('azure')]),
+            stubProbes(),
+            null,
+            'eu-central-1',
+        )
+        const app = new Hono()
+        app.route('/api/clouds', createCloudRoutes(service))
+
+        expect((await (await app.request('/api/clouds/aws/status')).json()).region).toBe('eu-central-1')
+        expect((await (await app.request('/api/clouds/azure/status')).json()).region).toBeUndefined()
+    })
+
     test('returns GCP runtime status without a registered adapter', async () => {
         const app = appWithRoutes(
             [mockAdapter('aws'), mockAdapter('azure')],
@@ -2564,5 +2578,24 @@ describe('empty bucket route', () => {
 
         expect(requested).toEqual(['111111111111', '222222222222'])
         expect(emptied).toEqual(['111111111111:logs', '222222222222:logs'])
+    })
+
+    test('passes the region in the header, else the query, to the service factory', async () => {
+        const requested: Array<string | null | undefined> = []
+        const regionService = (_accountId?: string | null, region?: string | null) => {
+            requested.push(region)
+            return new CloudProxyService(new CloudAdapterRegistry([mockAdapter('aws', {
+                emptyBucket: async () => ({deleted: 1}),
+            })]), stubProbes())
+        }
+        const app = new Hono()
+        app.route('/api/clouds', createCloudRoutes(undefined, regionService))
+        const {env} = serverBinding()
+
+        await app.request(`${emptyUrl}?region=us-west-2`, {...post, headers: {'x-floci-region': 'eu-central-1'}}, env)
+        await app.request(`${emptyUrl}?region=us-west-2`, post, env)
+        await app.request(emptyUrl, post, env)
+
+        expect(requested).toEqual(['eu-central-1', 'us-west-2', undefined])
     })
 })

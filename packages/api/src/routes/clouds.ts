@@ -28,6 +28,8 @@ import {resolveScopedCloud} from '../service/defaultCloud'
 // Header (and query-param fallback for direct links such as object downloads)
 // used by the frontend to scope every request to an AWS account.
 export const ACCOUNT_HEADER = 'x-floci-account-id'
+// Same, for the AWS region. Absent or invalid means the console's default region.
+export const REGION_HEADER = 'x-floci-region'
 
 interface KmsEncryptRequest {
     plaintextBase64?: unknown
@@ -80,7 +82,7 @@ export const EMPTY_BUCKET_IDLE_TIMEOUT_SECONDS = 150
 
 export function createCloudRoutes(
     injectedService?: CloudProxyService,
-    accountService: (accountId?: string | null) => CloudProxyService = serviceForAccount,
+    accountService: (accountId?: string | null, region?: string | null) => CloudProxyService = serviceForAccount,
 ) {
     const app = new Hono()
 
@@ -96,10 +98,14 @@ export function createCloudRoutes(
         return c.text('Internal Server Error', 500)
     })
 
-    // Resolve the account-scoped service per request. An explicitly injected
-    // service (used by tests) always wins and ignores the account header.
+    // Resolve the account- and region-scoped service per request. An explicitly
+    // injected service (used by tests) always wins and ignores both headers.
     const svc = (c: Context): CloudProxyService =>
-        injectedService ?? accountService(c.req.header(ACCOUNT_HEADER) ?? c.req.query('account'))
+        injectedService ??
+        accountService(
+            c.req.header(ACCOUNT_HEADER) ?? c.req.query('account'),
+            c.req.header(REGION_HEADER) ?? c.req.query('region'),
+        )
 
     // A console an emulator started serves only that emulator's cloud; the
     // others have nothing behind them, so they are unknown here. The scope is
