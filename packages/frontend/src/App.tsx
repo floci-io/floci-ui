@@ -10,6 +10,7 @@ import {useDefaultCloud} from '@/lib/useDefaultCloud'
 const SecretsManagerPage = lazyPanel(() => import('@/features/secretsmanager/SecretsManagerPage').then((m) => m.SecretsManagerPage))
 const DatabaseDataPage = lazyPanel(() => import('@/pages/DatabaseDataPage').then((m) => m.DatabaseDataPage))
 const SettingsPage = lazyPanel(() => import('@/pages/SettingsPage').then((m) => m.SettingsPage))
+const ActivityPage = lazyPanel(() => import('@/pages/ActivityPage').then((m) => m.ActivityPage))
 
 function LegacySettingsRedirect() {
     const location = useLocation()
@@ -39,6 +40,7 @@ export default function App() {
                     <Route path="/secretsmanager" element={<ScopedCloudRoute cloud="aws"><SecretsManagerPage/></ScopedCloudRoute>}/>
                     <Route path="/console/:cloud/settings" element={<LegacySettingsRedirect/>}/>
                     <Route path="/settings" element={<SettingsPage/>}/>
+                    <Route path="/activity" element={<ActivityPage/>}/>
                     <Route path="*" element={<DefaultCloudRedirect to="console"/>}/>
                 </Route>
             </Routes>
