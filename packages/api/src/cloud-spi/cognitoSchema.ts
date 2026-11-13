@@ -48,3 +48,49 @@ export function awsCognitoSchema(): ServiceSchema {
         ],
     }
 }
+
+const gcpIdentityPlatformActions: CapabilitySchema<ResourceActionName>[] = [
+    {name: 'list', label: 'List users', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'update', label: 'Enable or disable user', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'delete', label: 'Delete user', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'inspect', label: 'Inspect user', enabled: true, status: 'available', runtimeRequired: true},
+]
+
+/**
+ * Users cannot be created here: the runtime does serve an admin create, but the
+ * console only browses and moderates the users that applications sign up.
+ * Password hashes and salts are never part of a resource.
+ */
+export function gcpIdentityPlatformSchema(): ServiceSchema {
+    return {
+        cloud: 'gcp',
+        service: 'cognito',
+        displayName: 'Identity Platform',
+        fields: [],
+        actions: ['list', 'update', 'delete', 'inspect'],
+        capabilities: {resourceActions: gcpIdentityPlatformActions},
+        filters: [{name: 'search', label: 'Search', type: 'text', required: false}],
+        updateFields: [
+            {
+                name: 'state',
+                label: 'Account State',
+                type: 'select',
+                required: true,
+                valuePath: 'metadata.state',
+                description: 'A disabled user can no longer sign in.',
+                options: [
+                    {label: 'Enabled', value: 'enabled'},
+                    {label: 'Disabled', value: 'disabled'},
+                ],
+            },
+        ],
+        columns: [
+            {name: 'name', label: 'User'},
+            {name: 'email', label: 'Email', path: 'metadata.email', emptyText: '-'},
+            {name: 'providers', label: 'Providers', path: 'metadata.providers', format: 'list', emptyText: '-'},
+            {name: 'status', label: 'State', format: 'badge'},
+            {name: 'lastLoginAt', label: 'Last Sign-in', path: 'metadata.lastLoginAt', format: 'relative', emptyText: '-'},
+            {name: 'createdAt', label: 'Created', format: 'relative'},
+        ],
+    }
+}
