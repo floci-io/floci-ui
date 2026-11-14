@@ -142,9 +142,12 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Security | Parameter Store | ✅ | – | – | – |
 | Observability | Logs | ✅ | – | 👁 | – |
 | Observability | CloudWatch | ✅ | – | – | – |
+| Observability | X-Ray | 👁 | – | – | – |
 | Observability | Work Requests | – | – | – | 👁 |
 
 ✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available
+
+AWS X-Ray lists the traces of the last hour, filtered by a search box, and inspects one trace's segments and services; it is read-only here, because traces are written by an instrumented app, an SDK or the X-Ray daemon. The window is fixed and there is no expression filter, because the shared view renders neither. Verified with SDK-mocked adapter tests and against a local Floci running with traces the CLI and the daemon wrote. It needs the X-Ray API from floci-io/floci#7733: against `floci/floci:latest-compat`, which does not serve it yet, the page shows a not found error (`UnknownOperationException: Unknown operation: POST /TraceSummaries`) until the runtime ships it.
 
 AWS EventBridge Scheduler list, inspect, create, and delete are verified with SDK-mocked adapter tests. Live Floci runtime integration has not been exercised.
 
