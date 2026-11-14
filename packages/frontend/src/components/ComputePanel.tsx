@@ -570,7 +570,11 @@ function AmiPanel({ imageId, onChanged }: { imageId: string; onChanged?: Compute
                 <DeregisterAmiConfirm
                     imageId={imageId}
                     onConfirm={() => deregisterMut.mutate(accountId)}
-                    onCancel={() => { deregisterMut.reset(); setShowDeregister(false) }}
+                    onCancel={() => {
+                        // Only a settled failure is cleared; a running request keeps the dialog's buttons disabled.
+                        if (deregisterMut.isError) deregisterMut.reset()
+                        setShowDeregister(false)
+                    }}
                     isPending={deregisterMut.isPending}
                     error={deregisterMut.isError ? errorMessage(deregisterMut.error) : undefined}
                 />
