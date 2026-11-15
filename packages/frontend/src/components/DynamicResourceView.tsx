@@ -1026,6 +1026,15 @@ export function DynamicResourceView({
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={runtimeReachable}
+          onChanged={(change) => {
+            void qc.invalidateQueries({queryKey: ["cloud-resources", change.accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resource", change.accountId, cloud, service]});
+            if (change.removed) {
+              setSelection((current) =>
+                current?.accountId === change.accountId && current.resource.id === change.resourceId ? undefined : current,
+              );
+            }
+          }}
         />
       )}
       {service === "compute" && cloud !== "aws" && (

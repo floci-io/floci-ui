@@ -41,6 +41,7 @@ import { createCloudResource } from '@/api/cloudProxyClient'
 import type { CloudProvider } from '@/types/cloud'
 import type { CloudResource } from '@/types/resource'
 import { TagEditor } from '@/features/ec2/TagEditor'
+import { useAccountId } from '@/lib/accountStore'
 import { ModalOverlay } from './ModalOverlay'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -49,6 +50,14 @@ interface ComputePanelProps {
     cloud: CloudProvider
     resource?: CloudResource
     runtimeReachable?: boolean
+    /** An action succeeded; the explorer's own views of that account must refresh. */
+    onChanged?: (change: ComputeChange) => void
+}
+
+export interface ComputeChange {
+    accountId: string
+    resourceId: string
+    removed: boolean
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -216,11 +225,12 @@ function ConsoleOutputModal({ instanceId, onClose }: { instanceId: string; onClo
 
 // ─── Deregister AMI confirm (inline) ─────────────────────────────────────────
 
-function DeregisterAmiConfirm({ imageId, onConfirm, onCancel, isPending }: {
+function DeregisterAmiConfirm({ imageId, onConfirm, onCancel, isPending, error }: {
     imageId: string
     onConfirm: () => void
     onCancel: () => void
     isPending: boolean
+    error?: string
 }) {
     return (
         <ModalOverlay onClose={onCancel}>
@@ -245,6 +255,7 @@ function DeregisterAmiConfirm({ imageId, onConfirm, onCancel, isPending }: {
                     <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                         This will deregister the AMI. Associated snapshots are not deleted automatically.
                     </p>
+                    {error && <p role="alert" className="form-error">Deregister failed: {error}</p>}
                 </div>
                 <div className="modal-footer">
                     <button className="button" onClick={onCancel} disabled={isPending}>Cancel</button>
@@ -260,42 +271,45 @@ function DeregisterAmiConfirm({ imageId, onConfirm, onCancel, isPending }: {
 
 // ─── Instance panel ───────────────────────────────────────────────────────────
 
-function InstancePanel({ instanceId }: { instanceId: string }) {
+type InstanceAction = 'start' | 'stop' | 'reboot' | 'terminate'
+
+const INSTANCE_ACTIONS: Record<InstanceAction, { label: string; run: (instanceId: string) => Promise<void> }> = {
+    start: { label: 'Start', run: startEc2Instance },
+    stop: { label: 'Stop', run: stopEc2Instance },
+    reboot: { label: 'Reboot', run: rebootEc2Instance },
+    terminate: { label: 'Terminate', run: terminateEc2Instance },
+}
+
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
+}
+
+function InstancePanel({ instanceId, onChanged }: { instanceId: string; onChanged?: ComputePanelProps['onChanged'] }) {
     const qc = useQueryClient()
+    const accountId = useAccountId()
     const [tab, setTab] = useState<'details' | 'tags' | 'console'>('details')
     const [showAmiModal, setShowAmiModal] = useState(false)
     const [showConsoleModal, setShowConsoleModal] = useState(false)
     const [terminateStep, setTerminateStep] = useState<'idle' | 'confirm'>('idle')
 
     const query = useQuery({
-        queryKey: ['ec2', 'instance', instanceId],
+        queryKey: ['ec2', 'instance', instanceId, accountId],
         queryFn: ({ signal }) => describeEc2Instance(instanceId, signal),
     })
 
-    const invalidate = () => {
-        void qc.invalidateQueries({ queryKey: ['ec2', 'instance', instanceId] })
-        void qc.invalidateQueries({ queryKey: ['ec2', 'instances'] })
-    }
-
-    const startMut = useMutation({
-        mutationFn: () => startEc2Instance(instanceId),
-        onSuccess: invalidate,
-    })
-    const stopMut = useMutation({
-        mutationFn: () => stopEc2Instance(instanceId),
-        onSuccess: invalidate,
-    })
-    const rebootMut = useMutation({
-        mutationFn: () => rebootEc2Instance(instanceId),
-        onSuccess: invalidate,
-    })
-    const terminateMut = useMutation({
-        mutationFn: () => terminateEc2Instance(instanceId),
-        onSuccess: () => {
-            setTerminateStep('idle')
-            invalidate()
+    // The account rides along with the action, so a success refreshes the account it ran in.
+    const actionMut = useMutation({
+        mutationFn: ({ action }: { action: InstanceAction; accountId: string }) =>
+            INSTANCE_ACTIONS[action].run(instanceId),
+        onSuccess: (_data, { action, accountId: actionAccountId }) => {
+            if (action === 'terminate') setTerminateStep('idle')
+            void qc.invalidateQueries({ queryKey: ['ec2', 'instance', instanceId] })
+            void qc.invalidateQueries({ queryKey: ['ec2', 'instances'] })
+            onChanged?.({ accountId: actionAccountId, resourceId: instanceId, removed: false })
         },
     })
+    const runAction = (action: InstanceAction) => actionMut.mutate({ action, accountId })
+    const pendingAction = actionMut.isPending ? actionMut.variables.action : null
 
     if (query.isLoading) {
         return (
@@ -347,8 +361,8 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                         <button
                             className="button compact"
-                            disabled={!canStart || startMut.isPending}
-                            onClick={() => startMut.mutate()}
+                            disabled={!canStart || actionMut.isPending}
+                            onClick={() => runAction('start')}
                             title="Start"
                         >
                             <Play size={12} />
@@ -356,8 +370,8 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                         </button>
                         <button
                             className="button compact"
-                            disabled={!canStop || stopMut.isPending}
-                            onClick={() => stopMut.mutate()}
+                            disabled={!canStop || actionMut.isPending}
+                            onClick={() => runAction('stop')}
                             title="Stop"
                         >
                             <Power size={12} />
@@ -365,8 +379,8 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                         </button>
                         <button
                             className="button compact"
-                            disabled={!canReboot || rebootMut.isPending}
-                            onClick={() => rebootMut.mutate()}
+                            disabled={!canReboot || actionMut.isPending}
+                            onClick={() => runAction('reboot')}
                             title="Reboot"
                         >
                             <RotateCcw size={12} />
@@ -394,10 +408,10 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                             <>
                                 <button
                                     className="button compact danger"
-                                    disabled={terminateMut.isPending}
-                                    onClick={() => terminateMut.mutate()}
+                                    disabled={actionMut.isPending}
+                                    onClick={() => runAction('terminate')}
                                 >
-                                    {terminateMut.isPending ? <Loader2 size={12} /> : null}
+                                    {pendingAction === 'terminate' ? <Loader2 size={12} /> : null}
                                     Confirm terminate
                                 </button>
                                 <button
@@ -417,6 +431,12 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
                         </button>
                     </div>
                 </div>
+
+                {actionMut.isError && (
+                    <p role="alert" className="form-error" style={{ margin: '12px 16px 0' }}>
+                        {INSTANCE_ACTIONS[actionMut.variables.action].label} failed: {errorMessage(actionMut.error)}
+                    </p>
+                )}
 
                 {/* Tabs */}
                 <div className="sns-tabs">
@@ -529,16 +549,18 @@ function InstancePanel({ instanceId }: { instanceId: string }) {
 
 // ─── AMI panel ────────────────────────────────────────────────────────────────
 
-function AmiPanel({ imageId }: { imageId: string }) {
+function AmiPanel({ imageId, onChanged }: { imageId: string; onChanged?: ComputePanelProps['onChanged'] }) {
     const qc = useQueryClient()
+    const accountId = useAccountId()
     const [showDeregister, setShowDeregister] = useState(false)
 
     const deregisterMut = useMutation({
-        mutationFn: () => deregisterEc2Ami(imageId),
-        onSuccess: () => {
+        mutationFn: (_accountId: string) => deregisterEc2Ami(imageId),
+        onSuccess: (_data, deregisterAccountId) => {
             void qc.invalidateQueries({ queryKey: ['ec2', 'amis'] })
             void qc.invalidateQueries({ queryKey: ['ec2', 'instances'] })
             setShowDeregister(false)
+            onChanged?.({ accountId: deregisterAccountId, resourceId: imageId, removed: true })
         },
     })
 
@@ -547,9 +569,14 @@ function AmiPanel({ imageId }: { imageId: string }) {
             {showDeregister && (
                 <DeregisterAmiConfirm
                     imageId={imageId}
-                    onConfirm={() => deregisterMut.mutate()}
-                    onCancel={() => setShowDeregister(false)}
+                    onConfirm={() => deregisterMut.mutate(accountId)}
+                    onCancel={() => {
+                        // Only a settled failure is cleared; a running request keeps the dialog's buttons disabled.
+                        if (deregisterMut.isError) deregisterMut.reset()
+                        setShowDeregister(false)
+                    }}
                     isPending={deregisterMut.isPending}
+                    error={deregisterMut.isError ? errorMessage(deregisterMut.error) : undefined}
                 />
             )}
 
@@ -581,17 +608,17 @@ function AmiPanel({ imageId }: { imageId: string }) {
 
 // ─── ComputePanel ─────────────────────────────────────────────────────────────
 
-export function ComputePanel({ cloud, resource, runtimeReachable }: ComputePanelProps) {
+export function ComputePanel({ cloud, resource, runtimeReachable, onChanged }: ComputePanelProps) {
     if (cloud !== 'aws' || !runtimeReachable || !resource) {
         return null
     }
 
     if (resource.type === 'instance') {
-        return <InstancePanel instanceId={resource.id} />
+        return <InstancePanel key={resource.id} instanceId={resource.id} onChanged={onChanged} />
     }
 
     if (resource.type === 'image') {
-        return <AmiPanel imageId={resource.id} />
+        return <AmiPanel key={resource.id} imageId={resource.id} onChanged={onChanged} />
     }
 
     return (
