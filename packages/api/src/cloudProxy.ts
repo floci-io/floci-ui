@@ -143,7 +143,7 @@ export function createCloudAdapterRegistry(accountId?: string | null, region?: s
         new AwsRoute53Adapter(clients.route53),
         new AwsSchedulerAdapter(clients.scheduler),
         new AwsAthenaAdapter(clients.athena),
-        new AwsXrayAdapter(clients.xray),
+        new AwsXrayAdapter(clients.xray, resolveRegion(region)),
         new AzureStorageAdapter(),
         new AzureTableAdapter(),
         new AzureServiceBusAdapter(),

@@ -37,7 +37,7 @@ export class AwsXrayAdapter implements CloudServiceAdapter {
 
     constructor(
         private readonly xray: XRayClient,
-        private readonly region = process.env.AWS_REGION || 'us-east-1',
+        private readonly region: string,
     ) {}
 
     schema(): ServiceSchema {
