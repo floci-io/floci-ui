@@ -166,8 +166,9 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
 // ─── Console output modal (inline) ───────────────────────────────────────────
 
 function ConsoleOutputModal({ instanceId, onClose }: { instanceId: string; onClose: () => void }) {
+    const accountId = useAccountId()
     const query = useQuery({
-        queryKey: ['ec2', 'console', instanceId],
+        queryKey: ['ec2', 'console', instanceId, accountId],
         queryFn: ({ signal }) => getEc2ConsoleOutput(instanceId, signal),
     })
 
@@ -668,6 +669,7 @@ export function LaunchInstanceForm({
     onCancel: () => void
 }) {
     const qc = useQueryClient()
+    const accountId = useAccountId()
 
     // Instance fields
     const [name, setName] = useState('')
@@ -696,11 +698,11 @@ export function LaunchInstanceForm({
         setInboundRules((prev) => prev.map((r) => r.id === id ? { ...r, ...patch } : r))
     }
 
-    const amisQ = useQuery({ queryKey: ['ec2', 'amis'],            queryFn: ({ signal }) => listEc2Amis(signal) })
-    const keysQ = useQuery({ queryKey: ['ec2', 'key-pairs'],       queryFn: ({ signal }) => listEc2KeyPairs(signal) })
-    const vpcsQ = useQuery({ queryKey: ['ec2', 'vpcs'],            queryFn: ({ signal }) => listEc2Vpcs(signal) })
-    const subsQ = useQuery({ queryKey: ['ec2', 'subnets'],         queryFn: ({ signal }) => listEc2Subnets(undefined, signal) })
-    const sgsQ  = useQuery({ queryKey: ['ec2', 'security-groups'], queryFn: ({ signal }) => listEc2SecurityGroups(undefined, signal) })
+    const amisQ = useQuery({ queryKey: ['ec2', 'amis', accountId],            queryFn: ({ signal }) => listEc2Amis(signal) })
+    const keysQ = useQuery({ queryKey: ['ec2', 'key-pairs', accountId],       queryFn: ({ signal }) => listEc2KeyPairs(signal) })
+    const vpcsQ = useQuery({ queryKey: ['ec2', 'vpcs', accountId],            queryFn: ({ signal }) => listEc2Vpcs(signal) })
+    const subsQ = useQuery({ queryKey: ['ec2', 'subnets', accountId],         queryFn: ({ signal }) => listEc2Subnets(undefined, signal) })
+    const sgsQ  = useQuery({ queryKey: ['ec2', 'security-groups', accountId], queryFn: ({ signal }) => listEc2SecurityGroups(undefined, signal) })
 
     const createMut = useMutation({
         mutationFn: (values: Record<string, unknown>) => createCloudResource(cloud, 'compute', values),
@@ -711,7 +713,7 @@ export function LaunchInstanceForm({
     })
 
     const createSgMut = useMutation({
-        mutationFn: async (vars: {name: string; desc: string; vpc: string; rules: InboundRule[]}) => {
+        mutationFn: async (vars: {name: string; desc: string; vpc: string; rules: InboundRule[]; accountId: string}) => {
             const { groupId } = await createEc2SecurityGroup(vars.name, vars.desc || vars.name, vars.vpc || undefined)
             for (const rule of vars.rules) {
                 await authorizeEc2SecurityGroupIngress(groupId, parseRule(rule))
@@ -722,7 +724,7 @@ export function LaunchInstanceForm({
             // Optimistically insert into cache — do NOT invalidate immediately;
             // invalidation races the AWS propagation window and overwrites
             // the entry with a server list that doesn't yet include the new SG.
-            qc.setQueryData(['ec2', 'security-groups'], (old: Ec2SecurityGroup[] | undefined) => [
+            qc.setQueryData(['ec2', 'security-groups', vars.accountId], (old: Ec2SecurityGroup[] | undefined) => [
                 ...(old ?? []),
                 {
                     groupId,
@@ -954,7 +956,7 @@ export function LaunchInstanceForm({
                                 type="button"
                                 className="button primary small"
                                 disabled={!newSgName || createSgMut.isPending}
-                                onClick={() => createSgMut.mutate({name: newSgName, desc: newSgDesc, vpc: newSgVpc, rules: inboundRules})}
+                                onClick={() => createSgMut.mutate({name: newSgName, desc: newSgDesc, vpc: newSgVpc, rules: inboundRules, accountId})}
                             >
                                 <Plus size={12}/>
                                 {createSgMut.isPending ? 'Creating…' : 'Create SG'}

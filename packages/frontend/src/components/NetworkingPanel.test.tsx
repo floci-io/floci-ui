@@ -1,7 +1,8 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {fireEvent, render, screen, waitFor, within} from '@testing-library/react'
+import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react'
 import {describe, expect, it, vi} from 'vitest'
-import {deleteEc2Vpc} from '@/api/aws/ec2.api'
+import {deleteEc2Vpc, listEc2Vpcs} from '@/api/aws/ec2.api'
+import {DEFAULT_ACCOUNT_ID, getAccountId, setAccountId} from '@/lib/accountStore'
 import {NetworkingPanel} from './NetworkingPanel'
 
 vi.mock('@/api/aws/ec2.api', async (importOriginal) => {
@@ -42,5 +43,33 @@ describe('NetworkingPanel VPC deletion', () => {
 
         await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Delete load balancer web before deleting VPC vpc-1'))
         expect(deleteEc2Vpc).toHaveBeenCalledExactlyOnceWith('vpc-1')
+    })
+})
+
+describe('NetworkingPanel account switch', () => {
+    it('does not show the previous account\'s VPCs while the new account loads', async () => {
+        const vpcA = {vpcId: 'vpc-a', cidrBlock: '10.40.0.0/16', isDefault: false, tags: []}
+        vi.mocked(listEc2Vpcs).mockImplementation(() =>
+            getAccountId() === DEFAULT_ACCOUNT_ID ? Promise.resolve([vpcA]) : new Promise(() => {}),
+        )
+        const client = new QueryClient({defaultOptions: {queries: {retry: false}}})
+        render(
+            <QueryClientProvider client={client}>
+                <NetworkingPanel cloud="aws" runtimeReachable/>
+            </QueryClientProvider>,
+        )
+        expect(await screen.findByText('10.40.0.0/16')).toBeInTheDocument()
+
+        try {
+            // What the account switcher does: switch, then refetch everything.
+            act(() => {
+                setAccountId('111111111111')
+                void client.invalidateQueries()
+            })
+
+            expect(screen.queryByText('10.40.0.0/16')).not.toBeInTheDocument()
+        } finally {
+            setAccountId(DEFAULT_ACCOUNT_ID)
+        }
     })
 })

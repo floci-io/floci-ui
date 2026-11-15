@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAccountId } from "@/lib/accountStore";
 import { ec2Client } from "./ec2.api";
 
 export const ec2QueryKeys = {
@@ -26,9 +27,16 @@ export const ec2QueryKeys = {
   vpcAttributes: (vpcId: string) => ["ec2", "vpc-attributes", vpcId] as const,
 };
 
+// Floci isolates resources per account, so every EC2 query is cached under the
+// active account. The account goes last: invalidating a key above still matches
+// every account's copy by prefix.
+function useAccountScoped<K extends readonly unknown[]>(key: K) {
+  return [...key, useAccountId()] as const;
+}
+
 export function useEc2InstancesQuery() {
   return useQuery({
-    queryKey: ec2QueryKeys.instances,
+    queryKey: useAccountScoped(ec2QueryKeys.instances),
     queryFn: ({ signal }) => ec2Client.listInstances(signal),
     refetchInterval: 30_000,
   });
@@ -36,7 +44,7 @@ export function useEc2InstancesQuery() {
 
 export function useEc2InstanceQuery(instanceId: string | null) {
   return useQuery({
-    queryKey: ec2QueryKeys.instance(instanceId),
+    queryKey: useAccountScoped(ec2QueryKeys.instance(instanceId)),
     queryFn: ({ signal }) => ec2Client.describeInstance(instanceId!, signal),
     enabled: Boolean(instanceId),
     refetchInterval: 30_000,
@@ -45,7 +53,7 @@ export function useEc2InstanceQuery(instanceId: string | null) {
 
 export function useEc2AmisQuery() {
   return useQuery({
-    queryKey: ec2QueryKeys.amis,
+    queryKey: useAccountScoped(ec2QueryKeys.amis),
     queryFn: ({ signal }) => ec2Client.listAmis(signal),
     refetchInterval: 30_000,
   });
@@ -53,7 +61,7 @@ export function useEc2AmisQuery() {
 
 export function useEc2KeyPairsQuery(enabled = true) {
   return useQuery({
-    queryKey: ec2QueryKeys.keyPairs,
+    queryKey: useAccountScoped(ec2QueryKeys.keyPairs),
     queryFn: ({ signal }) => ec2Client.listKeyPairs(signal),
     enabled,
     staleTime: 60_000,
@@ -62,7 +70,7 @@ export function useEc2KeyPairsQuery(enabled = true) {
 
 export function useEc2SecurityGroupsQuery(vpcId?: string, enabled = true) {
   return useQuery({
-    queryKey: ec2QueryKeys.securityGroups(vpcId),
+    queryKey: useAccountScoped(ec2QueryKeys.securityGroups(vpcId)),
     queryFn: ({ signal }) => ec2Client.listSecurityGroups(vpcId, signal),
     enabled,
     staleTime: 30_000,
@@ -71,7 +79,7 @@ export function useEc2SecurityGroupsQuery(vpcId?: string, enabled = true) {
 
 export function useEc2VpcsQuery(enabled = true) {
   return useQuery({
-    queryKey: ec2QueryKeys.vpcs,
+    queryKey: useAccountScoped(ec2QueryKeys.vpcs),
     queryFn: ({ signal }) => ec2Client.listVpcs(signal),
     enabled,
     staleTime: 60_000,
@@ -80,7 +88,7 @@ export function useEc2VpcsQuery(enabled = true) {
 
 export function useEc2SubnetsQuery(vpcId?: string, enabled = true) {
   return useQuery({
-    queryKey: ec2QueryKeys.subnets(vpcId),
+    queryKey: useAccountScoped(ec2QueryKeys.subnets(vpcId)),
     queryFn: ({ signal }) => ec2Client.listSubnets(vpcId, signal),
     enabled,
     staleTime: 60_000,
@@ -89,7 +97,7 @@ export function useEc2SubnetsQuery(vpcId?: string, enabled = true) {
 
 export function useEc2ConsoleOutputQuery(instanceId: string | null) {
   return useQuery({
-    queryKey: ec2QueryKeys.consoleOutput(instanceId),
+    queryKey: useAccountScoped(ec2QueryKeys.consoleOutput(instanceId)),
     queryFn: ({ signal }) => ec2Client.getConsoleOutput(instanceId!, signal),
     enabled: Boolean(instanceId),
     staleTime: 0,
@@ -99,7 +107,7 @@ export function useEc2ConsoleOutputQuery(instanceId: string | null) {
 
 export function useEc2InternetGatewaysQuery(enabled = true) {
   return useQuery({
-    queryKey: ec2QueryKeys.internetGateways,
+    queryKey: useAccountScoped(ec2QueryKeys.internetGateways),
     queryFn: ({ signal }) => ec2Client.listInternetGateways(signal),
     enabled,
     staleTime: 60_000,
@@ -108,7 +116,7 @@ export function useEc2InternetGatewaysQuery(enabled = true) {
 
 export function useEc2NatGatewaysQuery(vpcId?: string, enabled = true) {
   return useQuery({
-    queryKey: ec2QueryKeys.natGateways(vpcId),
+    queryKey: useAccountScoped(ec2QueryKeys.natGateways(vpcId)),
     queryFn: ({ signal }) => ec2Client.listNatGateways(vpcId, signal),
     enabled,
     staleTime: 30_000,
@@ -117,7 +125,7 @@ export function useEc2NatGatewaysQuery(vpcId?: string, enabled = true) {
 
 export function useEc2RouteTablesQuery(vpcId?: string, enabled = true) {
   return useQuery({
-    queryKey: ec2QueryKeys.routeTables(vpcId),
+    queryKey: useAccountScoped(ec2QueryKeys.routeTables(vpcId)),
     queryFn: ({ signal }) => ec2Client.listRouteTables(vpcId, signal),
     enabled,
     staleTime: 30_000,
@@ -126,7 +134,7 @@ export function useEc2RouteTablesQuery(vpcId?: string, enabled = true) {
 
 export function useEc2ElasticIpsQuery(enabled = true) {
   return useQuery({
-    queryKey: ec2QueryKeys.elasticIps,
+    queryKey: useAccountScoped(ec2QueryKeys.elasticIps),
     queryFn: ({ signal }) => ec2Client.listElasticIps(signal),
     enabled,
     staleTime: 60_000,
@@ -135,7 +143,7 @@ export function useEc2ElasticIpsQuery(enabled = true) {
 
 export function useEc2AvailabilityZonesQuery() {
   return useQuery({
-    queryKey: ec2QueryKeys.availabilityZones,
+    queryKey: useAccountScoped(ec2QueryKeys.availabilityZones),
     queryFn: ({ signal }) => ec2Client.listAvailabilityZones(signal),
     staleTime: Infinity,
   });
@@ -143,7 +151,7 @@ export function useEc2AvailabilityZonesQuery() {
 
 export function useEc2InstanceTypesQuery() {
   return useQuery({
-    queryKey: ec2QueryKeys.instanceTypes,
+    queryKey: useAccountScoped(ec2QueryKeys.instanceTypes),
     queryFn: ({ signal }) => ec2Client.listInstanceTypes(signal),
     staleTime: Infinity,
   });
@@ -151,7 +159,7 @@ export function useEc2InstanceTypesQuery() {
 
 export function useEc2VpcAttributesQuery(vpcId: string | undefined) {
   return useQuery({
-    queryKey: ec2QueryKeys.vpcAttributes(vpcId ?? ""),
+    queryKey: useAccountScoped(ec2QueryKeys.vpcAttributes(vpcId ?? "")),
     queryFn: ({ signal }) => ec2Client.getVpcAttributes(vpcId!, signal),
     enabled: Boolean(vpcId),
     staleTime: 30_000,
