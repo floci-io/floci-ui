@@ -54,6 +54,7 @@ describe('SERVICE_CATALOG', () => {
 
         expect(cognito.group).toBe('Security')
         expect(cognito.iconKey).toBe('iam')
+        expect(displayNameFor(cognito, 'gcp')).toBe('Identity Platform')
         expect(cognito.order).toBeGreaterThan(catalogEntry('identity')!.order)
         expect(isServiceType('cognito')).toBe(true)
     })

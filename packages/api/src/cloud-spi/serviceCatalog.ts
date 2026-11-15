@@ -274,7 +274,9 @@ export const SERVICE_CATALOG = {
     },
     cognito: {
         displayName: 'Cognito',
+        displayNameByCloud: {aws: 'Cognito', gcp: 'Identity Platform'},
         description: 'Manage user pools and application sign-in.',
+        descriptionByCloud: {gcp: 'Browse the users who sign in to your applications.'},
         docsSlugByCloud: {aws: 'cognito'},
         iconKey: 'iam', group: 'Security', order: 6,
     },
