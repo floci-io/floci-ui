@@ -1,4 +1,5 @@
 import {describe, expect, test} from 'bun:test'
+import {EC2ServiceException} from '@aws-sdk/client-ec2'
 import {createEc2Router} from './ec2'
 import type {
     CreateAmiInput,
@@ -510,3 +511,51 @@ describe('POST /elastic-ips/:allocationId/disassociate', () => {
 
 // Suppress unused-type lint warnings
 void ({} as FakeIpPermission)
+
+describe('AWS failures keep their status', () => {
+    const awsError = (name: string, httpStatusCode: number, message: string) =>
+        new EC2ServiceException({name, $fault: 'client', $metadata: {httpStatusCode}, message})
+    const failing = createEc2Router({
+        ...fakeService,
+        stopInstance: async () => {
+            throw awsError('UnauthorizedOperation', 403, 'User is not authorized to perform: ec2:StopInstances')
+        },
+        describeInstance: async () => {
+            throw awsError('InvalidInstanceID.NotFound', 400, "The instance ID 'i-missing' does not exist")
+        },
+        createVpc: async () => {
+            throw new Error('Invalid VPC CIDR: nope')
+        },
+    })
+
+    test('an IAM denial is 403 access_denied with the runtime message', async () => {
+        const res = await failing.request('/instances/i-prod/stop', {method: 'POST'})
+        expect(res.status).toBe(403)
+        expect(await res.json()).toEqual({
+            error: 'Access denied by the runtime',
+            code: 'access_denied',
+            message: 'Access denied by the runtime',
+            detail: 'User is not authorized to perform: ec2:StopInstances',
+        })
+    })
+
+    test('a missing instance on an uncaught route is 404, not 500', async () => {
+        const res = await failing.request('/instances/i-missing')
+        expect(res.status).toBe(404)
+        expect((await res.json() as {code: string}).code).toBe('resource_not_found')
+    })
+
+    test('a non-AWS failure stays a 400 carrying its message', async () => {
+        const res = await failing.request('/vpcs', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({cidrBlock: 'nope'}),
+        })
+        expect(res.status).toBe(400)
+        expect(await res.json()).toEqual({
+            error: 'Invalid VPC CIDR: nope',
+            code: 'invalid_request',
+            message: 'Invalid VPC CIDR: nope',
+        })
+    })
+})

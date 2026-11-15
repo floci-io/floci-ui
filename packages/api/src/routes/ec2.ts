@@ -10,16 +10,22 @@ import type {
     VpcWizardInput,
 } from '../services/ec2'
 import {ec2Service} from '../services/ec2'
+import {mapAwsSdkError} from '../adapter-aws/awsErrors'
+import {toHttpError, ValidationError} from '../cloud-spi/errors'
 
 type Ec2Service = typeof ec2Service
 
+// An AWS failure keeps its meaning (403 access denied, 404 not found, ...); anything
+// else is this route's own check or a malformed body, as before.
 function handleError(c: Context, error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error'
-    return c.json({error: msg}, 400)
+    const {status, body} = toHttpError(mapAwsSdkError(error) ?? new ValidationError(msg))
+    return c.json(body, status)
 }
 
 export function createEc2Router(svc: Ec2Service = ec2Service) {
     const app = new Hono()
+    app.onError((error, c) => handleError(c, error))
 
     // Instances
     app.get('/instances', async (c) => {
