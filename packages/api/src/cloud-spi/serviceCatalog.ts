@@ -379,7 +379,9 @@ export const SERVICE_CATALOG = {
     },
     cloudwatch: {
         displayName: 'CloudWatch',
+        displayNameByCloud: {aws: 'CloudWatch', gcp: 'Cloud Monitoring'},
         description: 'Watch metrics and manage alarms.',
+        descriptionByCloud: {gcp: 'Browse metric descriptors and their recent points.'},
         docsSlugByCloud: {aws: 'cloudwatch', azure: 'monitor', gcp: 'cloud-monitoring'},
         iconKey: 'monitoring',
         group: 'Observability',

@@ -91,6 +91,7 @@ describe('SERVICE_CATALOG', () => {
         expect(cloudwatch.order).toBeGreaterThan(catalogEntry('logs')!.order)
         expect(displayNameFor(cloudwatch, 'aws')).toBe('CloudWatch')
         expect(routeFor(cloudwatch, 'aws')).toBe('cloudwatch')
+        expect(displayNameFor(cloudwatch, 'gcp')).toBe('Cloud Monitoring')
     })
 
     test('keeps SNS separate from the SQS messaging adapter', () => {

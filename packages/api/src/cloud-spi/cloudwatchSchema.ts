@@ -101,3 +101,70 @@ export function awsCloudWatchSchema(): ServiceSchema {
         },
     }
 }
+
+/** Only these two prefixes are user-created metrics, which is all the runtime lets be deleted. */
+export const GCP_MONITORING_TYPE_PATTERN = '^(custom|external)\\.googleapis\\.com/[A-Za-z0-9_./-]+$'
+export const GCP_MONITORING_TYPE_MESSAGE =
+    'Use custom.googleapis.com/ or external.googleapis.com/ followed by letters, digits, underscore, dot, slash or dash.'
+export const GCP_MONITORING_METRIC_KINDS = ['GAUGE', 'DELTA', 'CUMULATIVE'] as const
+export const GCP_MONITORING_VALUE_TYPES = ['DOUBLE', 'INT64', 'BOOL', 'STRING', 'DISTRIBUTION'] as const
+
+/**
+ * Metric descriptors of Cloud Monitoring. Alarm policies belong to another API
+ * and are not offered; writing time series is not either, so the console reads
+ * the recent points of a metric and manages custom descriptors.
+ */
+export function gcpMonitoringSchema(): ServiceSchema {
+    return {
+        cloud: 'gcp',
+        service: 'cloudwatch',
+        displayName: 'Cloud Monitoring',
+        fields: [
+            {
+                name: 'name',
+                label: 'Metric type',
+                type: 'text',
+                required: true,
+                description: 'For example custom.googleapis.com/orders/processed.',
+                validation: {pattern: GCP_MONITORING_TYPE_PATTERN, minLength: 1, maxLength: 200, message: GCP_MONITORING_TYPE_MESSAGE},
+            },
+            {
+                name: 'metricKind',
+                label: 'Metric kind',
+                type: 'select',
+                required: true,
+                defaultValue: 'GAUGE',
+                options: GCP_MONITORING_METRIC_KINDS.map((value) => ({label: value, value})),
+            },
+            {
+                name: 'valueType',
+                label: 'Value type',
+                type: 'select',
+                required: true,
+                defaultValue: 'DOUBLE',
+                description: 'BOOL and STRING are only valid with the GAUGE kind.',
+                options: GCP_MONITORING_VALUE_TYPES.map((value) => ({label: value, value})),
+            },
+            {name: 'unit', label: 'Unit', type: 'text', required: false, description: 'For example 1, s, By or ms.'},
+            {name: 'displayName', label: 'Display name', type: 'text', required: false},
+            {name: 'description', label: 'Description', type: 'textarea', required: false},
+        ],
+        actions: ['list', 'create', 'delete', 'inspect'],
+        filters: [{name: 'search', label: 'Metric type', type: 'text', required: false}],
+        columns: [
+            {name: 'name', label: 'Metric type'},
+            {name: 'metricKind', label: 'Kind', path: 'metadata.metricKind', format: 'badge', emptyText: '-'},
+            {name: 'valueType', label: 'Value type', path: 'metadata.valueType', format: 'badge', emptyText: '-'},
+            {name: 'unit', label: 'Unit', path: 'metadata.unit', emptyText: '-'},
+            {name: 'displayName', label: 'Display name', path: 'metadata.displayName', emptyText: '-'},
+        ],
+        capabilities: {
+            resourceActions: [
+                {name: 'list', label: 'List metric descriptors', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'create', label: 'Create metric descriptor', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'inspect', label: 'Inspect metric descriptor', enabled: true, status: 'available', runtimeRequired: true},
+                {name: 'delete', label: 'Delete metric descriptor', enabled: true, status: 'available', runtimeRequired: true},
+            ],
+        },
+    }
+}

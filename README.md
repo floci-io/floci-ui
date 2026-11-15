@@ -141,7 +141,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Security | Certificates | ✅ | ✅ | – | – |
 | Security | Parameter Store | ✅ | – | – | – |
 | Observability | Logs | ✅ | – | 👁 | – |
-| Observability | CloudWatch | ✅ | – | – | – |
+| Observability | CloudWatch | ✅ | – | ✅ | – |
 | Observability | X-Ray | 👁 | – | – | – |
 | Observability | Work Requests | – | – | – | 👁 |
 
