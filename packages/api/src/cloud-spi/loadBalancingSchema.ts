@@ -46,7 +46,7 @@ export function awsLoadBalancingSchema(): ServiceSchema {
                 // Follows the compute schema, which takes security group ids the
                 // same way rather than pushing create into a bespoke panel.
                 description:
-                    'Two or more subnet ids, comma separated — e.g. subnet-aaa, subnet-bbb. ELB requires them to be in different availability zones.',
+                    'Subnet IDs, comma separated, e.g. subnet-aaa, subnet-bbb. The runtime validates the required count and availability zones for the load balancer type, region and configured overrides.',
             },
             {
                 name: 'type',

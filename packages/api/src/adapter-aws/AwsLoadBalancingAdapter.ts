@@ -78,14 +78,10 @@ export class AwsLoadBalancingAdapter implements CloudServiceAdapter {
             )
         }
 
-        // Only the count is enforced. Whether the subnets sit in different
-        // availability zones is ELB's rule, and checking it here would mean calling
-        // EC2 DescribeSubnets from the load balancing adapter — real coupling for a
-        // validation nicety. So the message claims only what this check does; the
-        // schema field carries the AZ requirement as guidance.
+        // The runtime owns zone requirements, including regional defaults and overrides.
         const subnets = splitIds(requiredString(input.values.subnets, 'subnets'))
-        if (subnets.length < 2) {
-            throw new ValidationError('subnets must list at least two subnet ids')
+        if (subnets.length === 0) {
+            throw new ValidationError('subnets must list at least one subnet id')
         }
 
         const type = optionalOneOf(input.values.type, ELB_TYPES, 'type') ?? 'application'
