@@ -185,14 +185,37 @@ describe('AwsLoadBalancingAdapter', () => {
         expect(resource.id).toBe(ARN)
     })
 
-    test('requires at least two subnet ids', async () => {
-        // Only the count is enforced. The AZ requirement is ELB's, and checking it
-        // would mean calling EC2 from this adapter, so the message must not claim it.
-        const adapter = new AwsLoadBalancingAdapter(runtimeStub().client)
+    test.each(['application', 'network'])('forwards a single-subnet %s request to the runtime', async (type) => {
+        const {client, sent} = runtimeStub()
+        await new AwsLoadBalancingAdapter(client).create({values: {...validValues, subnets: 'subnet-only', type}})
 
-        await expect(adapter.create({values: {...validValues, subnets: 'subnet-only'}})).rejects.toThrow(
-            new ValidationError('subnets must list at least two subnet ids'),
+        const command = sent[0] as CreateLoadBalancerCommand
+        expect(command.input.Subnets).toEqual(['subnet-only'])
+        expect(command.input.Type).toBe(type)
+    })
+
+    test('preserves runtime zone rules when a single subnet is rejected', async () => {
+        const error = Object.assign(new Error('At least two availability zones are required'), {
+            name: 'ValidationError',
+        })
+        const {client, sent} = stubElb(() => {
+            throw error
+        })
+
+        await expect(new AwsLoadBalancingAdapter(client).create({
+            values: {...validValues, subnets: 'subnet-only'},
+        })).rejects.toBe(error)
+        expect(sent).toHaveLength(1)
+    })
+
+    test('rejects a subnet list containing only separators without calling the runtime', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsLoadBalancingAdapter(client)
+
+        await expect(adapter.create({values: {...validValues, subnets: ', ,'}})).rejects.toThrow(
+            new ValidationError('subnets must list at least one subnet id'),
         )
+        expect(sent).toHaveLength(0)
     })
 
     test('requires the fields the schema marks required', async () => {
