@@ -9,6 +9,7 @@ import {
   listEc2SecurityGroups,
   type Ec2SecurityGroup,
 } from "@/api/aws/ec2.api";
+import { useAccountId } from "@/lib/accountStore";
 import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource } from "@/types/resource";
 
@@ -26,6 +27,7 @@ export function CreateRdsInstanceForm({
   onCancel,
 }: CreateRdsInstanceFormProps) {
   const qc = useQueryClient();
+  const accountId = useAccountId();
 
   // Instance configuration
   const [dbInstanceIdentifier, setDbInstanceIdentifier] = useState("");
@@ -58,7 +60,7 @@ export function CreateRdsInstanceForm({
 
   // Fetch available security groups (AWS)
   const sgsQuery = useQuery({
-    queryKey: ["ec2", "security-groups"],
+    queryKey: ["ec2", "security-groups", accountId],
     queryFn: ({ signal }) => listEc2SecurityGroups(undefined, signal),
     enabled: cloud === "aws",
   });
