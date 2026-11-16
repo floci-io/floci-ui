@@ -39,6 +39,14 @@ export class AwsComputeAdapter implements CloudServiceAdapter {
     }
 
     async get(id: string): Promise<CloudResource | null> {
+        // The list mixes instances and AMIs, so an AMI id must not reach
+        // DescribeInstances (a 404). It is looked up in the same listing the row
+        // came from: DescribeImages with ImageIds is unreliable on Floci, which
+        // answers any well-formed AMI id with a fallback image.
+        if (id.startsWith('ami-')) {
+            const image = (await this.service_.listAmis()).find((i) => i.imageId === id)
+            return image ? imageToResource(image) : null
+        }
         try {
             return instanceToResource(await this.service_.describeInstance(id))
         } catch (error) {

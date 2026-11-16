@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'bun:test'
 import {AwsComputeAdapter} from './AwsComputeAdapter'
-import type {Ec2Instance, RunInstanceInput} from '../services/ec2'
+import type {Ec2Image, Ec2Instance, RunInstanceInput} from '../services/ec2'
 
 const baseInstance: Ec2Instance = {
     instanceId: 'i-0abc123def456',
@@ -25,14 +25,14 @@ function fakeService(overrides: Partial<{
     listInstances: () => Promise<Ec2Instance[]>
     describeInstance: (id: string) => Promise<Ec2Instance>
     terminateInstance: (id: string) => Promise<void>
-    listAmis: () => Promise<[]>
+    listAmis: () => Promise<Ec2Image[]>
     runInstance: (input: RunInstanceInput) => Promise<Ec2Instance>
 }> = {}) {
     return {
         listInstances: async () => [baseInstance],
         describeInstance: async (_id: string) => baseInstance,
         terminateInstance: async (_id: string) => {},
-        listAmis: async () => [] as [],
+        listAmis: async (): Promise<Ec2Image[]> => [],
         runInstance: async (_input: RunInstanceInput) => baseInstance,
         ...overrides,
     }
@@ -98,6 +98,28 @@ describe('AwsComputeAdapter', () => {
         }))
 
         await expect(adapter.get('i-bad')).rejects.toThrow('InternalError')
+    })
+
+    test('get finds an AMI in the image listing instead of describing it as an instance', async () => {
+        const described: string[] = []
+        const adapter = new AwsComputeAdapter(fakeService({
+            describeInstance: async (id) => { described.push(id); return baseInstance },
+            listAmis: async () => [{imageId: 'ami-0abcdef1234567891', name: 'al2023-ami', state: 'available', architecture: 'x86_64', tags: []}],
+        }))
+
+        const result = await adapter.get('ami-0abcdef1234567891')
+
+        expect(result?.type).toBe('image')
+        expect(result?.name).toBe('al2023-ami')
+        expect(result?.status).toBe('available')
+        expect(result?.metadata?.architecture).toBe('x86_64')
+        expect(described).toEqual([])
+    })
+
+    test('get returns null for an AMI that is not listed', async () => {
+        const adapter = new AwsComputeAdapter(fakeService())
+
+        expect(await adapter.get('ami-0000000000000000')).toBeNull()
     })
 
     test('create calls runInstance and returns mapped CloudResource', async () => {
