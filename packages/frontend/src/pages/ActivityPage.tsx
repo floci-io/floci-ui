@@ -198,9 +198,15 @@ export function ActivityPage() {
                             <button
                                 className="button"
                                 type="button"
-                                title={`Refreshes automatically every ${ACTIVITY_POLL_INTERVAL_MS / 1000} seconds`}
-                                disabled={firstPage.isFetching}
-                                onClick={() => void firstPage.refetch()}
+                                title={pages.length > 1
+                                    ? 'Manual refresh: automatic polling pauses while older pages are loaded'
+                                    : `Refreshes automatically every ${ACTIVITY_POLL_INTERVAL_MS / 1000} seconds`}
+                                disabled={pages.some((page) => page.isFetching)}
+                                onClick={() => {
+                                    // A paged view refreshes as one chain: refreshing only the
+                                    // first page would shift its cursor against the frozen ones.
+                                    void Promise.all(pages.map((page) => page.refetch()))
+                                }}
                             >
                                 <RefreshCw size={14}/> Refresh
                             </button>

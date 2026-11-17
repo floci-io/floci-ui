@@ -55,6 +55,7 @@ describe('describeRequest', () => {
     test('reads service actions off the path', () => {
         expect(describeRequest('POST', '/api/clouds/aws/services/compute/resources/i-1/start')).toMatchObject({operation: 'Start'})
         expect(describeRequest('POST', '/api/clouds/aws/services/compute/resources/i-1/reboot')).toMatchObject({operation: 'Reboot'})
+        expect(describeRequest('POST', '/api/ec2/instances/i-1/terminate')).toMatchObject({operation: 'Terminate'})
         expect(describeRequest('POST', '/api/clouds/aws/services/storage/resources/b/empty')).toMatchObject({operation: 'Empty'})
         expect(describeRequest('POST', '/api/clouds/aws/services/serverless/resources/fn/invoke')).toMatchObject({operation: 'Invoke'})
         expect(describeRequest('POST', '/api/clouds/aws/services/kms/resources/k/rotate')).toMatchObject({operation: 'Rotate'})
@@ -70,7 +71,11 @@ describe('describeRequest', () => {
         expect(describeRequest('POST', '/api/clouds/aws/services/logs/resources/g/query')).toBeNull()
         expect(describeRequest('POST', '/api/clouds/aws/services/database/resources/db1/sql/databases')).toBeNull()
         expect(describeRequest('POST', '/api/clouds/aws/services/database/resources/db1/sql/query')).toBeNull()
-        expect(describeRequest('POST', '/api/clouds/aws/services/dynamodb/resources/t/key-query')).toBeNull()
+    })
+
+    test('a resource whose name ends in query is still a mutation', () => {
+        expect(describeRequest('POST', '/api/clouds/aws/services/dynamodb/resources/t/key-query')).toMatchObject({operation: 'Create'})
+        expect(describeRequest('DELETE', '/api/clouds/aws/services/storage/resources/orders-query')).toMatchObject({operation: 'Delete'})
     })
 
     test('maps the legacy AWS-only routes onto catalog service keys', () => {

@@ -1,7 +1,8 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {fireEvent, render, screen, waitFor} from '@testing-library/react'
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react'
 import {MemoryRouter, Route, Routes} from 'react-router-dom'
-import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {ACTIVITY_POLL_INTERVAL_MS} from '@/api/queries/activityQueries'
 import type {ActivityEntry, ActivityFacets, ActivityPage} from '@/types/activity'
 import {ActivityPage as ActivityPageView} from './ActivityPage'
 
@@ -153,5 +154,56 @@ describe('Activity feed', () => {
             expect.objectContaining({cursor: 'cursor-1'}),
             expect.anything(),
         )
+    })
+
+    describe('polling and paged refresh', () => {
+        afterEach(() => vi.useRealTimers())
+
+        it('stops polling once a second page is loaded', async () => {
+            vi.useFakeTimers({shouldAdvanceTime: true})
+            listActivity.mockImplementation(async (query: {cursor?: string}) =>
+                query.cursor
+                    ? feed([entry({id: 'second', resourceName: 'second-bucket'})], null)
+                    : feed([entry({id: 'first', resourceName: 'first-bucket'})], 'cursor-1'))
+
+            renderActivity()
+            expect(await screen.findByText('first-bucket')).toBeInTheDocument()
+
+            // While unpaged the feed polls by itself.
+            const callsAfterFirstPage = listActivity.mock.calls.length
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(ACTIVITY_POLL_INTERVAL_MS)
+            })
+            expect(listActivity.mock.calls.length).toBeGreaterThan(callsAfterFirstPage)
+
+            fireEvent.click(screen.getByRole('button', {name: 'Load more'}))
+            expect(await screen.findByText('second-bucket')).toBeInTheDocument()
+
+            // Reading history must not shift the frozen cursor chain: page over.
+            const callsAfterLoadMore = listActivity.mock.calls.length
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(ACTIVITY_POLL_INTERVAL_MS * 3)
+            })
+            expect(listActivity.mock.calls.length).toBe(callsAfterLoadMore)
+        })
+
+        it('refreshes every loaded page so the cursor chain stays consistent', async () => {
+            listActivity
+                .mockResolvedValueOnce(feed([entry({id: 'first', resourceName: 'first-bucket'})], 'cursor-1'))
+                .mockResolvedValueOnce(feed([entry({id: 'second', resourceName: 'second-bucket'})], null))
+                .mockResolvedValue(feed([]))
+
+            renderActivity()
+            await screen.findByText('first-bucket')
+            fireEvent.click(screen.getByRole('button', {name: 'Load more'}))
+            await screen.findByText('second-bucket')
+
+            const cursorCalls = () =>
+                listActivity.mock.calls.filter((call) => (call[0] as {cursor?: string}).cursor === 'cursor-1').length
+            const before = cursorCalls()
+            fireEvent.click(screen.getByRole('button', {name: 'Refresh'}))
+
+            await waitFor(() => expect(cursorCalls()).toBeGreaterThan(before))
+        })
     })
 })

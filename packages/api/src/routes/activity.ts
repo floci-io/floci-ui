@@ -41,7 +41,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 /** POST actions that are operations on an existing resource, not a create. */
 const ACTION_VERBS = new Set([
-    'start', 'stop', 'reboot', 'invoke',
+    'start', 'stop', 'reboot', 'invoke', 'terminate',
     'encrypt', 'decrypt', 'sign', 'verify', 'rotate',
     'recover', 'purge', 'purge-deleted', 'cancel-deletion', 'empty',
     'attach', 'detach', 'associate', 'disassociate',
@@ -89,7 +89,7 @@ export function describeRequest(method: string, path: string): ResourceRequest |
         return null
     }
 
-    if (isReadPost(rest)) return null
+    if (isReadPost(method, rest)) return null
 
     let resourceId: string | null = null
     let action: string | null = null
@@ -118,11 +118,16 @@ function isCloudProvider(value: string | undefined): boolean {
     return typeof value === 'string' && CLOUD_PROVIDERS.has(value)
 }
 
-/** `POST .../sql/databases` and any `.../query` read state; they do not change it. */
-function isReadPost(rest: string[]): boolean {
+/**
+ * `POST .../sql/databases` and a POST whose last segment is `query` read state;
+ * they do not change it. Only POST counts, and it must be the whole segment: a
+ * DELETE of a resource whose name merely ends in `-query` is a real delete.
+ */
+function isReadPost(method: string, rest: string[]): boolean {
+    if (method !== 'POST') return false
     const last = rest[rest.length - 1]
     if (!last) return false
-    if (last.endsWith('query')) return true
+    if (last === 'query') return true
     return rest[rest.length - 2] === 'sql' && (last === 'databases' || last === 'tables')
 }
 

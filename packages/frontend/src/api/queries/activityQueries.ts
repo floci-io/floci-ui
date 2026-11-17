@@ -4,8 +4,10 @@ import type {ActivityPage, ActivityQuery} from '@/types/activity'
 
 /**
  * The feed polls, so a change made without touching the page still shows up.
- * Only the first page polls: older pages are history and re-fetching a cursor
- * chain on every tick would multiply requests for no new information.
+ * Only the first page polls, and only while it is the only page: once "Load
+ * more" pins a cursor chain, a refreshed first page shifts its boundary
+ * against the frozen older cursors and rows between them vanish, so polling
+ * stops while history is being read.
  */
 export const ACTIVITY_POLL_INTERVAL_MS = 5000
 
@@ -31,10 +33,10 @@ function activityPageOptions({filters, cursor, poll}: ActivityPageOptions): UseQ
     }
 }
 
-/** One query per cursor page, newest page first. */
+/** One query per cursor page, newest page first. Polling stops once a second page is loaded. */
 export function useActivityPages(filters: ActivityQuery, cursors: Array<string | undefined>) {
     return useQueries({
         queries: cursors.map((cursor, index) =>
-            activityPageOptions({filters, cursor, poll: index === 0})),
+            activityPageOptions({filters, cursor, poll: index === 0 && cursors.length === 1})),
     })
 }
