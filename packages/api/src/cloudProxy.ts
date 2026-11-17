@@ -51,6 +51,7 @@ import {OciFunctionsAdapter} from './adapter-oci/OciFunctionsAdapter'
 import {OciOkeAdapter} from './adapter-oci/OciOkeAdapter'
 import {OciDatabaseAdapter} from './adapter-oci/OciDatabaseAdapter'
 import {OciWorkRequestsAdapter} from './adapter-oci/OciWorkRequestsAdapter'
+import {OciOrganizationsAdapter} from './adapter-oci/OciOrganizationsAdapter'
 import {AwsSqsAdapter} from './adapter-aws/AwsSqsAdapter'
 import {AwsSnsAdapter} from './adapter-aws/AwsSnsAdapter'
 import {AwsCloudWatchAdapter} from './adapter-aws/AwsCloudWatchAdapter'
@@ -188,6 +189,7 @@ export function createCloudAdapterRegistry(accountId?: string | null, region?: s
         new OciOkeAdapter(),
         new OciDatabaseAdapter(),
         new OciWorkRequestsAdapter(),
+        new OciOrganizationsAdapter(),
         new AwsSqsAdapter(clients.sqs),
         new AwsSnsAdapter(clients.sns),
         new AwsCloudWatchAdapter(clients.cloudwatch),

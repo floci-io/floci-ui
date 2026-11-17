@@ -352,6 +352,14 @@ export const SERVICE_CATALOG = {
         group: 'Provisioning',
         order: 20,
     },
+    organizations: {
+        displayName: 'Organizations',
+        description: 'Browse child tenancies, links and invitations of an organization.',
+        docsSlugByCloud: {oci: 'organizations'},
+        iconKey: 'iam',
+        group: 'Provisioning',
+        order: 40,
+    },
     cicd: {
         displayName: 'CI/CD',
         displayNameByCloud: {aws: 'CodeBuild'},
