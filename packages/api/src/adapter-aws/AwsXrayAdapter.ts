@@ -7,12 +7,26 @@ import {
     type XRayClient,
 } from '@aws-sdk/client-xray'
 import {awsXraySchema} from '../cloud-spi/xraySchema'
-import {NotSupportedError, ValidationError} from '../cloud-spi/errors'
-import type {CloudResource, CloudServiceAdapter, CreateResourceInput, ResourceQuery, ServiceSchema} from '../cloud-spi/types'
+import {NotImplementedByRuntimeError, NotSupportedError, ValidationError} from '../cloud-spi/errors'
+import type {
+    CloudResource,
+    CloudServiceAdapter,
+    CloudServiceDescriptorOverride,
+    CreateResourceInput,
+    ResourceQuery,
+    ServiceSchema,
+} from '../cloud-spi/types'
+import {mapAwsSdkError} from './awsErrors'
 
 /** The windows the schema offers, in seconds. */
 const WINDOWS: Record<string, number> = {'5m': 300, '15m': 900, '1h': 3600, '24h': 86400}
 const DEFAULT_WINDOW = '1h'
+
+/** How long a probe result is reused, since the sidebar asks for the service list often. */
+const PROBE_TTL_MS = 5_000
+
+const RUNTIME_GAP_REASON =
+    'This Floci build does not serve X-Ray yet. It needs a build that includes floci-io/floci#7733.'
 
 /** How many summary pages one list asks for, so a wide window cannot page forever. */
 const MAX_SUMMARY_PAGES = 10
@@ -35,6 +49,8 @@ export class AwsXrayAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'xray' as const
 
+    private probe: {at: number; gap: boolean} | null = null
+
     constructor(
         private readonly xray: XRayClient,
         private readonly region = process.env.AWS_REGION || 'us-east-1',
@@ -46,6 +62,33 @@ export class AwsXrayAdapter implements CloudServiceAdapter {
 
     descriptorOverride(): {displayName: string} {
         return {displayName: 'X-Ray'}
+    }
+
+    /**
+     * A Floci build that predates floci-io/floci#7733 answers every X-Ray call with
+     * `UnknownOperationException`. Only that answer marks the service as a runtime gap: an
+     * unreachable runtime or any other failure leaves it available, since reachability is
+     * reported on its own and a failed probe must not hide a service that works.
+     */
+    async resolveDescriptorOverride(): Promise<CloudServiceDescriptorOverride> {
+        if (!(await this.runtimeLacksXray())) {
+            return this.descriptorOverride()
+        }
+        return {...this.descriptorOverride(), availability: 'coming_soon', reason: RUNTIME_GAP_REASON}
+    }
+
+    private async runtimeLacksXray(): Promise<boolean> {
+        if (this.probe && Date.now() - this.probe.at < PROBE_TTL_MS) {
+            return this.probe.gap
+        }
+        let gap = false
+        try {
+            await this.health()
+        } catch (error) {
+            gap = mapAwsSdkError(error) instanceof NotImplementedByRuntimeError
+        }
+        this.probe = {at: Date.now(), gap}
+        return gap
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
