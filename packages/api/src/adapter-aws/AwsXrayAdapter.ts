@@ -10,7 +10,10 @@ import {awsXraySchema} from '../cloud-spi/xraySchema'
 import {NotSupportedError, ValidationError} from '../cloud-spi/errors'
 import type {CloudResource, CloudServiceAdapter, CreateResourceInput, ResourceQuery, ServiceSchema} from '../cloud-spi/types'
 
-/** The windows the schema offers, in seconds. */
+/**
+ * The windows the `window` filter accepts, in seconds. The schema does not declare the filter yet,
+ * so the page lists the default window until the Cloud Explorer renders a filter row (#429).
+ */
 const WINDOWS: Record<string, number> = {'5m': 300, '15m': 900, '1h': 3600, '24h': 86400}
 const DEFAULT_WINDOW = '1h'
 
@@ -56,6 +59,7 @@ export class AwsXrayAdapter implements CloudServiceAdapter {
         }
         const endTime = new Date()
         const startTime = new Date(endTime.getTime() - seconds * 1000)
+        // Like the window, the expression is adapter support that waits for #429; the page sends neither.
         const expression = query.filters?.expression?.trim()
 
         const summaries: TraceSummary[] = []
