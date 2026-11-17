@@ -37,6 +37,7 @@ import { dataExplorerPath } from "@/lib/dataExplorer";
 import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
+import { activeListFilters, filterOptions, filterValueOf, listFiltersOf } from "@/lib/listFilters";
 import { ModalOverlay } from "@/components/ModalOverlay";
 import {
   storageObjectsKey,
@@ -87,7 +88,7 @@ export function DynamicResourceView({
   const qc = useQueryClient();
   const accountId = useAccountId();
   const [search, setSearch] = useState("");
-  const [viewState, setViewState] = useState("active");
+  const [chosenFilters, setChosenFilters] = useState<Record<string, string>>({});
   const [databaseTab, setDatabaseTab] = useState<"instances" | "snapshots">("instances");
   const [logsTab, setLogsTab] = useState<"groups" | "insights">("groups");
   const [selection, setSelection] = useState<
@@ -123,6 +124,13 @@ export function DynamicResourceView({
     }
   };
 
+  const changeFilter = (name: string, value: string) => {
+    setChosenFilters((current) => ({ ...current, [name]: value }));
+    selectResource(undefined);
+    setIsDeleteMulti(false);
+    setSelectedItems([]);
+  };
+
   const handleLogsTabChange = (tab: "groups" | "insights") => {
     setLogsTab(tab);
     if (tab === "insights") {
@@ -135,21 +143,29 @@ export function DynamicResourceView({
     queryFn: ({ signal }) => getServiceSchema(cloud, service, signal),
   });
 
-  // A schema that declares a `state` select (Key Vault: active or soft-deleted
-  // secrets) gets a view selector; every other service lists exactly as before.
-  const viewStateFilter = schemaQuery.data?.filters.find(
-    (filter) => filter.name === "state" && filter.type === "select",
+  // Every select or text filter a schema declares is painted and sent to the list
+  // call; a schema that declares none lists exactly as before. A `state` select
+  // set to `deleted` (Key Vault soft-deleted secrets) also switches to the
+  // read-only deleted view.
+  const declaredFilters = useMemo(() => listFiltersOf(schemaQuery.data?.filters), [schemaQuery.data]);
+  const listFilters = useMemo(
+    () => activeListFilters(declaredFilters, chosenFilters),
+    [declaredFilters, chosenFilters],
   );
-  const listFilters = viewStateFilter ? { state: viewState } : undefined;
-  const viewingDeleted = viewStateFilter !== undefined && viewState === "deleted";
+  const viewingDeleted = declaredFilters.some(
+    (filter) =>
+      filter.name === "state" &&
+      filter.type === "select" &&
+      filterValueOf(filter, chosenFilters) === "deleted",
+  );
 
   useEffect(() => {
-    setViewState("active");
+    setChosenFilters({});
   }, [accountId, cloud, service]);
 
   const resourcesKey = useMemo(
-    () => ["cloud-resources", accountId, cloud, service, search, listFilters?.state ?? ""],
-    [accountId, cloud, service, search, listFilters?.state],
+    () => ["cloud-resources", accountId, cloud, service, search, listFilters ?? {}],
+    [accountId, cloud, service, search, listFilters],
   );
 
   const resourcesQuery = useQuery({
@@ -716,22 +732,29 @@ export function DynamicResourceView({
                       placeholder="Filter resources"
                     />
                   </div>
-                  {viewStateFilter && (
-                    <select
-                      aria-label={viewStateFilter.label}
-                      className="input"
-                      value={viewState}
-                      onChange={(event) => {
-                        setViewState(event.target.value);
-                        selectResource(undefined);
-                        setIsDeleteMulti(false);
-                        setSelectedItems([]);
-                      }}
-                    >
-                      {viewStateFilter.options?.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
+                  {declaredFilters.map((filter) =>
+                    filter.type === "select" ? (
+                      <select
+                        key={filter.name}
+                        aria-label={filter.label}
+                        className="input"
+                        value={filterValueOf(filter, chosenFilters)}
+                        onChange={(event) => changeFilter(filter.name, event.target.value)}
+                      >
+                        {filterOptions(filter).map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        key={filter.name}
+                        aria-label={filter.label}
+                        className="input"
+                        value={filterValueOf(filter, chosenFilters)}
+                        placeholder={filter.label}
+                        onChange={(event) => changeFilter(filter.name, event.target.value)}
+                      />
+                    ),
                   )}
                   {service === "email" && (
                     clearConfirm ? (

@@ -75,7 +75,7 @@ export class GcpCloudFunctionsAdapter implements CloudServiceAdapter {
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const body = await this.client.json<GcpFunctionList>(this.functionsPath())
-        return filterBySearch((body?.functions ?? []).map(toResource), query.search)
+        return filterByRuntime(filterBySearch((body?.functions ?? []).map(toResource), query.search), query.filters?.runtime)
     }
 
     async get(id: string): Promise<CloudResource | null> {
@@ -179,4 +179,10 @@ function filterBySearch(resources: CloudResource[], search?: string): CloudResou
     const normalized = search?.trim().toLowerCase()
     if (!normalized) return resources
     return resources.filter((resource) => resource.name.toLowerCase().includes(normalized))
+}
+
+function filterByRuntime(resources: CloudResource[], runtime?: string): CloudResource[] {
+    const normalized = runtime?.trim().toLowerCase()
+    if (!normalized) return resources
+    return resources.filter((resource) => String(resource.metadata.runtime ?? '').toLowerCase().includes(normalized))
 }

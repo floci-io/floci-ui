@@ -1006,6 +1006,7 @@ describe("DynamicResourceView Empty bucket and object writes already sent", () =
           label: "View",
           type: "select",
           required: false,
+          defaultValue: "active",
           options: [
             { label: "Active secrets", value: "active" },
             { label: "Deleted secrets", value: "deleted" },
@@ -1087,6 +1088,80 @@ describe("DynamicResourceView Empty bucket and object writes already sent", () =
       await screen.findByText("pool-a");
       expect(screen.queryByLabelText("View")).not.toBeInTheDocument();
       expect(listCloudResources).toHaveBeenLastCalledWith("aws", "cognito", "", expect.anything(), undefined);
+    });
+  });
+
+  describe("declared list filters", () => {
+    const filteredSchema: ServiceSchema = {
+      cloud: "aws",
+      service: "serverless",
+      displayName: "Serverless",
+      fields: [],
+      filters: [
+        { name: "search", label: "Search", type: "text", required: false },
+        {
+          name: "kind",
+          label: "Kind",
+          type: "select",
+          required: false,
+          options: [
+            { label: "Functions", value: "function" },
+          ],
+        },
+        { name: "runtime", label: "Runtime", type: "text", required: false },
+        { name: "notes", label: "Notes", type: "textarea", required: false },
+      ],
+      actions: ["list"],
+      columns: [{ name: "name", label: "Name" }],
+    };
+
+    function renderFiltered() {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <DynamicResourceView cloud="aws" service="serverless" serviceAvailability="available" cloudStatus={cloudStatus} onOpenInfo={vi.fn()} />
+        </QueryClientProvider>,
+      );
+    }
+
+    beforeEach(() => {
+      vi.mocked(getServiceSchema).mockResolvedValue(filteredSchema);
+      vi.mocked(listCloudResources).mockResolvedValue([summary]);
+    });
+
+    it("paints each select and text filter once and lists unfiltered until one is set", async () => {
+      renderFiltered();
+
+      const kind = await screen.findByLabelText("Kind");
+      expect(within(kind).getAllByRole("option").map((option) => option.textContent)).toEqual(["All", "Functions"]);
+      expect(screen.getByLabelText("Runtime")).toBeInTheDocument();
+      expect(screen.getAllByLabelText("Filter resources")).toHaveLength(1);
+      expect(screen.queryByLabelText("Notes")).not.toBeInTheDocument();
+      await screen.findByText("pool-a");
+      expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), undefined);
+    });
+
+    it("sends a chosen filter to the list call and refetches when it changes", async () => {
+      const user = userEvent.setup();
+      renderFiltered();
+
+      await user.selectOptions(await screen.findByLabelText("Kind"), "function");
+      await waitFor(() =>
+        expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), { kind: "function" }),
+      );
+
+      await user.type(screen.getByLabelText("Runtime"), "python");
+      await waitFor(() =>
+        expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), {
+          kind: "function",
+          runtime: "python",
+        }),
+      );
+
+      await user.selectOptions(screen.getByLabelText("Kind"), "");
+      await waitFor(() =>
+        expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), { runtime: "python" }),
+      );
     });
   });
 });

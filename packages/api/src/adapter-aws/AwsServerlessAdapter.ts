@@ -96,7 +96,7 @@ export class AwsServerlessAdapter implements CloudServiceAdapter {
       },
     }));
 
-    return filterBySearch(resources, query.search);
+    return filterByRuntime(filterBySearch(resources, query.search), query.filters?.runtime);
   }
 
   async get(id: string): Promise<CloudResource | null> {
@@ -740,6 +740,17 @@ function filterBySearch(
   const normalized = search?.trim().toLowerCase();
   if (!normalized) return resources;
   return resources.filter((r) => r.name.toLowerCase().includes(normalized));
+}
+
+function filterByRuntime(
+  resources: CloudResource[],
+  runtime?: string,
+): CloudResource[] {
+  const normalized = runtime?.trim().toLowerCase();
+  if (!normalized) return resources;
+  return resources.filter((r) =>
+    String(r.metadata.runtime ?? "").toLowerCase().includes(normalized),
+  );
 }
 
 function hasHttpStatus(error: unknown, status: number): boolean {
