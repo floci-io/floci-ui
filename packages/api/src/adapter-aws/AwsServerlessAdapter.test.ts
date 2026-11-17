@@ -76,6 +76,15 @@ describe('AwsServerlessAdapter', () => {
         await expect(adapter.list({search: 'nope'})).resolves.toHaveLength(0)
     })
 
+    test('filters the list by runtime, case-insensitively and by prefix', async () => {
+        const {client} = stubLambda(() => listPayload)
+        const adapter = new AwsServerlessAdapter(client)
+
+        await expect(adapter.list({filters: {runtime: 'NODEJS'}})).resolves.toHaveLength(1)
+        await expect(adapter.list({filters: {runtime: 'python'}})).resolves.toHaveLength(0)
+        await expect(adapter.list({filters: {runtime: '  '}})).resolves.toHaveLength(1)
+    })
+
     test('returns null when a function does not exist', async () => {
         const {client} = stubLambda(() => {
             throw Object.assign(new Error('ResourceNotFoundException'), {$metadata: {httpStatusCode: 404}})
