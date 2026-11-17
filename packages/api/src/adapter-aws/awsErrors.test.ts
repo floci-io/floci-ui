@@ -61,6 +61,7 @@ describe('mapAwsSdkError', () => {
         // runtime gaps
         ['NotImplemented', 501, 'operation_not_implemented'],
         ['UnsupportedOperation', 501, 'operation_not_implemented'],
+        ['UnknownOperationException', 501, 'operation_not_implemented'],
         ['ServiceUnavailable', 503, 'runtime_unavailable'],
     ]
 

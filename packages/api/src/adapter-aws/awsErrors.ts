@@ -143,6 +143,8 @@ const NOT_IMPLEMENTED_NAMES = new Set([
     'NotImplemented',
     'UnsupportedOperation',
     'UnsupportedOperationException',
+    // A runtime that does not serve the operation at all answers 404 with this name.
+    'UnknownOperationException',
 ])
 
 const UNAVAILABLE_NAMES = new Set([

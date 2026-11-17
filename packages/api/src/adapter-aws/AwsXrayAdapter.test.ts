@@ -8,7 +8,8 @@ import {
     type XRayClient,
 } from '@aws-sdk/client-xray'
 import {AwsXrayAdapter} from './AwsXrayAdapter'
-import {NotSupportedError, ValidationError} from '../cloud-spi/errors'
+import {mapAwsSdkError} from './awsErrors'
+import {NotImplementedByRuntimeError, NotSupportedError, ValidationError} from '../cloud-spi/errors'
 import type {CreateResourceInput} from '../cloud-spi/types'
 
 type SendHandler = (command: unknown) => Promise<unknown>
@@ -349,5 +350,64 @@ describe('AwsXrayAdapter', () => {
         await adapter.health()
 
         expect(sent).toBeInstanceOf(GetSamplingRulesCommand)
+    })
+
+    describe('runtime availability', () => {
+        function failure(name: string, status: number): Error {
+            return Object.assign(new Error(`${name}: Unknown operation: POST /SamplingRules`), {
+                name,
+                $fault: 'client',
+                $metadata: {httpStatusCode: status},
+            })
+        }
+
+        test('is a runtime gap with a reason when the build does not know X-Ray', async () => {
+            const adapter = createAdapter(async () => {
+                throw failure('UnknownOperationException', 404)
+            })
+
+            const override = await adapter.resolveDescriptorOverride()
+
+            expect(override.availability).toBe('coming_soon')
+            expect(override.reason).toContain('floci-io/floci#7733')
+            expect(override.displayName).toBe('X-Ray')
+        })
+
+        test('lists as not implemented by the runtime, not as a missing resource', async () => {
+            const adapter = createAdapter(async () => {
+                throw failure('UnknownOperationException', 404)
+            })
+
+            const error = await adapter.list().catch((caught) => caught)
+
+            expect(mapAwsSdkError(error)).toBeInstanceOf(NotImplementedByRuntimeError)
+        })
+
+        test('stays available when the runtime serves X-Ray', async () => {
+            const adapter = createAdapter(async () => ({SamplingRuleRecords: []}))
+
+            expect(await adapter.resolveDescriptorOverride()).toEqual({displayName: 'X-Ray'})
+        })
+
+        test('stays available when the probe fails for another reason', async () => {
+            const adapter = createAdapter(async () => {
+                throw failure('NetworkingError', 503)
+            })
+
+            expect(await adapter.resolveDescriptorOverride()).toEqual({displayName: 'X-Ray'})
+        })
+
+        test('reuses a probe result briefly', async () => {
+            let calls = 0
+            const adapter = createAdapter(async () => {
+                calls += 1
+                return {SamplingRuleRecords: []}
+            })
+
+            await adapter.resolveDescriptorOverride()
+            await adapter.resolveDescriptorOverride()
+
+            expect(calls).toBe(1)
+        })
     })
 })
