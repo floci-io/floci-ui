@@ -96,11 +96,15 @@ export class CloudProxyService {
      * `probes` is injectable so tests can exercise status without reaching the
      * network — the probes hit real runtime endpoints, which are present on a
      * developer machine and absent in CI.
+     *
+     * `awsRegion` is the region the registry's AWS clients are bound to, reported
+     * on the AWS status so the console can show which region it is serving.
      */
     constructor(
         private readonly registry: CloudAdapterRegistry,
         probes: Record<CloudProvider, RuntimeProbe> = runtimeProbes,
         private readonly scope: CloudProvider | null = resolveScopedCloud(),
+        private readonly awsRegion: string | null = null,
     ) {
         this.probes = probes
     }
@@ -184,6 +188,7 @@ export class CloudProxyService {
             endpoint: endpointFor(cloud),
             checkedAt: cached.checkedAt,
             error: cached.error,
+            ...(cloud === 'aws' && this.awsRegion ? {region: this.awsRegion} : {}),
         }
 
         if (!options.includeServices) return base

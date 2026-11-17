@@ -1,4 +1,5 @@
-import {describe, expect, test} from 'bun:test'
+import {describe, expect, spyOn, test} from 'bun:test'
+import {XRayClient} from '@aws-sdk/client-xray'
 import {createCloudAdapterRegistry} from './cloudProxy'
 import {checkChildCapabilities} from './cloud-spi/childCapabilities'
 import {isServiceType} from './cloud-spi/serviceCatalog'
@@ -173,6 +174,20 @@ describe('registered adapters honour their schema', () => {
             }
         })
     }
+})
+
+describe('adapters report the region the registry is built for', () => {
+    test('X-Ray lists traces in the region a request names, not the process default', async () => {
+        const send = spyOn(XRayClient.prototype, 'send').mockResolvedValue(
+            {TraceSummaries: [{Id: '1-5f3b8a0e-3c9d4d8e9b7a2c1d4e5f6a7b', StartTime: new Date(), Duration: 0.25}]} as never)
+        try {
+            const xray = createCloudAdapterRegistry(undefined, 'eu-west-1').get('aws', 'xray')
+            if (!xray) throw new Error('expected an X-Ray adapter')
+            expect((await xray.list()).map((trace) => trace.region)).toEqual(['eu-west-1'])
+        } finally {
+            send.mockRestore()
+        }
+    })
 })
 
 describe('adapter capability advertisements match the runtime reality', () => {
