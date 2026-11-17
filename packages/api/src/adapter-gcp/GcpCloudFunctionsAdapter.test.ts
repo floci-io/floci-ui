@@ -86,6 +86,16 @@ describe('GcpCloudFunctionsAdapter', () => {
         expect(resources.map((r) => r.name)).toEqual(['beta'])
     })
 
+    test('filters the list by runtime, case-insensitively and by prefix', async () => {
+        const python = {...gen2Function('py'), buildConfig: {runtime: 'python312', entryPoint: 'main'}}
+        globalThis.fetch = (async () => new Response(JSON.stringify({
+            functions: [gen2Function('alpha'), python],
+        }), {status: 200})) as unknown as typeof fetch
+
+        expect((await adapter().list({filters: {runtime: 'PYTHON'}})).map((r) => r.name)).toEqual(['py'])
+        expect(await adapter().list({filters: {runtime: 'ruby'}})).toEqual([])
+    })
+
     test('get returns null when the function is missing', async () => {
         globalThis.fetch = (async () => new Response('Not Found', {status: 404})) as unknown as typeof fetch
         await expect(adapter().get('missing')).resolves.toBeNull()
