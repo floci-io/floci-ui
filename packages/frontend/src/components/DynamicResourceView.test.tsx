@@ -430,6 +430,115 @@ describe("DynamicResourceView GCP compute", () => {
   });
 });
 
+describe("DynamicResourceView AWS compute", () => {
+  const computeSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "compute",
+    displayName: "EC2 Compute",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect", "delete"],
+    columns: [{ name: "name", label: "Name" }],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(computeSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([
+      { ...summary, id: "ami-0abcdef1234567891", name: "al2023-ami", cloud: "aws", service: "compute", type: "image" },
+    ]);
+  });
+
+  it("shows why a resource could not be deleted, instead of failing silently", async () => {
+    const user = userEvent.setup();
+    vi.mocked(deleteCloudResource).mockRejectedValue(
+      new Error("Not authorized for images: [ami-0abcdef1234567891] (access_denied)"),
+    );
+
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <DynamicResourceView
+          cloud="aws"
+          service="compute"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Delete al2023-ami" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(
+      await screen.findByText(/Could not delete al2023-ami: .*Not authorized for images/),
+    ).toBeInTheDocument();
+  });
+
+  it("hides a late delete refusal from the page the user navigated to", async () => {
+    const user = userEvent.setup();
+    const gate = deferred<void>();
+    vi.mocked(deleteCloudResource).mockReturnValue(gate.promise);
+
+    const rendered = render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <DynamicResourceView
+          cloud="aws"
+          service="compute"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Delete al2023-ami" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    // The request is still in flight when the user moves to another service.
+    // The view is reused across services, so the refusal must not hang under
+    // serverless' table once it lands.
+    rendered.rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <DynamicResourceView
+          cloud="aws"
+          service="serverless"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await act(async () =>
+      gate.reject(new Error("Not authorized for images: [ami-0abcdef1234567891] (access_denied)")),
+    );
+    // The row button re-enabling means the failure has settled; only then is
+    // the banner's absence a meaningful assertion.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Delete al2023-ami" })).toBeEnabled(),
+    );
+    expect(screen.queryByText(/Could not delete al2023-ami/)).not.toBeInTheDocument();
+
+    // Navigation resets per-service state, so returning does not resurrect it.
+    rendered.rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <DynamicResourceView
+          cloud="aws"
+          service="compute"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/Could not delete al2023-ami/)).not.toBeInTheDocument(),
+    );
+  });
+});
+
 describe("DynamicResourceView AWS Athena", () => {
   const athenaSchema: ServiceSchema = {
     cloud: "aws",

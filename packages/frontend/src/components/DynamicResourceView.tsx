@@ -106,13 +106,16 @@ export function DynamicResourceView({
   const [isDeleteMulti, setIsDeleteMulti] = useState(false);
   const [selectedItems, setSelectedItems] = useState<CloudResource[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  // Kept with the account it was for, like the single-delete refusal below.
+  // Kept with the account, cloud and service it was for, like the single-delete
+  // refusal below.
   const [bulkDeleteError, setBulkDeleteError] = useState<
-    { accountId: string; message: string } | null
+    { accountId: string; cloud: CloudProvider; service: CloudServiceType; message: string } | null
   >(null);
-  // A refused bucket delete, kept with the account and bucket it was for.
-  const [bucketDeleteError, setBucketDeleteError] = useState<
-    { accountId: string; bucketId: string; message: string } | null
+  // A refused single delete, kept with the account, cloud and service it was for:
+  // the view is reused across services, so an account check alone would show the
+  // banner on whichever page the user navigated to next.
+  const [deleteError, setDeleteError] = useState<
+    { accountId: string; cloud: CloudProvider; service: CloudServiceType; resourceId: string; message: string } | null
   >(null);
   // The bucket the open Empty bucket dialog was opened for, captured at that moment.
   const [emptyConfirm, setEmptyConfirm] = useState<StorageTarget | null>(null);
@@ -221,8 +224,8 @@ export function DynamicResourceView({
       if (storageTargetKeyRef.current !== targetKey(target)) return;
       setSelectedObject(undefined);
       // A "not empty" refusal for this bucket no longer holds.
-      setBucketDeleteError((refusal) =>
-        refusal?.accountId === target.accountId && refusal.bucketId === target.bucketId ? null : refusal,
+      setDeleteError((refusal) =>
+        refusal?.accountId === target.accountId && refusal.resourceId === target.bucketId ? null : refusal,
       );
       setSuccessToast(
         `Emptied ${target.bucketId}: permanently deleted ${result.deleted} object version(s) and delete marker(s).`,
@@ -321,14 +324,18 @@ export function DynamicResourceView({
     mutationFn: (resource: CloudResource) =>
       deleteCloudResource(cloud, service, resource.id),
     onMutate: () => {
-      setBucketDeleteError(null);
-      return { accountId };
+      setDeleteError(null);
+      // Captured now: navigation while the request is in flight must not
+      // re-home the banner to the page the user landed on.
+      return { accountId, cloud, service };
     },
     onError: (error, resource, context) => {
-      if (resource.service !== "storage" || !context) return;
-      setBucketDeleteError({
+      if (!context) return;
+      setDeleteError({
         accountId: context.accountId,
-        bucketId: resource.id,
+        cloud: context.cloud,
+        service: context.service,
+        resourceId: resource.id,
         message: `Could not delete ${resource.name || resource.id}: ${errorMessage(error)}`,
       });
     },
@@ -372,7 +379,7 @@ export function DynamicResourceView({
         queryKey: ["cloud-resources", accountId, cloud, service],
       });
     },
-    onMutate: () => ({ accountId }),
+    onMutate: () => ({ accountId, cloud, service }),
     onSuccess: ({ succeededIds, failedItems }, _items, context) => {
       setDeleteConfirm(false);
       setSelectedItems((prev) =>
@@ -391,6 +398,8 @@ export function DynamicResourceView({
             : "";
         setBulkDeleteError({
           accountId: context.accountId,
+          cloud: context.cloud,
+          service: context.service,
           message: `Failed to delete ${failedItems.length} of ${
             succeededIds.size + failedItems.length
           } selected resource(s).${reasons}`,
@@ -502,7 +511,7 @@ export function DynamicResourceView({
     setClearConfirm(false);
     setDeleteConfirm(false);
     setBulkDeleteError(null);
-    setBucketDeleteError(null);
+    setDeleteError(null);
     setEditingResource(null);
     setUpdateError(null);
     setSearch("");
@@ -913,14 +922,18 @@ export function DynamicResourceView({
                     : "Unable to clear the inbox."}
                 </p>
               )}
-              {bulkDeleteError?.accountId === accountId && (
+              {bulkDeleteError?.accountId === accountId &&
+                bulkDeleteError.cloud === cloud &&
+                bulkDeleteError.service === service && (
                 <p className="error-text compact-text" style={{ margin: "0 12px 10px", whiteSpace: "pre-line" }}>
                   {bulkDeleteError.message}
                 </p>
               )}
-              {bucketDeleteError?.accountId === accountId && (
+              {deleteError?.accountId === accountId &&
+                deleteError.cloud === cloud &&
+                deleteError.service === service && (
                 <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
-                  {bucketDeleteError.message}
+                  {deleteError.message}
                 </p>
               )}
               {showEmptyError && (
