@@ -315,6 +315,14 @@ export const SERVICE_CATALOG = {
         group: 'Security',
         order: 25,
     },
+    paymentcryptography: {
+        displayName: 'Payment Cryptography',
+        description: 'Create and manage the encryption keys a payment operator holds.',
+        docsSlugByCloud: {aws: 'payment-cryptography'},
+        iconKey: 'paymentcryptography',
+        group: 'Security',
+        order: 27,
+    },
     parameters: {
         displayName: 'Parameter Store',
         description: 'Store configuration values for applications.',
