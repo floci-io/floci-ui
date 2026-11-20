@@ -38,8 +38,13 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
     onSuccess: () => {
       setEditing(false)
       setError(null)
+      // The inspector shows the resource's own query and the list shows the row, and
+      // both carry the tags, so both are asked again.
       void queryClient.invalidateQueries({
-        queryKey: ['cloud-resources', getAccountId(), cloud, resource.service],
+        queryKey: ['cloud-resource', getAccountId(), cloud, resource.service, resource.id],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ['cloud-console-resources', cloud, resource.service],
       })
     },
     onError: (failure) => setError(errorMessage(failure)),
