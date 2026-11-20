@@ -492,12 +492,23 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const {client, sent} = runtimeStub()
 
             const created = await new AwsPaymentCryptographyAdapter(client).create({
-                values: {kind: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: ARN},
+                values: {kind: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: KEY_ID},
             })
 
             const request = sent.find((command) => command instanceof CreateAliasCommand) as CreateAliasCommand
             expect(request.input).toEqual({AliasName: ALIAS_NAME, KeyArn: ARN})
             expect(created.id).toBe(ALIAS_ID)
+        })
+
+        test('takes the ARN of a key as well as the id the console knows it by', async () => {
+            const {client, sent} = runtimeStub()
+
+            await new AwsPaymentCryptographyAdapter(client).create({
+                values: {kind: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: ARN},
+            })
+
+            const request = sent.find((command) => command instanceof CreateAliasCommand) as CreateAliasCommand
+            expect(request.input.KeyArn).toBe(ARN)
         })
 
         test('refuses an alias name the reference does not allow', async () => {

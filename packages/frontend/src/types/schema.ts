@@ -71,6 +71,11 @@ export interface FieldSchema {
         message?: string
     }
     options?: Array<{label: string; value: string}>
+    /**
+     * The kind of resource whose rows become the options, for a field that names
+     * another resource of the same service.
+     */
+    optionsFrom?: string
 }
 
 export type ColumnFormat = 'text' | 'datetime' | 'relative' | 'bytes' | 'boolean' | 'badge' | 'code' | 'list'
