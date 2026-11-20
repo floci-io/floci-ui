@@ -1,8 +1,12 @@
 import {describe, expect, test} from 'bun:test'
 import {
+    CreateAliasCommand,
     CreateKeyCommand,
+    DeleteAliasCommand,
     DeleteKeyCommand,
+    GetAliasCommand,
     GetKeyCommand,
+    ListAliasesCommand,
     ListKeysCommand,
     ListTagsForResourceCommand,
     type PaymentCryptographyClient,
@@ -29,11 +33,22 @@ function stubClient(handler: (command: object) => SendResult | Promise<SendResul
 const ARN = 'arn:aws:payment-cryptography:us-east-1:000000000000:key/4a1b2c3d4e5f60718293a4b5c6d7e8f9'
 const OTHER_ARN = 'arn:aws:payment-cryptography:us-east-1:000000000000:key/9f8e7d6c5b4a39281706f5e4d3c2b1a0'
 
+/** A resource id carries the kind it is, because the explorer holds both in one table. */
+const KEY_ID = `key/${ARN}`
+const OTHER_KEY_ID = `key/${OTHER_ARN}`
+const ALIAS_NAME = 'alias/ExampleAlias'
+const ALIAS_ID = 'alias/ExampleAlias'
+
 const attributes = {
     KeyClass: 'SYMMETRIC_KEY',
     KeyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY',
     KeyAlgorithm: 'AES_256',
     KeyModesOfUse: {Encrypt: true, Decrypt: true, Wrap: true, Unwrap: true, DeriveKey: false, Sign: false, Verify: false, Generate: false, NoRestrictions: false},
+}
+
+const alias = {
+    AliasName: ALIAS_NAME,
+    KeyArn: ARN,
 }
 
 const key = {
@@ -60,6 +75,10 @@ function runtimeStub(overrides: Record<string, SendResult | (() => never)> = {})
         if (command instanceof GetKeyCommand) return respond('get', {Key: key})
         if (command instanceof CreateKeyCommand) return respond('create', {Key: key})
         if (command instanceof DeleteKeyCommand) return respond('delete', {Key: key})
+        if (command instanceof ListAliasesCommand) return respond('listAliases', {Aliases: []})
+        if (command instanceof GetAliasCommand) return respond('getAlias', {Alias: alias})
+        if (command instanceof CreateAliasCommand) return respond('createAlias', {Alias: alias})
+        if (command instanceof DeleteAliasCommand) return respond('deleteAlias', {})
         if (command instanceof ListTagsForResourceCommand) return respond('tags', {Tags: []})
         if (command instanceof TagResourceCommand) return respond('tag', {})
         if (command instanceof UntagResourceCommand) return respond('untag', {})
@@ -116,9 +135,12 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             const [row] = await new AwsPaymentCryptographyAdapter(client).list()
 
-            expect(sent).toHaveLength(2)
+            // The keys and the aliases are read in parallel, so the list is one
+            // ListKeys, one ListAliases and a GetKey for the key.
+            expect(sent.filter((command) => command instanceof ListKeysCommand)).toHaveLength(1)
+            expect(sent.filter((command) => command instanceof ListAliasesCommand)).toHaveLength(1)
             expect(row).toMatchObject({
-                id: ARN,
+                id: KEY_ID,
                 name: ARN,
                 cloud: 'aws',
                 service: 'paymentcryptography',
@@ -153,8 +175,9 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             const rows = await new AwsPaymentCryptographyAdapter(client).list()
 
-            expect(rows.map((row) => row.id)).toEqual([ARN, OTHER_ARN])
-            expect((sent[1] as ListKeysCommand).input.NextToken).toBe('page-2')
+            expect(rows.map((row) => row.id)).toEqual([KEY_ID, OTHER_KEY_ID])
+            const listCalls = sent.filter((command) => command instanceof ListKeysCommand)
+            expect((listCalls[1] as ListKeysCommand).input.NextToken).toBe('page-2')
         })
 
         test('searches the ARN and the usage', async () => {
@@ -173,9 +196,9 @@ describe('AwsPaymentCryptographyAdapter', () => {
             })
             const adapter = new AwsPaymentCryptographyAdapter(client)
 
-            expect((await adapter.list({search: 'K0_KEY'})).map((row) => row.id)).toEqual([ARN])
-            expect((await adapter.list({search: 'pin_encryption'})).map((row) => row.id)).toEqual([OTHER_ARN])
-            expect((await adapter.list({search: '4a1b2c3d'})).map((row) => row.id)).toEqual([ARN])
+            expect((await adapter.list({search: 'K0_KEY'})).map((row) => row.id)).toEqual([KEY_ID])
+            expect((await adapter.list({search: 'pin_encryption'})).map((row) => row.id)).toEqual([OTHER_KEY_ID])
+            expect((await adapter.list({search: '4a1b2c3d'})).map((row) => row.id)).toEqual([KEY_ID])
             expect(await adapter.list({search: 'nothing'})).toEqual([])
         })
     })
@@ -184,7 +207,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
         test('shows the attributes, the check value and the tags the inspector needs', async () => {
             const {client} = runtimeStub({tags: {Tags: [{Key: 'env', Value: 'prod'}]}})
 
-            const resource = await new AwsPaymentCryptographyAdapter(client).get(ARN)
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
 
             expect(resource?.metadata).toMatchObject({
                 keyModesOfUse: expect.objectContaining({Encrypt: true, DeriveKey: false}),
@@ -197,7 +220,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
         test('returns null for a key that does not exist', async () => {
             const {client} = runtimeStub({get: notFound})
 
-            expect(await new AwsPaymentCryptographyAdapter(client).get(ARN)).toBeNull()
+            expect(await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)).toBeNull()
         })
 
         test('does not hide a real failure behind null', async () => {
@@ -205,7 +228,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
                 throw Object.assign(new Error('boom'), {name: 'ServiceUnavailableException', $metadata: {httpStatusCode: 503}})
             })
 
-            await expect(new AwsPaymentCryptographyAdapter(client).get(ARN)).rejects.toThrow('boom')
+            await expect(new AwsPaymentCryptographyAdapter(client).get(KEY_ID)).rejects.toThrow('boom')
         })
 
         test('keeps the key when the tag lookup fails, and says the tags are unknown', async () => {
@@ -215,7 +238,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
                 },
             })
 
-            const resource = await new AwsPaymentCryptographyAdapter(client).get(ARN)
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
 
             expect(resource?.name).toBe(ARN)
             expect(resource?.metadata.tags).toEqual([])
@@ -249,7 +272,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
             })
             expect(request.input.Exportable).toBe(true)
             expect(request.input.Enabled).toBe(true)
-            expect(created.id).toBe(ARN)
+            expect(created.id).toBe(KEY_ID)
         })
 
         test('makes an asymmetric key a key pair', async () => {
@@ -434,10 +457,87 @@ describe('AwsPaymentCryptographyAdapter', () => {
         expect((sent[0] as ListKeysCommand).input).toEqual({MaxResults: 1})
     })
 
+    describe('aliases', () => {
+        test('lists the aliases beside the keys', async () => {
+            const {client} = runtimeStub({listAliases: {Aliases: [alias]}})
+
+            const rows = await new AwsPaymentCryptographyAdapter(client).list()
+
+            expect(rows.map((row) => row.id)).toEqual([KEY_ID, ALIAS_ID])
+            expect(rows.find((row) => row.id === ALIAS_ID)?.metadata).toMatchObject({
+                aliasName: ALIAS_NAME,
+                targetKeyArn: ARN,
+            })
+        })
+
+        test('the kind facet narrows the list to one kind', async () => {
+            const {client} = runtimeStub({listAliases: {Aliases: [alias]}})
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            expect((await adapter.list({filters: {kind: 'aliases'}})).map((row) => row.id)).toEqual([ALIAS_ID])
+            expect((await adapter.list({filters: {kind: 'keys'}})).map((row) => row.id)).toEqual([KEY_ID])
+        })
+
+        test('reads an alias, which lives in the region of the key it names', async () => {
+            const {client} = runtimeStub()
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(ALIAS_ID)
+
+            expect(resource?.name).toBe(ALIAS_NAME)
+            expect(resource?.type).toBe('alias')
+            expect(resource?.region).toBe('us-east-1')
+        })
+
+        test('makes an alias that points at a key', async () => {
+            const {client, sent} = runtimeStub()
+
+            const created = await new AwsPaymentCryptographyAdapter(client).create({
+                values: {kind: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: ARN},
+            })
+
+            const request = sent.find((command) => command instanceof CreateAliasCommand) as CreateAliasCommand
+            expect(request.input).toEqual({AliasName: ALIAS_NAME, KeyArn: ARN})
+            expect(created.id).toBe(ALIAS_ID)
+        })
+
+        test('refuses an alias name the reference does not allow', async () => {
+            const {client, sent} = runtimeStub()
+
+            await expect(
+                new AwsPaymentCryptographyAdapter(client).create({
+                    values: {kind: 'aliases', aliasName: 'ExampleAlias', aliasTargetKey: ARN},
+                }),
+            ).rejects.toBeInstanceOf(ValidationError)
+            expect(sent).toHaveLength(0)
+        })
+
+        test('removes an alias at once', async () => {
+            const {client, sent} = runtimeStub()
+
+            await new AwsPaymentCryptographyAdapter(client).delete(ALIAS_ID)
+
+            expect((sent[0] as DeleteAliasCommand).input).toEqual({AliasName: ALIAS_NAME})
+        })
+
+        test('an alias carries no tags of its own', async () => {
+            const {client} = runtimeStub()
+
+            await expect(
+                new AwsPaymentCryptographyAdapter(client).updateTags(ALIAS_ID, {env: 'prod'}),
+            ).rejects.toBeInstanceOf(ValidationError)
+        })
+
+        test('a resource id that names no kind is refused', async () => {
+            const {client} = runtimeStub()
+
+            await expect(new AwsPaymentCryptographyAdapter(client).get(ARN)).rejects.toBeInstanceOf(ValidationError)
+        })
+    })
+
     test('schedules the deletion of a key by its ARN', async () => {
         const {client, sent} = runtimeStub()
 
-        await new AwsPaymentCryptographyAdapter(client).delete(ARN)
+        await new AwsPaymentCryptographyAdapter(client).delete(KEY_ID)
 
         expect((sent[0] as DeleteKeyCommand).input).toEqual({KeyIdentifier: ARN})
     })
@@ -446,7 +546,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
         test('adds and removes the tags it is given', async () => {
             const {client, sent} = runtimeStub()
 
-            await new AwsPaymentCryptographyAdapter(client).updateTags(ARN, {env: 'prod', owner: null})
+            await new AwsPaymentCryptographyAdapter(client).updateTags(KEY_ID, {env: 'prod', owner: null})
 
             const added = sent.find((command) => command instanceof TagResourceCommand) as TagResourceCommand
             expect(added.input).toEqual({ResourceArn: ARN, Tags: [{Key: 'env', Value: 'prod'}]})
@@ -457,7 +557,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
         test('sends nothing when there is nothing to change', async () => {
             const {client, sent} = runtimeStub()
 
-            await new AwsPaymentCryptographyAdapter(client).updateTags(ARN, {})
+            await new AwsPaymentCryptographyAdapter(client).updateTags(KEY_ID, {})
 
             expect(sent).toHaveLength(0)
         })

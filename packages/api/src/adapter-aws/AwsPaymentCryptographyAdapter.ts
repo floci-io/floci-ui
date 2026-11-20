@@ -1,9 +1,14 @@
 import {
+    CreateAliasCommand,
     CreateKeyCommand,
+    DeleteAliasCommand,
     DeleteKeyCommand,
+    GetAliasCommand,
     GetKeyCommand,
+    ListAliasesCommand,
     ListKeysCommand,
     ListTagsForResourceCommand,
+    type Alias,
     type Key,
     type KeyModesOfUse,
     type PaymentCryptographyClient,
@@ -17,11 +22,14 @@ import {
     keyClassForAlgorithm,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
+    PAYMENT_CRYPTOGRAPHY_KIND_PREFIX,
+    PAYMENT_CRYPTOGRAPHY_KINDS,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
     type ModeCombination,
     type PaymentCryptographyKeyAlgorithm,
     type PaymentCryptographyKeyUsage,
+    type PaymentCryptographyKind,
     type PaymentCryptographyModeOfUse,
 } from '../cloud-spi/paymentCryptographySchema'
 import type {
@@ -40,6 +48,12 @@ type TagLookup = {tags: KeyTag[]; unavailable?: true}
 /** ListKeys takes at most 100 keys per page. */
 const LIST_PAGE_SIZE = 100
 
+/** The prefix an alias's own name carries, as the reference names it. */
+const ALIAS_PREFIX = 'alias/'
+
+/** The reference's own rule for the name of an alias. */
+const ALIAS_NAME_PATTERN = /^alias\/[A-Za-z0-9/_-]+$/
+
 export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'paymentcryptography' as const
@@ -51,28 +65,36 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /**
-     * The summary carries the attributes, the check value and the flags, but not the
-     * moment the key was made, so every key is read in full. The count of keys is
-     * the count of a local account, not of a cloud one.
+     * The keys and the aliases that name them, in one table.
+     *
+     * The summary of a key carries the attributes, the check value and the flags, but
+     * not the moment the key was made, so every key is read in full. The count of
+     * keys is the count of a local account, not of a cloud one.
      */
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const arns = await this.listKeyArns()
-        const resources = await Promise.all(
-            arns.map(async (arn) => {
-                const key = await this.describe(arn)
-                return key ? toResource(key, {tags: []}) : null
-            }),
-        )
-        return filterBySearch(resources.filter((resource): resource is CloudResource => resource !== null), query.search)
+        const kind = optionalKind(query.filters?.kind)
+        const kinds = kind ? [kind] : [...PAYMENT_CRYPTOGRAPHY_KINDS]
+        const groups = await Promise.all(kinds.map((each) => this.listKind(each)))
+        return filterBySearch(groups.flat(), query.search)
     }
 
     async get(id: string): Promise<CloudResource | null> {
-        const key = await this.describe(id)
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            const alias = await this.describeAlias(identifier)
+            return alias ? toAliasResource(alias) : null
+        }
+        const key = await this.describe(identifier)
         if (!key) return null
-        return toResource(key, await this.getTags(id))
+        return toResource(key, await this.getTags(identifier))
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
+        const kind = oneOf(input.values.kind, PAYMENT_CRYPTOGRAPHY_KINDS, 'kind', 'keys')
+        if (kind === 'aliases') {
+            return this.createAlias(input)
+        }
+
         const keyUsage = oneOf(input.values.keyUsage, PAYMENT_CRYPTOGRAPHY_KEY_USAGES, 'keyUsage')
         const keyAlgorithm = algorithmFor(keyUsage, input.values.keyAlgorithm)
         const keyModesOfUse = modesOfUse(input.values, keyUsage)
@@ -98,25 +120,38 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     /**
      * Deletion is scheduled, not immediate: the key is disabled and stays readable
      * until the waiting period ends, which is the reference's own behaviour.
+     *
+     * <p>An alias is removed at once, which is the reference's own behaviour too.
      */
     async delete(id: string): Promise<void> {
-        await this.client.send(new DeleteKeyCommand({KeyIdentifier: id}))
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            await this.client.send(new DeleteAliasCommand({AliasName: aliasNameOf(identifier)}))
+            return
+        }
+        await this.client.send(new DeleteKeyCommand({KeyIdentifier: identifier}))
     }
 
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            // An alias carries no tags of its own: the tags belong to the key it names.
+            throw new ValidationError('an alias carries no tags of its own; the key it names does')
+        }
+
         const added = Object.entries(tags).filter((entry): entry is [string, string] => entry[1] !== null)
         const removed = Object.keys(tags).filter((key) => tags[key] === null)
 
         if (added.length > 0) {
             await this.client.send(
                 new TagResourceCommand({
-                    ResourceArn: id,
+                    ResourceArn: identifier,
                     Tags: added.map(([key, value]) => ({Key: key, Value: value})),
                 }),
             )
         }
         if (removed.length > 0) {
-            await this.client.send(new UntagResourceCommand({ResourceArn: id, TagKeys: removed}))
+            await this.client.send(new UntagResourceCommand({ResourceArn: identifier, TagKeys: removed}))
         }
     }
 
@@ -149,6 +184,63 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         } while (nextToken)
 
         return arns
+    }
+
+    /** One kind of resource: the keys, or the aliases that name them. */
+    private async listKind(kind: PaymentCryptographyKind): Promise<CloudResource[]> {
+        if (kind === 'aliases') {
+            return (await this.listAliases()).map(toAliasResource)
+        }
+
+        const arns = await this.listKeyArns()
+        const resources = await Promise.all(
+            arns.map(async (arn) => {
+                const key = await this.describe(arn)
+                return key ? toResource(key, {tags: []}) : null
+            }),
+        )
+        return resources.filter((resource): resource is CloudResource => resource !== null)
+    }
+
+    /** ListAliases pages like ListKeys, so an account past that would be truncated. */
+    private async listAliases(): Promise<Alias[]> {
+        const aliases: Alias[] = []
+        let nextToken: string | undefined
+
+        do {
+            const res = await this.client.send(
+                new ListAliasesCommand({
+                    MaxResults: LIST_PAGE_SIZE,
+                    ...(nextToken ? {NextToken: nextToken} : {}),
+                }),
+            )
+            aliases.push(...(res.Aliases ?? []))
+            nextToken = res.NextToken
+        } while (nextToken)
+
+        return aliases
+    }
+
+    /** An alias, by the name it goes under. */
+    private async describeAlias(identifier: string): Promise<Alias | null> {
+        try {
+            const res = await this.client.send(new GetAliasCommand({AliasName: aliasNameOf(identifier)}))
+            return res.Alias ?? null
+        } catch (error) {
+            if (isNotFound(error)) return null
+            throw error
+        }
+    }
+
+    /** An alias points at a key, and the reference refuses one that points at none. */
+    private async createAlias(input: CreateResourceInput): Promise<CloudResource> {
+        const aliasName = requiredAliasName(input.values.aliasName)
+        const targetKey = requiredString(input.values.aliasTargetKey, 'aliasTargetKey')
+
+        const res = await this.client.send(new CreateAliasCommand({AliasName: aliasName, KeyArn: targetKey}))
+        if (!res.Alias) throw new RuntimeError('Payment Cryptography did not return the alias it created')
+
+        return toAliasResource(res.Alias)
     }
 
     private async describe(id: string): Promise<Key | null> {
@@ -270,7 +362,7 @@ function toResource(key: Key, tagLookup: TagLookup): CloudResource {
     const arn = key.KeyArn ?? ''
 
     return {
-        id: arn,
+        id: `${PAYMENT_CRYPTOGRAPHY_KIND_PREFIX.keys}/${arn}`,
         // A payment key has no name of its own: the ARN is its identity.
         name: arn,
         cloud: 'aws',
@@ -302,6 +394,86 @@ function toResource(key: Key, tagLookup: TagLookup): CloudResource {
     }
 }
 
+/**
+ * An alias, which is a name for a key.
+ *
+ * <p>The reference's own alias list carries the name and the key it points at, and
+ * nothing else: an alias has no attributes of its own, so the row shows the key's
+ * name and leaves the key's own columns empty.
+ */
+function toAliasResource(alias: Alias): CloudResource {
+    const name = alias.AliasName ?? ''
+    const identifier = name.startsWith(ALIAS_PREFIX) ? name.slice(ALIAS_PREFIX.length) : name
+
+    return {
+        id: `${PAYMENT_CRYPTOGRAPHY_KIND_PREFIX.aliases}/${identifier}`,
+        name,
+        cloud: 'aws',
+        service: 'paymentcryptography',
+        type: 'alias',
+        // An alias is regional, and it is in the region of the key it names.
+        region: regionFromArn(alias.KeyArn),
+        createdAt: null,
+        status: null,
+        metadata: {
+            aliasName: name,
+            targetKeyArn: alias.KeyArn ?? null,
+            tags: [],
+        },
+    }
+}
+
+/**
+ * The kind and the identifier of a resource id.
+ *
+ * <p>The explorer holds several kinds in one table, so the id says which kind it is:
+ * `key/<arn>` for a key and `alias/<name>` for an alias. The name is the one the
+ * alias goes under, without the `alias/` the reference's own name carries.
+ */
+function parseId(id: string): {kind: PaymentCryptographyKind; identifier: string} {
+    const slash = id.indexOf('/')
+    if (slash < 0) {
+        throw new ValidationError(`the resource id ${id} names no kind`)
+    }
+    const prefix = id.slice(0, slash)
+    const kind = kindForPrefix(prefix)
+    return {kind, identifier: id.slice(slash + 1)}
+}
+
+function kindForPrefix(prefix: string): PaymentCryptographyKind {
+    for (const kind of PAYMENT_CRYPTOGRAPHY_KINDS) {
+        if (PAYMENT_CRYPTOGRAPHY_KIND_PREFIX[kind] === prefix) return kind
+    }
+    throw new ValidationError(`the resource id names the unknown kind ${prefix}`)
+}
+
+/** The kind a request asks for, or none when it asks for every kind. */
+function optionalKind(value: unknown): PaymentCryptographyKind | undefined {
+    if (value === undefined || value === null || value === '') return undefined
+    return oneOf(value, PAYMENT_CRYPTOGRAPHY_KINDS, 'kind')
+}
+
+/** The name the reference gives an alias, which carries the `alias/` prefix. */
+function aliasNameOf(identifier: string): string {
+    return identifier.startsWith(ALIAS_PREFIX) ? identifier : `${ALIAS_PREFIX}${identifier}`
+}
+
+/**
+ * The name an alias is created under.
+ *
+ * <p>The reference's own rule: the name begins with `alias/` and holds only letters,
+ * digits, slashes, underscores and dashes.
+ */
+function requiredAliasName(value: unknown): string {
+    const name = requiredString(value, 'aliasName')
+    if (!ALIAS_NAME_PATTERN.test(name)) {
+        throw new ValidationError(
+            'aliasName must begin with "alias/" and hold only letters, digits, slashes, underscores and dashes',
+        )
+    }
+    return name
+}
+
 /** `arn:aws:payment-cryptography:us-east-1:000000000000:key/<id>`: the region is the 4th field. */
 function regionFromArn(arn: string | undefined): string | null {
     return arn?.split(':')[3] || null
@@ -326,6 +498,12 @@ function optionalString(value: unknown, field: string): string | undefined {
     if (value === undefined || value === null || value === '') return undefined
     if (typeof value !== 'string') throw new ValidationError(`${field} must be a string`)
     return value
+}
+
+function requiredString(value: unknown, field: string): string {
+    const raw = optionalString(value, field)?.trim()
+    if (!raw) throw new ValidationError(`${field} is required`)
+    return raw
 }
 
 /**
