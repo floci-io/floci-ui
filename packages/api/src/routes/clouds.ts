@@ -1154,15 +1154,25 @@ export function createCloudRoutes(
         })
     })
 
+<<<<<<< HEAD
     app.post('/:cloud/services/:service/resources/:id/usage', async (c) => {
+=======
+    app.post('/:cloud/services/:service/resources/:id/export', async (c) => {
+>>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
+<<<<<<< HEAD
             const input = await jsonBody<Record<string, unknown>>(c)
             await svc(c).setPaymentCryptographyKeyUsage(cloud, serviceType, c.req.param('id'), input)
             return c.json({ok: true})
+=======
+            const input = await c.req.json<{wrappingKeyArn: string}>()
+            const material = await svc(c).exportPaymentCryptographyKey(cloud, serviceType, c.req.param('id'), input)
+            return c.json(material, 200)
+>>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
         })
     })
 

@@ -1,6 +1,7 @@
 import {
     CreateAliasCommand,
     CreateKeyCommand,
+    GetKeyCommand as ReadKey,
     DeleteAliasCommand,
     DeleteKeyCommand,
     GetAliasCommand,
@@ -18,6 +19,16 @@ import {
 } from '@aws-sdk/client-payment-cryptography'
 import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {isNotFound} from './paymentCryptographyErrors'
+import {setKeyUsage} from './paymentCryptographyLifecycle'
+import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
+import {
+    defaultReplicationRegions,
+    disableDefaultReplicationRegions,
+    enableDefaultReplicationRegions,
+    setReplicationRegions,
+} from './paymentCryptographyReplication'
+import {exportKeyTr31, importKeyTr31, type ExportedKeyMaterial} from './paymentCryptographyTransfer'
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
@@ -29,6 +40,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_KIND_PREFIX,
     PAYMENT_CRYPTOGRAPHY_KINDS,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
+    PAYMENT_CRYPTOGRAPHY_SOURCES,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
@@ -43,6 +55,7 @@ import type {
     CreateResourceInput,
     ResourceQuery,
     ServiceSchema,
+    UpdateResourceInput,
 } from '../cloud-spi/types'
 
 type KeyTag = {key: string; value: string}
@@ -100,6 +113,95 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         return filterBySearch(groups.flat(), query.search)
     }
 
+    /**
+     * The material a key leaves under.
+     *
+     * <p>The form the console offers is the TR-31 block the service wraps with a
+     * key the account holds, which is the form a key usually leaves in.
+     */
+    async exportKey(id: string, input: {wrappingKeyArn: string}): Promise<ExportedKeyMaterial> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias is a name for a key; it is the key that leaves')
+        }
+        const wrappingKeyArn = requiredString(input.wrappingKeyArn, 'wrappingKeyArn')
+        return exportKeyTr31(this.client, identifier, wrappingKeyArn)
+    }
+
+    /**
+     * A change to a key that is not its attributes: whether it may be used, the
+     * policy it carries, and the Regions it is replicated to.
+     *
+     * <p>Each part says what it changes by the value it carries, so the parts do
+     * not depend on each other.
+     */
+    async update(id: string, input: UpdateResourceInput): Promise<CloudResource> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+
+        if (input.values.enabled !== undefined) {
+            await setKeyUsage(this.client, identifier, booleanValue(input.values.enabled, 'enabled'))
+        }
+        if (input.values.policy !== undefined) {
+            const policy = optionalString(input.values.policy, 'policy')
+            if (policy === undefined) {
+                await deleteKeyPolicy(this.client, identifier)
+            } else {
+                await putKeyPolicy(this.client, identifier, policy)
+            }
+        }
+        if (input.values.replicationRegions !== undefined) {
+            const wanted = stringList(input.values.replicationRegions, 'replicationRegions')
+            const current = await this.replicationRegionsOf(identifier)
+            const added = wanted.filter((region) => !current.includes(region))
+            const removed = current.filter((region) => !wanted.includes(region))
+            if (added.length > 0) {
+                await setReplicationRegions(this.client, identifier, added, true)
+            }
+            if (removed.length > 0) {
+                await setReplicationRegions(this.client, identifier, removed, false)
+            }
+        }
+
+        const key = await this.describe(identifier)
+        if (!key) throw new ValidationError(`the key ${identifier} is not there`)
+        return toResource(
+            key,
+            await this.getTags(identifier),
+            await this.publicKeyCertificate(key),
+            await getKeyPolicy(this.client, identifier),
+        )
+    }
+
+    /**
+     * The Regions a key is replicated to, as the key answers them.
+     *
+     * <p>A replica answers with the kind of the key and its primary Region alone,
+     * so the Regions are the ones a primary holds.
+     */
+    private async replicationRegionsOf(keyArn: string): Promise<string[]> {
+        const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
+        const status = res.Key?.ReplicationStatus
+        return status ? Object.keys(status) : []
+    }
+
+    /** The Regions the account replicates a new key to by default. */
+    async defaultReplicationRegions(): Promise<string[]> {
+        return defaultReplicationRegions(this.client)
+    }
+
+    /** Turns the account's default replication on for the Regions named. */
+    async enableDefaultReplicationRegions(regions: string[]): Promise<string[]> {
+        return enableDefaultReplicationRegions(this.client, regions)
+    }
+
+    /** Turns the account's default replication off for the Regions named. */
+    async disableDefaultReplicationRegions(regions: string[]): Promise<string[]> {
+        return disableDefaultReplicationRegions(this.client, regions)
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {
@@ -108,6 +210,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
+<<<<<<< HEAD
         // The tags and the certificate are reads of their own and do not depend on
         // each other, so they are asked together rather than one after the other.
         // Both are addressed by the ARN the key resolved to, because the service
@@ -118,12 +221,27 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             this.publicKeyCertificate(arn, key),
         ])
         return toResource(key, tags, certificate)
+=======
+<<<<<<< HEAD
+        return toResource(key, await this.getTags(identifier))
+=======
+        return toResource(
+            key,
+            await this.getTags(identifier),
+            await this.publicKeyCertificate(key),
+            await getKeyPolicy(this.client, identifier),
+        )
+>>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
+>>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
-        const kind = oneOf(input.values.kind, PAYMENT_CRYPTOGRAPHY_KINDS, 'kind', 'keys')
-        if (kind === 'aliases') {
+        const source = oneOf(input.values.source, PAYMENT_CRYPTOGRAPHY_SOURCES, 'source', 'keys')
+        if (source === 'aliases') {
             return this.createAlias(input)
+        }
+        if (source === 'import') {
+            return this.importKey(input)
         }
 
         const keyUsage = oneOf(input.values.keyUsage, PAYMENT_CRYPTOGRAPHY_KEY_USAGES, 'keyUsage')
@@ -279,6 +397,25 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             if (isNotFound(error)) return null
             throw error
         }
+    }
+
+    /**
+     * A key comes in under a TR-31 block a key the account holds wraps.
+     *
+     * <p>The material carries the key's own attributes, so the form asks for the
+     * block and the wrapping key and not for the usage and the algorithm.
+     */
+    private async importKey(input: CreateResourceInput): Promise<CloudResource> {
+        const wrappingKeyArn = requiredString(input.values.wrappingKeyArn, 'wrappingKeyArn')
+        const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
+        const enabled = booleanValue(input.values.enabled, 'enabled', true)
+
+        const arn = await importKeyTr31(this.client, wrappingKeyArn, wrappedKeyBlock, enabled)
+        if (!arn) throw new RuntimeError('Payment Cryptography did not return the key it imported')
+
+        const key = await this.describe(arn)
+        if (!key) throw new RuntimeError('Payment Cryptography did not return the key it imported')
+        return toResource(key, {tags: []})
     }
 
     /** An alias points at a key, and the reference refuses one that points at none. */
@@ -460,6 +597,7 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
     return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
+<<<<<<< HEAD
 function toResource(
     key: Key,
     tagLookup: TagLookup,
@@ -467,6 +605,18 @@ function toResource(
     // read, so it carries no state at all.
     certificateLookup: CertificateLookup = {},
 ): CloudResource {
+=======
+<<<<<<< HEAD
+function toResource(key: Key, tagLookup: TagLookup): CloudResource {
+=======
+function toResource(
+    key: Key,
+    tagLookup: TagLookup,
+    publicKeyCertificate: string | null = null,
+    keyPolicy: string | null = null,
+): CloudResource {
+>>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
+>>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
     const arn = key.KeyArn ?? ''
 
     return {
@@ -496,6 +646,7 @@ function toResource(
             deleteTimestamp: isoDate(key.DeleteTimestamp),
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
+<<<<<<< HEAD
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -511,6 +662,15 @@ function toResource(
             ...(certificateLookup.state !== undefined
                 ? {publicKeyCertificateState: certificateLookup.state}
                 : {}),
+=======
+<<<<<<< HEAD
+=======
+            publicKeyCertificate,
+            keyPolicy,
+            replicationRegions: key.ReplicationStatus ? Object.keys(key.ReplicationStatus) : [],
+            usingDefaultReplicationRegions: key.UsingDefaultReplicationRegions,
+>>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
+>>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },
@@ -642,6 +802,12 @@ function optionalString(value: unknown, field: string): string | undefined {
     return value
 }
 
+function stringList(value: unknown, field: string): string[] {
+    const raw = optionalString(value, field)
+    if (raw === undefined) return []
+    return raw.split(',').map((each) => each.trim()).filter(Boolean)
+}
+
 function requiredString(value: unknown, field: string): string {
     const raw = optionalString(value, field)?.trim()
     if (!raw) throw new ValidationError(`${field} is required`)
@@ -676,16 +842,4 @@ function oneOf<T extends readonly string[]>(
         throw new ValidationError(`${field} must be one of ${allowed.join(', ')}`)
     }
     return raw as T[number]
-}
-
-/**
- * Payment Cryptography answers a missing key with `ResourceNotFoundException` and
- * HTTP **400**, the way KMS does, so the name is the signal and the status is only
- * a fallback for the emulator.
- */
-function isNotFound(error: unknown): boolean {
-    if (typeof error !== 'object' || error === null) return false
-    if ((error as {name?: string}).name === 'ResourceNotFoundException') return true
-    const metadata = (error as {$metadata?: {httpStatusCode?: number}}).$metadata
-    return metadata?.httpStatusCode === 404
 }

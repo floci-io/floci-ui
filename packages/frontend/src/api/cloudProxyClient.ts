@@ -224,6 +224,30 @@ export async function updateCloudResourceTags(
   );
 }
 
+/** The material a payment cryptography key leaves under. */
+export interface ExportedPaymentCryptographyKey {
+  keyMaterial: string;
+  format: string | null;
+  wrappingKeyArn: string | null;
+  keyCheckValue: string | null;
+}
+
+/** The material a key leaves under, wrapped by a key the account holds. */
+export async function exportPaymentCryptographyKey(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: { wrappingKeyArn: string },
+  signal?: AbortSignal,
+): Promise<ExportedPaymentCryptographyKey> {
+  const res = await apiClient.call<ExportedPaymentCryptographyKey, { wrappingKeyArn: string }>(
+    apiEndpointKeys.clouds.resources.exportKey,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+  return res.data;
+}
+
 export async function deleteCloudResource(
   cloud: CloudProvider,
   service: CloudServiceType,

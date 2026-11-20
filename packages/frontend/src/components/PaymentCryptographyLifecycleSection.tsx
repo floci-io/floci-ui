@@ -1,16 +1,27 @@
+<<<<<<< HEAD
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {Power, PowerOff} from "lucide-react";
 import {setPaymentCryptographyKeyUsage} from "@/api/cloudProxyClient";
+=======
+import {useMutation} from "@tanstack/react-query";
+import {useQueryClient} from "@tanstack/react-query";
+import {Power, PowerOff} from "lucide-react";
+import {updateCloudResource} from "@/api/cloudProxyClient";
+>>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
 import {getAccountId} from "@/lib/accountStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
 interface PaymentCryptographyLifecycleSectionProps {
   cloud: CloudProvider;
+<<<<<<< HEAD
   /** The key that was read, when it was read. */
   resource?: CloudResource;
   /** The key itself could not be read, so nothing is known of its usage. */
   keyUnreadable?: boolean;
+=======
+  resource: CloudResource;
+>>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
   runtimeReachable: boolean;
 }
 
@@ -23,6 +34,7 @@ interface PaymentCryptographyLifecycleSectionProps {
 export function PaymentCryptographyLifecycleSection({
   cloud,
   resource,
+<<<<<<< HEAD
   keyUnreadable,
   runtimeReachable,
 }: PaymentCryptographyLifecycleSectionProps) {
@@ -66,6 +78,12 @@ function KeyUsage({
   // out for itself.
   const enabled =
     typeof resource.metadata.enabled === "boolean" ? resource.metadata.enabled : null;
+=======
+  runtimeReachable,
+}: PaymentCryptographyLifecycleSectionProps) {
+  const queryClient = useQueryClient();
+  const enabled = resource.metadata.enabled === true;
+>>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
   const start = typeof resource.metadata.usageStartTimestamp === "string"
     ? resource.metadata.usageStartTimestamp
     : null;
@@ -75,6 +93,7 @@ function KeyUsage({
 
   const toggle = useMutation({
     mutationFn: (next: boolean) =>
+<<<<<<< HEAD
       setPaymentCryptographyKeyUsage(cloud, resource.service, resource.id, { enabled: next }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -82,11 +101,21 @@ function KeyUsage({
       });
       void queryClient.invalidateQueries({
         queryKey: ["cloud-resources", accountId, cloud, resource.service],
+=======
+      updateCloudResource(cloud, resource.service, resource.id, { enabled: String(next) }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["cloud-resource", getAccountId(), cloud, resource.service, resource.id],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["cloud-console-resources", cloud, resource.service],
+>>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
       });
     },
   });
 
   return (
+<<<<<<< HEAD
     <>
       <p className="muted compact-text">{usageSentence(enabled)}</p>
       {enabled !== null && (
@@ -100,6 +129,24 @@ function KeyUsage({
           {enabled ? "Disable key" : "Enable key"}
         </button>
       )}
+=======
+    <section className="inspector-section">
+      <p className="metric-label">Usage</p>
+      <p className="muted compact-text">
+        {enabled
+          ? "The key may be used. Disabling it is the reversible alternative to deleting it."
+          : "The key is disabled: no operation runs under it until it is enabled again."}
+      </p>
+      <button
+        className="button small"
+        type="button"
+        disabled={!runtimeReachable || toggle.isPending}
+        onClick={() => toggle.mutate(!enabled)}
+      >
+        {enabled ? <PowerOff size={12} /> : <Power size={12} />}
+        {enabled ? "Disable key" : "Enable key"}
+      </button>
+>>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
       {(start || stop) && (
         <p className="muted compact-text">
           {start ? `In use since ${start}.` : ""} {stop ? `Out of use from ${stop}.` : ""}
@@ -110,6 +157,7 @@ function KeyUsage({
           {toggle.error.message}
         </p>
       )}
+<<<<<<< HEAD
     </>
   );
 }
@@ -127,3 +175,8 @@ function usageSentence(enabled: boolean | null): string {
     ? "The key may be used. Disabling it is the reversible alternative to deleting it."
     : "The key is disabled: no operation runs under it until it is enabled again.";
 }
+=======
+    </section>
+  );
+}
+>>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)

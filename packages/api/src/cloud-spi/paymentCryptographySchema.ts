@@ -255,6 +255,14 @@ export const PAYMENT_CRYPTOGRAPHY_KINDS = ['keys', 'aliases'] as const
 
 export type PaymentCryptographyKind = (typeof PAYMENT_CRYPTOGRAPHY_KINDS)[number]
 
+/**
+ * What the create form makes: a key, an alias, or a key that comes in under a
+ * TR-31 block a key the account holds wraps.
+ */
+export const PAYMENT_CRYPTOGRAPHY_SOURCES = ['keys', 'aliases', 'import'] as const
+
+export type PaymentCryptographySource = (typeof PAYMENT_CRYPTOGRAPHY_SOURCES)[number]
+
 /** The prefix a kind's resource ids carry, as the explorer holds several kinds in one table. */
 export const PAYMENT_CRYPTOGRAPHY_KIND_PREFIX: Record<PaymentCryptographyKind, string> = {
     keys: 'key',
@@ -311,7 +319,7 @@ function modeFields(): FieldSchema[] {
         type: 'select',
         required: false,
         group: 'Key modes of use',
-        visibleWhen: {field: 'kind', equals: 'keys'},
+        visibleWhen: {field: 'source', equals: 'keys'},
         defaultValue: 'false',
         options: ALLOWED_OPTIONS,
     }))
@@ -341,16 +349,17 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
         displayName: 'Payment Cryptography',
         fields: [
             {
-                name: 'kind',
-                label: 'Kind',
+                name: 'source',
+                label: 'What to make',
                 type: 'select',
                 required: true,
                 group: 'Required',
-                description: 'What to make: a key, or an alias name that points at one.',
+                description: 'A key, an alias name that points at one, or a key that comes in under a TR-31 block.',
                 defaultValue: 'keys',
                 options: [
-                    {label: 'Key', value: 'keys', submitLabel: 'Create key'},
-                    {label: 'Alias', value: 'aliases', submitLabel: 'Create alias'},
+                    {label: 'A new key', value: 'keys', submitLabel: 'Create key'},
+                    {label: 'An alias', value: 'aliases', submitLabel: 'Create alias'},
+                    {label: 'An imported key', value: 'import', submitLabel: 'Import key'},
                 ],
             },
             {
@@ -359,7 +368,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: true,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description:
                     'What the key is for, as TR-31 names it. It decides which algorithms the key may be made of ' +
                     'and which combinations of modes of use it may have. The default is the first usage, ' +
@@ -373,7 +382,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description:
                     'The algorithm the key is made of. It has to be one the usage allows. Left unset, the first ' +
                     'algorithm the usage allows is chosen.',
@@ -385,7 +394,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description: 'Whether the key may leave the service. It cannot be changed once the key is made.',
                 defaultValue: 'false',
                 options: ALLOWED_OPTIONS,
@@ -396,20 +405,43 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description: 'Whether the key does any work. A disabled key is refused by every operation that runs under it.',
                 defaultValue: 'true',
                 options: ALLOWED_OPTIONS,
             },
             ...modeFields(),
             {
+                name: 'wrappingKeyArn',
+                label: 'Wrapping Key',
+                type: 'select',
+                required: false,
+                group: 'Import',
+                visibleWhen: {field: 'source', equals: 'import'},
+                requiredWhen: {field: 'source', equals: 'import'},
+                description:
+                    'The key the block is wrapped under. It has to be a key encryption key that may wrap, and at ' +
+                    'least as strong as the key it carries.',
+                optionsFrom: 'key',
+            },
+            {
+                name: 'wrappedKeyBlock',
+                label: 'Wrapped Key Block',
+                type: 'textarea',
+                required: false,
+                group: 'Import',
+                visibleWhen: {field: 'source', equals: 'import'},
+                requiredWhen: {field: 'source', equals: 'import'},
+                description: 'The TR-31 block the key comes in under, as the service wrote it.',
+            },
+            {
                 name: 'aliasName',
                 label: 'Alias Name',
                 type: 'text',
                 required: false,
                 group: 'Alias',
-                visibleWhen: {field: 'kind', equals: 'aliases'},
-                requiredWhen: {field: 'kind', equals: 'aliases'},
+                visibleWhen: {field: 'source', equals: 'aliases'},
+                requiredWhen: {field: 'source', equals: 'aliases'},
                 description: 'The name of the alias. It has to begin with "alias/".',
                 validation: {
                     pattern: '^alias/[A-Za-z0-9/_-]+$',
@@ -422,8 +454,8 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Alias',
-                visibleWhen: {field: 'kind', equals: 'aliases'},
-                requiredWhen: {field: 'kind', equals: 'aliases'},
+                visibleWhen: {field: 'source', equals: 'aliases'},
+                requiredWhen: {field: 'source', equals: 'aliases'},
                 description: 'The key the alias points at. An alias names a key that exists.',
                 optionsFrom: 'key',
             },

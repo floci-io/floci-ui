@@ -1,15 +1,26 @@
 import {describe, expect, test} from 'bun:test'
 import {
+    AddKeyReplicationRegionsCommand,
     CreateAliasCommand,
     CreateKeyCommand,
+    DeleteResourcePolicyCommand,
     DeleteAliasCommand,
     DeleteKeyCommand,
     GetAliasCommand,
     GetKeyCommand,
+<<<<<<< HEAD
+=======
+    GetPublicKeyCertificateCommand,
+    PutResourcePolicyCommand,
+    StartKeyUsageCommand,
+    StopKeyUsageCommand,
+>>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
     ListAliasesCommand,
     GetPublicKeyCertificateCommand,
     ListKeysCommand,
     ListTagsForResourceCommand,
+    ExportKeyCommand,
+    ImportKeyCommand,
     type PaymentCryptographyClient,
     TagResourceCommand,
     UntagResourceCommand,
@@ -77,6 +88,21 @@ function runtimeStub(overrides: Record<string, SendResult | (() => never)> = {})
         if (command instanceof CreateKeyCommand) return respond('create', {Key: key})
         if (command instanceof DeleteKeyCommand) return respond('delete', {Key: key})
         if (command instanceof ListAliasesCommand) return respond('listAliases', {Aliases: []})
+<<<<<<< HEAD
+=======
+        if (command instanceof StartKeyUsageCommand) return respond('startUsage', {Key: key})
+        if (command instanceof StopKeyUsageCommand) return respond('stopUsage', {Key: key})
+        if (command instanceof PutResourcePolicyCommand) return respond('putPolicy', {})
+        if (command instanceof DeleteResourcePolicyCommand) return respond('deletePolicy', {})
+        if (command instanceof AddKeyReplicationRegionsCommand) return respond('addRegions', {Key: key})
+        if (command instanceof ExportKeyCommand) {
+            return respond('export', {WrappedKey: {KeyMaterial: 'WRAPPED-BLOCK', WrappingKeyArn: ARN, WrappedKeyMaterialFormat: 'TR31_BLOCK', KeyCheckValue: '404D63'}})
+        }
+        if (command instanceof ImportKeyCommand) return respond('import', {Key: {...key, KeyArn: ARN}})
+        if (command instanceof GetPublicKeyCertificateCommand) {
+            return respond('certificate', {KeyCertificate: 'CERTIFICATE-PEM'})
+        }
+>>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
         if (command instanceof GetAliasCommand) return respond('getAlias', {Alias: alias})
         if (command instanceof CreateAliasCommand) return respond('createAlias', {Alias: alias})
         if (command instanceof DeleteAliasCommand) return respond('deleteAlias', {})
@@ -484,6 +510,80 @@ describe('AwsPaymentCryptographyAdapter', () => {
         expect((sent[0] as ListKeysCommand).input).toEqual({MaxResults: 1})
     })
 
+    describe("the key's settings", () => {
+        test("enables and disables a key", async () => {
+            const {client, sent} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await adapter.update(KEY_ID, {values: {enabled: 'false'}})
+            await adapter.update(KEY_ID, {values: {enabled: 'true'}})
+
+            expect(sent.some((command) => command instanceof StopKeyUsageCommand)).toBe(true)
+            expect(sent.some((command) => command instanceof StartKeyUsageCommand)).toBe(true)
+        })
+
+        test("attaches and removes the policy of a key", async () => {
+            const {client, sent} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await adapter.update(KEY_ID, {values: {policy: '{"Version": "2012-10-17"}'}})
+            await adapter.update(KEY_ID, {values: {policy: ''}})
+
+            const attached = sent.find((command) => command instanceof PutResourcePolicyCommand) as PutResourcePolicyCommand
+            expect(attached.input.Policy).toBe('{"Version": "2012-10-17"}')
+            expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(true)
+        })
+
+        test("adds and takes away the regions a key is replicated to", async () => {
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, ReplicationStatus: {'us-east-2': {Status: 'SYNCHRONIZED'}}}},
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await adapter.update(KEY_ID, {values: {replicationRegions: 'us-east-2,eu-west-1'}})
+
+            const added = sent.find((command) => command instanceof AddKeyReplicationRegionsCommand) as AddKeyReplicationRegionsCommand
+            expect(added.input.ReplicationRegions).toEqual(['eu-west-1'])
+        })
+
+        test("refuses to change an alias, which has no settings of its own", async () => {
+            const {client} = runtimeStub()
+
+            await expect(
+                new AwsPaymentCryptographyAdapter(client).update(ALIAS_ID, {values: {enabled: 'false'}}),
+            ).rejects.toBeInstanceOf(ValidationError)
+        })
+    })
+
+    describe("a key's material", () => {
+        test("exports a key under a TR-31 block", async () => {
+            const {client, sent} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            const exported = await adapter.exportKey(KEY_ID, {wrappingKeyArn: ARN})
+
+            const request = sent.find((command) => command instanceof ExportKeyCommand) as ExportKeyCommand
+            expect(request.input.KeyMaterial).toEqual({Tr31KeyBlock: {WrappingKeyIdentifier: ARN}})
+            expect(exported.keyMaterial).toBe('WRAPPED-BLOCK')
+            expect(exported.keyCheckValue).toBe('404D63')
+        })
+
+        test("imports a key from a TR-31 block", async () => {
+            const {client, sent} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            const created = await adapter.create({
+                values: {source: 'import', wrappingKeyArn: ARN, wrappedKeyBlock: 'WRAPPED-BLOCK'},
+            })
+
+            const request = sent.find((command) => command instanceof ImportKeyCommand) as ImportKeyCommand
+            expect(request.input.KeyMaterial).toEqual({
+                Tr31KeyBlock: {WrappingKeyIdentifier: ARN, WrappedKeyBlock: 'WRAPPED-BLOCK'},
+            })
+            expect(created.id).toBe(KEY_ID)
+        })
+    })
+
     describe('aliases', () => {
         test('lists the aliases beside the keys', async () => {
             const {client} = runtimeStub({listAliases: {Aliases: [alias]}})
@@ -519,7 +619,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const {client, sent} = runtimeStub()
 
             const created = await new AwsPaymentCryptographyAdapter(client).create({
-                values: {kind: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: KEY_ID},
+                values: {source: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: KEY_ID},
             })
 
             const request = sent.find((command) => command instanceof CreateAliasCommand) as CreateAliasCommand
@@ -531,7 +631,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const {client, sent} = runtimeStub()
 
             await new AwsPaymentCryptographyAdapter(client).create({
-                values: {kind: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: ARN},
+                values: {source: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: ARN},
             })
 
             const request = sent.find((command) => command instanceof CreateAliasCommand) as CreateAliasCommand
@@ -543,7 +643,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             await expect(
                 new AwsPaymentCryptographyAdapter(client).create({
-                    values: {kind: 'aliases', aliasName: 'ExampleAlias', aliasTargetKey: ARN},
+                    values: {source: 'aliases', aliasName: 'ExampleAlias', aliasTargetKey: ARN},
                 }),
             ).rejects.toBeInstanceOf(ValidationError)
             expect(sent).toHaveLength(0)

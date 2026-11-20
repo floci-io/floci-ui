@@ -1184,6 +1184,14 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
+      {service === "paymentcryptography" && (
+        <PaymentCryptographyPanel
+          cloud={cloud}
+          resource={inspectedResource}
+          resources={resourcesQuery.data}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
       {service === "kms" && !(cloud === "oci" && inspectedResource?.metadata.keyUsage === "SIGN_VERIFY") && (
         <KmsCryptoPanel
           cloud={cloud}
