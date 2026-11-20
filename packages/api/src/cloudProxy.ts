@@ -69,6 +69,7 @@ import {AwsElastiCacheAdapter} from './adapter-aws/AwsElastiCacheAdapter'
 import {AwsOpenSearchAdapter} from './adapter-aws/AwsOpenSearchAdapter'
 import {AwsCodeBuildAdapter} from './adapter-aws/AwsCodeBuildAdapter'
 import {AwsKmsAdapter} from './adapter-aws/AwsKmsAdapter'
+import {AwsPaymentCryptographyAdapter} from './adapter-aws/AwsPaymentCryptographyAdapter'
 import {AwsStepFunctionsAdapter} from './adapter-aws/AwsStepFunctionsAdapter'
 import {AwsLoadBalancingAdapter} from './adapter-aws/AwsLoadBalancingAdapter'
 import {AwsEventBridgeAdapter} from './adapter-aws/AwsEventBridgeAdapter'
@@ -123,6 +124,7 @@ export function createCloudAdapterRegistry(accountId?: string | null, region?: s
         new AwsLogsAdapter(clients.logs),
         new AwsParameterStoreAdapter(clients.ssm),
         new AwsKmsAdapter(clients.kms),
+        new AwsPaymentCryptographyAdapter(clients.paymentCryptography),
         new AwsAcmAdapter(clients.acm),
         new AwsStepFunctionsAdapter(clients.sfn),
         new AwsLoadBalancingAdapter(clients.elbv2),

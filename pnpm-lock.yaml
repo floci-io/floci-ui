@@ -85,6 +85,9 @@ importers:
       '@aws-sdk/client-opensearch':
         specifier: ^3.1156.0
         version: 3.1165.0
+      '@aws-sdk/client-payment-cryptography':
+        specifier: 3.1156.0
+        version: 3.1156.0
       '@aws-sdk/client-rds':
         specifier: ^3.1156.0
         version: 3.1156.0
@@ -380,6 +383,10 @@ packages:
 
   '@aws-sdk/client-opensearch@3.1165.0':
     resolution: {integrity: sha512-w93zO7HT59baDyIeRcHrpLjzW1plwOlHSzDQF4hdqTg7ZjMHsH3TNbeaSB1OOHFhIZTbecIwMNleHjvhWPv8Ag==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-payment-cryptography@3.1156.0':
+    resolution: {integrity: sha512-iuHNbCoOFcq6zjRpAF13dCH8x1XneL/GubBC8cMLymhKkx1Wr3N1oiesNuCgAGSYiOpRIkMKJMNsIb2qAtjFZg==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-rds@3.1156.0':
@@ -3211,6 +3218,17 @@ snapshots:
       '@aws-sdk/credential-provider-node': 3.972.95
       '@aws-sdk/types': 3.975.1
       '@smithy/core': 3.39.0
+      '@smithy/fetch-http-handler': 5.8.1
+      '@smithy/node-http-handler': 4.14.2
+      '@smithy/types': 4.20.0
+      tslib: 2.9.1
+
+  '@aws-sdk/client-payment-cryptography@3.1156.0':
+    dependencies:
+      '@aws-sdk/core': 3.981.0
+      '@aws-sdk/credential-provider-node': 3.972.97
+      '@aws-sdk/types': 3.975.1
+      '@smithy/core': 3.40.0
       '@smithy/fetch-http-handler': 5.8.1
       '@smithy/node-http-handler': 4.14.2
       '@smithy/types': 4.20.0

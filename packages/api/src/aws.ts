@@ -11,6 +11,7 @@ import { ElastiCacheClient } from "@aws-sdk/client-elasticache";
 import { CodeBuildClient } from "@aws-sdk/client-codebuild";
 import { OpenSearchClient } from "@aws-sdk/client-opensearch";
 import { KMSClient } from "@aws-sdk/client-kms";
+import { PaymentCryptographyClient } from "@aws-sdk/client-payment-cryptography";
 import { SFNClient } from "@aws-sdk/client-sfn";
 import { AthenaClient } from "@aws-sdk/client-athena";
 import { ElasticLoadBalancingV2Client } from "@aws-sdk/client-elastic-load-balancing-v2";
@@ -113,6 +114,7 @@ export type AwsClients = {
   cloudwatch: CloudWatchClient;
   ssm: SSMClient;
   kms: KMSClient;
+  paymentCryptography: PaymentCryptographyClient;
   acm: ACMClient;
   elasticache: ElastiCacheClient;
   opensearch: OpenSearchClient;
@@ -164,6 +166,7 @@ function buildClients(accountId: string, region: string): AwsClients {
     cloudwatch: new CloudWatchClient(base),
     ssm: new SSMClient(base),
     kms: new KMSClient(base),
+    paymentCryptography: new PaymentCryptographyClient(base),
     acm: new ACMClient(base),
     elasticache: new ElastiCacheClient(base),
     opensearch: new OpenSearchClient(base),
