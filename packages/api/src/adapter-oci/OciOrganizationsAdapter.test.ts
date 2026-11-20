@@ -250,6 +250,15 @@ describe('OciOrganizationsAdapter', () => {
         await expect(adapter().get('ocid1.bucket.oc1..x')).rejects.toBeInstanceOf(ValidationError)
     })
 
+    test('does not read an inherited object key as an OCID type', async () => {
+        const calls = stubFetch(populated)
+
+        for (const type of ['toString', 'constructor', '__proto__']) {
+            await expect(adapter().get(`ocid1.${type}.oc1..x`)).rejects.toBeInstanceOf(ValidationError)
+        }
+        expect(calls).toHaveLength(0)
+    })
+
     test('does not create or delete records', async () => {
         await expect(adapter().create({values: {}})).rejects.toBeInstanceOf(NotSupportedError)
         await expect(adapter().delete(LINK)).rejects.toBeInstanceOf(NotSupportedError)

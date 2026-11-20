@@ -153,7 +153,7 @@ export class OciOrganizationsAdapter implements CloudServiceAdapter {
         return items.map((item) => this.toResource(kind, item))
     }
 
-        private async getTenancy(id: string): Promise<CloudResource | null> {
+    private async getTenancy(id: string): Promise<CloudResource | null> {
         const organizations = await this.listItems<OciOrganization>(this.listPath('organizations'))
         for (const organization of organizations) {
             const path = `${ORGANIZATIONS_API}/organizations/${encodeURIComponent(organization.id ?? '')}`
@@ -249,7 +249,7 @@ function needsOrganizations(kinds: OciOrganizationsKind[]): boolean {
 /** Reads the kind from an OCID such as `ocid1.link.oc1..aaaa`. */
 function kindOf(id: string): OciOrganizationsKind {
     const [version, type] = id.split('.')
-    const kind = version === 'ocid1' && type ? OCID_TYPE_TO_KIND[type] : undefined
+    const kind = version === 'ocid1' && type && Object.hasOwn(OCID_TYPE_TO_KIND, type) ? OCID_TYPE_TO_KIND[type] : undefined
     if (!kind) {
         throw new ValidationError(
             `Expected the OCID of an organization, tenancy, link or invitation, got "${id}"`,
