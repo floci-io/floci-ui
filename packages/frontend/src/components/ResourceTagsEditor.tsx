@@ -46,10 +46,17 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
       // The inspector shows the resource's own query and the list shows the row, and
       // both carry the tags, so both are asked again.
       void queryClient.invalidateQueries({
+<<<<<<< HEAD
         queryKey: ['cloud-resource', accountId, cloud, resource.service, resource.id],
       })
       void queryClient.invalidateQueries({
         queryKey: ['cloud-resources', accountId, cloud, resource.service],
+=======
+        queryKey: ['cloud-resource', getAccountId(), cloud, resource.service, resource.id],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ['cloud-console-resources', cloud, resource.service],
+>>>>>>> 1b47868 (fix(console): the tags refresh after they are edited)
       })
     },
     onError: (failure) => setError(errorMessage(failure)),
