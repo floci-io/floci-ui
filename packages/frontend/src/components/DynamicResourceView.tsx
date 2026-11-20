@@ -1037,6 +1037,7 @@ export function DynamicResourceView({
             cloud={cloud}
             runtimeReachable={canUseRuntime}
             serviceName={schema.displayName}
+            canEditTags={capabilityEnabled(capabilityFor(resourceCapabilities, "updateTags"))}
           />
         )}
       </div>

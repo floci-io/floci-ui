@@ -205,6 +205,25 @@ export async function updateCloudResource(
   return res.data;
 }
 
+/**
+ * The tags of a resource, changed.
+ *
+ * A key with a null value is one whose tag is removed.
+ */
+export async function updateCloudResourceTags(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  tags: Record<string, string | null>,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void, Record<string, string | null>>(
+    apiEndpointKeys.clouds.resources.tags,
+    requestOptions(cloud, service, { signal, body: tags }),
+    { cloud, service, id },
+  );
+}
+
 export async function deleteCloudResource(
   cloud: CloudProvider,
   service: CloudServiceType,

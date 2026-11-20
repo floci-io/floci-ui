@@ -1136,6 +1136,19 @@ export function createCloudRoutes(
         })
     })
 
+    app.patch('/:cloud/services/:service/resources/:id/tags', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
+
+        return withRuntime(c, async () => {
+            // A key with a null value is one whose tag is removed.
+            const tags = await c.req.json<Record<string, string | null>>()
+            await svc(c).updateTags(cloud, serviceType, c.req.param('id'), tags)
+            return c.json({ok: true})
+        })
+    })
+
     app.delete('/:cloud/services/:service/resources/:id', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType

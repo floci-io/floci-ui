@@ -7,6 +7,8 @@ import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource, StorageObject } from "@/types/resource";
 import { formatBytes } from "@/lib/format";
 import { InspectorTabs, type InspectorTab } from "@/components/InspectorTabs";
+import { ResourceTagsEditor } from "@/components/ResourceTagsEditor";
+import { resourceTags } from "@/lib/resourceTags";
 import { lazyPanel } from "@/lib/lazyPanel";
 
 const LogsExplorerPanel = lazyPanel(() => import("@/components/LogsExplorerPanel").then((m) => m.LogsExplorerPanel));
@@ -20,6 +22,8 @@ interface ResourceInspectorProps {
   cloud?: CloudProvider;
   runtimeReachable?: boolean;
   serviceName?: string;
+  /** Whether the service's schema declares that its tags can be edited. */
+  canEditTags?: boolean;
 }
 
 export type { InspectorTab };
@@ -30,6 +34,7 @@ export function ResourceInspector({
   cloud,
   runtimeReachable,
   serviceName,
+  canEditTags,
 }: ResourceInspectorProps) {
   const [activeTab, setActiveTab] = useState<InspectorTab>('plain');
   const [copiedJson, setCopiedJson] = useState(false);
@@ -178,7 +183,7 @@ export function ResourceInspector({
     return <EmailInspector key={resource.id} resource={resource} />
   }
 
-  const tags = getTags(resource.metadata.tags);
+  const tags = resourceTags(resource.metadata);
   const tagsUnavailable = getBooleanMetadata(resource.metadata.tagsUnavailable) ?? false;
   const versioning = getStringMetadata(resource.metadata.versioning);
   const versioningEnabled = getBooleanMetadata(
@@ -334,6 +339,15 @@ export function ResourceInspector({
                   </span>
                 ))}
               </div>
+            )}
+            {canEditTags && resource && (
+              <ResourceTagsEditor
+                key={resource.id}
+                resource={resource}
+                cloud={resourceCloud ?? resource.cloud}
+                tags={tags}
+                runtimeReachable={runtimeReachable ?? false}
+              />
             )}
           </section>
           {isDatabase && (
@@ -752,17 +766,6 @@ function getRecordMetadata(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
-}
-
-function getTags(value: unknown): Array<{ key: string; value: string }> {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const tag = item as Record<string, unknown>;
-    return typeof tag.key === "string" && typeof tag.value === "string"
-      ? [{ key: tag.key, value: tag.value }]
-      : [];
-  });
 }
 
 function getSecurityGroups(
