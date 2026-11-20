@@ -56,6 +56,17 @@ export interface FieldCondition {
     notEquals?: string
 }
 
+/**
+ * A rule a service publishes about what may carry what, for a panel that has to
+ * offer only the pairings the service allows.
+ */
+export interface PairingRule {
+  /** The metadata member that says what the resource is, such as its algorithm. */
+  discriminator: string;
+  /** What it may carry, by that member's value. */
+  allowed: Record<string, string[]>;
+}
+
 export interface FieldSchema {
     name: string
     label: string
@@ -115,5 +126,10 @@ export interface ServiceSchema {
     filters: FieldSchema[]
     columns: TableColumnSchema[]
     updateFields?: FieldSchema[]
+    /**
+     * The pairings the service allows, for a panel that chooses one resource to
+     * carry another.
+     */
+    pairings?: PairingRule[]
     notice?: string
 }

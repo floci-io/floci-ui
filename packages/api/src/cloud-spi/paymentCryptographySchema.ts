@@ -194,6 +194,7 @@ export function algorithmsForUsage(usage: PaymentCryptographyKeyUsage): readonly
 }
 
 /**
+<<<<<<< HEAD
  * The class of a key.
  *
  * The class says what shape the key has: a pair has a public half and a
@@ -229,6 +230,60 @@ export const PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES = {
 
 export type PaymentCryptographyCertificateState =
     (typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES)[keyof typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES]
+=======
+ * The strength of a symmetric key, in bits, as the reference's matrix counts it.
+ *
+ * <p>The matrix is the reference's own, and a wrapping key has to be at least as
+ * strong as the key it carries. The strength of a Triple DES key is the strength of
+ * its key length, so a two-key key is weaker than a three-key one and may not carry
+ * it.
+ */
+export const PAYMENT_CRYPTOGRAPHY_KEY_STRENGTH: Record<string, number> = {
+    TDES_2KEY: 80,
+    TDES_3KEY: 112,
+    AES_128: 128,
+    AES_192: 192,
+    AES_256: 256,
+}
+
+/**
+ * The wrapping keys each key may leave under, as the reference's matrix allows.
+ *
+ * <p>The matrix is a table of the key to protect against the wrapping key, and the
+ * row of a key is what it may be carried by. The transports that are not a TR-31
+ * block are not here, because a key that leaves under an RSA or an elliptic curve
+ * key leaves as a cryptogram and not as a block.
+ */
+export const PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS: Record<string, string[]> = {
+    TDES_2KEY: ['TDES_2KEY', 'TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
+    TDES_3KEY: ['TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
+    AES_128: ['AES_128', 'AES_192', 'AES_256'],
+    AES_192: ['AES_192', 'AES_256'],
+    AES_256: ['AES_256'],
+}
+
+/**
+ * The usages a key may have when it wraps another key.
+ *
+ * <p>A key that wraps a block is a key encryption key or a key block protection
+ * key, which are the two the reference names for the purpose.
+ */
+export const PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES = [
+    'TR31_K0_KEY_ENCRYPTION_KEY',
+    'TR31_K1_KEY_BLOCK_PROTECTION_KEY',
+]
+
+/**
+ * Whether a key of one algorithm may be carried by a key of another.
+ *
+ * <p>The rule is the reference's matrix, and it is the same rule the local runtime
+ * holds to, so the table and the runtime agree.
+ */
+export function mayWrapWith(carriedAlgorithm: string, wrappingAlgorithm: string): boolean {
+    const allowed = PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS[carriedAlgorithm]
+    return allowed ? allowed.includes(wrappingAlgorithm) : false
+}
+>>>>>>> b5174b9 (feat(paymentcryptography): the export form offers only the pairings allowed)
 
 /**
  * The class a key of an algorithm has.
@@ -466,6 +521,12 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
         },
         filters: paymentCryptographyFilters,
         columns: paymentCryptographyColumns,
+        pairings: [
+            {
+                discriminator: 'keyAlgorithm',
+                allowed: PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS,
+            },
+        ],
         notice:
             'The keys a payment operator holds and the alias names that point at them: their attributes, ' +
             'their check value and their state. Key replication and Multi-Party Approval are not in this view.',

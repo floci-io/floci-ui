@@ -19,6 +19,7 @@ type PaymentCryptographyPanelProps = PaymentCryptographyCertificateSectionProps;
 import {lazyPanel} from "@/lib/lazyPanel";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
+import type {ServiceSchema} from "@/types/schema";
 
 const PaymentCryptographyCertificateSection = lazyPanel(() =>
   import("@/components/PaymentCryptographyCertificateSection").then(
@@ -51,6 +52,8 @@ interface PaymentCryptographyPanelProps {
   resource?: CloudResource;
   /** The rows of the list, which name the keys a wrapping key may be chosen from. */
   resources?: CloudResource[];
+  /** The service's schema, which publishes the pairings the service allows. */
+  schema?: ServiceSchema;
   runtimeReachable: boolean;
 }
 >>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
@@ -104,6 +107,7 @@ export function PaymentCryptographyPanel({
   cloud,
   resource,
   resources,
+  schema,
   runtimeReachable,
 }: PaymentCryptographyPanelProps) {
   const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
@@ -135,7 +139,11 @@ export function PaymentCryptographyPanel({
         cloud={cloud}
         resource={resource}
         resources={resources}
+<<<<<<< HEAD
 >>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
+=======
+        schema={schema}
+>>>>>>> 75762b3 (feat(paymentcryptography): the export form offers only the pairings allowed)
         runtimeReachable={runtimeReachable}
       />
     </>

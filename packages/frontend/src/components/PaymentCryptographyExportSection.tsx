@@ -1,14 +1,19 @@
-import {useState} from "react";
+import {useMemo, useState} from "react";
 import {useMutation} from "@tanstack/react-query";
 import {Check, Copy, Download} from "lucide-react";
 import {exportPaymentCryptographyKey} from "@/api/cloudProxyClient";
+import {wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
+import type {ServiceSchema} from "@/types/schema";
 
 interface PaymentCryptographyExportSectionProps {
   cloud: CloudProvider;
   resource: CloudResource;
+  /** The rows of the list, which name the keys a wrapping key may be chosen from. */
   resources?: CloudResource[];
+  /** The service's schema, which publishes the pairings the service allows. */
+  schema?: ServiceSchema;
   runtimeReachable: boolean;
 }
 
@@ -16,18 +21,24 @@ interface PaymentCryptographyExportSectionProps {
  * The material a key leaves under.
  *
  * <p>The form the console offers is the TR-31 block the service wraps with a key
- * the account holds, and the wrapping key has to be one that may wrap and is at
- * least as strong as the key it carries.
+ * the account holds. The wrapping key has to be one the service allows: a key
+ * encryption key that may wrap, and at least as strong as the key it carries, which
+ * is the reference's own matrix.
  */
 export function PaymentCryptographyExportSection({
   cloud,
   resource,
   resources,
+  schema,
   runtimeReachable,
 }: PaymentCryptographyExportSectionProps) {
   const [wrappingKey, setWrappingKey] = useState("");
   const [copied, setCopied] = useState(false);
-  const keys = (resources ?? []).filter((row) => row.type === "key");
+
+  const allowed = useMemo(
+    () => wrappingKeysFor(resource, resources, schema),
+    [resource, resources, schema],
+  );
 
   const exportMut = useMutation({
     mutationFn: () =>
@@ -54,7 +65,10 @@ export function PaymentCryptographyExportSection({
       <p className="muted compact-text">
         The key leaves under a TR-31 block the service wraps with a key of this account.
       </p>
-      <div className="input-row" style={{ padding: "8px 0", borderBottom: "none", background: "none" }}>
+      <div
+        className="input-row"
+        style={{ padding: "8px 0", borderBottom: "none", background: "none" }}
+      >
         <select
           className="input"
           aria-label="Wrapping key"
@@ -62,9 +76,10 @@ export function PaymentCryptographyExportSection({
           onChange={(event) => setWrappingKey(event.target.value)}
         >
           <option value="">Choose a wrapping key</option>
-          {keys.map((row) => (
+          {allowed.map((row) => (
             <option key={row.id} value={row.id}>
               {row.metadata.keyUsage ? `${String(row.metadata.keyUsage)} · ` : ""}
+              {row.metadata.keyAlgorithm ? `${String(row.metadata.keyAlgorithm)} · ` : ""}
               {row.name}
             </option>
           ))}
@@ -79,6 +94,12 @@ export function PaymentCryptographyExportSection({
           Export key
         </button>
       </div>
+      {allowed.length === 0 && (
+        <p className="muted compact-text">
+          No key of this account may carry this one: a wrapping key has to be a key
+          encryption key that may wrap, and at least as strong as the key it carries.
+        </p>
+      )}
       {material && (
         <>
           <textarea

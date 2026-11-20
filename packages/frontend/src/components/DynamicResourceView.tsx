@@ -1189,6 +1189,7 @@ export function DynamicResourceView({
           cloud={cloud}
           resource={inspectedResource}
           resources={resourcesQuery.data}
+          schema={schema}
           runtimeReachable={canUseRuntime}
         />
       )}

@@ -33,7 +33,11 @@ import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
+<<<<<<< HEAD
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
+=======
+    mayWrapWith,
+>>>>>>> b5174b9 (feat(paymentcryptography): the export form offers only the pairings allowed)
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
@@ -41,6 +45,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_KINDS,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
     PAYMENT_CRYPTOGRAPHY_SOURCES,
+    PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
@@ -125,6 +130,24 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             throw new ValidationError('an alias is a name for a key; it is the key that leaves')
         }
         const wrappingKeyArn = requiredString(input.wrappingKeyArn, 'wrappingKeyArn')
+
+        // The pairing is checked here as well as by the runtime, so a caller that
+        // goes past the form is refused with the reference's own reason.
+        const carried = await this.describe(identifier)
+        if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
+        const wrapping = await this.describe(wrappingKeyArn)
+        if (!wrapping) throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not there`)
+
+        const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
+        const wrappingAlgorithm = String(wrapping.KeyAttributes?.KeyAlgorithm ?? '')
+        if (!mayWrapWith(carriedAlgorithm, wrappingAlgorithm)) {
+            throw new ValidationError(
+                `a ${carriedAlgorithm} key may not be carried by a ${wrappingAlgorithm} key: ` +
+                'the wrapping key has to be at least as strong as the key it carries, ' +
+                `so it may be one of ${(PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS[carriedAlgorithm] ?? []).join(', ')}`,
+            )
+        }
+
         return exportKeyTr31(this.client, identifier, wrappingKeyArn)
     }
 

@@ -84,7 +84,19 @@ function runtimeStub(overrides: Record<string, SendResult | (() => never)> = {})
     }
     return stubClient((command) => {
         if (command instanceof ListKeysCommand) return respond('list', {Keys: [key]})
-        if (command instanceof GetKeyCommand) return respond('get', {Key: key})
+        if (command instanceof GetKeyCommand) {
+            // The key a command names, so a wrapping key may be a different key
+            // from the one that leaves.
+            const named = (command as GetKeyCommand).input.KeyIdentifier
+            if (named === key.KeyArn) return respond('get', {Key: key})
+            return {
+                Key: {
+                    ...key,
+                    KeyArn: named,
+                    KeyAttributes: {...attributes, KeyAlgorithm: 'TDES_2KEY', KeyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY'},
+                },
+            }
+        }
         if (command instanceof CreateKeyCommand) return respond('create', {Key: key})
         if (command instanceof DeleteKeyCommand) return respond('delete', {Key: key})
         if (command instanceof ListAliasesCommand) return respond('listAliases', {Aliases: []})
@@ -556,6 +568,18 @@ describe('AwsPaymentCryptographyAdapter', () => {
     })
 
     describe("a key's material", () => {
+        test("refuses a wrapping key that is too weak to carry the key", async () => {
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, KeyAttributes: {...attributes, KeyAlgorithm: 'AES_256'}}},
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.exportKey(KEY_ID, {wrappingKeyArn: 'key/arn:aws:payment-cryptography:us-east-1:000000000000:key/11111111111111111111111111111111'}),
+            ).rejects.toThrow(/at least as strong/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
         test("exports a key under a TR-31 block", async () => {
             const {client, sent} = runtimeStub()
             const adapter = new AwsPaymentCryptographyAdapter(client)
