@@ -197,7 +197,10 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: true,
                 group: 'Key',
-                description: 'What the key is for, as TR-31 names it. It decides which algorithms the key may be made of.',
+                description:
+                    'What the key is for, as TR-31 names it. It decides which algorithms the key may be made of. ' +
+                    'The default is the first usage, TR31_B0_BASE_DERIVATION_KEY.',
+                defaultValue: 'TR31_B0_BASE_DERIVATION_KEY',
                 options: PAYMENT_CRYPTOGRAPHY_KEY_USAGES.map((value) => ({label: value, value})),
             },
             {
@@ -206,7 +209,10 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: true,
                 group: 'Key',
-                description: 'The algorithm the key is made of. It has to be one the usage allows.',
+                description:
+                    'The algorithm the key is made of. It has to be one the usage allows: Triple DES for the ISO MAC ' +
+                    'usages, an RSA or an EC key for the asymmetric ones. The default is the first algorithm the usage allows.',
+                defaultValue: 'TDES_2KEY',
                 options: PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS.map((value) => ({label: value, value})),
             },
             {

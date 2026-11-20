@@ -84,6 +84,21 @@ describe('AwsPaymentCryptographyAdapter', () => {
         expect(adapter.schema().actions).toEqual(['list', 'create', 'delete', 'inspect'])
     })
 
+    test('the form opens on the values the adapter falls back to', () => {
+        const schema = new AwsPaymentCryptographyAdapter(runtimeStub().client).schema()
+        const usage = schema.fields.find((field) => field.name === 'keyUsage')
+        const algorithm = schema.fields.find((field) => field.name === 'keyAlgorithm')
+        const exportable = schema.fields.find((field) => field.name === 'exportable')
+        const enabled = schema.fields.find((field) => field.name === 'enabled')
+
+        // A select the form leaves on its default entry would show "Default" and
+        // save something the page never showed, so each one names its value.
+        expect(usage?.defaultValue).toBe('TR31_B0_BASE_DERIVATION_KEY')
+        expect(algorithm?.defaultValue).toBe('TDES_2KEY')
+        expect(exportable?.defaultValue).toBe('false')
+        expect(enabled?.defaultValue).toBe('true')
+    })
+
     describe('list', () => {
         test('returns the empty list when the account has no keys', async () => {
             const {client} = runtimeStub({list: {Keys: []}})
@@ -268,6 +283,16 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const request = sent.find((command) => command instanceof CreateKeyCommand) as CreateKeyCommand
             expect(request.input.Exportable).toBe(false)
             expect(request.input.Enabled).toBe(true)
+        })
+
+        test('takes the usage and the algorithm the form opens on when they are left unset', async () => {
+            const {client, sent} = runtimeStub()
+
+            await new AwsPaymentCryptographyAdapter(client).create({values: {modeEncrypt: 'true'}})
+
+            const request = sent.find((command) => command instanceof CreateKeyCommand) as CreateKeyCommand
+            expect(request.input.KeyAttributes?.KeyUsage).toBe('TR31_B0_BASE_DERIVATION_KEY')
+            expect(request.input.KeyAttributes?.KeyAlgorithm).toBe('TDES_2KEY')
         })
 
         test('refuses an algorithm the usage does not allow, and names the ones it does', async () => {
