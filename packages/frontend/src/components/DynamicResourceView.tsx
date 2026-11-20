@@ -32,7 +32,7 @@ import type {
   CloudStatus,
 } from "@/types/cloud";
 import type { CloudResource, StorageObject } from "@/types/resource";
-import type { ServiceSchema } from "@/types/schema";
+import type { FieldSchema, ServiceSchema } from "@/types/schema";
 import { dataExplorerPath } from "@/lib/dataExplorer";
 import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
@@ -975,6 +975,7 @@ export function DynamicResourceView({
                     <DynamicFormRenderer
                       key={`${cloud}:${service}:create`}
                       schema={schema}
+                      fields={schema.fields.map((field) => optionsFromRows(field, resourcesQuery.data))}
                       isSubmitting={createMut.isPending}
                       submitLabel={createResourceLabel}
                       pendingLabel="Creating"
@@ -1286,6 +1287,20 @@ export function DynamicResourceView({
       )}
     </div>
   );
+}
+
+/**
+ * The options of a field that names another resource of the same service.
+ *
+ * <p>The rows of the list are the resources the account holds now, so a field that
+ * names one of them offers them rather than a list baked into the schema.
+ */
+function optionsFromRows(field: FieldSchema, rows: CloudResource[] | undefined): FieldSchema {
+  if (!field.optionsFrom) return field;
+  const options = (rows ?? [])
+    .filter((row) => row.type === field.optionsFrom)
+    .map((row) => ({ label: row.name || row.id, value: row.id }));
+  return { ...field, options };
 }
 
 function errorMessage(error: unknown): string {

@@ -101,7 +101,9 @@ function FieldInput({field, required, maxLength, value, invalid, messageId, onCh
     if (field.type === 'select') {
         return (
             <select className={`input ${invalid ? 'invalid' : ''}`} value={value} required={required} aria-invalid={invalid || undefined} aria-describedby={invalid || field.description ? messageId : undefined} onChange={(event) => onChange(event.target.value)}>
-                <option value="">Default</option>
+                {/* A required field has no default, so offering one would only let
+                    the caller choose it and be told the field is required. */}
+                {!required && <option value="">Default</option>}
                 {(field.options ?? []).map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                 ))}

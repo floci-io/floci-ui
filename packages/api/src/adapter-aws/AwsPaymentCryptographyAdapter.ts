@@ -235,7 +235,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     /** An alias points at a key, and the reference refuses one that points at none. */
     private async createAlias(input: CreateResourceInput): Promise<CloudResource> {
         const aliasName = requiredAliasName(input.values.aliasName)
-        const targetKey = requiredString(input.values.aliasTargetKey, 'aliasTargetKey')
+        const targetKey = targetKeyArn(input.values.aliasTargetKey)
 
         const res = await this.client.send(new CreateAliasCommand({AliasName: aliasName, KeyArn: targetKey}))
         if (!res.Alias) throw new RuntimeError('Payment Cryptography did not return the alias it created')
@@ -451,6 +451,19 @@ function kindForPrefix(prefix: string): PaymentCryptographyKind {
 function optionalKind(value: unknown): PaymentCryptographyKind | undefined {
     if (value === undefined || value === null || value === '') return undefined
     return oneOf(value, PAYMENT_CRYPTOGRAPHY_KINDS, 'kind')
+}
+
+/**
+ * The key an alias points at.
+ *
+ * <p>The form offers the keys the account holds, by the id the console knows them
+ * by, and an ARN is accepted as well for a caller that has one. The reference names
+ * a key that exists, so the alias never names one that is not there yet.
+ */
+function targetKeyArn(value: unknown): string {
+    const raw = requiredString(value, 'aliasTargetKey')
+    const prefix = `${PAYMENT_CRYPTOGRAPHY_KIND_PREFIX.keys}/`
+    return raw.startsWith(prefix) ? raw.slice(prefix.length) : raw
 }
 
 /** The name the reference gives an alias, which carries the `alias/` prefix. */
