@@ -296,7 +296,10 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 group: 'Required',
                 description: 'What to make: a key, or an alias name that points at one.',
                 defaultValue: 'keys',
-                options: PAYMENT_CRYPTOGRAPHY_KINDS.map((value) => ({label: value, value})),
+                options: [
+                    {label: 'Key', value: 'keys', submitLabel: 'Create key'},
+                    {label: 'Alias', value: 'aliases', submitLabel: 'Create alias'},
+                ],
             },
             {
                 name: 'keyUsage',

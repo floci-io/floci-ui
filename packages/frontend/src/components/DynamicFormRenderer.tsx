@@ -29,6 +29,12 @@ export function DynamicFormRenderer({
     const [values, setValues] = useState<Record<string, string>>(() =>
         getInitialFormValues(activeFields, initialValues),
     )
+    // A form that makes more than one kind of thing says so on its button: the
+    // option that is picked names what it makes.
+    const buttonLabel =
+        activeFields
+            .map((field) => field.options?.find((option) => option.value === values[field.name])?.submitLabel)
+            .find((label): label is string => Boolean(label)) ?? submitLabel;
     const [errors, setErrors] = useState<Record<string, string>>({})
     const visibleFields = activeFields.filter((field) => isFieldVisible(field, values))
 
@@ -68,8 +74,8 @@ export function DynamicFormRenderer({
                     </button>
                 )}
                 <button className="button primary" type="submit" disabled={isSubmitting}>
-                    {submitLabel === 'Create' && <Plus size={14}/>}
-                    {isSubmitting ? pendingLabel : submitLabel}
+                    {buttonLabel === 'Create' && <Plus size={14}/>}
+                    {isSubmitting ? pendingLabel : buttonLabel}
                 </button>
             </div>
             {submitError && <div className="form-error" role="alert">{submitError}</div>}
