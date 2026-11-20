@@ -1,5 +1,5 @@
 import {NavLink, Outlet, useLocation, useSearchParams} from 'react-router-dom'
-import {AlertTriangle, ChevronsLeft, ChevronsRight, LayoutDashboard, Search, Settings} from 'lucide-react'
+import {AlertTriangle, ChevronsLeft, ChevronsRight, History, LayoutDashboard, Search, Settings} from 'lucide-react'
 import {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react'
 import flociWhite from '@/assets/floci-white.svg'
 import flociBlack from '@/assets/floci-black.svg'
@@ -188,6 +188,7 @@ export function Layout() {
                         <div className="nav-section">
                             <span className="nav-label">General</span>
                             <NavItem to={`/console/${activeCloud}`} icon={LayoutDashboard} label="Console Home" collapsed={collapsed}/>
+                            <NavItem to="/activity" icon={History} label="Activity" collapsed={collapsed}/>
                             <NavItem
                                 to="/settings"
                                 icon={Settings}
