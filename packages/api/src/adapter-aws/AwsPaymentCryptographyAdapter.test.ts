@@ -425,6 +425,15 @@ describe('AwsPaymentCryptographyAdapter', () => {
         })
     })
 
+    test('the health check reads one page rather than every key in the account', async () => {
+        const {client, sent} = runtimeStub()
+
+        await new AwsPaymentCryptographyAdapter(client).health()
+
+        expect(sent).toHaveLength(1)
+        expect((sent[0] as ListKeysCommand).input).toEqual({MaxResults: 1})
+    })
+
     test('schedules the deletion of a key by its ARN', async () => {
         const {client, sent} = runtimeStub()
 

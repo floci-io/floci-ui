@@ -120,6 +120,16 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
     }
 
+    /**
+     * One page is enough to prove liveness without paging the whole account.
+     *
+     * The status is polled every few seconds, and the table's own list reads every
+     * key in full, so the probe reads one page rather than the account.
+     */
+    async health(): Promise<void> {
+        await this.client.send(new ListKeysCommand({MaxResults: 1}))
+    }
+
     /** ListKeys pages at 100 keys, so an account past that would silently truncate. */
     private async listKeyArns(): Promise<string[]> {
         const arns: string[] = []
