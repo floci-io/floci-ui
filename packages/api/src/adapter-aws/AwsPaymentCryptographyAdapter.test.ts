@@ -74,6 +74,9 @@ function notFound(): never {
     })
 }
 
+/** The modes a key encryption key allows, the reference's Encrypt+Wrap combination. */
+const ENCRYPT_AND_WRAP = {modeEncrypt: 'true', modeWrap: 'true'}
+
 describe('AwsPaymentCryptographyAdapter', () => {
     test('identifies itself as the AWS payment cryptography adapter', () => {
         const adapter = new AwsPaymentCryptographyAdapter(runtimeStub().client)
@@ -92,9 +95,11 @@ describe('AwsPaymentCryptographyAdapter', () => {
         const enabled = schema.fields.find((field) => field.name === 'enabled')
 
         // A select the form leaves on its default entry would show "Default" and
-        // save something the page never showed, so each one names its value.
+        // save something the page never showed, so the usage names its value. The
+        // algorithm cannot: the one it saves depends on the usage, so it is left
+        // unset and the adapter chooses it from the usage's own table.
         expect(usage?.defaultValue).toBe('TR31_B0_BASE_DERIVATION_KEY')
-        expect(algorithm?.defaultValue).toBe('TDES_2KEY')
+        expect(algorithm?.defaultValue).toBeUndefined()
         expect(exportable?.defaultValue).toBe('false')
         expect(enabled?.defaultValue).toBe('true')
     })
@@ -254,7 +259,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
                 values: {
                     keyUsage: 'TR31_K2_TR34_ASYMMETRIC_KEY',
                     keyAlgorithm: 'RSA_2048',
-                    modeSign: 'true',
+                    modeDeriveKey: 'true',
                 },
             })
 
@@ -266,18 +271,18 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const {client, sent} = runtimeStub()
 
             await new AwsPaymentCryptographyAdapter(client).create({
-                values: {keyUsage: 'TR31_P0_PIN_ENCRYPTION_KEY', keyAlgorithm: 'TDES_2KEY', modeEncrypt: 'true'},
+                values: {keyUsage: 'TR31_P0_PIN_ENCRYPTION_KEY', keyAlgorithm: 'TDES_2KEY', ...ENCRYPT_AND_WRAP},
             })
 
             const request = sent.find((command) => command instanceof CreateKeyCommand) as CreateKeyCommand
-            expect(request.input.KeyAttributes?.KeyModesOfUse).toEqual({Encrypt: true})
+            expect(request.input.KeyAttributes?.KeyModesOfUse).toEqual({Encrypt: true, Wrap: true})
         })
 
         test('defaults a key to enabled and not exportable', async () => {
             const {client, sent} = runtimeStub()
 
             await new AwsPaymentCryptographyAdapter(client).create({
-                values: {keyUsage: 'TR31_P0_PIN_ENCRYPTION_KEY', modeEncrypt: 'true'},
+                values: {keyUsage: 'TR31_P0_PIN_ENCRYPTION_KEY', ...ENCRYPT_AND_WRAP},
             })
 
             const request = sent.find((command) => command instanceof CreateKeyCommand) as CreateKeyCommand
@@ -288,11 +293,22 @@ describe('AwsPaymentCryptographyAdapter', () => {
         test('takes the usage and the algorithm the form opens on when they are left unset', async () => {
             const {client, sent} = runtimeStub()
 
-            await new AwsPaymentCryptographyAdapter(client).create({values: {modeEncrypt: 'true'}})
+            await new AwsPaymentCryptographyAdapter(client).create({values: {modeDeriveKey: 'true'}})
 
             const request = sent.find((command) => command instanceof CreateKeyCommand) as CreateKeyCommand
             expect(request.input.KeyAttributes?.KeyUsage).toBe('TR31_B0_BASE_DERIVATION_KEY')
             expect(request.input.KeyAttributes?.KeyAlgorithm).toBe('TDES_2KEY')
+        })
+
+        test('takes the algorithm of the usage when the usage is an asymmetric one', async () => {
+            const {client, sent} = runtimeStub()
+
+            await new AwsPaymentCryptographyAdapter(client).create({
+                values: {keyUsage: 'TR31_K3_ASYMMETRIC_KEY_FOR_KEY_AGREEMENT', modeDeriveKey: 'true'},
+            })
+
+            const request = sent.find((command) => command instanceof CreateKeyCommand) as CreateKeyCommand
+            expect(request.input.KeyAttributes?.KeyAlgorithm).toBe('ECC_NIST_P256')
         })
 
         test('refuses an algorithm the usage does not allow, and names the ones it does', async () => {
@@ -300,14 +316,74 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const adapter = new AwsPaymentCryptographyAdapter(client)
 
             await expect(
-                adapter.create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', keyAlgorithm: 'RSA_2048', modeEncrypt: 'true'}}),
+                adapter.create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', keyAlgorithm: 'RSA_2048', ...ENCRYPT_AND_WRAP}}),
             ).rejects.toBeInstanceOf(ValidationError)
             await expect(
-                adapter.create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', keyAlgorithm: 'RSA_2048', modeEncrypt: 'true'}}),
+                adapter.create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', keyAlgorithm: 'RSA_2048', ...ENCRYPT_AND_WRAP}}),
             ).rejects.toThrow(/use one of TDES_2KEY, TDES_3KEY, AES_128, AES_192, AES_256/)
             await expect(
-                adapter.create({values: {keyUsage: 'TR31_M1_ISO_9797_1_MAC_KEY', keyAlgorithm: 'AES_256', modeEncrypt: 'true'}}),
+                adapter.create({values: {keyUsage: 'TR31_M1_ISO_9797_1_MAC_KEY', keyAlgorithm: 'AES_256', modeGenerate: 'true'}}),
             ).rejects.toThrow(/use one of TDES_2KEY, TDES_3KEY/)
+            expect(sent).toHaveLength(0)
+        })
+
+        test('refuses an elliptic curve key for a usage that takes an RSA one', async () => {
+            const {client, sent} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.create({
+                    values: {keyUsage: 'TR31_S0_ASYMMETRIC_KEY_FOR_DIGITAL_SIGNATURE', keyAlgorithm: 'ECC_NIST_P256', modeSign: 'true'},
+                }),
+            ).rejects.toThrow(/use one of RSA_2048, RSA_3072, RSA_4096/)
+            expect(sent).toHaveLength(0)
+        })
+
+        test('refuses an RSA key for the key agreement usage, which takes an elliptic curve one', async () => {
+            const {client, sent} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.create({
+                    values: {keyUsage: 'TR31_K3_ASYMMETRIC_KEY_FOR_KEY_AGREEMENT', keyAlgorithm: 'RSA_2048', modeDeriveKey: 'true'},
+                }),
+            ).rejects.toThrow(/use one of ECC_NIST_P256, ECC_NIST_P384, ECC_NIST_P521/)
+            expect(sent).toHaveLength(0)
+        })
+
+        test('makes a hash key of the hash it carries', async () => {
+            const {client, sent} = runtimeStub()
+
+            await new AwsPaymentCryptographyAdapter(client).create({
+                values: {
+                    keyUsage: 'TR31_M7_HMAC_KEY',
+                    keyAlgorithm: 'HMAC_SHA512',
+                    modeGenerate: 'true',
+                    modeVerify: 'true',
+                },
+            })
+
+            const request = sent.find((command) => command instanceof CreateKeyCommand) as CreateKeyCommand
+            expect(request.input.KeyAttributes?.KeyAlgorithm).toBe('HMAC_SHA512')
+            expect(request.input.KeyAttributes?.KeyClass).toBe('SYMMETRIC_KEY')
+        })
+
+        test('refuses a combination of modes the usage does not allow, and names the ones it does', async () => {
+            const {client, sent} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', modeEncrypt: 'true'}}),
+            ).rejects.toBeInstanceOf(ValidationError)
+            await expect(
+                adapter.create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', modeEncrypt: 'true'}}),
+            ).rejects.toThrow(
+                /use one of Encrypt\+Decrypt\+Wrap\+Unwrap, Encrypt\+Wrap, Decrypt\+Unwrap, NoRestrictions/,
+            )
+            // A MAC key may not encrypt.
+            await expect(
+                adapter.create({values: {keyUsage: 'TR31_M1_ISO_9797_1_MAC_KEY', modeEncrypt: 'true'}}),
+            ).rejects.toThrow(/use one of Generate, Verify, Generate\+Verify, NoRestrictions/)
             expect(sent).toHaveLength(0)
         })
 
@@ -317,6 +393,16 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             await expect(
                 adapter.create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', modeEncrypt: 'false'}}),
+            ).rejects.toBeInstanceOf(ValidationError)
+            expect(sent).toHaveLength(0)
+        })
+
+        test('refuses a mode that is neither of the two answers', async () => {
+            const {client, sent} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', modeEncrypt: 'TRUE'}}),
             ).rejects.toBeInstanceOf(ValidationError)
             expect(sent).toHaveLength(0)
         })
@@ -334,7 +420,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const {client} = runtimeStub({create: {}})
 
             await expect(
-                new AwsPaymentCryptographyAdapter(client).create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', modeEncrypt: 'true'}}),
+                new AwsPaymentCryptographyAdapter(client).create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', ...ENCRYPT_AND_WRAP}}),
             ).rejects.toBeInstanceOf(RuntimeError)
         })
     })

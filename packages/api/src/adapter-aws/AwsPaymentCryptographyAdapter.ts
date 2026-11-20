@@ -18,8 +18,11 @@ import {
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
+    PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
+    type ModeCombination,
     type PaymentCryptographyKeyAlgorithm,
     type PaymentCryptographyKeyUsage,
+    type PaymentCryptographyModeOfUse,
 } from '../cloud-spi/paymentCryptographySchema'
 import type {
     CloudResource,
@@ -72,7 +75,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     async create(input: CreateResourceInput): Promise<CloudResource> {
         const keyUsage = oneOf(input.values.keyUsage, PAYMENT_CRYPTOGRAPHY_KEY_USAGES, 'keyUsage')
         const keyAlgorithm = algorithmFor(keyUsage, input.values.keyAlgorithm)
-        const keyModesOfUse = modesOfUse(input.values)
+        const keyModesOfUse = modesOfUse(input.values, keyUsage)
 
         const res = await this.client.send(
             new CreateKeyCommand({
@@ -204,23 +207,53 @@ function algorithmFor(
  * The modes of use the key is made with.
  *
  * A mode says what the key may be used for, so a key with none of them does no
- * work: one is required, and the refusal names the field rather than the key.
+ * work. The reference allows a fixed set of combinations of them per usage, so a
+ * combination that is not one of those is refused and the ones that are named.
  */
-function modesOfUse(values: Record<string, unknown>): KeyModesOfUse {
+function modesOfUse(values: Record<string, unknown>, keyUsage: PaymentCryptographyKeyUsage): KeyModesOfUse {
     const modes: KeyModesOfUse = {}
 
     for (const mode of PAYMENT_CRYPTOGRAPHY_MODES_OF_USE) {
         const value = values[`mode${mode}`]
         if (value === undefined || value === null || value === '') continue
-        modes[mode] = value === 'true'
+        // A mode is a yes or a no, so anything else is a fault of the caller rather
+        // than a quiet "no".
+        if (booleanValue(value, `mode${mode}`)) {
+            modes[mode] = true
+        }
     }
 
-    if (!Object.values(modes).some(Boolean)) {
+    const allowed = Object.keys(modes) as PaymentCryptographyModeOfUse[]
+    const combinations = PAYMENT_CRYPTOGRAPHY_USAGE_RULES[keyUsage].modes
+    if (!combinations.some((combination) => sameModes(combination, allowed))) {
         throw new ValidationError(
-            'a key needs at least one mode of use: it is what says what the key may be used for',
+            `the modes of use ${labelModes(allowed)} are not valid for keyUsage ${keyUsage}; ` +
+            `use one of ${combinations.map(labelModes).join(', ')}`,
         )
     }
     return modes
+}
+
+/** Whether two sets of modes of use are the same, whatever order they are in. */
+function sameModes(combination: ModeCombination, allowed: readonly PaymentCryptographyModeOfUse[]): boolean {
+    if (combination.length !== allowed.length) return false
+    const left = orderedModes(combination)
+    const right = orderedModes(allowed)
+    return left.every((mode, index) => mode === right[index])
+}
+
+/**
+ * A combination of modes of use, for a message.
+ *
+ * The modes are in the order the reference names them in, so a combination reads the
+ * way the reference's own table writes it.
+ */
+function labelModes(modes: readonly PaymentCryptographyModeOfUse[]): string {
+    return modes.length === 0 ? 'none' : orderedModes(modes).join('+')
+}
+
+function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCryptographyModeOfUse[] {
+    return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
 function toResource(key: Key, tagLookup: TagLookup): CloudResource {
@@ -287,9 +320,9 @@ function optionalString(value: unknown, field: string): string | undefined {
 
 /**
  * A yes-or-no member of the create form, which arrives as the text of the answer
- * the form offered.
+ * the form offered. Anything else is a fault of the caller, not a quiet "no".
  */
-function booleanValue(value: unknown, field: string, fallback: boolean): boolean {
+function booleanValue(value: unknown, field: string, fallback = false): boolean {
     const raw = optionalString(value, field)
     if (raw === undefined) return fallback
     if (raw === 'true') return true
