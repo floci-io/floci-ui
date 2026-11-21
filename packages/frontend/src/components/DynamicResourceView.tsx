@@ -58,6 +58,7 @@ const AppConfigPanel = lazyPanel(() => import("@/components/AppConfigPanel").the
 const KmsCryptoPanel = lazyPanel(() => import("@/components/KmsCryptoPanel").then((m) => m.KmsCryptoPanel));
 const AzureKeyVaultPanel = lazyPanel(() => import("@/components/AzureKeyVaultPanel").then((m) => m.AzureKeyVaultPanel));
 const EventGridSubscriptionsPanel = lazyPanel(() => import("@/components/EventGridSubscriptionsPanel").then((m) => m.EventGridSubscriptionsPanel));
+const OciGovernancePanel = lazyPanel(() => import("@/components/OciGovernancePanel").then((m) => m.OciGovernancePanel));
 const OciParPanel = lazyPanel(() => import("@/components/OciParPanel").then((m) => m.OciParPanel));
 const OciKmsActionsPanel = lazyPanel(() => import("@/components/OciKmsActionsPanel").then((m) => m.OciKmsActionsPanel));
 const SqsMessagingPanel = lazyPanel(() => import("@/components/SqsMessagingPanel").then((m) => m.SqsMessagingPanel));
@@ -1056,6 +1057,9 @@ export function DynamicResourceView({
       )}
       {service === "events" && cloud === "azure" && (
         <EventGridSubscriptionsPanel resource={activeSelected} runtimeReachable={canUseRuntime} />
+      )}
+      {service === "governance" && cloud === "oci" && (
+        <OciGovernancePanel resource={activeSelected} runtimeReachable={canUseRuntime} />
       )}
       {service === "compute" && (
         <ComputePanel

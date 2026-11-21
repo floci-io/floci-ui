@@ -368,6 +368,14 @@ export const SERVICE_CATALOG = {
         group: 'Provisioning',
         order: 40,
     },
+    governance: {
+        displayName: 'Governance Rules',
+        description: 'Browse the governance rules a parent tenancy applies to its child tenancies.',
+        docsSlugByCloud: {oci: 'governance-rules'},
+        iconKey: 'iam',
+        group: 'Provisioning',
+        order: 50,
+    },
     cicd: {
         displayName: 'CI/CD',
         displayNameByCloud: {aws: 'CodeBuild'},
