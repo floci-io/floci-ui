@@ -84,6 +84,17 @@ describe('the usage of a payment key', () => {
         expect(sent.some((command) => command instanceof StopKeyUsageCommand)).toBe(false)
     })
 
+    test('a request that says nothing is refused, not a fault', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // A body of null reaches the adapter when the route does not check it,
+        // and reading a member of it is a fault rather than a refusal.
+        await expect(adapter.setUsage(KEY_ID, null as never)).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof StartKeyUsageCommand)).toBe(false)
+        expect(sent.some((command) => command instanceof StopKeyUsageCommand)).toBe(false)
+    })
+
     test('an alias has no usage of its own; the key it names does', async () => {
         const {client} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)

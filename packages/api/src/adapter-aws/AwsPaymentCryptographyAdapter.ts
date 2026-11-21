@@ -174,7 +174,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (kind === 'aliases') {
             throw new ValidationError('an alias has no settings of its own; the key it names does')
         }
-        const enabled = input.enabled
+        const enabled = input?.enabled
         if (enabled !== 'true' && enabled !== 'false' && enabled !== true && enabled !== false) {
             throw new ValidationError('the enabled member of the request must say whether the key may be used')
         }
