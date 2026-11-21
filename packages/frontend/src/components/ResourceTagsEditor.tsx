@@ -68,6 +68,9 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
     )
   }
 
+  // The editor is closed when the save succeeds, so anything the user changes
+  // while the request is in flight would be lost. The controls are held still
+  // until it is done.
   return (
     <div className="tags-editor">
       {rows.map((row, index) => (
@@ -76,6 +79,7 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
             className="input"
             aria-label="Tag key"
             value={row.key}
+            disabled={saveMut.isPending}
             onChange={(event) =>
               setRows((prev) => prev.map((each, i) => (i === index ? { ...each, key: event.target.value } : each)))
             }
@@ -84,6 +88,7 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
             className="input"
             aria-label="Tag value"
             value={row.value}
+            disabled={saveMut.isPending}
             onChange={(event) =>
               setRows((prev) => prev.map((each, i) => (i === index ? { ...each, value: event.target.value } : each)))
             }
@@ -92,6 +97,7 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
             className="icon-btn"
             type="button"
             aria-label="Remove tag"
+            disabled={saveMut.isPending}
             onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
           >
             <X size={13} />
@@ -102,6 +108,7 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
         <button
           className="button small"
           type="button"
+          disabled={saveMut.isPending}
           onClick={() => setRows((prev) => [...prev, { key: '', value: '' }])}
         >
           <Plus size={12} />
@@ -110,6 +117,7 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
         <button
           className="button small"
           type="button"
+          disabled={saveMut.isPending}
           onClick={() => {
             setEditing(false)
             setError(null)

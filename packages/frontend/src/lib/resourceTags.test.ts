@@ -44,6 +44,17 @@ describe("resource tags", () => {
     expect(changesBetween(before, before)).toEqual({});
   });
 
+  it("keeps a tag named __proto__ as a tag of its own", () => {
+    const before = [{ key: "env", value: "prod" }];
+    const after = [{ key: "__proto__", value: "value" }];
+
+    const changes = changesBetween(before, after);
+
+    expect(Object.prototype.hasOwnProperty.call(changes, "__proto__")).toBe(true);
+    expect(changes["__proto__"]).toBe("value");
+    expect(changes.env).toBeNull();
+  });
+
   it("ignores a row whose key is not filled in", () => {
     const before = [{ key: "env", value: "prod" }];
     const after = [

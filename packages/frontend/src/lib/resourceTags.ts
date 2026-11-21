@@ -34,13 +34,16 @@ export function resourceTags(metadata: Record<string, unknown>): ResourceTag[] {
 export function changesBetween(original: ResourceTag[], edited: ResourceTag[]): Record<string, string | null> {
   const before = new Map(original.map((tag) => [tag.key, tag.value]));
   const after = new Map(edited.filter((row) => row.key !== '').map((row) => [row.key, row.value]));
-  const changes: Record<string, string | null> = {};
+  // The changes are built through a map and made into an object at the end, so a
+  // tag named `__proto__` is an own property of the result. Assigning it to a
+  // plain object would reach the inherited setter and lose the tag.
+  const changes = new Map<string, string | null>();
 
   for (const [key, value] of after) {
-    if (before.get(key) !== value) changes[key] = value;
+    if (before.get(key) !== value) changes.set(key, value);
   }
   for (const key of before.keys()) {
-    if (!after.has(key)) changes[key] = null;
+    if (!after.has(key)) changes.set(key, null);
   }
-  return changes;
+  return Object.fromEntries(changes);
 }

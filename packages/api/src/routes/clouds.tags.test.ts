@@ -82,6 +82,42 @@ describe('the tags route', () => {
         expect((await res.json()).code).toBe('operation_not_supported')
     })
 
+    test('refuses a body that is not an object of tag changes', async () => {
+        const app = appWithRoutes([mockAdapter({updateTags: async () => {}})])
+
+        for (const body of [['env'], 'env', 42, {env: 42}]) {
+            const res = await app.request('/api/clouds/aws/services/storage/resources/bucket-1/tags', {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+            })
+
+            expect(res.status).toBe(400)
+        }
+    })
+
+    test('a tag named __proto__ is a tag of its own', async () => {
+        const seen: Array<Record<string, string | null>> = []
+        const app = appWithRoutes([
+            mockAdapter({
+                updateTags: async (_id: string, tags: Record<string, string | null>) => {
+                    seen.push(tags)
+                },
+            }),
+        ])
+
+        const res = await app.request('/api/clouds/aws/services/storage/resources/bucket-1/tags', {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            // An own property: a literal would set the prototype instead.
+            body: JSON.stringify(Object.fromEntries([['__proto__', 'value']])),
+        })
+
+        expect(res.status).toBe(200)
+        expect(Object.prototype.hasOwnProperty.call(seen[0], '__proto__')).toBe(true)
+        expect(seen[0]['__proto__']).toBe('value')
+    })
+
     test('refuses a service that is not one of them', async () => {
         const app = appWithRoutes([mockAdapter()])
 
