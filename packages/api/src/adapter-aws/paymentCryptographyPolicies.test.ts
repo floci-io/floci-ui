@@ -85,6 +85,17 @@ describe('the policy of a payment key', () => {
         expect(sent.some((each) => each instanceof PutResourcePolicyCommand)).toBe(false)
     })
 
+    test('a request that says nothing about the policy is refused, not a removal', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // A request without a policy is a fault of the caller. Reading it as a
+        // removal would take the policy away from a key that still holds one.
+        await expect(adapter.setPolicy(KEY_ID, {})).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(false)
+        expect(sent.some((command) => command instanceof PutResourcePolicyCommand)).toBe(false)
+    })
+
     test('a policy that is not a document is refused', async () => {
         const {client, sent} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)

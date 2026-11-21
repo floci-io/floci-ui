@@ -344,9 +344,15 @@ export const endpointRegistry: EndpointRegistry = new Map([
     },
   ],
   [
+<<<<<<< HEAD
     apiEndpointKeys.clouds.resources.usage,
     {
       path: "/clouds/:cloud/services/:service/resources/:id/usage",
+=======
+    apiEndpointKeys.clouds.resources.policy,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/policy",
+>>>>>>> 1b15c73 (fix(paymentcryptography): a request that says nothing about the policy is refused)
       method: "POST",
       telemetry: { service: "cloud-proxy" },
     },

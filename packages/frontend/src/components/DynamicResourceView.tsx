@@ -1181,6 +1181,7 @@ export function DynamicResourceView({
 =======
       {service === "paymentcryptography" && (
         <PaymentCryptographyPanel
+          key={inspectedResource?.id}
           cloud={cloud}
           resource={inspectedResource}
           runtimeReachable={canUseRuntime}

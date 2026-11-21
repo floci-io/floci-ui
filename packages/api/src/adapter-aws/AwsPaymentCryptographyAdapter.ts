@@ -158,6 +158,15 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      *
      * <p>An alias is removed at once, which is the reference's own behaviour too.
      */
+    async delete(id: string): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            await this.client.send(new DeleteAliasCommand({AliasName: aliasNameOf(identifier)}))
+            return
+        }
+        await this.client.send(new DeleteKeyCommand({KeyIdentifier: identifier}))
+    }
+
     /**
      * The policy that lets another account use a key.
      *
@@ -170,9 +179,15 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             throw new ValidationError('an alias has no settings of its own; the key it names does')
         }
         const policy = input.policy
+        // A request that says nothing about the policy is a fault of the caller,
+        // and it is refused: reading it as a removal would take the policy away
+        // from a key that still holds one.
+        if (policy === undefined) {
+            throw new ValidationError('the request must say what the policy is')
+        }
         // An empty policy is the console's way of saying that the policy is gone,
         // so it removes the one the key holds rather than attaching nothing.
-        if (policy === undefined || policy === null || (typeof policy === 'string' && policy.trim() === '')) {
+        if (policy === null || (typeof policy === 'string' && policy.trim() === '')) {
             await deleteKeyPolicy(this.client, identifier)
             return
         }
@@ -182,6 +197,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         await putKeyPolicy(this.client, identifier, policy)
     }
 
+<<<<<<< HEAD
     async delete(id: string): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {
@@ -209,6 +225,8 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         await setKeyUsage(this.client, identifier, enabled === true || enabled === 'true')
     }
 
+=======
+>>>>>>> 1b15c73 (fix(paymentcryptography): a request that says nothing about the policy is refused)
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {
