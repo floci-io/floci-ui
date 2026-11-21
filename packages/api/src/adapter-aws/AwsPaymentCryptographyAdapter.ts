@@ -16,7 +16,11 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
+<<<<<<< HEAD
 import {setKeyUsage} from './paymentCryptographyLifecycle'
+=======
+import {exportKeyTr31, importKeyTr31, type ExportedKeyMaterial} from './paymentCryptographyTransfer'
+>>>>>>> 4b52260 (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -24,7 +28,12 @@ import {
     keyClassForAlgorithm,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
+<<<<<<< HEAD
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
+=======
+    PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS,
+    mayWrapWith,
+>>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
     PAYMENT_CRYPTOGRAPHY_KIND_PREFIX,
     PAYMENT_CRYPTOGRAPHY_KINDS,
@@ -121,6 +130,9 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
+        if (input.values.source === 'import') {
+            return this.importKey(input)
+        }
         const kind = oneOf(input.values.kind, PAYMENT_CRYPTOGRAPHY_KINDS, 'kind', 'keys')
         if (kind === 'aliases') {
             return this.createAlias(input)
@@ -154,6 +166,58 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      *
      * <p>An alias is removed at once, which is the reference's own behaviour too.
      */
+    /**
+     * The material a key leaves under.
+     *
+     * <p>The wrapping key has to be one the reference allows: a key encryption key
+     * that may wrap, and at least as strong as the key it carries. The matrix is
+     * the reference's own, and it is in one place, so the panel and this agree
+     * about it.
+     */
+    async exportKey(id: string, input: {wrappingKeyArn: string}): Promise<ExportedKeyMaterial> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias is a name for a key; it is the key that leaves')
+        }
+        const wrappingKeyArn = requiredString(input.wrappingKeyArn, 'wrappingKeyArn')
+
+        const carried = await this.describe(identifier)
+        if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
+        const wrapping = await this.describe(wrappingKeyArn)
+        if (!wrapping) throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not there`)
+
+        const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
+        const wrappingAlgorithm = String(wrapping.KeyAttributes?.KeyAlgorithm ?? '')
+        if (!mayWrapWith(carriedAlgorithm, wrappingAlgorithm)) {
+            throw new ValidationError(
+                `a ${carriedAlgorithm} key may not be carried by a ${wrappingAlgorithm} key: ` +
+                'the wrapping key has to be at least as strong as the key it carries, ' +
+                `so it may be one of ${(PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS[carriedAlgorithm] ?? []).join(', ')}`,
+            )
+        }
+
+        return exportKeyTr31(this.client, identifier, wrappingKeyArn)
+    }
+
+    /**
+     * A key that comes in under a TR-31 block a key the account holds wraps.
+     *
+     * <p>An imported key carries its own attributes, so the block says what it is
+     * and the form asks for the block and the wrapping key alone.
+     */
+    private async importKey(input: CreateResourceInput): Promise<CloudResource> {
+        const wrappingKeyArn = requiredString(input.values.wrappingKeyArn, 'wrappingKeyArn')
+        const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
+        const enabled = booleanValue(input.values.enabled, 'enabled', true)
+
+        const arn = await importKeyTr31(this.client, wrappingKeyArn, wrappedKeyBlock, enabled)
+        if (!arn) throw new RuntimeError('Payment Cryptography did not return the key it imported')
+
+        const key = await this.describe(arn)
+        if (!key) throw new RuntimeError('Payment Cryptography did not return the key it imported')
+        return toResource(key, {tags: []})
+    }
+
     async delete(id: string): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {

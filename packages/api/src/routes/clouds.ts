@@ -1142,15 +1142,25 @@ export function createCloudRoutes(
         })
     })
 
+<<<<<<< HEAD
     app.patch('/:cloud/services/:service/resources/:id/tags', async (c) => {
+=======
+    app.post('/:cloud/services/:service/resources/:id/export', async (c) => {
+>>>>>>> 62da23f (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
+<<<<<<< HEAD
             const tags = tagChanges(await jsonBody<Record<string, unknown>>(c))
             await svc(c).updateTags(cloud, serviceType, c.req.param('id'), tags)
             return c.json({ok: true})
+=======
+            const input = await c.req.json<{wrappingKeyArn: string}>()
+            const material = await svc(c).exportPaymentCryptographyKey(cloud, serviceType, c.req.param('id'), input)
+            return c.json(material, 200)
+>>>>>>> 62da23f (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
         })
     })
 

@@ -321,6 +321,26 @@ export class CloudProxyService {
         await setter.setUsage(id, input)
     }
 
+    /**
+     * The material a key leaves under.
+     *
+     * <p>Only the payment cryptography service exports a key, so the adapter's own
+     * method answers it.
+     */
+    async exportPaymentCryptographyKey(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        id: string,
+        input: {wrappingKeyArn: string},
+    ): Promise<unknown> {
+        const adapter = this.requireAdapter(cloud, service)
+        const exporter = adapter as {exportKey?: (id: string, input: {wrappingKeyArn: string}) => Promise<unknown>}
+        if (!exporter.exportKey) {
+            throw new NotSupportedError(`${cloud}/${service} does not export keys`)
+        }
+        return exporter.exportKey(id, input)
+    }
+
     async encryptKms(cloud: CloudProvider, keyId: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {
         const adapter = this.requireAdapter(cloud, 'kms')
         if (!adapter.encrypt) throw new NotSupportedError(`${cloud}/kms encrypt is not supported`)

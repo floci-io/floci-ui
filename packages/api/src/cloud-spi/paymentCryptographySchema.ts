@@ -194,6 +194,7 @@ export function algorithmsForUsage(usage: PaymentCryptographyKeyUsage): readonly
 }
 
 /**
+<<<<<<< HEAD
  * The class of a key.
  *
  * The class says what shape the key has: a pair has a public half and a
@@ -229,6 +230,60 @@ export const PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES = {
 
 export type PaymentCryptographyCertificateState =
     (typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES)[keyof typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES]
+=======
+ * The strength of a symmetric key, in bits, as the reference's matrix counts it.
+ *
+ * <p>The matrix is the reference's own, and a wrapping key has to be at least as
+ * strong as the key it carries. The strength of a Triple DES key is the strength of
+ * its key length, so a two-key key is weaker than a three-key one and may not carry
+ * it.
+ */
+export const PAYMENT_CRYPTOGRAPHY_KEY_STRENGTH: Record<string, number> = {
+    TDES_2KEY: 80,
+    TDES_3KEY: 112,
+    AES_128: 128,
+    AES_192: 192,
+    AES_256: 256,
+}
+
+/**
+ * The wrapping keys each key may leave under, as the reference's matrix allows.
+ *
+ * <p>The matrix is a table of the key to protect against the wrapping key, and the
+ * row of a key is what it may be carried by. The transports that are not a TR-31
+ * block are not here, because a key that leaves under an RSA or an elliptic curve
+ * key leaves as a cryptogram and not as a block.
+ */
+export const PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS: Record<string, string[]> = {
+    TDES_2KEY: ['TDES_2KEY', 'TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
+    TDES_3KEY: ['TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
+    AES_128: ['AES_128', 'AES_192', 'AES_256'],
+    AES_192: ['AES_192', 'AES_256'],
+    AES_256: ['AES_256'],
+}
+
+/**
+ * The usages a key may have when it wraps another key.
+ *
+ * <p>A key that wraps a block is a key encryption key or a key block protection
+ * key, which are the two the reference names for the purpose.
+ */
+export const PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES = [
+    'TR31_K0_KEY_ENCRYPTION_KEY',
+    'TR31_K1_KEY_BLOCK_PROTECTION_KEY',
+]
+
+/**
+ * Whether a key of one algorithm may be carried by a key of another.
+ *
+ * <p>The rule is the reference's matrix, and it is the same rule the local runtime
+ * holds to, so the table and the runtime agree.
+ */
+export function mayWrapWith(carriedAlgorithm: string, wrappingAlgorithm: string): boolean {
+    const allowed = PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS[carriedAlgorithm]
+    return allowed ? allowed.includes(wrappingAlgorithm) : false
+}
+>>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
 
 /**
  * The class a key of an algorithm has.
@@ -254,6 +309,14 @@ export function keyClassForAlgorithm(algorithm: PaymentCryptographyKeyAlgorithm)
 export const PAYMENT_CRYPTOGRAPHY_KINDS = ['keys', 'aliases'] as const
 
 export type PaymentCryptographyKind = (typeof PAYMENT_CRYPTOGRAPHY_KINDS)[number]
+
+/**
+ * What the create form makes: a key, an alias, or a key that comes in under a
+ * TR-31 block a key the account holds wraps.
+ */
+export const PAYMENT_CRYPTOGRAPHY_SOURCES = ['keys', 'aliases', 'import'] as const
+
+export type PaymentCryptographySource = (typeof PAYMENT_CRYPTOGRAPHY_SOURCES)[number]
 
 /** The prefix a kind's resource ids carry, as the explorer holds several kinds in one table. */
 export const PAYMENT_CRYPTOGRAPHY_KIND_PREFIX: Record<PaymentCryptographyKind, string> = {
@@ -311,7 +374,7 @@ function modeFields(): FieldSchema[] {
         type: 'select',
         required: false,
         group: 'Key modes of use',
-        visibleWhen: {field: 'kind', equals: 'keys'},
+        visibleWhen: {field: 'source', equals: 'keys'},
         defaultValue: 'false',
         options: ALLOWED_OPTIONS,
     }))
@@ -341,16 +404,17 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
         displayName: 'Payment Cryptography',
         fields: [
             {
-                name: 'kind',
-                label: 'Kind',
+                name: 'source',
+                label: 'What to make',
                 type: 'select',
                 required: true,
                 group: 'Required',
-                description: 'What to make: a key, or an alias name that points at one.',
+                description: 'A key, an alias name that points at one, or a key that comes in under a TR-31 block.',
                 defaultValue: 'keys',
                 options: [
-                    {label: 'Key', value: 'keys', submitLabel: 'Create key'},
-                    {label: 'Alias', value: 'aliases', submitLabel: 'Create alias'},
+                    {label: 'A new key', value: 'keys', submitLabel: 'Create key'},
+                    {label: 'An alias', value: 'aliases', submitLabel: 'Create alias'},
+                    {label: 'An imported key', value: 'import', submitLabel: 'Import key'},
                 ],
             },
             {
@@ -359,7 +423,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: true,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description:
                     'What the key is for, as TR-31 names it. It decides which algorithms the key may be made of ' +
                     'and which combinations of modes of use it may have. The default is the first usage, ' +
@@ -373,7 +437,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description:
                     'The algorithm the key is made of. It has to be one the usage allows. Left unset, the first ' +
                     'algorithm the usage allows is chosen.',
@@ -385,7 +449,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description: 'Whether the key may leave the service. It cannot be changed once the key is made.',
                 defaultValue: 'false',
                 options: ALLOWED_OPTIONS,
@@ -396,20 +460,43 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description: 'Whether the key does any work. A disabled key is refused by every operation that runs under it.',
                 defaultValue: 'true',
                 options: ALLOWED_OPTIONS,
             },
             ...modeFields(),
             {
+                name: 'wrappingKeyArn',
+                label: 'Wrapping Key',
+                type: 'select',
+                required: false,
+                group: 'Import',
+                visibleWhen: {field: 'source', equals: 'import'},
+                requiredWhen: {field: 'source', equals: 'import'},
+                description:
+                    'The key the block is wrapped under. It has to be a key encryption key that may wrap, and at ' +
+                    'least as strong as the key it carries.',
+                optionsFrom: 'key',
+            },
+            {
+                name: 'wrappedKeyBlock',
+                label: 'Wrapped Key Block',
+                type: 'textarea',
+                required: false,
+                group: 'Import',
+                visibleWhen: {field: 'source', equals: 'import'},
+                requiredWhen: {field: 'source', equals: 'import'},
+                description: 'The TR-31 block the key comes in under, as the service wrote it.',
+            },
+            {
                 name: 'aliasName',
                 label: 'Alias Name',
                 type: 'text',
                 required: false,
                 group: 'Alias',
-                visibleWhen: {field: 'kind', equals: 'aliases'},
-                requiredWhen: {field: 'kind', equals: 'aliases'},
+                visibleWhen: {field: 'source', equals: 'aliases'},
+                requiredWhen: {field: 'source', equals: 'aliases'},
                 description: 'The name of the alias. It has to begin with "alias/".',
                 validation: {
                     pattern: '^alias/[A-Za-z0-9/_-]+$',
@@ -422,8 +509,8 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Alias',
-                visibleWhen: {field: 'kind', equals: 'aliases'},
-                requiredWhen: {field: 'kind', equals: 'aliases'},
+                visibleWhen: {field: 'source', equals: 'aliases'},
+                requiredWhen: {field: 'source', equals: 'aliases'},
                 description: 'The key the alias points at. An alias names a key that exists.',
                 optionsFrom: 'key',
             },
@@ -434,6 +521,12 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
         },
         filters: paymentCryptographyFilters,
         columns: paymentCryptographyColumns,
+        pairings: [
+            {
+                discriminator: 'keyAlgorithm',
+                allowed: PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS,
+            },
+        ],
         notice:
             'The keys a payment operator holds and the alias names that point at them: their attributes, ' +
             'their check value and their state. Key replication and Multi-Party Approval are not in this view.',

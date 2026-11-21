@@ -210,6 +210,17 @@ export interface TableColumnSchema {
     width?: string
 }
 
+/**
+ * A rule a service publishes about what may carry what, for a panel that has to
+ * offer only the pairings the service allows.
+ */
+export interface PairingRule {
+    /** The metadata member that says what the resource is, such as its algorithm. */
+    discriminator: string
+    /** What it may carry, by that member's value. */
+    allowed: Record<string, string[]>
+}
+
 export interface ServiceSchema {
     cloud: CloudProvider
     service: CloudServiceType
@@ -230,6 +241,12 @@ export interface ServiceSchema {
     filters: FieldSchema[]
     columns: TableColumnSchema[]
     updateFields?: FieldSchema[]
+    /**
+     * The pairings the service allows, for a panel that chooses one resource to
+     * carry another. The service publishes its own table, so the panel and the
+     * adapter cannot disagree about it.
+     */
+    pairings?: PairingRule[]
     /** A standing caveat shown above the list, for what the local runtime emulates but does not do. */
     notice?: string
 }
