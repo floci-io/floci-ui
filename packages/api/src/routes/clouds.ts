@@ -1153,11 +1153,15 @@ export function createCloudRoutes(
 
         return withRuntime(c, async () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
             const tags = tagChanges(await jsonBody<Record<string, unknown>>(c))
             await svc(c).updateTags(cloud, serviceType, c.req.param('id'), tags)
             return c.json({ok: true})
 =======
             const input = await c.req.json<{wrappingKeyArn: string}>()
+=======
+            const input = await jsonBody<{wrappingKeyArn: string}>(c)
+>>>>>>> 8ecec80 (fix(paymentcryptography): a body that is not an object is refused)
             const material = await svc(c).exportPaymentCryptographyKey(cloud, serviceType, c.req.param('id'), input)
             return c.json(material, 200)
 >>>>>>> 62da23f (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)

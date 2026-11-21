@@ -181,7 +181,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         // The form names a resource, and the resource id carries its kind, so the
         // prefix is taken off before the runtime is asked about it.
-        const wrappingKeyArn = targetKeyArn(requiredString(input.wrappingKeyArn, 'wrappingKeyArn'))
+        const wrappingKeyArn = targetKeyArn(requiredString(input?.wrappingKeyArn, 'wrappingKeyArn'))
 
         const carried = await this.describe(identifier)
         if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
@@ -210,7 +210,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     private async importKey(input: CreateResourceInput): Promise<CloudResource> {
         // The form names a resource, and the resource id carries its kind, so the
         // prefix is taken off before the runtime is asked about it.
-        const wrappingKeyArn = targetKeyArn(requiredString(input.values.wrappingKeyArn, 'wrappingKeyArn'))
+        const wrappingKeyArn = targetKeyArn(requiredString(input.values?.wrappingKeyArn, 'wrappingKeyArn'))
         const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
         const enabled = booleanValue(input.values.enabled, 'enabled', true)
 
