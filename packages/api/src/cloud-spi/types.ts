@@ -97,7 +97,23 @@ export interface FieldSchema {
         maxLength?: number
         message?: string
     }
-    options?: Array<{label: string; value: string}>
+    options?: Array<{
+        label: string
+        value: string
+        /**
+         * What the form makes when this option is the one picked, for a form that
+         * makes more than one kind of thing: the button says so.
+         */
+        submitLabel?: string
+    }>
+    /**
+     * The kind of resource whose rows become the options, for a field that names
+     * another resource of the same service: the key an alias points at, say.
+     *
+     * <p>The rows come from the list the form belongs to, so the options are the
+     * resources the account holds now rather than a list baked into the schema.
+     */
+    optionsFrom?: string
 }
 
 /** The power verbs a compute adapter may implement, reached through `/compute/resources/:id/<verb>`. */

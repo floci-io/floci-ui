@@ -31,6 +31,14 @@ export function DynamicFormRenderer({
     )
     const [errors, setErrors] = useState<Record<string, string>>({})
     const visibleFields = activeFields.filter((field) => isFieldVisible(field, values))
+    // A form that makes more than one kind of thing says so on its button: the
+    // option that is picked names what it makes. Only a field on the form may
+    // name it: a field hidden by another answer keeps its value, and a hidden
+    // field must not decide what the button says.
+    const buttonLabel =
+        visibleFields
+            .map((field) => field.options?.find((option) => option.value === values[field.name])?.submitLabel)
+            .find((label): label is string => Boolean(label)) ?? submitLabel;
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -68,8 +76,8 @@ export function DynamicFormRenderer({
                     </button>
                 )}
                 <button className="button primary" type="submit" disabled={isSubmitting}>
-                    {submitLabel === 'Create' && <Plus size={14}/>}
-                    {isSubmitting ? pendingLabel : submitLabel}
+                    {buttonLabel === 'Create' && <Plus size={14}/>}
+                    {isSubmitting ? pendingLabel : buttonLabel}
                 </button>
             </div>
             {submitError && <div className="form-error" role="alert">{submitError}</div>}
@@ -101,7 +109,9 @@ function FieldInput({field, required, maxLength, value, invalid, messageId, onCh
     if (field.type === 'select') {
         return (
             <select className={`input ${invalid ? 'invalid' : ''}`} value={value} required={required} aria-invalid={invalid || undefined} aria-describedby={invalid || field.description ? messageId : undefined} onChange={(event) => onChange(event.target.value)}>
-                <option value="">Default</option>
+                {/* A required field has no default, so offering one would only let
+                    the caller choose it and be told the field is required. */}
+                {!required && <option value="">Default</option>}
                 {(field.options ?? []).map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                 ))}

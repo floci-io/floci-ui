@@ -63,7 +63,17 @@ export interface FieldSchema {
         maxLengthWhen?: {field: string; equals: string; value: number; message?: string}
         message?: string
     }
-    options?: Array<{label: string; value: string}>
+    options?: Array<{
+        label: string
+        value: string
+        /** What the form makes when this option is the one picked. */
+        submitLabel?: string
+    }>
+    /**
+     * The kind of resource whose rows become the options, for a field that names
+     * another resource of the same service.
+     */
+    optionsFrom?: string
 }
 
 export type ColumnFormat = 'text' | 'datetime' | 'relative' | 'bytes' | 'boolean' | 'badge' | 'code' | 'list'
