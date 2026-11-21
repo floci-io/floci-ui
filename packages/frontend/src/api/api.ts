@@ -22,6 +22,7 @@ export const apiEndpointKeys = {
       update: "clouds.services.resources.update",
       tags: "clouds.services.resources.tags",
       usage: "clouds.services.resources.usage",
+      replication: "clouds.services.resources.replication",
       delete: "clouds.services.resources.delete",
       invoke: "clouds.services.resources.invoke",
       encrypt: "clouds.services.resources.encrypt",

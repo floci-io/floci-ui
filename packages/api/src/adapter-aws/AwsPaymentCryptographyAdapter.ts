@@ -1,4 +1,5 @@
 import {
+    GetKeyCommand as ReadKey,
     CreateAliasCommand,
     CreateKeyCommand,
     DeleteAliasCommand,
@@ -16,7 +17,13 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
+<<<<<<< HEAD
 import {setKeyUsage} from './paymentCryptographyLifecycle'
+=======
+import {
+    setReplicationRegions,
+} from './paymentCryptographyReplication'
+>>>>>>> 73a94ac (feat(paymentcryptography): the Regions a key is replicated to)
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -154,6 +161,44 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      *
      * <p>An alias is removed at once, which is the reference's own behaviour too.
      */
+    /**
+     * The Regions a key is replicated to.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
+    async setReplication(id: string, input: Record<string, unknown>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+        const wanted = input.replicationRegions
+        if (!Array.isArray(wanted) || wanted.some((region) => typeof region !== 'string')) {
+            throw new ValidationError('the replication Regions of the request must be a list of Region names')
+        }
+        const regions = wanted as string[]
+        const current = await this.replicationRegionsOf(identifier)
+        const added = regions.filter((region) => !current.includes(region))
+        const removed = current.filter((region) => !regions.includes(region))
+        if (added.length > 0) {
+            await setReplicationRegions(this.client, identifier, added, true)
+        }
+        if (removed.length > 0) {
+            await setReplicationRegions(this.client, identifier, removed, false)
+        }
+    }
+
+    /**
+     * The Regions a key is replicated to, as the key answers them.
+     *
+     * <p>A replica answers with the kind of the key and its primary Region alone,
+     * so the Regions are the ones a primary holds.
+     */
+    private async replicationRegionsOf(keyArn: string): Promise<string[]> {
+        const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
+        const status = res.Key?.ReplicationStatus
+        return status ? Object.keys(status) : []
+    }
     async delete(id: string): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {

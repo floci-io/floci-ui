@@ -340,7 +340,11 @@ export async function invokeCloudResource(
   return res.data;
 }
 
+<<<<<<< HEAD
 export async function setPaymentCryptographyKeyUsage(
+=======
+export async function setPaymentCryptographyKeyReplication(
+>>>>>>> 73a94ac (feat(paymentcryptography): the Regions a key is replicated to)
   cloud: CloudProvider,
   service: CloudServiceType,
   id: string,
@@ -348,7 +352,11 @@ export async function setPaymentCryptographyKeyUsage(
   signal?: AbortSignal,
 ): Promise<void> {
   await apiClient.call<unknown, Record<string, unknown>>(
+<<<<<<< HEAD
     apiEndpointKeys.clouds.resources.usage,
+=======
+    apiEndpointKeys.clouds.resources.replication,
+>>>>>>> 73a94ac (feat(paymentcryptography): the Regions a key is replicated to)
     requestOptions(cloud, service, { signal, body }),
     { cloud, service, id },
   );
