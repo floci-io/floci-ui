@@ -135,6 +135,7 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Provisioning | Configuration | ✅ | ✅ | – | – |
 | Provisioning | CI/CD | ✅ | – | – | – |
 | Provisioning | Organizations | – | – | – | 👁 |
+| Provisioning | Governance Rules | – | – | – | 👁 |
 | Security | Identity | ✅ | ✅ | ✅ | ✅ |
 | Security | Cognito | ✅ | – | 👁 | – |
 | Security | Secrets Manager | ✅ | ✅ | ✅ | ✅ |
