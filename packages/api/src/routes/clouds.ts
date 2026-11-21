@@ -1172,7 +1172,7 @@ export function createCloudRoutes(
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
-            const input = await c.req.json<Record<string, unknown>>()
+            const input = await jsonBody<Record<string, unknown>>(c)
             await svc(c).setPaymentCryptographyKeyPolicy(cloud, serviceType, c.req.param('id'), input)
             return c.json({ok: true})
         })

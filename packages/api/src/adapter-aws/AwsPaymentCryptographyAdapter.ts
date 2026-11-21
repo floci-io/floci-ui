@@ -178,7 +178,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (kind === 'aliases') {
             throw new ValidationError('an alias has no settings of its own; the key it names does')
         }
-        const policy = input.policy
+        const policy = input?.policy
         // A request that says nothing about the policy is a fault of the caller,
         // and it is refused: reading it as a removal would take the policy away
         // from a key that still holds one.
