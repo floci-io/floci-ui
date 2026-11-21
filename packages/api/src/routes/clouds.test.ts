@@ -18,6 +18,7 @@ import {awsEksSchema} from '../cloud-spi/eksSchema'
 import {awsKmsSchema, azureKmsSchema, ociKmsSchema} from '../cloud-spi/kmsSchema'
 import {azureCertificatesSchema} from '../cloud-spi/certificatesSchema'
 import {azureSecretsSchema} from '../cloud-spi/secretsSchema'
+import {ociIdentitySchema} from '../cloud-spi/iamSchema'
 import {awsStorageSchema, azureStorageSchema, gcpStorageSchema} from '../cloud-spi/storageSchema'
 import {awsSesEmailSchema} from '../cloud-spi/emailSchema'
 import {awsAppConfigSchema} from '../cloud-spi/appConfigSchema'
@@ -1064,6 +1065,19 @@ describe('KMS crypto routes', () => {
         expect(await recovered.json()).toMatchObject({id: 'db-password'})
         expect((await app.request(`${route}/purge-deleted`, {method: 'POST'})).status).toBe(200)
         expect(called).toEqual(['recover:db-password', 'purge:db-password'])
+    })
+
+    test('dispatches OCI compartment recovery to the identity adapter', async () => {
+        const called: string[] = []
+        const resource: CloudResource = {id: 'ocid1.compartment.oc1..a', name: 'dev', cloud: 'oci', service: 'identity', type: 'compartment', region: null, createdAt: null, metadata: {}}
+        const app = appWithRoutes([mockAdapter('oci', {
+            service: 'identity', schema: ociIdentitySchema,
+            recover: async (id) => { called.push(`recover:${id}`); return resource },
+        })])
+        const recovered = await app.request('/api/clouds/oci/services/identity/resources/ocid1.compartment.oc1..a/recover', {method: 'POST'})
+        expect(recovered.status).toBe(200)
+        expect(await recovered.json()).toMatchObject({id: 'ocid1.compartment.oc1..a'})
+        expect(called).toEqual(['recover:ocid1.compartment.oc1..a'])
     })
 
     test('dispatches key recovery and purge to the selected deleted key', async () => {

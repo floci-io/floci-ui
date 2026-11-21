@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, test} from 'bun:test'
 import {OciIdentityAdapter} from './OciIdentityAdapter'
 import {OciRestRuntimeClient} from '../oci'
-import {ConflictError, RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, NotSupportedError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 
 const originalFetch = globalThis.fetch
 const ENDPOINT = 'http://localhost:4599'
@@ -33,6 +33,16 @@ function json(body: unknown, init: ResponseInit = {status: 200}): Response {
     return new Response(JSON.stringify(body), init)
 }
 
+const SUBSCRIPTIONS = [
+    {regionKey: 'IAD', regionName: 'us-ashburn-1', status: 'READY', isHomeRegion: true},
+    {regionKey: 'PHX', regionName: 'us-phoenix-1', status: 'READY', isHomeRegion: false},
+]
+const REALM_REGIONS = [
+    {key: 'IAD', name: 'us-ashburn-1'},
+    {key: 'PHX', name: 'us-phoenix-1'},
+    {key: 'LHR', name: 'uk-london-1'},
+]
+
 function listing(url: string): Response {
     const path = new URL(url).pathname
     if (path.endsWith('/compartments')) {
@@ -48,6 +58,7 @@ function listing(url: string): Response {
     if (path.endsWith('/policies')) {
         return json([{id: POLICY, name: 'dev-policy', description: 'p', statements: ['Allow group Developers to read all-resources in tenancy'], lifecycleState: 'ACTIVE'}])
     }
+    if (path.endsWith('/regionSubscriptions')) return json(SUBSCRIPTIONS)
     if (path.endsWith('/userGroupMemberships')) return json([{id: 'ocid1.groupmembership.oc1..m', userId: USER, groupId: GROUP}])
     return json({code: 'NotAuthorizedOrNotFound', message: 'nope'}, {status: 404})
 }
@@ -60,7 +71,7 @@ describe('OciIdentityAdapter', () => {
         expect(instance.schema().displayName).toBe('OCI Identity')
     })
 
-    test('lists every kind in the tenancy root compartment and hides deleted compartments', async () => {
+    test('lists every kind in the tenancy root compartment, the region subscriptions and hides deleted compartments', async () => {
         const calls = stubFetch(listing)
         const resources = await adapter().list()
 
@@ -69,14 +80,17 @@ describe('OciIdentityAdapter', () => {
             '/20160918/compartments',
             '/20160918/groups',
             '/20160918/policies',
+            `/20160918/tenancies/${TENANCY}/regionSubscriptions`,
             '/20160918/users',
         ])
-        for (const url of urls) expect(url.searchParams.get('compartmentId')).toBe(TENANCY)
+        for (const url of urls.filter((u) => u.search)) expect(url.searchParams.get('compartmentId')).toBe(TENANCY)
         expect(resources.map((r) => [r.type, r.name])).toEqual([
             ['compartment', 'dev'],
             ['user', 'alice'],
             ['group', 'Developers'],
             ['policy', 'dev-policy'],
+            ['region subscription', 'us-ashburn-1'],
+            ['region subscription', 'us-phoenix-1'],
         ])
     })
 
@@ -157,12 +171,17 @@ describe('OciIdentityAdapter', () => {
         expect(group?.metadata.members).toEqual([{id: USER, name: 'alice'}])
     })
 
-    test('get returns null for a missing resource or a deleted compartment', async () => {
+    test('get returns null for a missing resource', async () => {
         stubFetch(() => json({code: 'NotAuthorizedOrNotFound', message: 'nope'}, {status: 404}))
         await expect(adapter().get(USER)).resolves.toBeNull()
 
-        stubFetch(() => json({id: COMPARTMENT, name: 'dev', lifecycleState: 'DELETED'}))
-        await expect(adapter().get(COMPARTMENT)).resolves.toBeNull()
+        stubFetch(listing)
+        await expect(adapter().get('region/ZZZ')).resolves.toBeNull()
+    })
+
+    test('get returns a deleted compartment so it can be recovered', async () => {
+        stubFetch(() => json({id: COMPARTMENT, name: 'dev.qR5hP2BD', lifecycleState: 'DELETED'}))
+        await expect(adapter().get(COMPARTMENT)).resolves.toMatchObject({name: 'dev.qR5hP2BD', status: 'DELETED'})
     })
 
     test('get rejects an id that is not an identity OCID', async () => {
@@ -300,5 +319,123 @@ describe('OciIdentityAdapter', () => {
         await expect(adapter().delete(TENANCY)).rejects.toBeInstanceOf(ValidationError)
         await expect(adapter().delete('ocid1.instance.oc1..x')).rejects.toBeInstanceOf(ValidationError)
         expect(calls).toEqual([])
+    })
+
+    test('maps a region subscription with its key, state and home flag', async () => {
+        stubFetch(listing)
+        const [home, other] = await adapter().list({filters: {kind: 'regionSubscriptions'}})
+
+        expect(home).toMatchObject({
+            id: 'region/IAD',
+            name: 'us-ashburn-1',
+            type: 'region subscription',
+            status: 'READY',
+            region: 'us-ashburn-1',
+            metadata: {regionKey: 'IAD', regionName: 'us-ashburn-1', isHomeRegion: true},
+        })
+        expect(other.metadata.isHomeRegion).toBe(false)
+    })
+
+    test('gets a region subscription by its id', async () => {
+        stubFetch(listing)
+        await expect(adapter().get('region/PHX')).resolves.toMatchObject({name: 'us-phoenix-1'})
+    })
+
+    test('subscribes to a region by key or by name', async () => {
+        const calls = stubFetch((url, init) => init?.method === 'POST'
+            ? json({regionKey: 'LHR', regionName: 'uk-london-1', status: 'READY', isHomeRegion: false})
+            : json(REALM_REGIONS))
+
+        const byKey = await adapter().create({values: {kind: 'regionSubscriptions', region: 'lhr'}})
+        await adapter().create({values: {kind: 'regionSubscriptions', region: 'UK-London-1'}})
+
+        expect(byKey).toMatchObject({id: 'region/LHR', status: 'READY'})
+        const posts = calls.filter((call) => call.init?.method === 'POST')
+        expect(posts).toHaveLength(2)
+        expect(posts[0]?.url).toBe(`${API}/tenancies/${TENANCY}/regionSubscriptions`)
+        expect(JSON.parse(String(posts[0]?.init?.body))).toEqual({regionKey: 'LHR'})
+        expect(JSON.parse(String(posts[1]?.init?.body))).toEqual({regionKey: 'LHR'})
+    })
+
+    test('rejects a region outside the realm before subscribing', async () => {
+        const calls = stubFetch(() => json(REALM_REGIONS))
+
+        await expect(adapter().create({values: {kind: 'regionSubscriptions', region: 'eu-nowhere-9'}}))
+            .rejects.toBeInstanceOf(ValidationError)
+        await expect(adapter().create({values: {kind: 'regionSubscriptions'}})).rejects.toBeInstanceOf(ValidationError)
+        expect(calls.some((call) => call.init?.method === 'POST')).toBe(false)
+    })
+
+    test('maps a subscription to a region the tenancy already has to a conflict', async () => {
+        stubFetch((_url, init) => init?.method === 'POST'
+            ? json({code: 'Conflict', message: 'The tenancy is already subscribed to us-phoenix-1'}, {status: 409})
+            : json(REALM_REGIONS))
+        await expect(adapter().create({values: {kind: 'regionSubscriptions', region: 'PHX'}}))
+            .rejects.toBeInstanceOf(ConflictError)
+    })
+
+    test('does not remove a region subscription', async () => {
+        const calls = stubFetch(listing)
+        await expect(adapter().delete('region/PHX')).rejects.toBeInstanceOf(NotSupportedError)
+        expect(calls).toEqual([])
+    })
+
+    test('lists only deleted compartments in the deleted view', async () => {
+        const calls = stubFetch(listing)
+        const resources = await adapter().list({filters: {state: 'deleted'}})
+
+        expect(calls).toHaveLength(1)
+        const url = new URL(calls[0]!.url)
+        expect(url.pathname).toBe('/20160918/compartments')
+        expect(url.searchParams.get('lifecycleState')).toBe('DELETED')
+        expect(resources.map((r) => [r.name, r.status])).toEqual([['old', 'DELETED']])
+    })
+
+    test('has nothing to show in the deleted view for a kind that is never soft-deleted', async () => {
+        const calls = stubFetch(listing)
+        await expect(adapter().list({filters: {kind: 'users', state: 'deleted'}})).resolves.toEqual([])
+        expect(calls).toEqual([])
+    })
+
+    test('rejects a state it does not know', async () => {
+        stubFetch(listing)
+        await expect(adapter().list({filters: {state: 'archived'}})).rejects.toBeInstanceOf(ValidationError)
+    })
+
+    test('recovers a deleted compartment after reading its state', async () => {
+        const calls = stubFetch((_url, init) => init?.method === 'POST'
+            ? json({id: COMPARTMENT, compartmentId: TENANCY, name: 'dev.qR5hP2BD', description: 'd', lifecycleState: 'ACTIVE'})
+            : json({id: COMPARTMENT, compartmentId: TENANCY, name: 'dev.qR5hP2BD', lifecycleState: 'DELETED'}))
+
+        const recovered = await adapter().recover(COMPARTMENT)
+
+        expect(recovered).toMatchObject({id: COMPARTMENT, name: 'dev.qR5hP2BD', status: 'ACTIVE', type: 'compartment'})
+        expect(calls.map((call) => call.init?.method)).toEqual(['GET', 'POST'])
+        expect(calls[1]?.url).toBe(`${API}/compartments/${encodeURIComponent(COMPARTMENT)}/actions/recoverCompartment`)
+    })
+
+    test('does not recover a compartment whose delete is still running', async () => {
+        const calls = stubFetch(() => json({id: COMPARTMENT, compartmentId: TENANCY, name: 'dev', lifecycleState: 'DELETING'}))
+        await expect(adapter().recover(COMPARTMENT)).rejects.toBeInstanceOf(ConflictError)
+        expect(calls.map((call) => call.init?.method)).toEqual(['GET'])
+    })
+
+    test('does not recover a compartment that is not deleted', async () => {
+        const calls = stubFetch(() => json({id: COMPARTMENT, compartmentId: TENANCY, name: 'dev', lifecycleState: 'ACTIVE'}))
+        await expect(adapter().recover(COMPARTMENT)).rejects.toBeInstanceOf(ConflictError)
+        expect(calls.map((call) => call.init?.method)).toEqual(['GET'])
+    })
+
+    test('recover reports a compartment that is not there and refuses anything else', async () => {
+        stubFetch(() => json({code: 'NotAuthorizedOrNotFound', message: 'nope'}, {status: 404}))
+        await expect(adapter().recover(COMPARTMENT)).rejects.toBeInstanceOf(NotFoundError)
+        await expect(adapter().recover(USER)).rejects.toBeInstanceOf(ValidationError)
+        await expect(adapter().recover('region/PHX')).rejects.toBeInstanceOf(ValidationError)
+    })
+
+    test('recover stays within the root compartment like delete', async () => {
+        const calls = stubFetch(() => json({id: COMPARTMENT, compartmentId: 'ocid1.compartment.oc1..parent', lifecycleState: 'DELETED'}))
+        await expect(adapter().recover(COMPARTMENT)).rejects.toBeInstanceOf(ValidationError)
+        expect(calls.map((call) => call.init?.method)).toEqual(['GET'])
     })
 })

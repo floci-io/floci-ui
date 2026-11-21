@@ -123,10 +123,11 @@ export function awsIamSchema(): ServiceSchema {
 }
 
 /**
- * OCI Identity holds four kinds of resource, all scoped here to the tenancy
- * (root compartment): its child compartments, users, groups and policies.
+ * OCI Identity holds five kinds of resource, all scoped here to the tenancy
+ * (root compartment): its child compartments, users, groups, policies and the
+ * regions it is subscribed to.
  */
-export const OCI_IDENTITY_KINDS = ['compartments', 'users', 'groups', 'policies'] as const
+export const OCI_IDENTITY_KINDS = ['compartments', 'users', 'groups', 'policies', 'regionSubscriptions'] as const
 export type OciIdentityKind = (typeof OCI_IDENTITY_KINDS)[number]
 
 export const OCI_IDENTITY_KIND_SINGULAR = {
@@ -134,6 +135,7 @@ export const OCI_IDENTITY_KIND_SINGULAR = {
     users: 'user',
     groups: 'group',
     policies: 'policy',
+    regionSubscriptions: 'region subscription',
 } as const
 
 /** User names may be email-shaped; the other kinds may not contain `@` or `+`. */
@@ -147,6 +149,7 @@ const ociIdentityColumns: TableColumnSchema[] = [
     {name: 'name', label: 'Name'},
     {name: 'type', label: 'Kind', format: 'badge'},
     {name: 'status', label: 'State', format: 'badge'},
+    {name: 'home', label: 'Home region', path: 'metadata.isHomeRegion', emptyText: '-'},
     {name: 'description', label: 'Description', path: 'metadata.description', emptyText: '-'},
     {name: 'ocid', label: 'OCID', path: 'metadata.ocid', format: 'code'},
     {name: 'createdAt', label: 'Created', format: 'datetime'},
@@ -160,8 +163,19 @@ const ociIdentityFilters: FieldSchema[] = [
         label: 'Kind',
         type: 'select',
         required: false,
-        description: 'Leave unset to list compartments, users, groups and policies together.',
+        description: 'Leave unset to list every kind together.',
         options: OCI_IDENTITY_KINDS.map((value) => ({label: value, value})),
+    },
+    {
+        name: 'state',
+        label: 'View',
+        type: 'select',
+        required: false,
+        defaultValue: 'active',
+        options: [
+            {label: 'Active resources', value: 'active'},
+            {label: 'Deleted compartments', value: 'deleted'},
+        ],
     },
 ]
 
@@ -169,6 +183,7 @@ const ociIdentityResourceActions: CapabilitySchema<ResourceActionName>[] = [
     {name: 'list', label: 'List identity resources', enabled: true, status: 'available', runtimeRequired: true},
     {name: 'create', label: 'Create', enabled: true, status: 'available', runtimeRequired: true},
     {name: 'delete', label: 'Delete', enabled: true, status: 'available', runtimeRequired: true},
+    {name: 'recover', label: 'Recover deleted compartment', enabled: true, status: 'available', runtimeRequired: true},
     {name: 'inspect', label: 'Inspect', enabled: true, status: 'available', runtimeRequired: true},
 ]
 
@@ -192,6 +207,7 @@ export function ociIdentitySchema(): ServiceSchema {
                 type: 'text',
                 required: true,
                 group: 'Required',
+                visibleWhen: {field: 'kind', notEquals: 'regionSubscriptions'},
                 description: 'Unique in the tenancy. Users, groups and policies cannot be renamed later.',
                 validation: {
                     pattern: OCI_IDENTITY_NAME_PATTERN,
@@ -206,8 +222,19 @@ export function ociIdentitySchema(): ServiceSchema {
                 type: 'text',
                 required: true,
                 group: 'Required',
+                visibleWhen: {field: 'kind', notEquals: 'regionSubscriptions'},
                 description: 'OCI requires a description for every identity resource.',
                 validation: {minLength: 1, maxLength: OCI_IDENTITY_DESCRIPTION_MAX_LENGTH},
+            },
+            {
+                name: 'region',
+                label: 'Region',
+                type: 'text',
+                required: false,
+                requiredWhen: {field: 'kind', equals: 'regionSubscriptions'},
+                visibleWhen: {field: 'kind', equals: 'regionSubscriptions'},
+                group: 'Region subscriptions only',
+                description: 'A region of the realm, by key or name, for example PHX or us-phoenix-1.',
             },
             {
                 name: 'email',

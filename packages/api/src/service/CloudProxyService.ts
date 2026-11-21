@@ -358,6 +358,12 @@ export class CloudProxyService {
         await adapter.purgeDeleted(id)
     }
 
+    async recoverIdentity(cloud: CloudProvider, id: string): Promise<CloudResource> {
+        const adapter = this.requireAdapter(cloud, 'identity')
+        if (!adapter.recover) throw new NotSupportedError(`${cloud}/identity recover is not supported`)
+        return adapter.recover(id)
+    }
+
     async recoverSecret(cloud: CloudProvider, id: string): Promise<CloudResource> {
         const adapter = this.requireAdapter(cloud, 'secrets')
         if (!adapter.recover) throw new NotSupportedError(`${cloud}/secrets recover is not supported`)
