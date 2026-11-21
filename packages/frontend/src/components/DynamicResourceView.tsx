@@ -1157,6 +1157,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
+<<<<<<< HEAD
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
         // The certificate of a payment key is part of the key's detail, and the
         // table's row carries none of it, so the panel shows the detail and
@@ -1169,6 +1170,13 @@ export function DynamicResourceView({
           key={activeSelected.id}
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
+=======
+      {service === "paymentcryptography" && (
+        <PaymentCryptographyPanel
+          cloud={cloud}
+          resource={inspectedResource}
+          runtimeReachable={canUseRuntime}
+>>>>>>> 877377b (feat(paymentcryptography): a key may be disabled and enabled again)
         />
       )}
       {service === "configuration" && cloud === "aws" && (

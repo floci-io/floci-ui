@@ -16,6 +16,7 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
+import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -153,6 +154,24 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      *
      * <p>An alias is removed at once, which is the reference's own behaviour too.
      */
+    /**
+     * Whether a key may be used.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
+    async setUsage(id: string, input: Record<string, unknown>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+        const enabled = input.enabled
+        if (enabled !== 'true' && enabled !== 'false' && enabled !== true && enabled !== false) {
+            throw new ValidationError('the enabled member of the request must say whether the key may be used')
+        }
+        await setKeyUsage(this.client, identifier, enabled === true || enabled === 'true')
+    }
+
     async delete(id: string): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {

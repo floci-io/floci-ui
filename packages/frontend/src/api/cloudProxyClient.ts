@@ -340,6 +340,20 @@ export async function invokeCloudResource(
   return res.data;
 }
 
+export async function setPaymentCryptographyKeyUsage(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<unknown, Record<string, unknown>>(
+    apiEndpointKeys.clouds.resources.usage,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+}
+
 export async function encryptKmsResource(
   cloud: CloudProvider,
   id: string,
