@@ -90,6 +90,40 @@ describe('the replication of a payment key', () => {
         expect(input.ReplicationRegions).toEqual(['us-west-2'])
     })
 
+    test('the Regions that are gone go before the ones that come', async () => {
+        const {client, sent} = runtimeStub({'us-east-2': {}, 'us-west-2': {}})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await adapter.setReplication(KEY_ID, {replicationRegions: ['us-east-2', 'eu-west-1']})
+
+        // A key that replicates to as many Regions as it may would be refused a
+        // fifth one, so a Region that is replaced has to be taken away first.
+        const order = sent
+            .filter((command) =>
+                command instanceof RemoveKeyReplicationRegionsCommand ||
+                command instanceof AddKeyReplicationRegionsCommand)
+            .map((command) => (command instanceof RemoveKeyReplicationRegionsCommand ? 'remove' : 'add'))
+        expect(order).toEqual(['remove', 'add'])
+    })
+
+    test('the Region the primary is in is not a replica, so it is never taken away', async () => {
+        // A runtime that answered with the primary in the status would have it
+        // taken away, which the reference refuses.
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) {
+                return {Key: {...key, PrimaryRegion: 'us-east-1', ReplicationStatus: {'us-east-1': {}, 'us-east-2': {}}}}
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await adapter.setReplication(KEY_ID, {replicationRegions: []})
+
+        const command = sent.find((each) => each instanceof RemoveKeyReplicationRegionsCommand)
+        expect(command).toBeDefined()
+        expect((command as RemoveKeyReplicationRegionsCommand).input.ReplicationRegions).toEqual(['us-east-2'])
+    })
+
     test('a member that is not a list of Regions is refused', async () => {
         const {client, sent} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)

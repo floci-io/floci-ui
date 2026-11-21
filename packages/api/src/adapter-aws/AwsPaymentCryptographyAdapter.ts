@@ -161,6 +161,15 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      *
      * <p>An alias is removed at once, which is the reference's own behaviour too.
      */
+    async delete(id: string): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            await this.client.send(new DeleteAliasCommand({AliasName: aliasNameOf(identifier)}))
+            return
+        }
+        await this.client.send(new DeleteKeyCommand({KeyIdentifier: identifier}))
+    }
+
     /**
      * The Regions a key is replicated to.
      *
@@ -180,11 +189,14 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         const current = await this.replicationRegionsOf(identifier)
         const added = regions.filter((region) => !current.includes(region))
         const removed = current.filter((region) => !regions.includes(region))
-        if (added.length > 0) {
-            await setReplicationRegions(this.client, identifier, added, true)
-        }
+        // The Regions that are gone go first: a key that replicates to as many
+        // Regions as it may would be refused a fifth one, so a Region that is
+        // replaced would fail to be replaced.
         if (removed.length > 0) {
             await setReplicationRegions(this.client, identifier, removed, false)
+        }
+        if (added.length > 0) {
+            await setReplicationRegions(this.client, identifier, added, true)
         }
     }
 
@@ -197,15 +209,12 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     private async replicationRegionsOf(keyArn: string): Promise<string[]> {
         const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
         const status = res.Key?.ReplicationStatus
-        return status ? Object.keys(status) : []
-    }
-    async delete(id: string): Promise<void> {
-        const {kind, identifier} = parseId(id)
-        if (kind === 'aliases') {
-            await this.client.send(new DeleteAliasCommand({AliasName: aliasNameOf(identifier)}))
-            return
-        }
-        await this.client.send(new DeleteKeyCommand({KeyIdentifier: identifier}))
+        const primary = res.Key?.PrimaryRegion
+        // The status holds the Regions the key is replicated to, and the Region
+        // the primary is in is not one of them. It is named apart, and a runtime
+        // that answered with it in the status would have it taken away, which the
+        // reference refuses.
+        return status ? Object.keys(status).filter((region) => region !== primary) : []
     }
 
     /**
