@@ -1,5 +1,4 @@
-import {useMutation} from "@tanstack/react-query";
-import {useQueryClient} from "@tanstack/react-query";
+import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {Power, PowerOff} from "lucide-react";
 import {setPaymentCryptographyKeyUsage} from "@/api/cloudProxyClient";
 import {getAccountId} from "@/lib/accountStore";
@@ -37,7 +36,7 @@ export function PaymentCryptographyLifecycleSection({
 
   const toggle = useMutation({
     mutationFn: (next: boolean) =>
-      setPaymentCryptographyKeyUsage(cloud, resource.service, resource.id, { enabled: String(next) }),
+      setPaymentCryptographyKeyUsage(cloud, resource.service, resource.id, { enabled: next }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ["cloud-resource", accountId, cloud, resource.service, resource.id],

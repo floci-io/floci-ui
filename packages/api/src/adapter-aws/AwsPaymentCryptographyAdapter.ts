@@ -154,6 +154,15 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      *
      * <p>An alias is removed at once, which is the reference's own behaviour too.
      */
+    async delete(id: string): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            await this.client.send(new DeleteAliasCommand({AliasName: aliasNameOf(identifier)}))
+            return
+        }
+        await this.client.send(new DeleteKeyCommand({KeyIdentifier: identifier}))
+    }
+
     /**
      * Whether a key may be used.
      *
@@ -170,15 +179,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             throw new ValidationError('the enabled member of the request must say whether the key may be used')
         }
         await setKeyUsage(this.client, identifier, enabled === true || enabled === 'true')
-    }
-
-    async delete(id: string): Promise<void> {
-        const {kind, identifier} = parseId(id)
-        if (kind === 'aliases') {
-            await this.client.send(new DeleteAliasCommand({AliasName: aliasNameOf(identifier)}))
-            return
-        }
-        await this.client.send(new DeleteKeyCommand({KeyIdentifier: identifier}))
     }
 
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {

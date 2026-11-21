@@ -60,7 +60,7 @@ describe("the usage of a payment key", () => {
     await user.click(screen.getByRole("button", {name: /Disable key/i}));
 
     await waitFor(() => expect(setUsage).toHaveBeenCalledTimes(1));
-    expect(setUsage.mock.calls[0][3]).toEqual({enabled: "false"});
+    expect(setUsage.mock.calls[0][3]).toEqual({enabled: false});
   });
 
   it("enables a key that is not in use", async () => {
@@ -70,7 +70,7 @@ describe("the usage of a payment key", () => {
     await user.click(screen.getByRole("button", {name: /Enable key/i}));
 
     await waitFor(() => expect(setUsage).toHaveBeenCalledTimes(1));
-    expect(setUsage.mock.calls[0][3]).toEqual({enabled: "true"});
+    expect(setUsage.mock.calls[0][3]).toEqual({enabled: true});
   });
 
   it("refreshes the resource and the list of the account it saved in", async () => {
