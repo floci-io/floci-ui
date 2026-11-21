@@ -17,10 +17,14 @@ import {
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import {setKeyUsage} from './paymentCryptographyLifecycle'
 =======
 import {deleteKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
 >>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
+=======
+import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
+>>>>>>> 1c14678 (fix(paymentcryptography): the policy the key holds is read with the key)
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -112,6 +116,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
+<<<<<<< HEAD
         // The tags and the certificate are reads of their own and do not depend on
         // each other, so they are asked together rather than one after the other.
         // Both are addressed by the ARN the key resolved to, because the service
@@ -122,6 +127,9 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             this.publicKeyCertificate(arn, key),
         ])
         return toResource(key, tags, certificate)
+=======
+        return toResource(key, await this.getTags(identifier), await getKeyPolicy(this.client, identifier))
+>>>>>>> 37e0994 (fix(paymentcryptography): the policy the key holds is read with the key)
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -506,6 +514,7 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
     return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
+<<<<<<< HEAD
 function toResource(
     key: Key,
     tagLookup: TagLookup,
@@ -513,6 +522,9 @@ function toResource(
     // read, so it carries no state at all.
     certificateLookup: CertificateLookup = {},
 ): CloudResource {
+=======
+function toResource(key: Key, tagLookup: TagLookup, keyPolicy: string | null = null): CloudResource {
+>>>>>>> 37e0994 (fix(paymentcryptography): the policy the key holds is read with the key)
     const arn = key.KeyArn ?? ''
 
     return {
@@ -542,6 +554,7 @@ function toResource(
             deleteTimestamp: isoDate(key.DeleteTimestamp),
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
+<<<<<<< HEAD
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -557,6 +570,9 @@ function toResource(
             ...(certificateLookup.state !== undefined
                 ? {publicKeyCertificateState: certificateLookup.state}
                 : {}),
+=======
+            keyPolicy,
+>>>>>>> 37e0994 (fix(paymentcryptography): the policy the key holds is read with the key)
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },

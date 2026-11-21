@@ -2,6 +2,7 @@ import {describe, expect, test} from 'bun:test'
 import {
     DeleteResourcePolicyCommand,
     GetKeyCommand,
+    GetResourcePolicyCommand,
     PutResourcePolicyCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
@@ -50,11 +51,12 @@ const POLICY = JSON.stringify({
     Statement: [{Sid: 'Allow', Effect: 'Allow', Principal: {AWS: 'arn:aws:iam::111122223333:root'}, Action: 'kms:Decrypt', Resource: '*'}],
 })
 
-function runtimeStub() {
+function runtimeStub(policy: string | null = POLICY) {
     return stubClient((command) => {
         if (command instanceof GetKeyCommand) return {Key: key}
-        if (command instanceof PutResourcePolicyCommand) return {KeyId: ARN, Policy: POLICY}
-        if (command instanceof DeleteResourcePolicyCommand) return {KeyId: ARN}
+        if (command instanceof GetResourcePolicyCommand) return {Policy: policy ?? undefined}
+        if (command instanceof PutResourcePolicyCommand) return {ResourceArn: ARN, Policy: POLICY}
+        if (command instanceof DeleteResourcePolicyCommand) return {ResourceArn: ARN}
         return {}
     })
 }
@@ -83,6 +85,27 @@ describe('the policy of a payment key', () => {
         expect(command).toBeDefined()
         expect((command as DeleteResourcePolicyCommand).input.ResourceArn).toBe(ARN)
         expect(sent.some((each) => each instanceof PutResourcePolicyCommand)).toBe(false)
+    })
+
+    test('the policy the key holds is read with the key', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // The panel shows the policy the key holds, so it is read with the key
+        // rather than left for the panel to ask for.
+        expect(sent.some((command) => command instanceof GetResourcePolicyCommand)).toBe(true)
+        expect(resource?.metadata.keyPolicy).toBe(POLICY)
+    })
+
+    test('a key with no policy says so', async () => {
+        const {client} = runtimeStub(null)
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        expect(resource?.metadata.keyPolicy).toBeNull()
     })
 
     test('a request that says nothing about the policy is refused, not a removal', async () => {

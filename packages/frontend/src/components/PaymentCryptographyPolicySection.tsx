@@ -83,7 +83,16 @@ export function PaymentCryptographyPolicySection({
           >
             Save policy
           </button>{" "}
-          <button className="button small" type="button" onClick={() => setEditing(false)}>
+          <button
+            className="button small"
+            type="button"
+            onClick={() => {
+              // The draft is gone: the policy the key holds is what the editor
+              // shows the next time it is opened.
+              setPolicy(held);
+              setEditing(false);
+            }}
+          >
             Cancel
           </button>
         </>
