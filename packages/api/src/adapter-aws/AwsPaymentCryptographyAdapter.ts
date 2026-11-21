@@ -181,7 +181,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (kind === 'aliases') {
             throw new ValidationError('an alias has no settings of its own; the key it names does')
         }
-        const wanted = input.replicationRegions
+        const wanted = input?.replicationRegions
         if (!Array.isArray(wanted) || wanted.some((region) => typeof region !== 'string')) {
             throw new ValidationError('the replication Regions of the request must be a list of Region names')
         }

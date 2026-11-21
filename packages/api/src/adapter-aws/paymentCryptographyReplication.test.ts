@@ -133,6 +133,14 @@ describe('the replication of a payment key', () => {
         expect(sent.some((each) => each instanceof AddKeyReplicationRegionsCommand)).toBe(false)
     })
 
+    test('a request that says nothing is refused, not a fault', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await expect(adapter.setReplication(KEY_ID, null as never)).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof AddKeyReplicationRegionsCommand)).toBe(false)
+    })
+
     test('an alias has no Regions of its own; the key it names does', async () => {
         const {client} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)
