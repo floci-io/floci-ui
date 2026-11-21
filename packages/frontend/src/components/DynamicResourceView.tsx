@@ -1161,6 +1161,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
+<<<<<<< HEAD
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
         // The certificate of a payment key and whether the key may be used are
         // part of the key's detail, and the table's row carries neither of
@@ -1174,7 +1175,17 @@ export function DynamicResourceView({
           cloud={cloud}
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
+<<<<<<< HEAD
           runtimeReachable={canUseRuntime}
+=======
+=======
+      {service === "paymentcryptography" && (
+        <PaymentCryptographyPanel
+          cloud={cloud}
+          resource={inspectedResource}
+          runtimeReachable={canUseRuntime}
+>>>>>>> 77473b1 (feat(paymentcryptography): the policy of a key)
+>>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
         />
       )}
       {service === "configuration" && cloud === "aws" && (

@@ -16,7 +16,11 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
+<<<<<<< HEAD
 import {setKeyUsage} from './paymentCryptographyLifecycle'
+=======
+import {deleteKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
+>>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -154,6 +158,30 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      *
      * <p>An alias is removed at once, which is the reference's own behaviour too.
      */
+    /**
+     * The policy that lets another account use a key.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
+    async setPolicy(id: string, input: Record<string, unknown>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+        const policy = input.policy
+        // An empty policy is the console's way of saying that the policy is gone,
+        // so it removes the one the key holds rather than attaching nothing.
+        if (policy === undefined || policy === null || (typeof policy === 'string' && policy.trim() === '')) {
+            await deleteKeyPolicy(this.client, identifier)
+            return
+        }
+        if (typeof policy !== 'string') {
+            throw new ValidationError('the policy of the request must be the policy document itself')
+        }
+        await putKeyPolicy(this.client, identifier, policy)
+    }
+
     async delete(id: string): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {

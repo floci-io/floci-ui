@@ -300,12 +300,20 @@ export class CloudProxyService {
     }
 
     /**
+<<<<<<< HEAD
      * Whether a key may be used.
+=======
+     * The policy that lets another account use a key.
+>>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
      *
      * <p>Only the payment cryptography service has this, so the adapter's own
      * method answers it.
      */
+<<<<<<< HEAD
     async setPaymentCryptographyKeyUsage(
+=======
+    async setPaymentCryptographyKeyPolicy(
+>>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
         cloud: CloudProvider,
         service: CloudServiceType,
         id: string,
@@ -313,12 +321,21 @@ export class CloudProxyService {
     ): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
         const setter = adapter as {
+<<<<<<< HEAD
             setUsage?: (id: string, input: Record<string, unknown>) => Promise<void>
         }
         if (!setter.setUsage) {
             throw new NotSupportedError(`${cloud}/${service} does not do this`)
         }
         await setter.setUsage(id, input)
+=======
+            setPolicy?: (id: string, input: Record<string, unknown>) => Promise<void>
+        }
+        if (!setter.setPolicy) {
+            throw new NotSupportedError(`${cloud}/${service} does not do this`)
+        }
+        await setter.setPolicy(id, input)
+>>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
     }
 
     async encryptKms(cloud: CloudProvider, keyId: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {
