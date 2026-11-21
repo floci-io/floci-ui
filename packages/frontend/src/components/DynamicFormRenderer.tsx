@@ -29,14 +29,16 @@ export function DynamicFormRenderer({
     const [values, setValues] = useState<Record<string, string>>(() =>
         getInitialFormValues(activeFields, initialValues),
     )
-    // A form that makes more than one kind of thing says so on its button: the
-    // option that is picked names what it makes.
-    const buttonLabel =
-        activeFields
-            .map((field) => field.options?.find((option) => option.value === values[field.name])?.submitLabel)
-            .find((label): label is string => Boolean(label)) ?? submitLabel;
     const [errors, setErrors] = useState<Record<string, string>>({})
     const visibleFields = activeFields.filter((field) => isFieldVisible(field, values))
+    // A form that makes more than one kind of thing says so on its button: the
+    // option that is picked names what it makes. Only a field on the form may
+    // name it: a field hidden by another answer keeps its value, and a hidden
+    // field must not decide what the button says.
+    const buttonLabel =
+        visibleFields
+            .map((field) => field.options?.find((option) => option.value === values[field.name])?.submitLabel)
+            .find((label): label is string => Boolean(label)) ?? submitLabel;
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
