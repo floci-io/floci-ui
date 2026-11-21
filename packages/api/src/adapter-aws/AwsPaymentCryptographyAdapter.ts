@@ -133,7 +133,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (input.values.source === 'import') {
             return this.importKey(input)
         }
-        const kind = oneOf(input.values.kind, PAYMENT_CRYPTOGRAPHY_KINDS, 'kind', 'keys')
+        const kind = oneOf(input.values.source, PAYMENT_CRYPTOGRAPHY_KINDS, 'source', 'keys')
         if (kind === 'aliases') {
             return this.createAlias(input)
         }
@@ -179,7 +179,9 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (kind === 'aliases') {
             throw new ValidationError('an alias is a name for a key; it is the key that leaves')
         }
-        const wrappingKeyArn = requiredString(input.wrappingKeyArn, 'wrappingKeyArn')
+        // The form names a resource, and the resource id carries its kind, so the
+        // prefix is taken off before the runtime is asked about it.
+        const wrappingKeyArn = targetKeyArn(requiredString(input.wrappingKeyArn, 'wrappingKeyArn'))
 
         const carried = await this.describe(identifier)
         if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
@@ -206,7 +208,9 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      * and the form asks for the block and the wrapping key alone.
      */
     private async importKey(input: CreateResourceInput): Promise<CloudResource> {
-        const wrappingKeyArn = requiredString(input.values.wrappingKeyArn, 'wrappingKeyArn')
+        // The form names a resource, and the resource id carries its kind, so the
+        // prefix is taken off before the runtime is asked about it.
+        const wrappingKeyArn = targetKeyArn(requiredString(input.values.wrappingKeyArn, 'wrappingKeyArn'))
         const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
         const enabled = booleanValue(input.values.enabled, 'enabled', true)
 

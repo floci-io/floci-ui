@@ -519,7 +519,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const {client, sent} = runtimeStub()
 
             const created = await new AwsPaymentCryptographyAdapter(client).create({
-                values: {kind: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: KEY_ID},
+                values: {source: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: KEY_ID},
             })
 
             const request = sent.find((command) => command instanceof CreateAliasCommand) as CreateAliasCommand
@@ -531,7 +531,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const {client, sent} = runtimeStub()
 
             await new AwsPaymentCryptographyAdapter(client).create({
-                values: {kind: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: ARN},
+                values: {source: 'aliases', aliasName: ALIAS_NAME, aliasTargetKey: ARN},
             })
 
             const request = sent.find((command) => command instanceof CreateAliasCommand) as CreateAliasCommand
@@ -543,7 +543,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             await expect(
                 new AwsPaymentCryptographyAdapter(client).create({
-                    values: {kind: 'aliases', aliasName: 'ExampleAlias', aliasTargetKey: ARN},
+                    values: {source: 'aliases', aliasName: 'ExampleAlias', aliasTargetKey: ARN},
                 }),
             ).rejects.toBeInstanceOf(ValidationError)
             expect(sent).toHaveLength(0)

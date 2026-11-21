@@ -109,6 +109,26 @@ describe('the material a payment key leaves under', () => {
         expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
     })
 
+    test('a wrapping key the form names is an ARN by the time it is sent', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The form's options are the resource ids, which carry their kind, and the
+        // runtime wants the ARN alone.
+        await adapter.exportKey(KEY_ID, {wrappingKeyArn: `key/${KEK_ARN}`})
+
+        const command = sent.find((each) => each instanceof ExportKeyCommand)
+        expect(command).toBeDefined()
+        expect((command as ExportKeyCommand).input.KeyMaterial?.Tr31KeyBlock?.WrappingKeyIdentifier).toBe(KEK_ARN)
+        // The runtime is asked about the wrapping key by its ARN, not by the
+        // resource id the form gave.
+        const reads = sent
+            .filter((each) => each instanceof GetKeyCommand)
+            .map((each) => (each as GetKeyCommand).input.KeyIdentifier)
+        expect(reads).toContain(KEK_ARN)
+        expect(reads).not.toContain(`key/${KEK_ARN}`)
+    })
+
     test('an alias is a name for a key; it is the key that leaves', async () => {
         const {client} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)
