@@ -124,6 +124,24 @@ describe('the replication of a payment key', () => {
         expect((command as RemoveKeyReplicationRegionsCommand).input.ReplicationRegions).toEqual(['us-east-2'])
     })
 
+    test('the Region the primary is in is refused before anything is changed', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) {
+                return {Key: {...key, PrimaryRegion: 'us-east-1', ReplicationStatus: {'us-east-2': {}}}}
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The Regions that are gone go first, so a request that named the primary
+        // would take a replica away and then fail.
+        await expect(
+            adapter.setReplication(KEY_ID, {replicationRegions: ['us-east-1', 'us-west-2']}),
+        ).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
+        expect(sent.some((command) => command instanceof AddKeyReplicationRegionsCommand)).toBe(false)
+    })
+
     test('a member that is not a list of Regions is refused', async () => {
         const {client, sent} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)

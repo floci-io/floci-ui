@@ -44,7 +44,9 @@ export function PaymentCryptographyReplicationSection({
       setPaymentCryptographyKeyReplication(cloud, resource.service, resource.id, {
         replicationRegions: next,
       }),
-    onSuccess: () => {
+    onSettled: () => {
+      // The Regions that are gone go first, so a change that fails halfway
+      // leaves the panel showing what the service now holds.
       setRegion("");
       void queryClient.invalidateQueries({
         queryKey: ["cloud-resource", accountId, cloud, resource.service, resource.id],
@@ -59,10 +61,16 @@ export function PaymentCryptographyReplicationSection({
     <section className="inspector-section">
       <p className="metric-label">Replication</p>
       {isReplica ? (
-        <p className="muted compact-text">
-          This key is a replica of the key in {primary ?? "another Region"}, and a replica is
-          read-only.
-        </p>
+        <>
+          <p className="muted compact-text">
+            This key is a replica of the key in {primary ?? "another Region"}, and a replica is
+            read-only.
+          </p>
+          <p className="muted compact-text">
+            The Regions the key is replicated to are those of its primary:{" "}
+            {regions.length === 0 ? "none reported" : regions.join(", ")}.
+          </p>
+        </>
       ) : (
         <>
           <p className="muted compact-text">

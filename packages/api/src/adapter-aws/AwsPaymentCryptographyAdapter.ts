@@ -186,6 +186,16 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             throw new ValidationError('the replication Regions of the request must be a list of Region names')
         }
         const regions = wanted as string[]
+        const primary = await this.primaryRegionOf(identifier)
+        if (primary && regions.includes(primary)) {
+            // The Region the primary is in is not a replica, and the reference
+            // refuses it. It is refused here too, before anything is changed:
+            // the Regions that are gone go first, so a request that named the
+            // primary would take a replica away and then fail.
+            throw new ValidationError(
+                `the key is the primary in ${primary}, so it is not replicated to it`,
+            )
+        }
         const current = await this.replicationRegionsOf(identifier)
         const added = regions.filter((region) => !current.includes(region))
         const removed = current.filter((region) => !regions.includes(region))
@@ -206,6 +216,12 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      * <p>A replica answers with the kind of the key and its primary Region alone,
      * so the Regions are the ones a primary holds.
      */
+    /** The Region the key is the primary in, if it is one. */
+    private async primaryRegionOf(keyArn: string): Promise<string | null> {
+        const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
+        return res.Key?.PrimaryRegion ?? null
+    }
+
     private async replicationRegionsOf(keyArn: string): Promise<string[]> {
         const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
         const status = res.Key?.ReplicationStatus
