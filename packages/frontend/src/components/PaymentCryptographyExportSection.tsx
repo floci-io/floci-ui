@@ -72,8 +72,15 @@ export function PaymentCryptographyExportSection({
         <select
           className="input"
           aria-label="Wrapping key"
+          disabled={exportMut.isPending}
           value={wrappingKey}
-          onChange={(event) => setWrappingKey(event.target.value)}
+          onChange={(event) => {
+            setWrappingKey(event.target.value);
+            // The material of the last export is not the material of this one, so
+            // it goes rather than being left on the screen under another key.
+            exportMut.reset();
+            setCopied(false);
+          }}
         >
           <option value="">Choose a wrapping key</option>
           {allowed.map((row) => (
@@ -87,13 +94,24 @@ export function PaymentCryptographyExportSection({
         <button
           className="button small"
           type="button"
-          disabled={!runtimeReachable || exportMut.isPending || wrappingKey === ""}
+          disabled={
+            !runtimeReachable ||
+            exportMut.isPending ||
+            wrappingKey === "" ||
+            resource.metadata.exportable === false
+          }
           onClick={() => exportMut.mutate()}
         >
           <Download size={12} />
           Export key
         </button>
       </div>
+      {resource.metadata.exportable === false && (
+        <p className="muted compact-text">
+          This key is not exportable, so its material does not leave. A key that
+          has to be shared is made exportable.
+        </p>
+      )}
       {allowed.length === 0 && (
         <p className="muted compact-text">
           No key of this account may carry this one: a wrapping key has to be a key
