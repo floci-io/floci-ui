@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Plus, X } from 'lucide-react'
 import { updateCloudResourceTags } from '@/api/cloudProxyClient'
-import { changesBetween, type ResourceTag } from '@/lib/resourceTags'
+import { changesBetween, duplicateKey, type ResourceTag } from '@/lib/resourceTags'
 import { getAccountId } from '@/lib/accountStore'
 import type { CloudProvider } from '@/types/cloud'
 import type { CloudResource } from '@/types/resource'
@@ -27,39 +27,46 @@ type TagRow = ResourceTag
  * has, editable, saved through the adapter's own `updateTags`.
  */
 export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: ResourceTagsEditorProps) {
-  const [editing, setEditing] = useState(false)
-  const [rows, setRows] = useState<TagRow[]>(() => tags.map((tag) => ({ ...tag })))
+  const [draft, setDraft] = useState<TagDraft | null>(null)
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const saveMut = useMutation({
     mutationFn: (changes: Record<string, string | null>) =>
       updateCloudResourceTags(cloud, resource.service, resource.id, changes),
-    onSuccess: () => {
-      setEditing(false)
+    onMutate: () => ({
+      // Captured now: an account switch while the request is in flight must not
+      // refresh another account's resources.
+      accountId: getAccountId(),
+    }),
+    onSuccess: (_, __, context) => {
+      const accountId = context?.accountId ?? getAccountId()
+      setDraft(null)
       setError(null)
       // The inspector shows the resource's own query and the list shows the row, and
       // both carry the tags, so both are asked again.
       void queryClient.invalidateQueries({
-        queryKey: ['cloud-resource', getAccountId(), cloud, resource.service, resource.id],
+        queryKey: ['cloud-resource', accountId, cloud, resource.service, resource.id],
       })
       void queryClient.invalidateQueries({
-        queryKey: ['cloud-console-resources', cloud, resource.service],
+        queryKey: ['cloud-resources', accountId, cloud, resource.service],
       })
     },
     onError: (failure) => setError(errorMessage(failure)),
   })
 
-  if (!editing) {
+  if (!draft) {
     return (
       <button
         className="button small"
         type="button"
         disabled={!runtimeReachable}
         onClick={() => {
-          setRows(tags.map((tag) => ({ ...tag })))
+          // The tags as they are now are the ones the draft is compared against: a
+          // tag that arrives while the form is open is not one the form has, and
+          // saving must not remove it.
+          setDraft({ original: tags, rows: tags.map((tag) => ({ ...tag })) })
           setError(null)
-          setEditing(true)
         }}
       >
         <Pencil size={12} />
@@ -68,12 +75,14 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
     )
   }
 
+  const duplicate = duplicateKey(draft.rows)
+
   // The editor is closed when the save succeeds, so anything the user changes
   // while the request is in flight would be lost. The controls are held still
   // until it is done.
   return (
     <div className="tags-editor">
-      {rows.map((row, index) => (
+      {draft.rows.map((row, index) => (
         <div className="tags-editor-row" key={index}>
           <input
             className="input"
@@ -81,7 +90,11 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
             value={row.key}
             disabled={saveMut.isPending}
             onChange={(event) =>
-              setRows((prev) => prev.map((each, i) => (i === index ? { ...each, key: event.target.value } : each)))
+              setDraft((prev) =>
+                prev
+                  ? { ...prev, rows: prev.rows.map((each, i) => (i === index ? { ...each, key: event.target.value } : each)) }
+                  : prev,
+              )
             }
           />
           <input
@@ -90,7 +103,11 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
             value={row.value}
             disabled={saveMut.isPending}
             onChange={(event) =>
-              setRows((prev) => prev.map((each, i) => (i === index ? { ...each, value: event.target.value } : each)))
+              setDraft((prev) =>
+                prev
+                  ? { ...prev, rows: prev.rows.map((each, i) => (i === index ? { ...each, value: event.target.value } : each)) }
+                  : prev,
+              )
             }
           />
           <button
@@ -98,7 +115,11 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
             type="button"
             aria-label="Remove tag"
             disabled={saveMut.isPending}
-            onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
+            onClick={() =>
+              setDraft((prev) =>
+                prev ? { ...prev, rows: prev.rows.filter((_, i) => i !== index) } : prev,
+              )
+            }
           >
             <X size={13} />
           </button>
@@ -109,7 +130,9 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
           className="button small"
           type="button"
           disabled={saveMut.isPending}
-          onClick={() => setRows((prev) => [...prev, { key: '', value: '' }])}
+          onClick={() =>
+            setDraft((prev) => (prev ? { ...prev, rows: [...prev.rows, { key: '', value: '' }] } : prev))
+          }
         >
           <Plus size={12} />
           Add tag
@@ -119,7 +142,7 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
           type="button"
           disabled={saveMut.isPending}
           onClick={() => {
-            setEditing(false)
+            setDraft(null)
             setError(null)
           }}
         >
@@ -128,12 +151,17 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
         <button
           className="button small primary"
           type="button"
-          disabled={saveMut.isPending}
-          onClick={() => saveMut.mutate(changesBetween(tags, rows))}
+          disabled={saveMut.isPending || Boolean(duplicate)}
+          onClick={() => saveMut.mutate(changesBetween(draft.original, draft.rows))}
         >
           {saveMut.isPending ? 'Saving' : 'Save'}
         </button>
       </div>
+      {duplicate && (
+        <p className="form-error" role="alert">
+          The tag {duplicate} is named twice: each tag has a key of its own.
+        </p>
+      )}
       {error && (
         <p className="form-error" role="alert">
           {error}
@@ -141,6 +169,20 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
       )}
     </div>
   )
+}
+
+/**
+ * The tags being edited, and the tags they are compared against.
+ *
+ * <p>The comparison is against the tags as they were when the editing began, not
+ * against the tags the resource has now: a tag that arrives while the form is open
+ * is not one the form has, and saving must not remove it.
+ */
+interface TagDraft {
+  /** The tags the resource had when the editing began. */
+  original: ResourceTag[]
+  /** The rows on the form. */
+  rows: TagRow[]
 }
 
 function errorMessage(error: unknown): string {

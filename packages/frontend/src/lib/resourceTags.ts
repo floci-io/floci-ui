@@ -25,6 +25,23 @@ export function resourceTags(metadata: Record<string, unknown>): ResourceTag[] {
 }
 
 /**
+ * The key that two rows of the editor name twice, if any.
+ *
+ * <p>The editor lets a key be renamed freely, so two rows can end up with the same
+ * key, and the changes between the tags would then keep only the last of them. The
+ * duplicate is named so the form can refuse to save it.
+ */
+export function duplicateKey(rows: ResourceTag[]): string | null {
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (row.key === '') continue;
+    if (seen.has(row.key)) return row.key;
+    seen.add(row.key);
+  }
+  return null;
+}
+
+/**
  * The changes between the tags a resource has and the ones the editor holds.
  *
  * <p>A key that is gone is one whose tag is removed, and a key whose value changed

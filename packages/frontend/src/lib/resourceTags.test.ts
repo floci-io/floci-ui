@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changesBetween, resourceTags } from "./resourceTags";
+import { changesBetween, duplicateKey, resourceTags } from "./resourceTags";
 
 describe("resource tags", () => {
   it("reads the tags a resource carries in its metadata", () => {
@@ -42,6 +42,12 @@ describe("resource tags", () => {
     const before = [{ key: "env", value: "prod" }];
 
     expect(changesBetween(before, before)).toEqual({});
+  });
+
+  it("names the key that two rows share", () => {
+    expect(duplicateKey([{ key: "env", value: "prod" }, { key: "env", value: "staging" }])).toBe("env");
+    expect(duplicateKey([{ key: "env", value: "prod" }, { key: "owner", value: "pay" }])).toBeNull();
+    expect(duplicateKey([{ key: "", value: "" }, { key: "", value: "" }])).toBeNull();
   });
 
   it("keeps a tag named __proto__ as a tag of its own", () => {
