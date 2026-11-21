@@ -1,4 +1,4 @@
-import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, NotSupportedError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     OCI_IDENTITY_DESCRIPTION_MAX_LENGTH,
     OCI_IDENTITY_KIND_SINGULAR,
@@ -45,6 +45,20 @@ interface OciIdentityResource {
     versionDate?: string
 }
 
+/** A region the tenancy is subscribed to. It has no OCID; the region key names it. */
+interface OciRegionSubscription {
+    regionKey?: string
+    regionName?: string
+    status?: string
+    isHomeRegion?: boolean
+}
+
+/** A region of the tenancy's realm, from ListRegions. */
+interface OciRegion {
+    key?: string
+    name?: string
+}
+
 interface OciUserGroupMembership {
     id?: string
     userId?: string
@@ -52,8 +66,11 @@ interface OciUserGroupMembership {
     lifecycleState?: string
 }
 
+/** The kinds that are addressed by OCID; region subscriptions are keyed by region instead. */
+type OcidKind = Exclude<OciIdentityKind, 'regionSubscriptions'>
+
 /** Per-kind REST collection under `/20160918`. */
-const COLLECTION: Record<OciIdentityKind, string> = {
+const COLLECTION: Record<OcidKind, string> = {
     compartments: 'compartments',
     users: 'users',
     groups: 'groups',
@@ -61,7 +78,7 @@ const COLLECTION: Record<OciIdentityKind, string> = {
 }
 
 /** The OCID resource-type segment, `ocid1.<type>.<realm>...`, for each kind. */
-const OCID_TYPE_TO_KIND: Record<string, OciIdentityKind> = {
+const OCID_TYPE_TO_KIND: Record<string, OcidKind> = {
     compartment: 'compartments',
     user: 'users',
     group: 'groups',
@@ -69,7 +86,7 @@ const OCID_TYPE_TO_KIND: Record<string, OciIdentityKind> = {
 }
 
 /** Compartment, group and policy names cannot be email-shaped; user names can. */
-const NAME_PATTERN: Record<OciIdentityKind, RegExp> = {
+const NAME_PATTERN: Record<OcidKind, RegExp> = {
     compartments: /^[A-Za-z0-9._-]+$/,
     users: /^[A-Za-z0-9._+@-]+$/,
     groups: /^[A-Za-z0-9._-]+$/,
@@ -78,6 +95,10 @@ const NAME_PATTERN: Record<OciIdentityKind, RegExp> = {
 
 /** A compartment in this state is gone; OCI keeps listing it for a while. */
 const DELETED_STATE = 'DELETED'
+const DELETING_STATE = 'DELETING'
+
+/** A region subscription has no OCID, so its id is the region key behind this prefix. */
+const REGION_ID_PREFIX = 'region/'
 
 /**
  * OCI Identity (IAM) against the tenancy's root compartment.
@@ -90,7 +111,11 @@ const DELETED_STATE = 'DELETED'
  *  - DeleteCompartment is asynchronous on OCI: it answers 202 with an
  *    `opc-work-request-id`. `delete` returns once the request is accepted and
  *    does not poll the work request; the compartment then reports `DELETING` or
- *    `DELETED`, and deleted ones are dropped from `list` and `get`.
+ *    `DELETED`. Deleted compartments are dropped from the default `list`, and the
+ *    `state=deleted` view lists them so one can be recovered. RecoverCompartment
+ *    only accepts a `DELETED` compartment, so `recover` reads its state first.
+ *  - Region subscriptions are listed and created, never removed: the runtime has
+ *    no operation for that. Their id is `region/<key>`, as they have no OCID.
  */
 export class OciIdentityAdapter implements CloudServiceAdapter {
     readonly cloud = 'oci' as const
@@ -104,24 +129,32 @@ export class OciIdentityAdapter implements CloudServiceAdapter {
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const kind = optionalKind(query.filters?.kind)
-        const kinds = kind ? [kind] : [...OCI_IDENTITY_KINDS]
+        const deletedView = optionalState(query.filters?.state) === 'deleted'
+        // Only compartments are soft-deleted; the other kinds have nothing to show in the deleted view.
+        const kinds = (kind ? [kind] : [...OCI_IDENTITY_KINDS]).filter((each) => !deletedView || each === 'compartments')
         const groups = await Promise.all(kinds.map(async (each) => {
-            const items = await this.client.listAll<OciIdentityResource>(this.listPath(each))
+            if (each === 'regionSubscriptions') return this.listRegionSubscriptions()
+            const path = deletedView ? `${this.listPath(each)}&lifecycleState=${DELETED_STATE}` : this.listPath(each)
+            const items = await this.client.listAll<OciIdentityResource>(path)
             return items
-                .filter((item) => item.lifecycleState !== DELETED_STATE)
+                .filter((item) => (item.lifecycleState === DELETED_STATE) === deletedView)
                 .map((item) => this.toResource(each, item))
         }))
         return filterBySearch(groups.flat(), query.search)
     }
 
     async get(id: string): Promise<CloudResource | null> {
+        if (id.startsWith(REGION_ID_PREFIX)) {
+            const subscriptions = await this.listRegionSubscriptions()
+            return subscriptions.find((subscription) => subscription.id === id) ?? null
+        }
         const kind = kindOf(id)
         const item = await this.client.json<OciIdentityResource>(
             this.itemPath(kind, id),
             {method: 'GET'},
             {emptyOnNotFound: true},
         )
-        if (!item || item.lifecycleState === DELETED_STATE) return null
+        if (!item) return null
 
         const resource = this.toResource(kind, item)
         // Only on inspect: resolving memberships per row would make list an N+1.
@@ -132,6 +165,7 @@ export class OciIdentityAdapter implements CloudServiceAdapter {
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
         const kind = requiredKind(input.values.kind)
+        if (kind === 'regionSubscriptions') return this.subscribe(input.values.region)
         const name = requiredName(input.values.name, kind)
         const description = requiredDescription(input.values.description)
 
@@ -161,6 +195,9 @@ export class OciIdentityAdapter implements CloudServiceAdapter {
         if (id === this.client.tenancyId) {
             throw new ValidationError('The root compartment (tenancy) cannot be deleted')
         }
+        if (id.startsWith(REGION_ID_PREFIX)) {
+            throw new NotSupportedError('A region subscription cannot be removed: OCI has no operation for it.')
+        }
         const kind = kindOf(id)
         if (kind === 'compartments') {
             // List shows only the tenancy's direct children, so delete stays in that scope.
@@ -177,12 +214,96 @@ export class OciIdentityAdapter implements CloudServiceAdapter {
         await this.client.fetch(this.itemPath(kind, id), {method: 'DELETE'}, {emptyOnNotFound: true})
     }
 
-    private listPath(kind: OciIdentityKind): string {
+    /**
+     * RecoverCompartment brings back a `DELETED` compartment and keeps the name the
+     * delete gave it (`dev.qR5hP2BD`). The compartment's own state says how far the
+     * asynchronous delete got, so it is read first: still `DELETING` means wait,
+     * and an `ACTIVE` one (never deleted, or the delete failed) has nothing to recover.
+     */
+    async recover(id: string): Promise<CloudResource> {
+        if (kindOf(id) !== 'compartments') throw new ValidationError('Only a deleted compartment can be recovered')
+        const compartment = await this.client.json<OciIdentityResource>(
+            this.itemPath('compartments', id),
+            {method: 'GET'},
+            {emptyOnNotFound: true},
+        )
+        if (!compartment) throw new NotFoundError(`Compartment ${id} was not found`)
+        if (compartment.compartmentId !== this.client.tenancyId) {
+            throw new ValidationError('Only compartments directly under the root compartment can be recovered here')
+        }
+        if (compartment.lifecycleState === DELETING_STATE) {
+            throw new ConflictError(`Compartment ${compartment.name ?? id} is still being deleted. Recover it once the delete finishes.`)
+        }
+        if (compartment.lifecycleState !== DELETED_STATE) {
+            throw new ConflictError(`Compartment ${compartment.name ?? id} is ${compartment.lifecycleState ?? 'not deleted'}: only a deleted compartment can be recovered.`)
+        }
+        const recovered = await this.client.json<OciIdentityResource>(
+            `${this.itemPath('compartments', id)}/actions/recoverCompartment`,
+            {method: 'POST', headers: {'content-type': 'application/json'}},
+        )
+        if (!recovered?.id) throw new RuntimeError(`OCI Identity did not return the recovered compartment ${id}`)
+        return this.toResource('compartments', recovered)
+    }
+
+    private regionSubscriptionsPath(): string {
+        return `${IDENTITY_API}/tenancies/${encodeURIComponent(this.client.tenancyId)}/regionSubscriptions`
+    }
+
+    private async listRegionSubscriptions(): Promise<CloudResource[]> {
+        const items = await this.client.listAll<OciRegionSubscription>(this.regionSubscriptionsPath())
+        return items.map((item) => this.toRegionResource(item))
+    }
+
+    /**
+     * Subscribes the tenancy to a region of its realm. The runtime would answer an
+     * unknown key with a 400 too, but checking the realm's regions first names the
+     * problem and lets the caller give the region by name as well as by key.
+     */
+    private async subscribe(value: unknown): Promise<CloudResource> {
+        const requested = optionalString(value, 'region')
+        if (!requested) throw new ValidationError('region is required')
+        const regions = await this.client.listAll<OciRegion>(`${IDENTITY_API}/regions`)
+        const wanted = requested.toLowerCase()
+        const region = regions.find((each) => each.key?.toLowerCase() === wanted || each.name?.toLowerCase() === wanted)
+        if (!region?.key) {
+            throw new ValidationError(`${requested} is not a region of this realm. Use a region key such as PHX or a name such as us-phoenix-1.`)
+        }
+        const created = await this.client.json<OciRegionSubscription>(this.regionSubscriptionsPath(), {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({regionKey: region.key}),
+        })
+        if (!created?.regionKey) throw new RuntimeError(`OCI Identity did not return the subscription to ${region.name ?? region.key}`)
+        return this.toRegionResource(created)
+    }
+
+    private toRegionResource(item: OciRegionSubscription): CloudResource {
+        const key = item.regionKey ?? ''
+        return {
+            id: `${REGION_ID_PREFIX}${key}`,
+            name: item.regionName ?? key,
+            cloud: 'oci',
+            service: 'identity',
+            type: OCI_IDENTITY_KIND_SINGULAR.regionSubscriptions,
+            region: item.regionName ?? null,
+            createdAt: null,
+            status: item.status ?? null,
+            metadata: compact({
+                provider: 'oci',
+                kind: OCI_IDENTITY_KIND_SINGULAR.regionSubscriptions,
+                regionKey: item.regionKey,
+                regionName: item.regionName,
+                isHomeRegion: item.isHomeRegion,
+            }),
+        }
+    }
+
+    private listPath(kind: OcidKind): string {
         const qs = new URLSearchParams({compartmentId: this.client.tenancyId})
         return `${IDENTITY_API}/${COLLECTION[kind]}?${qs}`
     }
 
-    private itemPath(kind: OciIdentityKind, id: string): string {
+    private itemPath(kind: OcidKind, id: string): string {
         return `${IDENTITY_API}/${COLLECTION[kind]}/${encodeURIComponent(id)}`
     }
 
@@ -207,7 +328,7 @@ export class OciIdentityAdapter implements CloudServiceAdapter {
             .map((relatedId) => ({id: relatedId, name: names.get(relatedId) || relatedId}))
     }
 
-    private toResource(kind: OciIdentityKind, item: OciIdentityResource): CloudResource {
+    private toResource(kind: OcidKind, item: OciIdentityResource): CloudResource {
         const singular = OCI_IDENTITY_KIND_SINGULAR[kind]
         return {
             id: item.id ?? '',
@@ -241,7 +362,7 @@ export class OciIdentityAdapter implements CloudServiceAdapter {
 }
 
 /** Reads the kind from an OCID such as `ocid1.policy.oc1..aaaa`. */
-function kindOf(id: string): OciIdentityKind {
+function kindOf(id: string): OcidKind {
     const [version, type] = id.split('.')
     const kind = version === 'ocid1' && type ? OCID_TYPE_TO_KIND[type] : undefined
     if (!kind) {
@@ -257,6 +378,12 @@ function optionalKind(value: unknown): OciIdentityKind | undefined {
     return requiredKind(value)
 }
 
+function optionalState(value: unknown): 'active' | 'deleted' {
+    if (value === undefined || value === null || value === '' || value === 'active') return 'active'
+    if (value === 'deleted') return 'deleted'
+    throw new ValidationError('state must be active or deleted')
+}
+
 function requiredKind(value: unknown): OciIdentityKind {
     const raw = optionalString(value, 'kind')
     if (!raw || !(OCI_IDENTITY_KINDS as readonly string[]).includes(raw)) {
@@ -265,7 +392,7 @@ function requiredKind(value: unknown): OciIdentityKind {
     return raw as OciIdentityKind
 }
 
-function requiredName(value: unknown, kind: OciIdentityKind): string {
+function requiredName(value: unknown, kind: OcidKind): string {
     const name = optionalString(value, 'name')
     if (!name) throw new ValidationError('name is required')
     if (name.length > OCI_IDENTITY_NAME_MAX_LENGTH || !NAME_PATTERN[kind].test(name)) {

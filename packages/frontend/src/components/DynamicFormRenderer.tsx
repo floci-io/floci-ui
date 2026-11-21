@@ -1,6 +1,6 @@
 import {FormEvent, useState} from 'react'
 import {Plus} from 'lucide-react'
-import type {FieldSchema, ServiceSchema} from '@/types/schema'
+import type {FieldCondition, FieldSchema, ServiceSchema} from '@/types/schema'
 
 interface DynamicFormRendererProps {
     schema: ServiceSchema
@@ -201,10 +201,15 @@ function fieldMaxLength(field: FieldSchema, values: Record<string, string>): {va
 function isFieldRequired(field: FieldSchema, values: Record<string, string>): boolean {
     if (field.required) return true
     if (!field.requiredWhen) return false
-    return values[field.requiredWhen.field] === field.requiredWhen.equals
+    return conditionHolds(field.requiredWhen, values)
 }
 
 function isFieldVisible(field: FieldSchema, values: Record<string, string>): boolean {
     if (!field.visibleWhen) return true
-    return values[field.visibleWhen.field] === field.visibleWhen.equals
+    return conditionHolds(field.visibleWhen, values)
+}
+
+function conditionHolds(condition: FieldCondition, values: Record<string, string>): boolean {
+    const actual = values[condition.field]
+    return condition.notEquals !== undefined ? actual !== condition.notEquals : actual === condition.equals
 }

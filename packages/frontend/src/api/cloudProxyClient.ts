@@ -464,6 +464,15 @@ export async function purgeDeletedKmsResource(cloud: CloudProvider, id: string, 
   );
 }
 
+export async function recoverIdentityResource(cloud: CloudProvider, id: string, signal?: AbortSignal): Promise<CloudResource> {
+  const res = await apiClient.call<CloudResource>(
+    apiEndpointKeys.clouds.resources.recoverIdentity,
+    requestOptions(cloud, "identity", { signal }),
+    { cloud, id },
+  );
+  return res.data;
+}
+
 export async function recoverCertificateResource(cloud: CloudProvider, id: string, signal?: AbortSignal): Promise<CloudResource> {
   const res = await apiClient.call<CloudResource>(
     apiEndpointKeys.clouds.resources.recoverCertificate,

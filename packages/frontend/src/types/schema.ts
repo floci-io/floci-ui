@@ -44,18 +44,25 @@ export interface CapabilitySchema<TAction extends string> {
     runtimeRequired?: boolean
 }
 
+/** Holds when the named field equals `equals`, or when it differs from `notEquals`. Set one of them. */
+export interface FieldCondition {
+    field: string
+    equals?: string
+    notEquals?: string
+}
+
 export interface FieldSchema {
     name: string
     label: string
     type: FieldType
     required: boolean
-    requiredWhen?: {field: string; equals: string}
+    requiredWhen?: FieldCondition
     description?: string
     group?: string
     span?: boolean
     valuePath?: string
     defaultValue?: string
-    visibleWhen?: {field: string; equals: string}
+    visibleWhen?: FieldCondition
     validation?: {
         pattern?: string
         minLength?: number

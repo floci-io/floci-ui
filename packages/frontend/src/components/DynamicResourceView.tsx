@@ -60,6 +60,7 @@ const AzureKeyVaultPanel = lazyPanel(() => import("@/components/AzureKeyVaultPan
 const EventGridSubscriptionsPanel = lazyPanel(() => import("@/components/EventGridSubscriptionsPanel").then((m) => m.EventGridSubscriptionsPanel));
 const OciGovernancePanel = lazyPanel(() => import("@/components/OciGovernancePanel").then((m) => m.OciGovernancePanel));
 const OciParPanel = lazyPanel(() => import("@/components/OciParPanel").then((m) => m.OciParPanel));
+const OciIdentityPanel = lazyPanel(() => import("@/components/OciIdentityPanel").then((m) => m.OciIdentityPanel));
 const OciKmsActionsPanel = lazyPanel(() => import("@/components/OciKmsActionsPanel").then((m) => m.OciKmsActionsPanel));
 const SqsMessagingPanel = lazyPanel(() => import("@/components/SqsMessagingPanel").then((m) => m.SqsMessagingPanel));
 const StreamMessagesPanel = lazyPanel(() => import("@/components/StreamMessagesPanel").then((m) => m.StreamMessagesPanel));
@@ -247,6 +248,7 @@ export function DynamicResourceView({
   const isAwsSageMaker = cloud === "aws" && service === "sagemaker";
   const isGcpCompute = cloud === "gcp" && service === "compute";
   const isAwsAthena = cloud === "aws" && service === "analytics";
+  const isOciIdentity = cloud === "oci" && service === "identity";
   const isAwsCodeBuild = cloud === "aws" && service === "cicd";
   const canDeleteResource = viewingDeleted
     ? () => false
@@ -258,9 +260,11 @@ export function DynamicResourceView({
           ? (resource: CloudResource) => resource.type === "athena-workgroup" && resource.name !== "primary"
           : isAwsCodeBuild
             ? (resource: CloudResource) => resource.type === "project"
-            : emptyingKey !== undefined
-              ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
-              : undefined;
+            : isOciIdentity
+              ? (resource: CloudResource) => resource.type !== "region subscription"
+              : emptyingKey !== undefined
+                ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
+                : undefined;
   const sagemakerDashboardResourcesQuery = useQuery({
     queryKey: ["sagemaker-dashboard-resources", accountId, cloud, service],
     queryFn: ({ signal }) => listCloudResources(cloud, service, "", signal),
@@ -1116,6 +1120,19 @@ export function DynamicResourceView({
           cloud={cloud}
           resource={inspectedResource}
           runtimeReachable={canUseRuntime}
+        />
+      )}
+      {isOciIdentity && (
+        <OciIdentityPanel
+          resource={inspectedResource}
+          runtimeReachable={canUseRuntime}
+          onRecovered={() => {
+            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            if (activeSelected) {
+              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
+            }
+            selectResource(undefined);
+          }}
         />
       )}
       {service === "kms" && cloud === "oci" && (
