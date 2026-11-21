@@ -287,6 +287,18 @@ export class CloudProxyService {
         await this.requireAdapter(cloud, service).delete(id)
     }
 
+    /**
+     * The tags of a resource, changed.
+     *
+     * <p>A key with a null value is one whose tag is removed, which is the shape the
+     * adapter's own `updateTags` takes.
+     */
+    async updateTags(cloud: CloudProvider, service: CloudServiceType, id: string, tags: Record<string, string | null>): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (!adapter.updateTags) throw new NotSupportedError(`Tag editing is not supported for ${cloud}/${service}`)
+        await adapter.updateTags(id, tags)
+    }
+
     async encryptKms(cloud: CloudProvider, keyId: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {
         const adapter = this.requireAdapter(cloud, 'kms')
         if (!adapter.encrypt) throw new NotSupportedError(`${cloud}/kms encrypt is not supported`)

@@ -3001,6 +3001,30 @@ pre,
     color: var(--text);
 }
 
+.tags-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.tags-editor-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.tags-editor-row .input {
+    min-width: 0;
+    flex: 1;
+}
+
+.tags-editor-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
 .metadata-block {
     min-height: 96px;
     margin: 0;

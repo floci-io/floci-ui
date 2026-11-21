@@ -1136,6 +1136,18 @@ export function createCloudRoutes(
         })
     })
 
+    app.patch('/:cloud/services/:service/resources/:id/tags', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
+
+        return withRuntime(c, async () => {
+            const tags = tagChanges(await jsonBody<Record<string, unknown>>(c))
+            await svc(c).updateTags(cloud, serviceType, c.req.param('id'), tags)
+            return c.json({ok: true})
+        })
+    })
+
     app.delete('/:cloud/services/:service/resources/:id', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
@@ -1204,6 +1216,32 @@ function parseStreamReadQuery(query: Record<string, string>): ReadStreamMessages
     }
     if (query.cursor) input.cursor = query.cursor
     return input
+}
+
+/**
+ * The tag changes a request carries.
+ *
+ * <p>A key with a value is one that is set, and a key with a null is one that is
+ * removed. The body is checked, because the generic a request is cast to is only a
+ * compile-time claim: a body that is an array, or one whose values are not
+ * strings, is a fault of the caller and is refused here rather than reaching the
+ * cloud.
+ *
+ * <p>The changes are built through a map, so a tag named `__proto__` is an own
+ * property of the result and not the prototype of it.
+ */
+function tagChanges(body: Record<string, unknown>): Record<string, string | null> {
+    const changes = new Map<string, string | null>();
+    for (const [key, value] of Object.entries(body)) {
+        if (value === null) {
+            changes.set(key, null);
+        } else if (typeof value === 'string') {
+            changes.set(key, value);
+        } else {
+            throw new ValidationError(`the tag ${key} must be a string or null`);
+        }
+    }
+    return Object.fromEntries(changes);
 }
 
 async function jsonBody<T>(c: Context): Promise<T> {
