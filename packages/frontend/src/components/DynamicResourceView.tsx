@@ -186,7 +186,9 @@ export function DynamicResourceView({
   // the search box and the facet narrowed, and a field that names a key must still
   // offer the keys when the table is showing the aliases.
   const optionRowsQuery = useQuery({
-    queryKey: ["cloud-resource-options", accountId, cloud, service],
+    // Under the list's key, so every change that refreshes the table also
+    // refreshes the choices: a key made or deleted is one or the other.
+    queryKey: ["cloud-resources", accountId, cloud, service, "options"],
     queryFn: ({ signal }) => listCloudResources(cloud, service, undefined, signal),
     enabled:
       schemaQuery.isSuccess &&
@@ -833,10 +835,16 @@ export function DynamicResourceView({
                     className="button"
                     type="button"
                     disabled={
-                      !canUseRuntime || resourcesQuery.isFetching || resourceDetailQuery.isFetching
+                      !canUseRuntime ||
+                      resourcesQuery.isFetching ||
+                      optionRowsQuery.isFetching ||
+                      resourceDetailQuery.isFetching
                     }
                     onClick={() => {
                       void resourcesQuery.refetch();
+                      if (optionRowsQuery.isEnabled) {
+                        void optionRowsQuery.refetch();
+                      }
                       if (
                         selectedForService !== undefined &&
                         schema.actions.includes("inspect")
@@ -855,7 +863,9 @@ export function DynamicResourceView({
                     }}
                   >
                     <RefreshCw size={14} />
-                    {resourcesQuery.isFetching || resourceDetailQuery.isFetching
+                    {resourcesQuery.isFetching ||
+                    optionRowsQuery.isFetching ||
+                    resourceDetailQuery.isFetching
                       ? "Loading"
                       : "Refresh"}
                   </button>

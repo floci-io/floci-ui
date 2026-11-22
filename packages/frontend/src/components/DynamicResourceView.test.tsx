@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   copyStorageObject,
+  createCloudResource,
   deleteCloudResource,
   deleteStorageObject,
   emptyStorageBucket,
@@ -1272,5 +1273,114 @@ describe("DynamicResourceView Empty bucket and object writes already sent", () =
         expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), { runtime: "python" }),
       );
     });
+  });
+});
+
+describe("DynamicResourceView a field that names another resource", () => {
+  const keyA: CloudResource = {
+    id: "key/key-a",
+    name: "key-a",
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    metadata: {},
+  };
+  const keyB: CloudResource = {...keyA, id: "key/key-b", name: "key-b"};
+
+  const optionsSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [
+      {
+        name: "kind",
+        label: "Kind",
+        type: "select",
+        required: true,
+        defaultValue: "keys",
+        options: [
+          {label: "Key", value: "keys"},
+          {label: "Alias", value: "aliases"},
+        ],
+      },
+      {
+        name: "aliasTargetKey",
+        label: "Target Key",
+        type: "select",
+        required: false,
+        visibleWhen: {field: "kind", equals: "aliases"},
+        requiredWhen: {field: "kind", equals: "aliases"},
+        optionsFrom: "key",
+      },
+    ],
+    filters: [],
+    actions: ["list", "create", "delete", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(optionsSchema);
+    vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) =>
+      id === keyB.id ? keyB : keyA,
+    );
+  });
+
+  it("offers a key created while the page was open", async () => {
+    let created = false;
+    vi.mocked(listCloudResources).mockImplementation(async () => (created ? [keyA, keyB] : [keyA]));
+    vi.mocked(createCloudResource).mockImplementation(async () => {
+      created = true;
+      return keyB;
+    });
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    const {container} = render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    const openCreateForm = async () => {
+      await user.click(screen.getByRole("button", {name: "Create"}));
+      const form = container.querySelector("form.dynamic-form");
+      if (!form) throw new Error("the create form did not open");
+      return within(form as HTMLElement);
+    };
+
+    await screen.findByText("key-a");
+
+    const firstForm = await openCreateForm();
+    await user.click(firstForm.getByRole("button", {name: "Create"}));
+
+    await waitFor(() => expect(createCloudResource).toHaveBeenCalled());
+    await waitFor(() => expect(container.querySelector("form.dynamic-form")).toBeNull());
+
+    // The target's choices are a query of their own; a create has to refresh it,
+    // not only the table's rows, or the key just made is missing from the form.
+    await waitFor(() =>
+      expect(
+        vi.mocked(listCloudResources).mock.calls.filter(([, , search]) => search === undefined).length,
+      ).toBeGreaterThanOrEqual(2),
+    );
+
+    const reopened = await openCreateForm();
+    await user.selectOptions(reopened.getByLabelText(/Kind/), "aliases");
+    const target = reopened.getByLabelText(/Target Key/);
+    const values = within(target)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+
+    expect(values).toContain(keyB.id);
   });
 });
