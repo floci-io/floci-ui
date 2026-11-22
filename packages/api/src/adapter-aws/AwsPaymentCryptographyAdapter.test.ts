@@ -530,6 +530,29 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect((sent[0] as DeleteAliasCommand).input).toEqual({AliasName: ALIAS_NAME})
         })
 
+        test('keeps the prefix an alias name of its own carries', async () => {
+            // The reference allows a name that begins with the prefix again, so
+            // `alias/alias/foo` is one alias named `alias/foo`. Restoring the one
+            // prefix parseId removed is what names it, not a guess from the text.
+            const nestedName = 'alias/alias/foo'
+            const nested = {AliasName: nestedName, KeyArn: ARN}
+            const {client, sent} = runtimeStub({listAliases: {Aliases: [nested]}})
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            const rows = await adapter.list()
+            expect(rows.map((row) => row.id)).toEqual([KEY_ID, nestedName])
+
+            await adapter.get(nestedName)
+            expect((sent.find((command) => command instanceof GetAliasCommand) as GetAliasCommand).input).toEqual({
+                AliasName: nestedName,
+            })
+
+            await adapter.delete(nestedName)
+            expect((sent.find((command) => command instanceof DeleteAliasCommand) as DeleteAliasCommand).input).toEqual({
+                AliasName: nestedName,
+            })
+        })
+
         test('an alias carries no tags of its own', async () => {
             const {client} = runtimeStub()
 

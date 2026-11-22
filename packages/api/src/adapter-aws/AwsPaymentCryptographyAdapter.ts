@@ -466,9 +466,15 @@ function targetKeyArn(value: unknown): string {
     return raw.startsWith(prefix) ? raw.slice(prefix.length) : raw
 }
 
-/** The name the reference gives an alias, which carries the `alias/` prefix. */
+/**
+ * The name the reference gives an alias, which carries the `alias/` prefix.
+ *
+ * <p>parseId removes exactly one prefix, and the name may itself begin with one
+ * (`alias/alias/foo` is the alias named `alias/foo`), so the one removed is always
+ * restored rather than guessed from what the identifier starts with.
+ */
 function aliasNameOf(identifier: string): string {
-    return identifier.startsWith(ALIAS_PREFIX) ? identifier : `${ALIAS_PREFIX}${identifier}`
+    return `${ALIAS_PREFIX}${identifier}`
 }
 
 /**
