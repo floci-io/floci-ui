@@ -1,4 +1,4 @@
-import {FormEvent, useState} from 'react'
+import {FormEvent, useEffect, useState} from 'react'
 import {Plus} from 'lucide-react'
 import type {FieldCondition, FieldSchema, ServiceSchema} from '@/types/schema'
 
@@ -31,6 +31,24 @@ export function DynamicFormRenderer({
     )
     const [errors, setErrors] = useState<Record<string, string>>({})
     const visibleFields = activeFields.filter((field) => isFieldVisible(field, values))
+    // A required select with no default is painted with its first option, but
+    // the form value stays empty, so the submit is refused for a field that
+    // shows a choice. The value follows the option the browser paints, including
+    // when the options arrive after the form opens.
+    useEffect(() => {
+        setValues((prev) => {
+            let next = prev
+            for (const field of visibleFields) {
+                if (field.type !== 'select' || !isFieldRequired(field, prev)) continue
+                if ((prev[field.name] ?? '') !== '') continue
+                const first = field.options?.[0]
+                if (!first || first.value === '') continue
+                next = next === prev ? {...prev} : next
+                next[field.name] = first.value
+            }
+            return next
+        })
+    }, [visibleFields])
     // A form that makes more than one kind of thing says so on its button: the
     // option that is picked names what it makes. Only a field on the form may
     // name it: a field hidden by another answer keeps its value, and a hidden
