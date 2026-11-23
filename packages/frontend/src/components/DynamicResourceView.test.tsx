@@ -1680,3 +1680,97 @@ describe("DynamicResourceView the certificate of a payment key", () => {
     expect(await screen.findByText(/could not be read/)).toBeDefined();
   });
 });
+
+describe("DynamicResourceView the usage of a payment key", () => {
+  const ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc";
+  const key: CloudResource = {
+    id: `key/${ARN}`,
+    name: ARN,
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    status: "CREATE_COMPLETE",
+    metadata: {enabled: false},
+  };
+  // The table's row is the row of the table: it is not the key that was read,
+  // and it says something else about the key's usage.
+  const row: CloudResource = {...key, metadata: {enabled: true}};
+
+  const paymentSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(paymentSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([row]);
+    vi.mocked(getCloudResource).mockResolvedValue(key);
+  });
+
+  function renderPayment() {
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("states the usage of the key that was read", async () => {
+    const user = userEvent.setup();
+    renderPayment();
+
+    await user.click(await screen.findByText(ARN));
+
+    expect(await screen.findByText(/The key is disabled/)).toBeDefined();
+    expect(screen.getByRole("button", {name: /Enable key/})).toBeDefined();
+  });
+
+  it("says nothing about the key until its detail has been read", async () => {
+    const user = userEvent.setup();
+    // The detail never comes, so the panel waits for it.
+    vi.mocked(getCloudResource).mockImplementation(() => new Promise(() => undefined));
+    renderPayment();
+
+    await user.click(await screen.findByText(ARN));
+
+    // The panel must not speak about a key it has not read: the row on screen
+    // is not the key that was read, and the usage it carries must not be
+    // stated as the key's own.
+    await screen.findByText("Usage");
+    expect(screen.queryByText(/The key may be used/)).toBeNull();
+    expect(screen.queryByText(/The key is disabled/)).toBeNull();
+    expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
+    expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
+  });
+
+  it("says so when the key itself could not be read", async () => {
+    const user = userEvent.setup();
+    vi.mocked(getCloudResource).mockRejectedValue(new Error("The runtime is not answering."));
+    renderPayment();
+
+    await user.click(await screen.findByText(ARN));
+
+    // The key could not be read, so nothing is known of its usage, and the
+    // console says that rather than speaking from the row.
+    expect(await screen.findByText(/could not be read/)).toBeDefined();
+    expect(screen.queryByText(/The key may be used/)).toBeNull();
+    expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
+    expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
+  });
+});

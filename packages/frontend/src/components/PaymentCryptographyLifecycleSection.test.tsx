@@ -26,7 +26,10 @@ const key: CloudResource = {
   metadata: {enabled: true},
 };
 
-function renderSection(resource: CloudResource = key) {
+function renderSection(
+  resource: CloudResource | undefined,
+  options: {keyUnreadable?: boolean} = {},
+) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   const invalidated: unknown[][] = [];
   client.invalidateQueries = vi.fn(async (filters: unknown) => {
@@ -39,6 +42,7 @@ function renderSection(resource: CloudResource = key) {
       <PaymentCryptographyLifecycleSection
         cloud="aws"
         resource={resource}
+        keyUnreadable={options.keyUnreadable}
         runtimeReachable={true}
       />
     </QueryClientProvider>,
@@ -55,7 +59,7 @@ describe("the usage of a payment key", () => {
 
   it("disables a key that is in use", async () => {
     const user = userEvent.setup();
-    renderSection();
+    renderSection(key);
 
     await user.click(screen.getByRole("button", {name: /Disable key/i}));
 
@@ -75,7 +79,7 @@ describe("the usage of a payment key", () => {
 
   it("refreshes the resource and the list of the account it saved in", async () => {
     const user = userEvent.setup();
-    const {invalidated} = renderSection();
+    const {invalidated} = renderSection(key);
 
     await user.click(screen.getByRole("button", {name: /Disable key/i}));
 
@@ -94,5 +98,21 @@ describe("the usage of a payment key", () => {
       "aws",
       "paymentcryptography",
     ]);
+  });
+
+  it("says the usage is unknown when the key could not be read", () => {
+    renderSection(undefined, {keyUnreadable: true});
+
+    expect(screen.getByText(/could not be read/)).toBeDefined();
+    expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
+    expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
+  });
+
+  it("says the usage is unknown while the key has not been read", () => {
+    renderSection(undefined);
+
+    expect(screen.getByText(/has not been read/)).toBeDefined();
+    expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
+    expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
   });
 });

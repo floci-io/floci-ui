@@ -7,7 +7,10 @@ import type {CloudResource} from "@/types/resource";
 
 interface PaymentCryptographyLifecycleSectionProps {
   cloud: CloudProvider;
-  resource: CloudResource;
+  /** The key that was read, when it was read. */
+  resource?: CloudResource;
+  /** The key itself could not be read, so nothing is known of its usage. */
+  keyUnreadable?: boolean;
   runtimeReachable: boolean;
 }
 
@@ -20,8 +23,40 @@ interface PaymentCryptographyLifecycleSectionProps {
 export function PaymentCryptographyLifecycleSection({
   cloud,
   resource,
+  keyUnreadable,
   runtimeReachable,
 }: PaymentCryptographyLifecycleSectionProps) {
+  return (
+    <section className="inspector-section">
+      <p className="metric-label">Usage</p>
+      {resource ? (
+        <KeyUsage cloud={cloud} resource={resource} runtimeReachable={runtimeReachable} />
+      ) : (
+        <p className="muted compact-text">
+          {keyUnreadable
+            ? "The key could not be read, so whether it may be used is unknown."
+            : "The key has not been read yet, so whether it may be used is unknown."}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * The usage of a key that was read.
+ *
+ * <p>The key is on screen because its detail was read, so its usage is the usage
+ * that detail published.
+ */
+function KeyUsage({
+  cloud,
+  resource,
+  runtimeReachable,
+}: {
+  cloud: CloudProvider;
+  resource: CloudResource;
+  runtimeReachable: boolean;
+}) {
   const queryClient = useQueryClient();
   // Captured now: an account switch while the request is in flight must not
   // refresh another account's resources.
@@ -48,8 +83,7 @@ export function PaymentCryptographyLifecycleSection({
   });
 
   return (
-    <section className="inspector-section">
-      <p className="metric-label">Usage</p>
+    <>
       <p className="muted compact-text">
         {enabled
           ? "The key may be used. Disabling it is the reversible alternative to deleting it."
@@ -74,6 +108,6 @@ export function PaymentCryptographyLifecycleSection({
           {toggle.error.message}
         </p>
       )}
-    </section>
+    </>
   );
 }

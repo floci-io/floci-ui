@@ -9,6 +9,7 @@ import {isPaymentKey} from "@/lib/paymentCryptography";
 type PaymentCryptographyPanelProps = PaymentCryptographyCertificateSectionProps;
 =======
 import {lazyPanel} from "@/lib/lazyPanel";
+import {isPaymentKey} from "@/lib/paymentCryptography";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
@@ -18,7 +19,10 @@ const PaymentCryptographyLifecycleSection = lazyPanel(() =>
 
 interface PaymentCryptographyPanelProps {
   cloud: CloudProvider;
+  /** The key that was read, when it was read. */
   resource?: CloudResource;
+  /** The key itself could not be read, so nothing is known of its usage. */
+  keyUnreadable?: boolean;
   runtimeReachable: boolean;
 }
 >>>>>>> 877377b (feat(paymentcryptography): a key may be disabled and enabled again)
@@ -44,19 +48,28 @@ export function PaymentCryptographyPanel({resource, keyUnreadable}: PaymentCrypt
 export function PaymentCryptographyPanel({
   cloud,
   resource,
+  keyUnreadable,
   runtimeReachable,
 }: PaymentCryptographyPanelProps) {
-  const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
-  if (!isKey || !resource) return null;
-
-  return (
-    <>
+  if (!resource) {
+    // Nothing was read at all, so the key's usage is unknown: the section says
+    // so rather than the panel speaking about a key it has not read.
+    return (
       <PaymentCryptographyLifecycleSection
         cloud={cloud}
-        resource={resource}
+        keyUnreadable={keyUnreadable}
         runtimeReachable={runtimeReachable}
       />
-    </>
+    );
+  }
+  if (!isPaymentKey(resource)) return null;
+
+  return (
+    <PaymentCryptographyLifecycleSection
+      cloud={cloud}
+      resource={resource}
+      runtimeReachable={runtimeReachable}
+    />
   );
 >>>>>>> 877377b (feat(paymentcryptography): a key may be disabled and enabled again)
 }
