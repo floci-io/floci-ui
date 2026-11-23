@@ -243,6 +243,25 @@ export async function setPaymentCryptographyKeyUsage(
   );
 }
 
+/**
+ * The policy that lets another account use a payment cryptography key.
+ *
+ * <p>An empty policy removes the one the key holds.
+ */
+export async function setPaymentCryptographyKeyPolicy(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<unknown, Record<string, unknown>>(
+    apiEndpointKeys.clouds.resources.policy,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+}
+
 /** The material a payment cryptography key leaves under. */
 export interface ExportedPaymentCryptographyKey {
   keyMaterial: string;

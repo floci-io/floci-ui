@@ -7,21 +7,33 @@ import {
 import {isNotFound} from './paymentCryptographyErrors'
 
 /**
+ * The policy of a key, and whether the lookup of it failed.
+ *
+ * <p>A key that holds no policy is not the same as a key whose policy cannot be
+ * read, so the two are told apart here rather than by the caller.
+ */
+export type KeyPolicyLookup = {policy: string | null; unavailable?: true}
+
+/**
  * The resource-based policy of a key, which is what lets another account use it.
  *
- * <p>A key without one has no policy, which is not the same as a key whose policy
- * cannot be read, so a key that is not there answers null as well.
+ * <p>The policy is enrichment: a key whose policy cannot be read is still a key,
+ * so a denial or a throttle is reported rather than thrown, and the key stays on
+ * screen. A key that holds no policy answers a policy of null, and so does a key
+ * that is not there.
  */
 export async function getKeyPolicy(
     client: PaymentCryptographyClient,
     keyArn: string,
-): Promise<string | null> {
+): Promise<KeyPolicyLookup> {
     try {
         const res = await client.send(new GetResourcePolicyCommand({ResourceArn: keyArn}))
-        return res.Policy ?? null
+        return {policy: res.Policy ?? null}
     } catch (error) {
-        if (isNotFound(error)) return null
-        throw error
+        if (isNotFound(error)) return {policy: null}
+        // The refusal says nothing of the policy the key holds, so it is reported
+        // as unreadable rather than taken for one that is not there.
+        return {policy: null, unavailable: true}
     }
 }
 

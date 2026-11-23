@@ -101,4 +101,48 @@ describe('the payment cryptography routes', () => {
             expect(res.status).toBe(400)
         }
     })
+
+    test('the policy route passes the body to the adapter', async () => {
+        const seen: Array<Record<string, unknown>> = []
+        const app = appWithRoutes([
+            paymentAdapter({
+                setPolicy: async (_id: string, input: Record<string, unknown>) => {
+                    seen.push(input)
+                },
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/policy',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({policy: '{"Version":"2012-10-17"}'}),
+            },
+        )
+
+        expect(res.status).toBe(200)
+        expect(seen[0]).toEqual({policy: '{"Version":"2012-10-17"}'})
+    })
+
+    test('a body that is not an object is refused by the policy route', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                setPolicy: async () => {},
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        for (const body of ['null', '[]', '42']) {
+            const res = await app.request(
+                '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/policy',
+                {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body,
+                },
+            )
+
+            expect(res.status).toBe(400)
+        }
+    })
 })

@@ -21,7 +21,7 @@ import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {isNotFound} from './paymentCryptographyErrors'
 import {setKeyUsage} from './paymentCryptographyLifecycle'
-import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
+import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
 import {
     defaultReplicationRegions,
     disableDefaultReplicationRegions,
@@ -320,6 +320,36 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             throw new ValidationError('the enabled member of the request must say whether the key may be used')
         }
         await setKeyUsage(this.client, identifier, enabled === true || enabled === 'true')
+    }
+
+    /**
+     * The policy that lets another account use a key.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
+    async setPolicy(id: string, input: Record<string, unknown>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+        const policy = input?.policy
+        // A request that says nothing about the policy is a fault of the caller,
+        // and it is refused: reading it as a removal would take the policy away
+        // from a key that still holds one.
+        if (policy === undefined) {
+            throw new ValidationError('the request must say what the policy is')
+        }
+        // An empty policy is the console's way of saying that the policy is gone,
+        // so it removes the one the key holds rather than attaching nothing.
+        if (policy === null || (typeof policy === 'string' && policy.trim() === '')) {
+            await deleteKeyPolicy(this.client, identifier)
+            return
+        }
+        if (typeof policy !== 'string') {
+            throw new ValidationError('the policy of the request must be the policy document itself')
+        }
+        await putKeyPolicy(this.client, identifier, policy)
     }
 
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {
@@ -636,7 +666,7 @@ function toResource(
     key: Key,
     tagLookup: TagLookup,
     publicKeyCertificate: string | null = null,
-    keyPolicy: string | null = null,
+    policyLookup?: KeyPolicyLookup,
 ): CloudResource {
 >>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
 >>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
@@ -689,7 +719,7 @@ function toResource(
 <<<<<<< HEAD
 =======
             publicKeyCertificate,
-            keyPolicy,
+            ...policyMetadata(policyLookup),
             replicationRegions: key.ReplicationStatus ? Object.keys(key.ReplicationStatus) : [],
             usingDefaultReplicationRegions: key.UsingDefaultReplicationRegions,
 >>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
@@ -698,6 +728,19 @@ function toResource(
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },
     }
+}
+
+/**
+ * The policy of a key, as the metadata carries it.
+ *
+ * <p>The policy is published only where it was read: a row of the table carries
+ * none, because it never read one. A read that failed is said so, so it cannot
+ * pass for a key that holds none.
+ */
+function policyMetadata(policyLookup: KeyPolicyLookup | undefined): Record<string, unknown> {
+    if (!policyLookup) return {}
+    if (policyLookup.unavailable) return {keyPolicyUnavailable: true}
+    return {keyPolicy: policyLookup.policy}
 }
 
 /**
