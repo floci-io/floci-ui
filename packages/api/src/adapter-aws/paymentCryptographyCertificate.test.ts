@@ -2,6 +2,7 @@ import {describe, expect, test} from 'bun:test'
 import {
     GetKeyCommand,
     GetPublicKeyCertificateCommand,
+    ListKeysCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
@@ -52,12 +53,13 @@ const asymmetricKey = {
 
 const CERTIFICATE = 'LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t'
 
-function runtimeStub(key: unknown, certificate?: () => never) {
+function runtimeStub(key: unknown, certificate?: () => never, certificateResponse?: Record<string, unknown>) {
     return stubClient((command) => {
+        if (command instanceof ListKeysCommand) return {Keys: [{KeyArn: ARN}]}
         if (command instanceof GetKeyCommand) return {Key: key}
         if (command instanceof GetPublicKeyCertificateCommand) {
             if (certificate) return certificate()
-            return {KeyCertificate: CERTIFICATE, KeyCertificateChain: ''}
+            return {KeyCertificate: CERTIFICATE, KeyCertificateChain: '', ...certificateResponse}
         }
         return {}
     })
@@ -74,6 +76,7 @@ describe('the certificate of a payment key', () => {
         expect(command).toBeDefined()
         expect((command as GetPublicKeyCertificateCommand).input.KeyIdentifier).toBe(ARN)
         expect(resource?.metadata.publicKeyCertificate).toBe(CERTIFICATE)
+        expect(resource?.metadata.publicKeyCertificateState).toBe('signed')
     })
 
     test('the chain the certificate is signed in travels with it', async () => {
@@ -97,6 +100,7 @@ describe('the certificate of a payment key', () => {
         // asked, and the metadata does not claim that the key has none.
         expect(sent.some((each) => each instanceof GetPublicKeyCertificateCommand)).toBe(false)
         expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unknown')
     })
 
     test('a symmetric key has no public half, so it has no certificate', async () => {
@@ -106,7 +110,8 @@ describe('the certificate of a payment key', () => {
         const resource = await adapter.get(ARN)
 
         expect(sent.some((each) => each instanceof GetPublicKeyCertificateCommand)).toBe(false)
-        expect(resource?.metadata.publicKeyCertificate).toBeNull()
+        expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
+        expect(resource?.metadata.publicKeyCertificateState).toBe('no-public-half')
     })
 
     test('a key that was never inspected carries no certificate at all', async () => {
@@ -119,6 +124,7 @@ describe('the certificate of a payment key', () => {
         // not carry one: absent says the question was not asked, where null
         // says the key has none.
         expect(rows[0]?.metadata.publicKeyCertificate).toBeUndefined()
+        expect(rows[0]?.metadata.publicKeyCertificateState).toBe('unknown')
     })
 
     test('a certificate that cannot be read does not take the key with it', async () => {
@@ -134,7 +140,19 @@ describe('the certificate of a payment key', () => {
 
         // The certificate is enrichment, so a failure degrades the inspector
         // rather than the request, the way the tag lookup does.
-        expect(resource?.metadata.publicKeyCertificateUnavailable).toBe(true)
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
         expect(resource?.metadata.keyAlgorithm).toBe('RSA_2048')
+    })
+
+    test('a service that signed no certificate says so', async () => {
+        const {client} = runtimeStub(asymmetricKey, undefined, {KeyCertificate: undefined})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(ARN)
+
+        // The key has a public half, so it is the service that signed none,
+        // and the state says that rather than claiming there is no half.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unsigned')
+        expect(resource?.metadata.publicKeyCertificate).toBeNull()
     })
 })

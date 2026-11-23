@@ -1550,6 +1550,7 @@ describe("DynamicResourceView the certificate of a payment key", () => {
       enabled: true,
       keyClass: "ASYMMETRIC_KEY_PAIR",
       publicKeyCertificate: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0t",
+      publicKeyCertificateState: "signed",
     },
   };
 
@@ -1597,7 +1598,11 @@ describe("DynamicResourceView the certificate of a payment key", () => {
     const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
     vi.mocked(getCloudResource).mockResolvedValue({
       ...key,
-      metadata: {...key.metadata, keyClass: "SYMMETRIC_KEY", publicKeyCertificate: null},
+      metadata: {
+        enabled: true,
+        keyClass: "SYMMETRIC_KEY",
+        publicKeyCertificateState: "no-public-half",
+      },
     });
     render(
       <QueryClientProvider client={queryClient}>
@@ -1615,5 +1620,28 @@ describe("DynamicResourceView the certificate of a payment key", () => {
 
     expect(await screen.findByText(/no public half/)).toBeDefined();
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+  });
+
+  it("says so when the key itself could not be read", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    vi.mocked(getCloudResource).mockRejectedValue(new Error("The runtime is not answering."));
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    // The key could not be read, so nothing is known of its certificate, and
+    // the console says that rather than staying silent.
+    expect(await screen.findByText(/could not be read/)).toBeDefined();
   });
 });

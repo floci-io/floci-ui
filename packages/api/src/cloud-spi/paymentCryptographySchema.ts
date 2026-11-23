@@ -94,11 +94,17 @@ const SYMMETRIC_ALGORITHMS = [...TDES_ALGORITHMS, 'AES_128', 'AES_192', 'AES_256
 const HMAC_ALGORITHMS = ['HMAC_SHA224', 'HMAC_SHA256', 'HMAC_SHA384', 'HMAC_SHA512'] as const
 const RSA_ALGORITHMS = ['RSA_2048', 'RSA_3072', 'RSA_4096'] as const
 const ECC_ALGORITHMS = ['ECC_NIST_P256', 'ECC_NIST_P384', 'ECC_NIST_P521'] as const
-/** The algorithms that make a key pair, and so a public half. */
-const ASYMMETRIC_ALGORITHMS: readonly PaymentCryptographyKeyAlgorithm[] = [
-    ...RSA_ALGORITHMS,
-    ...ECC_ALGORITHMS,
-]
+/** The algorithms that are neither a symmetric nor a hash key: they make a pair. */
+const NON_PAIR_ALGORITHMS = new Set<string>([...SYMMETRIC_ALGORITHMS, ...HMAC_ALGORITHMS])
+
+/**
+ * The algorithms that make a key pair, and so a public half.
+ *
+ * <p>Everything that is neither a symmetric nor a hash key is an asymmetric one,
+ * so a new algorithm is a pair until it is said to be otherwise.
+ */
+const ASYMMETRIC_ALGORITHMS: readonly PaymentCryptographyKeyAlgorithm[] =
+    PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS.filter((algorithm) => !NON_PAIR_ALGORITHMS.has(algorithm))
 
 /** A key that derives another key, and nothing else. */
 const DERIVE_ONLY: readonly ModeCombination[] = [['DeriveKey'], ['NoRestrictions']]
@@ -203,12 +209,36 @@ export type PaymentCryptographyKeyClass =
     (typeof PAYMENT_CRYPTOGRAPHY_KEY_CLASSES)[keyof typeof PAYMENT_CRYPTOGRAPHY_KEY_CLASSES]
 
 /**
+ * The states the certificate of a key can be in.
+ *
+ * <p>The API names them and the console only picks the words: a state the
+ * console had to work out for itself is a state that can drift from the one
+ * the API means.
+ */
+export const PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES = {
+    /** The key's class was not read, so the question was never asked of it. */
+    unknown: 'unknown',
+    /** The key has no public half, so it has no certificate. */
+    noPublicHalf: 'no-public-half',
+    /** The service signed a certificate for the key's public half. */
+    signed: 'signed',
+    /** The key has a public half, but the service signed no certificate. */
+    unsigned: 'unsigned',
+    /** The certificate was asked for and could not be read. */
+    unreadable: 'unreadable',
+} as const
+
+export type PaymentCryptographyCertificateState =
+    (typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES)[keyof typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES]
+
+/**
  * The class a key of an algorithm has.
  *
  * The class says what shape the key has, and the algorithm says what material it
  * has, so the two agree: an asymmetric algorithm makes a key pair and a symmetric
- * one makes a symmetric key. The algorithms that make a pair are the ones the
- * usages are built from, so the rule is one list and not a guess from a name.
+ * one makes a symmetric key. Everything that is neither a symmetric nor a hash
+ * key is an asymmetric one, so a new algorithm is a pair until it is said to be
+ * otherwise.
  */
 export function keyClassForAlgorithm(algorithm: PaymentCryptographyKeyAlgorithm): PaymentCryptographyKeyClass {
     return ASYMMETRIC_ALGORITHMS.includes(algorithm)

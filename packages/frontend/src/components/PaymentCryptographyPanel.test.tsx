@@ -15,8 +15,8 @@ const key: CloudResource = {
   status: "CREATE_COMPLETE",
   metadata: {
     enabled: true,
-    keyClass: "ASYMMETRIC_KEY_PAIR",
     publicKeyCertificate: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0t",
+    publicKeyCertificateState: "signed",
   },
 };
 
@@ -34,9 +34,17 @@ describe("the panels of a payment key", () => {
     expect(screen.queryByText(/Public Key Certificate/)).toBeNull();
   });
 
-  it("shows nothing when there is no resource", () => {
+  it("shows nothing while the key has not been read", () => {
     const {container} = render(<PaymentCryptographyPanel />);
 
     expect(container.textContent).toBe("");
+  });
+
+  it("says so when the key could not be read", () => {
+    render(<PaymentCryptographyPanel unreadable />);
+
+    // The key could not be read, so nothing is known of its certificate, and
+    // the panel says that rather than staying silent.
+    expect(screen.getByText(/could not be read/)).toBeDefined();
   });
 });

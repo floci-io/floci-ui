@@ -224,7 +224,10 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             const resource = await new AwsPaymentCryptographyAdapter(client).get(ARN)
 
-            expect(resource?.metadata.publicKeyCertificate).toBeNull()
+            // A symmetric key has no public half, so the service is not asked
+            // and the state says why there is no certificate.
+            expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
+            expect(resource?.metadata.publicKeyCertificateState).toBe('no-public-half')
             expect(sent.some((command) => command instanceof GetPublicKeyCertificateCommand)).toBe(false)
         })
 

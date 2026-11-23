@@ -1,5 +1,6 @@
 import {render, screen} from "@testing-library/react";
-import {describe, expect, it} from "vitest";
+import userEvent from "@testing-library/user-event";
+import {describe, expect, it, vi} from "vitest";
 
 import {PaymentCryptographyCertificateSection} from "@/components/PaymentCryptographyCertificateSection";
 import type {CloudResource} from "@/types/resource";
@@ -15,15 +16,17 @@ const key: CloudResource = {
   status: "CREATE_COMPLETE",
   metadata: {
     enabled: true,
-    keyClass: "ASYMMETRIC_KEY_PAIR",
     publicKeyCertificate: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0t",
+    publicKeyCertificateState: "signed",
   },
 };
 
-const symmetricKey: CloudResource = {
-  ...key,
-  metadata: {...key.metadata, keyClass: "SYMMETRIC_KEY", publicKeyCertificate: null},
-};
+/** A key whose certificate is in the given state, with no certificate of its own. */
+function keyInState(state: string): CloudResource {
+  return {...key, metadata: {enabled: true, publicKeyCertificateState: state}};
+}
+
+const symmetricKey = keyInState("no-public-half");
 
 describe("the certificate of a payment key", () => {
   it("shows the certificate the service signed", () => {
@@ -44,7 +47,7 @@ describe("the certificate of a payment key", () => {
   it("says so when the service has signed no certificate for a key of a pair", () => {
     render(
       <PaymentCryptographyCertificateSection
-        resource={{...key, metadata: {...key.metadata, publicKeyCertificate: null}}}
+        resource={keyInState("unsigned")}
       />,
     );
 
@@ -58,10 +61,7 @@ describe("the certificate of a payment key", () => {
   it("says so when the certificate could not be read", () => {
     render(
       <PaymentCryptographyCertificateSection
-        resource={{
-          ...key,
-          metadata: {enabled: true, keyClass: "ASYMMETRIC_KEY_PAIR", publicKeyCertificateUnavailable: true},
-        }}
+        resource={keyInState("unreadable")}
       />,
     );
 
@@ -75,7 +75,7 @@ describe("the certificate of a payment key", () => {
   it("says so when the service did not say what kind of key it is", () => {
     render(
       <PaymentCryptographyCertificateSection
-        resource={{...key, metadata: {enabled: true}}}
+        resource={keyInState("unknown")}
       />,
     );
 
@@ -85,13 +85,19 @@ describe("the certificate of a payment key", () => {
     expect(screen.queryByText(/no public half/)).toBeNull();
   });
 
+  it("says so when the key itself could not be read", () => {
+    render(<PaymentCryptographyCertificateSection unreadable />);
+
+    // The key could not be read, so nothing is known of its certificate, and
+    // the section says that rather than staying silent.
+    expect(screen.getByText(/could not be read/)).toBeDefined();
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+  });
+
   it("shows the chain the certificate is signed in, when there is one", () => {
     render(
       <PaymentCryptographyCertificateSection
-        resource={{
-          ...key,
-          metadata: {...key.metadata, publicKeyCertificateChain: "LS0tLS1DSEVS"},
-        }}
+        resource={{...key, metadata: {...key.metadata, publicKeyCertificateChain: "LS0tLS1DSEVS"}}}
       />,
     );
 
@@ -104,5 +110,36 @@ describe("the certificate of a payment key", () => {
     render(<PaymentCryptographyCertificateSection resource={key} />);
 
     expect(screen.queryByLabelText("Public key certificate chain")).toBeNull();
+  });
+
+  it("copies the certificate and the chain", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+
+    render(
+      <PaymentCryptographyCertificateSection
+        resource={{...key, metadata: {...key.metadata, publicKeyCertificateChain: "LS0tLS1DSEVS"}}}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", {name: /Copy certificate/}));
+    expect(writeText).toHaveBeenCalledWith("LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0t");
+
+    await user.click(screen.getByRole("button", {name: /Copy chain/}));
+    expect(writeText).toHaveBeenCalledWith("LS0tLS1DSEVS");
+  });
+
+  it("says so when the clipboard is not available", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+
+    render(<PaymentCryptographyCertificateSection resource={key} />);
+
+    await user.click(screen.getByRole("button", {name: /Copy certificate/}));
+
+    // A button that does nothing looks broken, so the failure is said.
+    expect(await screen.findByText(/clipboard was not available/)).toBeDefined();
   });
 });
