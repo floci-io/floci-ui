@@ -63,7 +63,10 @@ describe("the replication of a payment key", () => {
     await user.click(screen.getByRole("button", {name: /Replicate to/i}));
 
     await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
-    expect(setReplication.mock.calls[0][3]).toEqual({replicationRegions: ["us-east-2", "us-west-2"]});
+    expect(setReplication.mock.calls[0][3]).toEqual({
+      addReplicationRegions: ["us-west-2"],
+      removeReplicationRegions: [],
+    });
   });
 
   it("stops replicating to a Region that is taken away", async () => {
@@ -73,7 +76,51 @@ describe("the replication of a payment key", () => {
     await user.click(screen.getByRole("button", {name: /Stop replicating to us-east-2/i}));
 
     await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
-    expect(setReplication.mock.calls[0][3]).toEqual({replicationRegions: []});
+    expect(setReplication.mock.calls[0][3]).toEqual({
+      addReplicationRegions: [],
+      removeReplicationRegions: ["us-east-2"],
+    });
+  });
+
+  it("never takes away a Region the draft never had", async () => {
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
+
+    // The detail has not caught up with the save yet, so the panel still shows
+    // the Regions the key held when the draft began.
+    await user.type(screen.getByLabelText("Region to replicate to"), "eu-west-1");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(2));
+
+    // The Region that was added a moment ago is not one the draft never had,
+    // so the second save does not take it away.
+    const second = setReplication.mock.calls[1][3] as {
+      addReplicationRegions: string[];
+      removeReplicationRegions: string[];
+    };
+    expect(second.removeReplicationRegions).toEqual([]);
+    expect(second.addReplicationRegions).toContain("eu-west-1");
+  });
+
+  it("takes away a Region it added a moment ago", async () => {
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
+
+    await user.click(await screen.findByRole("button", {name: /Stop replicating to us-west-2/i}));
+
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(2));
+    expect(setReplication.mock.calls[1][3]).toEqual({
+      addReplicationRegions: [],
+      removeReplicationRegions: ["us-west-2"],
+    });
   });
 
   it("refreshes the resource and the list of the account it saved in", async () => {

@@ -15,10 +15,20 @@ export interface PaymentCryptographyReplicationSectionProps {
   runtimeReachable: boolean;
 }
 
-/** The Regions a key is replicated to, and the key they belong to. */
+/**
+ * The Regions a key is replicated to, and the key they belong to.
+ *
+ * <p>The Regions the key held when the draft began are kept next to the draft,
+ * so a change is diffed against them and not against what the service holds
+ * now: a Region that arrived while the panel was open is not one the draft ever
+ * had, and a save that named the whole set would take it away.
+ */
 interface ReplicationChange {
   service: string;
   id: string;
+  /** The Regions the key held when the draft began. */
+  base: string[];
+  /** The Regions the panel shows. */
   regions: string[];
 }
 
@@ -39,7 +49,7 @@ export function PaymentCryptographyReplicationSection({
   runtimeReachable,
 }: PaymentCryptographyReplicationSectionProps) {
   const queryClient = useQueryClient();
-  const regions = reportedRegions(resource);
+  const reported = reportedRegions(resource);
   const kind = typeof resource?.metadata.multiRegionKeyType === "string"
     ? resource.metadata.multiRegionKeyType
     : null;
@@ -48,18 +58,34 @@ export function PaymentCryptographyReplicationSection({
     : null;
   const isReplica = kind === "REPLICA";
   const [region, setRegion] = useState("");
+  // The Regions the key held when the draft began, and the Regions the panel
+  // shows. The draft begins with the first change and lives as long as the
+  // panel does.
+  const [draft, setDraft] = useState<{base: string[]; regions: string[]} | null>(null);
 
   const save = useMutation({
-    mutationFn: (change: ReplicationChange) =>
-      setPaymentCryptographyKeyReplication(cloud, change.service, change.id, {
-        replicationRegions: change.regions,
-      }),
+    mutationFn: (change: ReplicationChange) => {
+      // The reference's own commands add and remove one Region at a time, so
+      // the request says which Region to add and which to remove rather than a
+      // set the service has to diff.
+      const add = change.regions.filter((each) => !change.base.includes(each));
+      const remove = change.base.filter((each) => !change.regions.includes(each));
+      return setPaymentCryptographyKeyReplication(cloud, change.service, change.id, {
+        addReplicationRegions: add,
+        removeReplicationRegions: remove,
+      });
+    },
     // Captured now: an account switch while the request is in flight must not
     // refresh another account's resources.
     onMutate: () => ({accountId: getAccountId()}),
+    onSuccess: (_result, change) => {
+      // The key holds the draft's Regions now, so the next change is diffed
+      // against them.
+      setDraft((current) => (current ? {...current, base: change.regions} : current));
+    },
     onSettled: (_result, _error, change, context) => {
-      // The Regions that are gone go first, so a change that fails halfway
-      // leaves the panel showing what the service now holds.
+      // The Region that was chosen is gone from the input, and the key is read
+      // again, so the panel shows what the service now holds.
       setRegion("");
       if (!context) return;
       void queryClient.invalidateQueries({
@@ -81,11 +107,25 @@ export function PaymentCryptographyReplicationSection({
       <UnknownReplication reason="The key has not been read yet, so the Regions it is replicated to are not known yet." />
     );
   }
-  if (!regions) {
+  if (!reported) {
     return (
       <UnknownReplication reason="The service did not say which Regions the key is replicated to." />
     );
   }
+
+  const {service, id} = resource;
+  // The Regions the panel shows: the draft's, or the detail's while there is
+  // no draft.
+  const regions = draft?.regions ?? reported;
+  // The Regions the key held when the draft began: the removals are diffed
+  // against these and not against what the service holds now.
+  const base = draft?.base ?? reported;
+
+  /** A change of the Regions, which is saved as it is made. */
+  const change = (next: string[]) => {
+    setDraft({base, regions: next});
+    save.mutate({service, id, base, regions: next});
+  };
 
   return (
     <section className="inspector-section">
@@ -119,13 +159,7 @@ export function PaymentCryptographyReplicationSection({
                     type="button"
                     aria-label={`Stop replicating to ${each}`}
                     disabled={!runtimeReachable || save.isPending}
-                    onClick={() =>
-                      save.mutate({
-                        service: resource.service,
-                        id: resource.id,
-                        regions: regions.filter((other) => other !== each),
-                      })
-                    }
+                    onClick={() => change(regions.filter((other) => other !== each))}
                   >
                     <Trash2 size={12} />
                   </button>
@@ -146,11 +180,11 @@ export function PaymentCryptographyReplicationSection({
               type="button"
               disabled={!runtimeReachable || save.isPending || region.trim() === ""}
               onClick={() =>
-                save.mutate({
-                  service: resource.service,
-                  id: resource.id,
-                  regions: [...regions, region.trim()],
-                })
+                change(
+                  regions.includes(region.trim())
+                    ? regions
+                    : [...regions, region.trim()],
+                )
               }
             >
               <Plus size={12} />

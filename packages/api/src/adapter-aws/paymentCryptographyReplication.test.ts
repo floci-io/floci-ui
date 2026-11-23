@@ -58,7 +58,7 @@ describe('the replication of a payment key', () => {
         const {client, sent} = runtimeStub({})
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        await adapter.setReplication(KEY_ID, {replicationRegions: ['us-east-2']})
+        await adapter.setReplication(KEY_ID, {addReplicationRegions: ['us-east-2'], removeReplicationRegions: []})
 
         const command = sent.find((each) => each instanceof AddKeyReplicationRegionsCommand)
         expect(command).toBeDefined()
@@ -71,17 +71,17 @@ describe('the replication of a payment key', () => {
         const {client, sent} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        await adapter.setReplication(KEY_ID, {replicationRegions: ['us-east-2']})
+        await adapter.setReplication(KEY_ID, {addReplicationRegions: ['us-east-2'], removeReplicationRegions: []})
 
         expect(sent.some((each) => each instanceof AddKeyReplicationRegionsCommand)).toBe(false)
         expect(sent.some((each) => each instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
     })
 
-    test('a Region the key no longer names is removed', async () => {
+    test('a Region the request names is removed', async () => {
         const {client, sent} = runtimeStub({'us-east-2': {}, 'us-west-2': {}})
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        await adapter.setReplication(KEY_ID, {replicationRegions: ['us-east-2']})
+        await adapter.setReplication(KEY_ID, {addReplicationRegions: [], removeReplicationRegions: ['us-west-2']})
 
         const command = sent.find((each) => each instanceof RemoveKeyReplicationRegionsCommand)
         expect(command).toBeDefined()
@@ -90,11 +90,33 @@ describe('the replication of a payment key', () => {
         expect(input.ReplicationRegions).toEqual(['us-west-2'])
     })
 
+    test('a Region the request does not name is left alone', async () => {
+        const {client, sent} = runtimeStub({'us-east-2': {}, 'us-west-2': {}})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The request says which Region to add and which to remove, so a Region
+        // that arrived while the console was open is not one it takes away.
+        await adapter.setReplication(KEY_ID, {addReplicationRegions: ['eu-west-1'], removeReplicationRegions: []})
+
+        expect(sent.some((each) => each instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
+        const command = sent.find((each) => each instanceof AddKeyReplicationRegionsCommand)
+        expect((command as AddKeyReplicationRegionsCommand).input.ReplicationRegions).toEqual(['eu-west-1'])
+    })
+
+    test('a Region the service does not hold is not taken away', async () => {
+        const {client, sent} = runtimeStub({'us-east-2': {}})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await adapter.setReplication(KEY_ID, {addReplicationRegions: [], removeReplicationRegions: ['us-west-2']})
+
+        expect(sent.some((each) => each instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
+    })
+
     test('the Regions that are gone go before the ones that come', async () => {
         const {client, sent} = runtimeStub({'us-east-2': {}, 'us-west-2': {}})
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        await adapter.setReplication(KEY_ID, {replicationRegions: ['us-east-2', 'eu-west-1']})
+        await adapter.setReplication(KEY_ID, {addReplicationRegions: ['eu-west-1'], removeReplicationRegions: ['us-west-2']})
 
         // A key that replicates to as many Regions as it may would be refused a
         // fifth one, so a Region that is replaced has to be taken away first.
@@ -104,24 +126,6 @@ describe('the replication of a payment key', () => {
                 command instanceof AddKeyReplicationRegionsCommand)
             .map((command) => (command instanceof RemoveKeyReplicationRegionsCommand ? 'remove' : 'add'))
         expect(order).toEqual(['remove', 'add'])
-    })
-
-    test('the Region the primary is in is not a replica, so it is never taken away', async () => {
-        // A runtime that answered with the primary in the status would have it
-        // taken away, which the reference refuses.
-        const {client, sent} = stubClient((command) => {
-            if (command instanceof GetKeyCommand) {
-                return {Key: {...key, PrimaryRegion: 'us-east-1', ReplicationStatus: {'us-east-1': {}, 'us-east-2': {}}}}
-            }
-            return {}
-        })
-        const adapter = new AwsPaymentCryptographyAdapter(client)
-
-        await adapter.setReplication(KEY_ID, {replicationRegions: []})
-
-        const command = sent.find((each) => each instanceof RemoveKeyReplicationRegionsCommand)
-        expect(command).toBeDefined()
-        expect((command as RemoveKeyReplicationRegionsCommand).input.ReplicationRegions).toEqual(['us-east-2'])
     })
 
     test('the Region the primary is in is refused before anything is changed', async () => {
@@ -136,7 +140,10 @@ describe('the replication of a payment key', () => {
         // The Regions that are gone go first, so a request that named the primary
         // would take a replica away and then fail.
         await expect(
-            adapter.setReplication(KEY_ID, {replicationRegions: ['us-east-1', 'us-west-2']}),
+            adapter.setReplication(KEY_ID, {
+                addReplicationRegions: ['us-east-1', 'us-west-2'],
+                removeReplicationRegions: [],
+            }),
         ).rejects.toBeInstanceOf(ValidationError)
         expect(sent.some((command) => command instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
         expect(sent.some((command) => command instanceof AddKeyReplicationRegionsCommand)).toBe(false)
@@ -154,7 +161,10 @@ describe('the replication of a payment key', () => {
         // The reference says a Replica Region key cannot be configured to
         // replicate to other Regions, so the API refuses what it cannot do.
         await expect(
-            adapter.setReplication(KEY_ID, {replicationRegions: ['us-west-2']}),
+            adapter.setReplication(KEY_ID, {
+                addReplicationRegions: ['us-west-2'],
+                removeReplicationRegions: [],
+            }),
         ).rejects.toBeInstanceOf(ValidationError)
         expect(sent.some((command) => command instanceof AddKeyReplicationRegionsCommand)).toBe(false)
         expect(sent.some((command) => command instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
@@ -164,8 +174,12 @@ describe('the replication of a payment key', () => {
         const {client, sent} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        await expect(adapter.setReplication(KEY_ID, {replicationRegions: 'us-east-2'})).rejects.toBeInstanceOf(ValidationError)
-        await expect(adapter.setReplication(KEY_ID, {replicationRegions: [1]})).rejects.toBeInstanceOf(ValidationError)
+        await expect(
+            adapter.setReplication(KEY_ID, {addReplicationRegions: 'us-east-2', removeReplicationRegions: []}),
+        ).rejects.toBeInstanceOf(ValidationError)
+        await expect(
+            adapter.setReplication(KEY_ID, {addReplicationRegions: [1], removeReplicationRegions: []}),
+        ).rejects.toBeInstanceOf(ValidationError)
         expect(sent.some((each) => each instanceof AddKeyReplicationRegionsCommand)).toBe(false)
     })
 
@@ -181,6 +195,11 @@ describe('the replication of a payment key', () => {
         const {client} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        await expect(adapter.setReplication(ALIAS_ID, {replicationRegions: ['us-east-2']})).rejects.toBeInstanceOf(ValidationError)
+        await expect(
+            adapter.setReplication(ALIAS_ID, {
+                addReplicationRegions: ['us-east-2'],
+                removeReplicationRegions: [],
+            }),
+        ).rejects.toBeInstanceOf(ValidationError)
     })
 })
