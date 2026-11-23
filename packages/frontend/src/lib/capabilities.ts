@@ -60,6 +60,23 @@ export function capabilityEnabled(capability: CapabilitySchema<CapabilityActionN
     return Boolean(capability?.enabled && capability.status !== 'blocked' && capability.status !== 'coming_soon')
 }
 
+/**
+ * Whether a capability applies to a resource of this type.
+ *
+ * <p>A service can hold kinds of resource that do not take the same actions: the
+ * schema names the kinds a capability does not apply to, and the control is
+ * hidden for those. A resource of an unnamed kind is one the capability does
+ * apply to, because only the named kinds are excluded.
+ */
+export function capabilityAppliesToType(
+    capability: CapabilitySchema<CapabilityActionName> | undefined,
+    resourceType: string | undefined,
+): boolean {
+    if (!capability) return false
+    if (!resourceType) return true
+    return !(capability.excludedTypes ?? []).includes(resourceType)
+}
+
 export function withRuntimeState<TAction extends CapabilityActionName>(
     capabilities: Array<CapabilitySchema<TAction>>,
     runtimeReachable: boolean,

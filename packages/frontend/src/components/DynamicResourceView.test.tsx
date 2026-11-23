@@ -41,6 +41,7 @@ vi.mock("@/api/cloudProxyClient", () => ({
   recoverSecretResource: vi.fn(),
   storageObjectDownloadUrl: vi.fn(() => "#"),
   updateCloudResource: vi.fn(),
+  updateCloudResourceTags: vi.fn(),
   uploadStorageObject: vi.fn(),
 }));
 
@@ -1382,5 +1383,121 @@ describe("DynamicResourceView a field that names another resource", () => {
       .map((option) => (option as HTMLOptionElement).value);
 
     expect(values).toContain(keyB.id);
+  });
+
+  it("says so when the target keys could not be loaded, and asks again", async () => {
+    let failing = true;
+    vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) => {
+      if (search === undefined && failing) throw new Error("the runtime is not answering");
+      return [keyA];
+    });
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    const {container} = render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("key-a");
+
+    await user.click(screen.getByRole("button", {name: "Create"}));
+    const form = container.querySelector("form.dynamic-form");
+    if (!form) throw new Error("the create form did not open");
+    const withinForm = within(form as HTMLElement);
+
+    await user.selectOptions(withinForm.getByLabelText(/Kind/), "aliases");
+
+    // An empty dropdown and a failed request look the same to the caller, so
+    // the failure is said so beside the field that needs the choices.
+    const failure = await withinForm.findByText(/The options could not be loaded/);
+    expect(failure.textContent).toContain("the runtime is not answering");
+
+    failing = false;
+    await user.click(withinForm.getByRole("button", {name: "Retry"}));
+
+    await waitFor(() =>
+      expect(
+        within(form as HTMLElement).queryByText(/The options could not be loaded/),
+      ).toBeNull(),
+    );
+  });
+});
+
+describe("DynamicResourceView a service whose kinds do not take the same actions", () => {
+  const key: CloudResource = {
+    id: "key/key-a",
+    name: "key-a",
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    metadata: {},
+  };
+  const alias: CloudResource = {...key, id: "alias/alias-a", name: "alias/alias-a", type: "alias"};
+
+  const tagSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+    capabilities: {
+      resourceActions: [
+        {name: "list", label: "List keys", enabled: true, status: "available"},
+        {name: "inspect", label: "Inspect key", enabled: true, status: "available"},
+        {
+          name: "updateTags",
+          label: "Edit tags",
+          enabled: true,
+          status: "available",
+          // An alias carries no tags of its own.
+          excludedTypes: ["alias"],
+        },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(tagSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([key, alias]);
+    vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) =>
+      id === alias.id ? alias : key,
+    );
+  });
+
+  it("offers the tag editor for a key and not for an alias", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("key-a"));
+    expect(await screen.findByRole("button", {name: /Edit tags/})).toBeDefined();
+
+    await user.click(screen.getByText("alias/alias-a"));
+
+    await waitFor(() => expect(screen.queryByRole("button", {name: /Edit tags/})).toBeNull());
   });
 });

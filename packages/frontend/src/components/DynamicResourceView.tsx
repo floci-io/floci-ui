@@ -19,6 +19,7 @@ import { StorageObjectBrowser } from "@/components/StorageObjectBrowser";
 import { getPath } from "@/lib/resourcePath";
 import { deleteWaves } from "@/lib/deleteOrder";
 import {
+  capabilityAppliesToType,
   capabilityEnabled,
   capabilityFor,
   normalizeCapabilities,
@@ -196,6 +197,13 @@ export function DynamicResourceView({
       cloudStatus?.runtime === "reachable" &&
       namesAnotherResource(schemaQuery.data),
   });
+  // The choices of a field that names another resource come from a request of
+  // their own, and a failed one leaves the field empty: an account with no keys
+  // and a request that failed look the same to the caller. The failure is said
+  // so, and the request can be made again.
+  const optionsFailure = optionRowsQuery.isError
+    ? `The options could not be loaded: ${errorMessage(optionRowsQuery.error)}`
+    : undefined;
 
   const selectedForService =
     selected?.cloud === cloud && selected.service === service
@@ -641,6 +649,12 @@ export function DynamicResourceView({
   );
   const createCapability = capabilityFor(resourceCapabilities, "create");
   const createResourceLabel = createCapability?.label ?? "Create resource";
+  // A service can hold kinds of resource that do not take the same actions: an
+  // alias carries no tags of its own, so the tag editor is the key's alone.
+  const updateTagsCapability = capabilityFor(resourceCapabilities, "updateTags");
+  const canEditTags =
+    capabilityEnabled(updateTagsCapability) &&
+    capabilityAppliesToType(updateTagsCapability, inspectedResource?.type);
   const databaseCapabilities = withServiceAvailability(
     withRuntimeState(
       normalizeCapabilities(schema.capabilities?.databaseActions),
@@ -1015,6 +1029,8 @@ export function DynamicResourceView({
                           ? createMut.error.message
                           : null
                       }
+                      optionsError={optionsFailure}
+                      onRetryOptions={optionsFailure ? () => void optionRowsQuery.refetch() : undefined}
                       onCancel={() => setCreateOpen(false)}
                       onSubmit={(values) => createMut.mutate(values)}
                     />
@@ -1069,7 +1085,7 @@ export function DynamicResourceView({
             cloud={cloud}
             runtimeReachable={canUseRuntime}
             serviceName={schema.displayName}
-            canEditTags={capabilityEnabled(capabilityFor(resourceCapabilities, "updateTags"))}
+            canEditTags={canEditTags}
           />
         )}
       </div>

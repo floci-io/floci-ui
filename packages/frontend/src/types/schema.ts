@@ -42,6 +42,11 @@ export interface CapabilitySchema<TAction extends string> {
     status: CapabilityStatus
     reason?: string
     runtimeRequired?: boolean
+    /**
+     * The kinds of resource the capability does not apply to, named by the type
+     * their rows carry. Mirrors packages/api/src/cloud-spi/types.ts.
+     */
+    excludedTypes?: string[]
 }
 
 /** Holds when the named field equals `equals`, or when it differs from `notEquals`. Set one of them. */

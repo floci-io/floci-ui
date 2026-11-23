@@ -279,7 +279,10 @@ const paymentCryptographyResourceActions: CapabilitySchema<ResourceActionName>[]
         runtimeRequired: true,
     },
     {name: 'inspect', label: 'Inspect key', enabled: true, status: 'available', runtimeRequired: false},
-    {name: 'updateTags', label: 'Edit tags', enabled: true, status: 'available', runtimeRequired: true},
+    // An alias carries no tags of its own: the tags belong to the key it names,
+    // and the reference's own tagging takes a key ARN. The tag editor is the
+    // key's, so the alias row does not offer it.
+    {name: 'updateTags', label: 'Edit tags', enabled: true, status: 'available', runtimeRequired: true, excludedTypes: ['alias']},
 ]
 
 export function awsPaymentCryptographySchema(): ServiceSchema {

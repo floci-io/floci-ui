@@ -177,6 +177,16 @@ export interface CapabilitySchema<TAction extends string> {
     status: CapabilityStatus
     reason?: string
     runtimeRequired?: boolean
+    /**
+     * The kinds of resource the capability does not apply to, named by the type
+     * their rows carry.
+     *
+     * <p>A service can hold kinds of resource that do not take the same actions:
+     * an alias carries no tags of its own, so the service that holds a key and
+     * an alias edits the tags of a key only. The rule lives here, beside the
+     * capability it qualifies, and the frontend reads it.
+     */
+    excludedTypes?: string[]
 }
 
 /**
