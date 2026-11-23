@@ -4,6 +4,7 @@ import {
     CreateKeyCommand,
     DeleteAliasCommand,
     DeleteKeyCommand,
+    ExportKeyCommand,
     GetAliasCommand,
     GetKeyCommand,
     ListAliasesCommand,
@@ -472,6 +473,33 @@ describe('AwsPaymentCryptographyAdapter', () => {
             await expect(
                 new AwsPaymentCryptographyAdapter(client).create({values: {keyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY', ...ENCRYPT_AND_WRAP}}),
             ).rejects.toBeInstanceOf(RuntimeError)
+        })
+    })
+
+    describe('exportKey', () => {
+        test('refuses a key whose algorithm the matrix does not name', async () => {
+            // The matrix names the symmetric keys, which are the ones that leave
+            // under a TR-31 block, so no key may carry an asymmetric one.
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, KeyAttributes: {...attributes, KeyAlgorithm: 'RSA_2048'}}},
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toBeInstanceOf(ValidationError)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
+        test('refuses a key whose algorithm the prototype chain answers for', async () => {
+            // The algorithm comes from the service, so a name the prototype chain
+            // answers for is not a row of the matrix: the request is refused with
+            // a typed error, not a crash.
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, KeyAttributes: {...attributes, KeyAlgorithm: '__proto__'}}},
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toBeInstanceOf(ValidationError)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
         })
     })
 

@@ -34,7 +34,10 @@ export function allowedAlgorithms(
     (each) => each.discriminator === "keyAlgorithm",
   );
   if (!rule) return undefined;
-  return rule.allowed[carriedAlgorithm] ?? [];
+  // The algorithm comes from the service, so a name the prototype chain answers
+  // for is not a row of the matrix.
+  if (!Object.prototype.hasOwnProperty.call(rule.allowed, carriedAlgorithm)) return [];
+  return rule.allowed[carriedAlgorithm];
 }
 
 /**

@@ -29,11 +29,16 @@ import {
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
 <<<<<<< HEAD
+<<<<<<< HEAD
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
 =======
     PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS,
     mayWrapWith,
 >>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
+=======
+    mayWrapWith,
+    wrappingAlgorithmsFor,
+>>>>>>> e78344e (fix(paymentcryptography): the matrix is not read through the prototype chain)
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
     PAYMENT_CRYPTOGRAPHY_KIND_PREFIX,
     PAYMENT_CRYPTOGRAPHY_KINDS,
@@ -191,10 +196,13 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
         const wrappingAlgorithm = String(wrapping.KeyAttributes?.KeyAlgorithm ?? '')
         if (!mayWrapWith(carriedAlgorithm, wrappingAlgorithm)) {
+            const allowed = wrappingAlgorithmsFor(carriedAlgorithm)
             throw new ValidationError(
                 `a ${carriedAlgorithm} key may not be carried by a ${wrappingAlgorithm} key: ` +
                 'the wrapping key has to be at least as strong as the key it carries, ' +
-                `so it may be one of ${(PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS[carriedAlgorithm] ?? []).join(', ')}`,
+                (allowed.length > 0
+                    ? `so it may be one of ${allowed.join(', ')}`
+                    : 'and the matrix names no key that may carry it'),
             )
         }
 

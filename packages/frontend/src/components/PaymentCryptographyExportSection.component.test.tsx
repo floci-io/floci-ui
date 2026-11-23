@@ -116,4 +116,15 @@ describe("the material a payment key leaves under", () => {
     await user.selectOptions(screen.getByLabelText("Wrapping key"), "");
     await waitFor(() => expect(screen.queryByLabelText("Exported key material")).toBeNull());
   });
+
+  it("does not fall over on an algorithm the prototype chain answers for", async () => {
+    // The algorithm comes from the service, so a name the prototype chain
+    // answers for is not a row of the matrix, and no key may carry the one.
+    renderSection({...key, metadata: {...key.metadata, keyAlgorithm: "__proto__"}}, [wrapping]);
+
+    const options = await screen.findAllByRole("option");
+
+    // Only the choice that asks for a wrapping key, so nothing may carry it.
+    expect(options.length).toBe(1);
+  });
 });

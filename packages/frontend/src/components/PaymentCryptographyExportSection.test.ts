@@ -132,4 +132,13 @@ describe("the wrapping keys a key may leave under", () => {
     expect(allowedAlgorithms(schema, "RSA_2048")).toEqual([]);
     expect(allowedAlgorithms(undefined, "AES_256")).toBeUndefined();
   });
+
+  it("does not read the matrix through the prototype chain", () => {
+    // The algorithm comes from the service, so a name the prototype chain
+    // answers for is not a row of the matrix.
+    for (const name of ["__proto__", "constructor", "toString"]) {
+      expect(allowedAlgorithms(schema, name)).toEqual([]);
+      expect(wrappingKeysFor(carried(name), [key("kek-aes256", "AES_256")], schema)).toEqual([]);
+    }
+  });
 });
