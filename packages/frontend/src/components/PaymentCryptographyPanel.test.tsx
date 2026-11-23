@@ -88,9 +88,11 @@ describe("the panels of a payment key", () => {
     expect(container.textContent).toBe("");
   });
 
+<<<<<<< HEAD
   it("shows nothing while the key has not been read", () => {
     const {container} = renderPanel({});
 >>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
+<<<<<<< HEAD
 >>>>>>> badeb69 (feat(paymentcryptography): the certificate of a key's public half)
 
     // The certificate is part of the key's detail, and the detail has not been
@@ -98,6 +100,17 @@ describe("the panels of a payment key", () => {
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
     // The usage says what it does not know.
     expect(screen.getByText(/has not been read yet/)).toBeDefined();
+=======
+=======
+  it("says what it does not know while the key has not been read", async () => {
+    renderPanel({});
+>>>>>>> 3436ad4 (fix(paymentcryptography): the usage panel speaks about the key it read)
+
+    // The key has not been read yet, so the panels say that rather than
+    // speaking about a key they know nothing of.
+    expect(await screen.findByText(/has not been read yet/)).toBeDefined();
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+>>>>>>> 9452c1c (fix(paymentcryptography): the usage panel speaks about the key it read)
   });
 
 <<<<<<< HEAD

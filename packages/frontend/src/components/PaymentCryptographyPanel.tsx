@@ -124,6 +124,10 @@ export function PaymentCryptographyPanel({
  * particular to a payment key: the certificate of its public half, whether it may
  * be used, the policy that lets another account use it, the Regions it is
  * replicated to, and the material it leaves under.
+ *
+ * <p>The panel holds the key the console read, never the row of the table: a row
+ * carries none of these, so a panel handed one would speak about a key it has
+ * not read.
  */
 export function PaymentCryptographyPanel({
   cloud,
@@ -134,42 +138,41 @@ export function PaymentCryptographyPanel({
   keyUnreadable,
 }: PaymentCryptographyPanelProps) {
   const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
-  if (!isKey || !resource) {
-    // Nothing was read at all, so the key is unknown: the sections that can say
-    // so without the key say it, and the rest stay away.
-    return keyUnreadable ? (
-      <>
-        <PaymentCryptographyCertificateSection keyUnreadable />
-        <PaymentCryptographyExportSection
-          cloud={cloud}
-          runtimeReachable={runtimeReachable}
-          keyUnreadable
-        />
-      </>
-    ) : null;
-  }
+  // A resource that was read and is not a key has none of the panels of a key,
+  // so the panel says nothing about it.
+  if (resource && !isKey) return null;
 
   return (
     <>
-      <PaymentCryptographyCertificateSection
-        resource={resource}
-        keyUnreadable={keyUnreadable}
-      />
+      {/* The certificate is a state the service publishes, so there is nothing to
+          say about it until the key has been read, and nothing to say about a
+          key that could not be read but the fact that it could not be. */}
+      {(resource || keyUnreadable) && (
+        <PaymentCryptographyCertificateSection
+          resource={resource}
+          keyUnreadable={keyUnreadable}
+        />
+      )}
       <PaymentCryptographyLifecycleSection
         cloud={cloud}
         resource={resource}
+        keyUnreadable={keyUnreadable}
         runtimeReachable={runtimeReachable}
       />
-      <PaymentCryptographyPolicySection
-        cloud={cloud}
-        resource={resource}
-        runtimeReachable={runtimeReachable}
-      />
-      <PaymentCryptographyReplicationSection
-        cloud={cloud}
-        resource={resource}
-        runtimeReachable={runtimeReachable}
-      />
+      {resource && (
+        <PaymentCryptographyPolicySection
+          cloud={cloud}
+          resource={resource}
+          runtimeReachable={runtimeReachable}
+        />
+      )}
+      {resource && (
+        <PaymentCryptographyReplicationSection
+          cloud={cloud}
+          resource={resource}
+          runtimeReachable={runtimeReachable}
+        />
+      )}
       <PaymentCryptographyExportSection
         cloud={cloud}
         resource={resource}
