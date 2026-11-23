@@ -1,4 +1,4 @@
-import {FormEvent, useState} from 'react'
+import {FormEvent, useEffect, useState} from 'react'
 import {Plus} from 'lucide-react'
 import type {FieldCondition, FieldSchema, ServiceSchema} from '@/types/schema'
 
@@ -10,6 +10,17 @@ interface DynamicFormRendererProps {
     submitLabel?: string
     pendingLabel?: string
     submitError?: string | null
+    /**
+     * Why the options of a field that names another resource could not be
+     * loaded, and the way to ask again.
+     *
+     * <p>A field whose options come from the service holds none when the request
+     * fails, and an empty choice and a failed request look the same to the
+     * caller. The failure is said so beside the field, and the request can be
+     * made again.
+     */
+    optionsError?: string
+    onRetryOptions?: () => void
     onCancel?: () => void
     onSubmit: (values: Record<string, unknown>) => void
 }
@@ -22,6 +33,8 @@ export function DynamicFormRenderer({
     submitLabel = 'Create',
     pendingLabel = 'Creating',
     submitError,
+    optionsError,
+    onRetryOptions,
     onCancel,
     onSubmit,
 }: DynamicFormRendererProps) {
@@ -31,6 +44,40 @@ export function DynamicFormRenderer({
     )
     const [errors, setErrors] = useState<Record<string, string>>({})
     const visibleFields = activeFields.filter((field) => isFieldVisible(field, values))
+    // A required select with no default is painted with its first option, but
+    // the form value stays empty, so the submit is refused for a field that
+    // shows a choice. The value follows the option the browser paints, including
+    // when the options arrive after the form opens.
+    //
+    // The value follows the options the form has, not the ones it had: the form
+    // is inline, so the table stays usable while it is open, and the resource it
+    // points at may be deleted, which leaves the choices asking again without
+    // it.
+    useEffect(() => {
+        setValues((prev) => {
+            let next = prev
+            for (const field of visibleFields) {
+                if (field.type !== 'select' || !isFieldRequired(field, prev)) continue
+                const current = prev[field.name] ?? ''
+                const options = field.options ?? []
+                if (current !== '' && options.some((option) => option.value === current)) continue
+                const first = options[0]
+                const value = first && first.value !== '' ? first.value : ''
+                if (value === current) continue
+                next = next === prev ? {...prev} : next
+                next[field.name] = value
+            }
+            return next
+        })
+    }, [visibleFields])
+    // A form that makes more than one kind of thing says so on its button: the
+    // option that is picked names what it makes. Only a field on the form may
+    // name it: a field hidden by another answer keeps its value, and a hidden
+    // field must not decide what the button says.
+    const buttonLabel =
+        visibleFields
+            .map((field) => field.options?.find((option) => option.value === values[field.name])?.submitLabel)
+            .find((label): label is string => Boolean(label)) ?? submitLabel;
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -51,6 +98,8 @@ export function DynamicFormRenderer({
                     maxLength={fieldMaxLength(field, values).value}
                     value={values[field.name] ?? ''}
                     error={errors[field.name]}
+                    optionsError={field.optionsFrom ? optionsError : undefined}
+                    onRetryOptions={onRetryOptions}
                     onChange={(value) => {
                         setValues((prev) => ({...prev, [field.name]: value}))
                         setErrors((prev) => {
@@ -68,8 +117,8 @@ export function DynamicFormRenderer({
                     </button>
                 )}
                 <button className="button primary" type="submit" disabled={isSubmitting}>
-                    {submitLabel === 'Create' && <Plus size={14}/>}
-                    {isSubmitting ? pendingLabel : submitLabel}
+                    {buttonLabel === 'Create' && <Plus size={14}/>}
+                    {isSubmitting ? pendingLabel : buttonLabel}
                 </button>
             </div>
             {submitError && <div className="form-error" role="alert">{submitError}</div>}
@@ -77,7 +126,7 @@ export function DynamicFormRenderer({
     )
 }
 
-function FieldRow({field, showGroup, required, maxLength, value, error, onChange}: {field: FieldSchema; showGroup: boolean; required: boolean; maxLength?: number; value: string; error?: string; onChange: (value: string) => void}) {
+function FieldRow({field, showGroup, required, maxLength, value, error, optionsError, onRetryOptions, onChange}: {field: FieldSchema; showGroup: boolean; required: boolean; maxLength?: number; value: string; error?: string; optionsError?: string; onRetryOptions?: () => void; onChange: (value: string) => void}) {
     return (
         <>
             {showGroup && <div className="dynamic-form-group">{field.group}</div>}
@@ -92,6 +141,14 @@ function FieldRow({field, showGroup, required, maxLength, value, error, onChange
                         {error ?? field.description}
                     </small>
                 )}
+                {optionsError && (
+                    <small className="field-error" role="alert">
+                        {optionsError}{' '}
+                        {onRetryOptions && (
+                            <button className="link-button" type="button" onClick={onRetryOptions}>Retry</button>
+                        )}
+                    </small>
+                )}
             </label>
         </>
     )
@@ -101,7 +158,9 @@ function FieldInput({field, required, maxLength, value, invalid, messageId, onCh
     if (field.type === 'select') {
         return (
             <select className={`input ${invalid ? 'invalid' : ''}`} value={value} required={required} aria-invalid={invalid || undefined} aria-describedby={invalid || field.description ? messageId : undefined} onChange={(event) => onChange(event.target.value)}>
-                <option value="">Default</option>
+                {/* A required field has no default, so offering one would only let
+                    the caller choose it and be told the field is required. */}
+                {!required && <option value="">Default</option>}
                 {(field.options ?? []).map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                 ))}

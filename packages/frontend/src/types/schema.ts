@@ -42,6 +42,11 @@ export interface CapabilitySchema<TAction extends string> {
     status: CapabilityStatus
     reason?: string
     runtimeRequired?: boolean
+    /**
+     * The kinds of resource the capability does not apply to, named by the type
+     * their rows carry. Mirrors packages/api/src/cloud-spi/types.ts.
+     */
+    excludedTypes?: string[]
 }
 
 /** Holds when the named field equals `equals`, or when it differs from `notEquals`. Set one of them. */
@@ -70,7 +75,17 @@ export interface FieldSchema {
         maxLengthWhen?: {field: string; equals: string; value: number; message?: string}
         message?: string
     }
-    options?: Array<{label: string; value: string}>
+    options?: Array<{
+        label: string
+        value: string
+        /** What the form makes when this option is the one picked. */
+        submitLabel?: string
+    }>
+    /**
+     * The kind of resource whose rows become the options, for a field that names
+     * another resource of the same service.
+     */
+    optionsFrom?: string
 }
 
 export type ColumnFormat = 'text' | 'datetime' | 'relative' | 'bytes' | 'boolean' | 'badge' | 'code' | 'list'

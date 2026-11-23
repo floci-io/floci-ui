@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   copyStorageObject,
+  createCloudResource,
   deleteCloudResource,
   deleteStorageObject,
   emptyStorageBucket,
@@ -40,6 +41,7 @@ vi.mock("@/api/cloudProxyClient", () => ({
   recoverSecretResource: vi.fn(),
   storageObjectDownloadUrl: vi.fn(() => "#"),
   updateCloudResource: vi.fn(),
+  updateCloudResourceTags: vi.fn(),
   uploadStorageObject: vi.fn(),
 }));
 
@@ -1272,5 +1274,263 @@ describe("DynamicResourceView Empty bucket and object writes already sent", () =
         expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), { runtime: "python" }),
       );
     });
+  });
+});
+
+describe("DynamicResourceView a field that names another resource", () => {
+  const keyA: CloudResource = {
+    id: "key/key-a",
+    name: "key-a",
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    metadata: {},
+  };
+  const keyB: CloudResource = {...keyA, id: "key/key-b", name: "key-b"};
+
+  const optionsSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [
+      {
+        name: "kind",
+        label: "Kind",
+        type: "select",
+        required: true,
+        defaultValue: "keys",
+        options: [
+          {label: "Key", value: "keys"},
+          {label: "Alias", value: "aliases"},
+        ],
+      },
+      {
+        name: "aliasTargetKey",
+        label: "Target Key",
+        type: "select",
+        required: false,
+        visibleWhen: {field: "kind", equals: "aliases"},
+        requiredWhen: {field: "kind", equals: "aliases"},
+        optionsFrom: "key",
+      },
+    ],
+    filters: [],
+    actions: ["list", "create", "delete", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(optionsSchema);
+    vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) =>
+      id === keyB.id ? keyB : keyA,
+    );
+  });
+
+  it("offers a key created while the page was open", async () => {
+    let created = false;
+    vi.mocked(listCloudResources).mockImplementation(async () => (created ? [keyA, keyB] : [keyA]));
+    vi.mocked(createCloudResource).mockImplementation(async () => {
+      created = true;
+      return keyB;
+    });
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    const {container} = render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    const openCreateForm = async () => {
+      await user.click(screen.getByRole("button", {name: "Create"}));
+      const form = container.querySelector("form.dynamic-form");
+      if (!form) throw new Error("the create form did not open");
+      return within(form as HTMLElement);
+    };
+
+    await screen.findByText("key-a");
+
+    const firstForm = await openCreateForm();
+    await user.click(firstForm.getByRole("button", {name: "Create"}));
+
+    await waitFor(() => expect(createCloudResource).toHaveBeenCalled());
+    await waitFor(() => expect(container.querySelector("form.dynamic-form")).toBeNull());
+
+    // The target's choices are a query of their own; a create has to refresh it,
+    // not only the table's rows, or the key just made is missing from the form.
+    await waitFor(() =>
+      expect(
+        vi.mocked(listCloudResources).mock.calls.filter(([, , search]) => search === undefined).length,
+      ).toBeGreaterThanOrEqual(2),
+    );
+
+    const reopened = await openCreateForm();
+    await user.selectOptions(reopened.getByLabelText(/Kind/), "aliases");
+    const target = reopened.getByLabelText(/Target Key/);
+    const values = within(target)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+
+    expect(values).toContain(keyB.id);
+  });
+
+  it("refreshes the choices as well as the table", async () => {
+    vi.mocked(listCloudResources).mockResolvedValue([keyA]);
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("key-a");
+
+    const before = vi.mocked(listCloudResources).mock.calls.length;
+
+    await user.click(screen.getByRole("button", {name: "Refresh"}));
+
+    // The Refresh button refreshes the table and the choices with it: the
+    // choices are a query of their own, and a refresh that leaves them alone
+    // keeps offering a key that is gone.
+    await waitFor(() => {
+      const calls = vi.mocked(listCloudResources).mock.calls.slice(before);
+      expect(calls.some(([, , search]) => search === undefined)).toBe(true);
+      expect(calls.some(([, , search]) => search === "")).toBe(true);
+    });
+  });
+
+  it("says so when the target keys could not be loaded, and asks again", async () => {
+    let failing = true;
+    vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) => {
+      if (search === undefined && failing) throw new Error("the runtime is not answering");
+      return [keyA];
+    });
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    const {container} = render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("key-a");
+
+    await user.click(screen.getByRole("button", {name: "Create"}));
+    const form = container.querySelector("form.dynamic-form");
+    if (!form) throw new Error("the create form did not open");
+    const withinForm = within(form as HTMLElement);
+
+    await user.selectOptions(withinForm.getByLabelText(/Kind/), "aliases");
+
+    // An empty dropdown and a failed request look the same to the caller, so
+    // the failure is said so beside the field that needs the choices.
+    const failure = await withinForm.findByText(/The options could not be loaded/);
+    expect(failure.textContent).toContain("the runtime is not answering");
+
+    failing = false;
+    await user.click(withinForm.getByRole("button", {name: "Retry"}));
+
+    await waitFor(() =>
+      expect(
+        within(form as HTMLElement).queryByText(/The options could not be loaded/),
+      ).toBeNull(),
+    );
+  });
+});
+
+describe("DynamicResourceView a service whose kinds do not take the same actions", () => {
+  const key: CloudResource = {
+    id: "key/key-a",
+    name: "key-a",
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    metadata: {},
+  };
+  const alias: CloudResource = {...key, id: "alias/alias-a", name: "alias/alias-a", type: "alias"};
+
+  const tagSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+    capabilities: {
+      resourceActions: [
+        {name: "list", label: "List keys", enabled: true, status: "available"},
+        {name: "inspect", label: "Inspect key", enabled: true, status: "available"},
+        {
+          name: "updateTags",
+          label: "Edit tags",
+          enabled: true,
+          status: "available",
+          // An alias carries no tags of its own.
+          excludedTypes: ["alias"],
+        },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(tagSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([key, alias]);
+    vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) =>
+      id === alias.id ? alias : key,
+    );
+  });
+
+  it("offers the tag editor for a key and not for an alias", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("key-a"));
+    expect(await screen.findByRole("button", {name: /Edit tags/})).toBeDefined();
+
+    await user.click(screen.getByText("alias/alias-a"));
+
+    await waitFor(() => expect(screen.queryByRole("button", {name: /Edit tags/})).toBeNull());
   });
 });

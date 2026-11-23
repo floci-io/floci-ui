@@ -104,7 +104,23 @@ export interface FieldSchema {
         maxLength?: number
         message?: string
     }
-    options?: Array<{label: string; value: string}>
+    options?: Array<{
+        label: string
+        value: string
+        /**
+         * What the form makes when this option is the one picked, for a form that
+         * makes more than one kind of thing: the button says so.
+         */
+        submitLabel?: string
+    }>
+    /**
+     * The kind of resource whose rows become the options, for a field that names
+     * another resource of the same service: the key an alias points at, say.
+     *
+     * <p>The rows come from the list the form belongs to, so the options are the
+     * resources the account holds now rather than a list baked into the schema.
+     */
+    optionsFrom?: string
 }
 
 /** The power verbs a compute adapter may implement, reached through `/compute/resources/:id/<verb>`. */
@@ -161,6 +177,16 @@ export interface CapabilitySchema<TAction extends string> {
     status: CapabilityStatus
     reason?: string
     runtimeRequired?: boolean
+    /**
+     * The kinds of resource the capability does not apply to, named by the type
+     * their rows carry.
+     *
+     * <p>A service can hold kinds of resource that do not take the same actions:
+     * an alias carries no tags of its own, so the service that holds a key and
+     * an alias edits the tags of a key only. The rule lives here, beside the
+     * capability it qualifies, and the frontend reads it.
+     */
+    excludedTypes?: string[]
 }
 
 /**

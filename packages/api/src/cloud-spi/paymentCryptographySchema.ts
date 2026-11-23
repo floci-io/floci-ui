@@ -195,21 +195,51 @@ export function keyClassForAlgorithm(algorithm: PaymentCryptographyKeyAlgorithm)
 }
 
 /**
+ * The kinds of resource the service holds: the keys themselves, and the alias names
+ * that point at them.
+ *
+ * The alias is a name for a key, so it is a resource of its own in the reference's
+ * own listing, and the explorer holds both kinds in one table the way it holds IAM's
+ * users, roles and policies.
+ */
+export const PAYMENT_CRYPTOGRAPHY_KINDS = ['keys', 'aliases'] as const
+
+export type PaymentCryptographyKind = (typeof PAYMENT_CRYPTOGRAPHY_KINDS)[number]
+
+/** The prefix a kind's resource ids carry, as the explorer holds several kinds in one table. */
+export const PAYMENT_CRYPTOGRAPHY_KIND_PREFIX: Record<PaymentCryptographyKind, string> = {
+    keys: 'key',
+    aliases: 'alias',
+}
+
+/**
  * A key has no name of its own: the ARN is its identity, and the attributes the
  * table shows are the ones the reference's own key list shows.
  */
 const paymentCryptographyColumns: TableColumnSchema[] = [
-    {name: 'name', label: 'Key ARN', format: 'code'},
-    {name: 'keyClass', label: 'Key Type', path: 'metadata.keyClass', format: 'badge'},
-    {name: 'keyUsage', label: 'Key Usage', path: 'metadata.keyUsage'},
-    {name: 'keyAlgorithm', label: 'Key Algorithm', path: 'metadata.keyAlgorithm'},
-    {name: 'status', label: 'State', format: 'badge'},
-    {name: 'enabled', label: 'Enabled', path: 'metadata.enabled', format: 'boolean'},
-    {name: 'exportable', label: 'Exportable', path: 'metadata.exportable', format: 'boolean'},
-    {name: 'createdAt', label: 'Created', format: 'datetime'},
+    {name: 'kind', label: 'Kind', path: 'type', format: 'badge'},
+    {name: 'name', label: 'Name', format: 'code'},
+    {name: 'keyClass', label: 'Key Type', path: 'metadata.keyClass', format: 'badge', emptyText: '—'},
+    {name: 'keyUsage', label: 'Key Usage', path: 'metadata.keyUsage', emptyText: '—'},
+    {name: 'keyAlgorithm', label: 'Key Algorithm', path: 'metadata.keyAlgorithm', emptyText: '—'},
+    {name: 'targetKey', label: 'Target Key', path: 'metadata.targetKeyArn', format: 'code', emptyText: '—'},
+    {name: 'status', label: 'State', format: 'badge', emptyText: '—'},
+    {name: 'enabled', label: 'Enabled', path: 'metadata.enabled', format: 'boolean', emptyText: '—'},
+    {name: 'exportable', label: 'Exportable', path: 'metadata.exportable', format: 'boolean', emptyText: '—'},
+    {name: 'createdAt', label: 'Created', format: 'datetime', emptyText: '—'},
 ]
 
-const paymentCryptographyFilters: FieldSchema[] = [{name: 'search', label: 'Search', type: 'text', required: false}]
+const paymentCryptographyFilters: FieldSchema[] = [
+    {name: 'search', label: 'Search', type: 'text', required: false},
+    {
+        name: 'kind',
+        label: 'Kind',
+        type: 'select',
+        required: false,
+        description: 'Leave unset to list the keys and their aliases together.',
+        options: PAYMENT_CRYPTOGRAPHY_KINDS.map((value) => ({label: value, value})),
+    },
+]
 
 /** The two answers a yes-or-no member of a create form may have. */
 const ALLOWED_OPTIONS = [
@@ -232,6 +262,7 @@ function modeFields(): FieldSchema[] {
         type: 'select',
         required: false,
         group: 'Key modes of use',
+        visibleWhen: {field: 'kind', equals: 'keys'},
         defaultValue: 'false',
         options: ALLOWED_OPTIONS,
     }))
@@ -248,7 +279,10 @@ const paymentCryptographyResourceActions: CapabilitySchema<ResourceActionName>[]
         runtimeRequired: true,
     },
     {name: 'inspect', label: 'Inspect key', enabled: true, status: 'available', runtimeRequired: false},
-    {name: 'updateTags', label: 'Edit tags', enabled: true, status: 'available', runtimeRequired: true},
+    // An alias carries no tags of its own: the tags belong to the key it names,
+    // and the reference's own tagging takes a key ARN. The tag editor is the
+    // key's, so the alias row does not offer it.
+    {name: 'updateTags', label: 'Edit tags', enabled: true, status: 'available', runtimeRequired: true, excludedTypes: ['alias']},
 ]
 
 export function awsPaymentCryptographySchema(): ServiceSchema {
@@ -258,11 +292,25 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
         displayName: 'Payment Cryptography',
         fields: [
             {
+                name: 'kind',
+                label: 'Kind',
+                type: 'select',
+                required: true,
+                group: 'Required',
+                description: 'What to make: a key, or an alias name that points at one.',
+                defaultValue: 'keys',
+                options: [
+                    {label: 'Key', value: 'keys', submitLabel: 'Create key'},
+                    {label: 'Alias', value: 'aliases', submitLabel: 'Create alias'},
+                ],
+            },
+            {
                 name: 'keyUsage',
                 label: 'Key Usage',
                 type: 'select',
                 required: true,
                 group: 'Key',
+                visibleWhen: {field: 'kind', equals: 'keys'},
                 description:
                     'What the key is for, as TR-31 names it. It decides which algorithms the key may be made of ' +
                     'and which combinations of modes of use it may have. The default is the first usage, ' +
@@ -276,6 +324,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
+                visibleWhen: {field: 'kind', equals: 'keys'},
                 description:
                     'The algorithm the key is made of. It has to be one the usage allows. Left unset, the first ' +
                     'algorithm the usage allows is chosen.',
@@ -287,6 +336,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
+                visibleWhen: {field: 'kind', equals: 'keys'},
                 description: 'Whether the key may leave the service. It cannot be changed once the key is made.',
                 defaultValue: 'false',
                 options: ALLOWED_OPTIONS,
@@ -297,11 +347,37 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
+                visibleWhen: {field: 'kind', equals: 'keys'},
                 description: 'Whether the key does any work. A disabled key is refused by every operation that runs under it.',
                 defaultValue: 'true',
                 options: ALLOWED_OPTIONS,
             },
             ...modeFields(),
+            {
+                name: 'aliasName',
+                label: 'Alias Name',
+                type: 'text',
+                required: false,
+                group: 'Alias',
+                visibleWhen: {field: 'kind', equals: 'aliases'},
+                requiredWhen: {field: 'kind', equals: 'aliases'},
+                description: 'The name of the alias. It has to begin with "alias/".',
+                validation: {
+                    pattern: '^alias/[A-Za-z0-9/_-]+$',
+                    message: 'Use an alias name that begins with "alias/" and holds only letters, digits, slashes, underscores and dashes.',
+                },
+            },
+            {
+                name: 'aliasTargetKey',
+                label: 'Target Key',
+                type: 'select',
+                required: false,
+                group: 'Alias',
+                visibleWhen: {field: 'kind', equals: 'aliases'},
+                requiredWhen: {field: 'kind', equals: 'aliases'},
+                description: 'The key the alias points at. An alias names a key that exists.',
+                optionsFrom: 'key',
+            },
         ],
         actions: ['list', 'create', 'delete', 'inspect'],
         capabilities: {
@@ -310,7 +386,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
         filters: paymentCryptographyFilters,
         columns: paymentCryptographyColumns,
         notice:
-            'The keys a payment operator holds: their attributes, their check value and their state. ' +
-            'Aliases, key replication and Multi-Party Approval are not in this view.',
+            'The keys a payment operator holds and the alias names that point at them: their attributes, ' +
+            'their check value and their state. Key replication and Multi-Party Approval are not in this view.',
     }
 }

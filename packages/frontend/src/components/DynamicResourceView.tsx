@@ -19,6 +19,7 @@ import { StorageObjectBrowser } from "@/components/StorageObjectBrowser";
 import { getPath } from "@/lib/resourcePath";
 import { deleteWaves } from "@/lib/deleteOrder";
 import {
+  capabilityAppliesToType,
   capabilityEnabled,
   capabilityFor,
   normalizeCapabilities,
@@ -32,7 +33,7 @@ import type {
   CloudStatus,
 } from "@/types/cloud";
 import type { CloudResource, StorageObject } from "@/types/resource";
-import type { ServiceSchema } from "@/types/schema";
+import type { FieldSchema, ServiceSchema } from "@/types/schema";
 import { dataExplorerPath } from "@/lib/dataExplorer";
 import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
@@ -181,6 +182,29 @@ export function DynamicResourceView({
       serviceAvailability === "available" &&
       cloudStatus?.runtime === "reachable",
   });
+  // The options of a field that names another resource come from the resources the
+  // service holds, not from the rows the table shows: the table's rows are the ones
+  // the search box and the facet narrowed, and a field that names a key must still
+  // offer the keys when the table is showing the aliases.
+  const optionRowsQuery = useQuery({
+    // Under the list's key, so every change that refreshes the table also
+    // refreshes the choices: a key made or deleted is one or the other.
+    queryKey: ["cloud-resources", accountId, cloud, service, "options"],
+    queryFn: ({ signal }) => listCloudResources(cloud, service, undefined, signal),
+    enabled:
+      schemaQuery.isSuccess &&
+      serviceAvailability === "available" &&
+      cloudStatus?.runtime === "reachable" &&
+      namesAnotherResource(schemaQuery.data),
+  });
+  // The choices of a field that names another resource come from a request of
+  // their own, and a failed one leaves the field empty: an account with no keys
+  // and a request that failed look the same to the caller. The failure is said
+  // so, and the request can be made again.
+  const optionsFailure = optionRowsQuery.isError
+    ? `The options could not be loaded: ${errorMessage(optionRowsQuery.error)}`
+    : undefined;
+
   const selectedForService =
     selected?.cloud === cloud && selected.service === service
       ? selected
@@ -625,6 +649,12 @@ export function DynamicResourceView({
   );
   const createCapability = capabilityFor(resourceCapabilities, "create");
   const createResourceLabel = createCapability?.label ?? "Create resource";
+  // A service can hold kinds of resource that do not take the same actions: an
+  // alias carries no tags of its own, so the tag editor is the key's alone.
+  const updateTagsCapability = capabilityFor(resourceCapabilities, "updateTags");
+  const canEditTags =
+    capabilityEnabled(updateTagsCapability) &&
+    capabilityAppliesToType(updateTagsCapability, inspectedResource?.type);
   const databaseCapabilities = withServiceAvailability(
     withRuntimeState(
       normalizeCapabilities(schema.capabilities?.databaseActions),
@@ -819,10 +849,16 @@ export function DynamicResourceView({
                     className="button"
                     type="button"
                     disabled={
-                      !canUseRuntime || resourcesQuery.isFetching || resourceDetailQuery.isFetching
+                      !canUseRuntime ||
+                      resourcesQuery.isFetching ||
+                      optionRowsQuery.isFetching ||
+                      resourceDetailQuery.isFetching
                     }
                     onClick={() => {
                       void resourcesQuery.refetch();
+                      if (optionRowsQuery.isEnabled) {
+                        void optionRowsQuery.refetch();
+                      }
                       if (
                         selectedForService !== undefined &&
                         schema.actions.includes("inspect")
@@ -841,7 +877,9 @@ export function DynamicResourceView({
                     }}
                   >
                     <RefreshCw size={14} />
-                    {resourcesQuery.isFetching || resourceDetailQuery.isFetching
+                    {resourcesQuery.isFetching ||
+                    optionRowsQuery.isFetching ||
+                    resourceDetailQuery.isFetching
                       ? "Loading"
                       : "Refresh"}
                   </button>
@@ -980,6 +1018,9 @@ export function DynamicResourceView({
                     <DynamicFormRenderer
                       key={`${cloud}:${service}:create`}
                       schema={schema}
+                      fields={schema.fields.map((field) =>
+                        optionsFromRows(field, optionRowsQuery.data),
+                      )}
                       isSubmitting={createMut.isPending}
                       submitLabel={createResourceLabel}
                       pendingLabel="Creating"
@@ -988,6 +1029,8 @@ export function DynamicResourceView({
                           ? createMut.error.message
                           : null
                       }
+                      optionsError={optionsFailure}
+                      onRetryOptions={optionsFailure ? () => void optionRowsQuery.refetch() : undefined}
                       onCancel={() => setCreateOpen(false)}
                       onSubmit={(values) => createMut.mutate(values)}
                     />
@@ -1042,7 +1085,7 @@ export function DynamicResourceView({
             cloud={cloud}
             runtimeReachable={canUseRuntime}
             serviceName={schema.displayName}
-            canEditTags={capabilityEnabled(capabilityFor(resourceCapabilities, "updateTags"))}
+            canEditTags={canEditTags}
           />
         )}
       </div>
@@ -1308,6 +1351,30 @@ export function DynamicResourceView({
       )}
     </div>
   );
+}
+
+/**
+ * Whether a schema has a field that names another resource.
+ *
+ * <p>Such a field needs the resources the service holds, which the table's rows
+ * are not: they are the rows the search box and the facet narrowed.
+ */
+function namesAnotherResource(schema: ServiceSchema | undefined): boolean {
+  return Boolean(schema?.fields?.some((field) => field.optionsFrom));
+}
+
+/**
+ * The options of a field that names another resource of the same service.
+ *
+ * <p>The rows of the list are the resources the account holds now, so a field that
+ * names one of them offers them rather than a list baked into the schema.
+ */
+function optionsFromRows(field: FieldSchema, rows: CloudResource[] | undefined): FieldSchema {
+  if (!field.optionsFrom) return field;
+  const options = (rows ?? [])
+    .filter((row) => row.type === field.optionsFrom)
+    .map((row) => ({ label: row.name || row.id, value: row.id }));
+  return { ...field, options };
 }
 
 function errorMessage(error: unknown): string {
