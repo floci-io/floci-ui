@@ -1823,3 +1823,139 @@ describe("DynamicResourceView the usage of a payment key", () => {
     expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
   });
 });
+
+describe("DynamicResourceView the material a payment key leaves under", () => {
+  const CARRIED_ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/carried";
+  const WRAPPING_ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/wrapping";
+
+  const carried: CloudResource = {
+    id: `key/${CARRIED_ARN}`,
+    name: CARRIED_ARN,
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    status: "CREATE_COMPLETE",
+    metadata: {
+      enabled: true,
+      exportable: true,
+      keyAlgorithm: "AES_256",
+      keyUsage: "TR31_P1_PIN_GENERATION_KEY",
+      keyModesOfUse: {Generate: true},
+    },
+  };
+
+  const wrapping: CloudResource = {
+    id: `key/${WRAPPING_ARN}`,
+    name: WRAPPING_ARN,
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    status: "CREATE_COMPLETE",
+    metadata: {
+      enabled: true,
+      exportable: true,
+      keyAlgorithm: "AES_256",
+      keyUsage: "TR31_K0_KEY_ENCRYPTION_KEY",
+      keyModesOfUse: {Wrap: true, Unwrap: true},
+    },
+  };
+
+  const exportSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [
+      {
+        name: "wrappingKeyArn",
+        label: "Wrapping Key",
+        type: "select",
+        required: false,
+        optionsFrom: "key",
+      },
+    ],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+    pairings: [
+      {
+        discriminator: "keyAlgorithm",
+        allowed: {AES_256: ["AES_256"]},
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(exportSchema);
+    vi.mocked(getCloudResource).mockResolvedValue(carried);
+  });
+
+  it("offers the wrapping keys the account holds, not the rows the table shows", async () => {
+    // The table's rows are the ones the search box narrowed; the keys a wrapping
+    // key may be chosen from come from the service's own list.
+    vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) =>
+      search === undefined ? [carried, wrapping] : [carried],
+    );
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.type(await screen.findByLabelText("Filter resources"), "carried");
+    await user.click(await screen.findByText(CARRIED_ARN));
+
+    const select = await screen.findByLabelText("Wrapping key");
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+
+    // The account holds a key that may carry this one, so it is offered, even
+    // though the table is showing one row.
+    expect(values).toContain(wrapping.id);
+  });
+
+  it("says so when the key itself could not be read", async () => {
+    vi.mocked(listCloudResources).mockImplementation(async () => [
+      {...carried, metadata: {...carried.metadata, exportable: false}},
+    ]);
+    vi.mocked(getCloudResource).mockRejectedValue(new Error("The runtime is not answering."));
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(CARRIED_ARN));
+
+    // The key could not be read, so nothing is known of the material it leaves
+    // under, and the console says that rather than speaking about a key it has
+    // not read.
+    expect(await screen.findByText(/its material is unknown/)).toBeDefined();
+    expect(screen.queryByText(/not exportable/)).toBeNull();
+    expect(screen.queryByRole("button", {name: /Export key/i})).toBeNull();
+  });
+});

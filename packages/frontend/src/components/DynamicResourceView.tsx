@@ -1197,7 +1197,7 @@ export function DynamicResourceView({
           key={activeSelected.id}
           cloud={cloud}
           resource={inspectedDetail}
-          resources={resourcesQuery.data}
+          resources={optionRowsQuery.data}
           schema={schema}
           runtimeReachable={canUseRuntime}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
