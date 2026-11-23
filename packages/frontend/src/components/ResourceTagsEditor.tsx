@@ -47,6 +47,7 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
       // both carry the tags, so both are asked again.
       void queryClient.invalidateQueries({
 <<<<<<< HEAD
+<<<<<<< HEAD
         queryKey: ['cloud-resource', accountId, cloud, resource.service, resource.id],
       })
       void queryClient.invalidateQueries({
@@ -57,6 +58,12 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
       void queryClient.invalidateQueries({
         queryKey: ['cloud-console-resources', cloud, resource.service],
 >>>>>>> 1b47868 (fix(console): the tags refresh after they are edited)
+=======
+        queryKey: ['cloud-resource', accountId, cloud, resource.service, resource.id],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ['cloud-resources', accountId, cloud, resource.service],
+>>>>>>> b929419 (fix(console): the tag editor compares against the snapshot it was opened with)
       })
     },
     onError: (failure) => setError(errorMessage(failure)),
