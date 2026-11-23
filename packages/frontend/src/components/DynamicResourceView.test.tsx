@@ -1564,11 +1564,18 @@ describe("DynamicResourceView the certificate of a payment key", () => {
     columns: [{name: "name", label: "Name"}],
   };
 
+  // The table's rows carry no certificate: the question is asked of the key
+  // that is inspected, and the row is not the key that was read.
+  const row: CloudResource = {
+    ...key,
+    metadata: {enabled: true, keyClass: "ASYMMETRIC_KEY_PAIR"},
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     setAccountId(DEFAULT_ACCOUNT_ID);
     vi.mocked(getServiceSchema).mockResolvedValue(paymentSchema);
-    vi.mocked(listCloudResources).mockResolvedValue([key]);
+    vi.mocked(listCloudResources).mockResolvedValue([row]);
     vi.mocked(getCloudResource).mockResolvedValue(key);
   });
 
@@ -1619,6 +1626,34 @@ describe("DynamicResourceView the certificate of a payment key", () => {
     await user.click(await screen.findByText(ARN));
 
     expect(await screen.findByText(/no public half/)).toBeDefined();
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+  });
+
+  it("says nothing about the key until its detail has been read", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    // The detail never comes, so the panel waits for it.
+    vi.mocked(getCloudResource).mockImplementation(() => new Promise(() => undefined));
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    // The panel must not speak about a key it has not read: the row on screen
+    // carries no certificate, and a state it does not carry must not be
+    // invented for it.
+    await waitFor(() => expect(getCloudResource).toHaveBeenCalled());
+    expect(screen.queryByText(/did not say what state the certificate is in/)).toBeNull();
+    expect(screen.queryByText(/no public half/)).toBeNull();
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
   });
 

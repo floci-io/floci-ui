@@ -48,4 +48,25 @@ describe("the clipboard", () => {
         await waitFor(() => expect(result.current.copied).toBe(true));
         expect(writeText).toHaveBeenCalledTimes(2);
     });
+
+    it("drops a write that fails after a later one", async () => {
+        const writeText = vi
+            .fn()
+            .mockImplementationOnce(() => new Promise((_, reject) => setTimeout(() => reject(new Error("denied")), 50)))
+            .mockResolvedValue(undefined);
+        Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+        const {result} = renderHook(() => useCopyToClipboard());
+
+        await act(async () => {
+            const first = result.current.copy("the first");
+            await result.current.copy("the second");
+            await first.catch(() => undefined);
+        });
+
+        // The copy that came first failed, and it failed late. The copy that
+        // came second is the one on screen, so the console must not say that
+        // the clipboard was refused over it.
+        await waitFor(() => expect(result.current.copied).toBe(true));
+        expect(result.current.copyFailed).toBe(false);
+    });
 });

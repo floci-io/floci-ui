@@ -85,6 +85,21 @@ describe("the certificate of a payment key", () => {
     expect(screen.queryByText(/no public half/)).toBeNull();
   });
 
+  it("does not answer with a name the prototype chain holds", () => {
+    render(
+      <PaymentCryptographyCertificateSection
+        resource={keyInState("constructor")}
+      />,
+    );
+
+    // The state travels as metadata, so it comes from the service, and a name
+    // the prototype chain answers for is not a state. The table of the states
+    // is asked with an own-property test, so what is inherited is not answered
+    // with.
+    expect(screen.getByText(/did not say what state the certificate is in/)).toBeDefined();
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+  });
+
   it("says so when the key itself could not be read", () => {
     render(<PaymentCryptographyCertificateSection keyUnreadable />);
 
