@@ -370,11 +370,15 @@ export function DynamicResourceView({
         message: `Could not delete ${resource.name || resource.id}: ${errorMessage(error)}`,
       });
     },
-    onSuccess: (_, resource) => {
+    onSuccess: (_, resource, context) => {
       if (selected?.id === resource.id) selectResource(undefined);
       setSelectedItems((prev) => prev.filter((item) => item.id !== resource.id));
+      // The account the delete was made in, not the account the user is in by
+      // now: a switch while the request was in flight must not leave the
+      // account that was written to stale.
+      const deletedIn = context?.accountId ?? accountId;
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, service],
+        queryKey: ["cloud-resources", deletedIn, cloud, service],
       });
     },
   });
@@ -405,9 +409,9 @@ export function DynamicResourceView({
 
       return { succeededIds, failedItems };
     },
-    onSettled: () => {
+    onSettled: (_data, _error, _items, context) => {
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, service],
+        queryKey: ["cloud-resources", context?.accountId ?? accountId, cloud, service],
       });
     },
     onMutate: () => ({ accountId, cloud, service }),

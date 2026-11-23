@@ -478,6 +478,50 @@ describe("DynamicResourceView AWS compute", () => {
     ).toBeInTheDocument();
   });
 
+  it("refreshes the account the delete was made in", async () => {
+    const user = userEvent.setup();
+    const gate = deferred<void>();
+    vi.mocked(deleteCloudResource).mockReturnValue(gate.promise);
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidated: unknown[][] = [];
+    const original = queryClient.invalidateQueries.bind(queryClient);
+    vi.spyOn(queryClient, "invalidateQueries").mockImplementation((filters: any, options?: any) => {
+      invalidated.push((filters as any).queryKey);
+      return original(filters, options);
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="compute"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Delete al2023-ami" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    // The account is switched while the delete is in flight, so the refresh
+    // that follows the delete must name the account the delete was made in.
+    setAccountId("111122223333");
+    gate.resolve();
+
+    await waitFor(() => {
+      const listKeys = invalidated.filter(
+        (key) => Array.isArray(key) && key[0] === "cloud-resources",
+      );
+      expect(listKeys.length).toBeGreaterThan(0);
+      for (const key of listKeys) {
+        expect(key[1]).toBe(DEFAULT_ACCOUNT_ID);
+      }
+    });
+  });
+
   it("hides a late delete refusal from the page the user navigated to", async () => {
     const user = userEvent.setup();
     const gate = deferred<void>();
