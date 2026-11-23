@@ -173,6 +173,10 @@ export function PaymentCryptographyReplicationSection({
               aria-label="Region to replicate to"
               placeholder="us-east-2"
               value={region}
+              // The input is cleared when the save settles, so it is closed
+              // while the request is in flight: a Region typed now would be
+              // wiped without a word.
+              disabled={save.isPending}
               onChange={(event) => setRegion(event.target.value)}
             />
             <button

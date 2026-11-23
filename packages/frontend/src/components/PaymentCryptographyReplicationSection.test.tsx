@@ -185,6 +185,27 @@ describe("the replication of a payment key", () => {
     ]);
   });
 
+  it("closes the Region to replicate to while the save is pending", async () => {
+    const user = userEvent.setup();
+    let settle: () => void = () => {};
+    setReplication.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    renderSection(key);
+
+    const input = screen.getByLabelText("Region to replicate to");
+    await user.type(input, "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+
+    // The input is cleared when the save settles, so a Region typed while the
+    // request is in flight would be wiped without a word.
+    await waitFor(() => expect(input).toBeDisabled());
+    settle();
+  });
+
   it("says the Regions are unknown while the key has not been read", () => {
     renderSection(undefined);
 
