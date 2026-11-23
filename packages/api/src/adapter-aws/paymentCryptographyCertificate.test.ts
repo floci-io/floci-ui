@@ -156,7 +156,7 @@ describe('the certificate of a payment key', () => {
         expect(resource?.metadata.publicKeyCertificate).toBeNull()
     })
 
-    test('a service that refuses the request has no certificate to give', async () => {
+    test('a refusal that is an invalid request is a read that did not come', async () => {
         const {client} = runtimeStub(asymmetricKey, () => {
             throw Object.assign(new Error('the key has no public key'), {
                 name: 'ValidationException',
@@ -167,10 +167,13 @@ describe('the certificate of a payment key', () => {
 
         const resource = await adapter.get(ARN)
 
-        // A refusal that means the key has no public half is the service saying
-        // it has no certificate to give, which is not the same thing as a read
-        // that did not come.
-        expect(resource?.metadata.publicKeyCertificateState).toBe('unsigned')
+        // The reference gives a ValidationException one meaning: "one or more
+        // parameters in your request are invalid". The adapter already knows
+        // whether the key has a public half, so it never asks the service about
+        // a key that has none, and a refusal here is a request that did not
+        // come, not an answer about the certificate.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
+        expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
     })
 
     test('a denied request is a read that did not come', async () => {

@@ -326,13 +326,12 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
                 ...(res.KeyCertificateChain !== undefined ? {chain: res.KeyCertificateChain} : {}),
             }
         } catch (error) {
-            // A refusal that means the key has no public half is the service
-            // saying it has no certificate to give, which is not the same thing
-            // as a read that did not come: a denial or a throttling is the
-            // latter, and the console says which it was.
-            if (isNoCertificateRefusal(error)) {
-                return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unsigned, certificate: null}
-            }
+            // The reference gives a refusal one meaning: a denied permission, a
+            // throttled service, a key that is gone or a request whose parameters
+            // are invalid. The adapter already knows whether the key has a public
+            // half, so it never asks the service about a key that has none, and
+            // every refusal here is a read that did not come: the console is told
+            // which one it was rather than told the service signed no certificate.
             return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unreadable}
         }
     }
@@ -658,20 +657,6 @@ function oneOf<T extends readonly string[]>(
         throw new ValidationError(`${field} must be one of ${allowed.join(', ')}`)
     }
     return raw as T[number]
-}
-
-/**
- * Whether the service refused the request because the key has no public half.
- *
- * <p>The reference answers that with a `ValidationException`, and it is the
- * only answer that means "there is no certificate to give": a denied permission,
- * a throttled service and a broken connection are all a read that did not come,
- * and the console is told which it was.
- */
-function isNoCertificateRefusal(error: unknown): boolean {
-    if (typeof error !== 'object' || error === null) return false
-    const failure = error as {name?: string; $metadata?: {httpStatusCode?: number}}
-    return failure.name === 'ValidationException' && failure.$metadata?.httpStatusCode === 400
 }
 
 /**
