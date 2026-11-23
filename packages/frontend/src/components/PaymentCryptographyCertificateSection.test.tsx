@@ -130,6 +130,25 @@ describe("the certificate of a payment key", () => {
     expect(writeText).toHaveBeenCalledWith("LS0tLS1DSEVS");
   });
 
+  it("tells one copy from the other", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+
+    render(
+      <PaymentCryptographyCertificateSection
+        resource={{...key, metadata: {...key.metadata, publicKeyCertificateChain: "LS0tLS1DSEVS"}}}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", {name: /Copy certificate/}));
+
+    // The clipboard holds the certificate alone, so the chain's button does not
+    // claim it was copied as well.
+    const statuses = screen.getAllByRole("status").map((node) => node.textContent);
+    expect(statuses.filter((text) => text === "Copied")).toHaveLength(1);
+  });
+
   it("says so when the clipboard is not available", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockRejectedValue(new Error("denied"));

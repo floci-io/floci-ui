@@ -20,8 +20,6 @@ export function PaymentCryptographyCertificateSection({
   resource,
   keyUnreadable,
 }: PaymentCryptographyCertificateSectionProps) {
-  const {copied, copyFailed, copy} = useCopyToClipboard();
-
   const certificate =
     typeof resource?.metadata.publicKeyCertificate === "string"
       ? resource.metadata.publicKeyCertificate
@@ -48,8 +46,6 @@ export function PaymentCryptographyCertificateSection({
           value={certificate}
           rows={6}
           copyLabel="Copy certificate"
-          copied={copied}
-          onCopy={() => void copy(certificate)}
         />
       )}
       {chain && (
@@ -62,15 +58,8 @@ export function PaymentCryptographyCertificateSection({
             value={chain}
             rows={4}
             copyLabel="Copy chain"
-            copied={copied}
-            onCopy={() => void copy(chain)}
           />
         </>
-      )}
-      {copyFailed && (
-        <p className="form-error" role="alert">
-          The clipboard was not available, so nothing was copied.
-        </p>
       )}
     </section>
   );
@@ -94,24 +83,24 @@ function CertificateHeader({description}: {description: string}) {
 /**
  * A value that is shown and can be copied.
  *
- * <p>The button keeps its name and the outcome is announced beside it, so the
- * name of the button never changes under the reader.
+ * <p>Each value keeps its own copy state, so copying the certificate does not
+ * tell the reader that the chain was copied as well. The button keeps its name
+ * and the outcome is announced beside it, so the name of the button never
+ * changes under the reader.
  */
 function CopyableValue({
   label,
   value,
   rows,
   copyLabel,
-  copied,
-  onCopy,
 }: {
   label: string;
   value: string;
   rows: number;
   copyLabel: string;
-  copied: boolean;
-  onCopy: () => void;
 }) {
+  const {copied, copyFailed, copy} = useCopyToClipboard();
+
   return (
     <>
       <textarea
@@ -122,13 +111,18 @@ function CopyableValue({
         aria-label={label}
         spellCheck={false}
       />
-      <button className="button small" type="button" onClick={onCopy}>
+      <button className="button small" type="button" onClick={() => void copy(value)}>
         {copied ? <Check size={12} /> : <Copy size={12} />}
         {copyLabel}
       </button>
       <span className="muted compact-text" role="status">
         {copied ? "Copied" : ""}
       </span>
+      {copyFailed && (
+        <p className="form-error" role="alert">
+          The clipboard was not available, so nothing was copied.
+        </p>
+      )}
     </>
   );
 }

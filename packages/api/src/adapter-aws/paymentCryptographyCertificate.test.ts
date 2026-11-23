@@ -167,8 +167,55 @@ describe('the certificate of a payment key', () => {
 
         const resource = await adapter.get(ARN)
 
-        // A refusal is the service saying it has none to give, which is not the
-        // same thing as a read that did not come.
+        // A refusal that means the key has no public half is the service saying
+        // it has no certificate to give, which is not the same thing as a read
+        // that did not come.
         expect(resource?.metadata.publicKeyCertificateState).toBe('unsigned')
+    })
+
+    test('a denied request is a read that did not come', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('the account may not read the certificate'), {
+                name: 'AccessDeniedException',
+                $metadata: {httpStatusCode: 403},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(ARN)
+
+        // A permission that is not there says nothing about whether the service
+        // has signed a certificate, so it is not a key with none.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
+    })
+
+    test('a throttled request is a read that did not come', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('the service is busy'), {
+                name: 'ThrottlingException',
+                $metadata: {httpStatusCode: 429},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(ARN)
+
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
+    })
+
+    test('a key that is gone is a read that did not come', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('the key was not found'), {
+                name: 'ResourceNotFoundException',
+                $metadata: {httpStatusCode: 400},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(ARN)
+
+        // A missing key is neither a key with no certificate nor one that has
+        // one: the key itself is gone.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
     })
 })

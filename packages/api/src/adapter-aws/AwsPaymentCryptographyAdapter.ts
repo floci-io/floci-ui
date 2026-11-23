@@ -326,10 +326,11 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
                 ...(res.KeyCertificateChain !== undefined ? {chain: res.KeyCertificateChain} : {}),
             }
         } catch (error) {
-            // A refusal is the service saying it has no certificate to give, and
-            // a failure is the read that did not come: the two are not the same
-            // thing, so the console is told which it was.
-            if (isClientError(error)) {
+            // A refusal that means the key has no public half is the service
+            // saying it has no certificate to give, which is not the same thing
+            // as a read that did not come: a denial or a throttling is the
+            // latter, and the console says which it was.
+            if (isNoCertificateRefusal(error)) {
                 return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unsigned, certificate: null}
             }
             return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unreadable}
@@ -660,17 +661,17 @@ function oneOf<T extends readonly string[]>(
 }
 
 /**
- * Whether the service refused the request rather than failing to answer it.
+ * Whether the service refused the request because the key has no public half.
  *
- * <p>A refusal is the service saying the request makes no sense, which for a
- * certificate is the service saying it has none to give. A failure is the read
- * that did not come: a throttled service, a broken connection, a permission
- * that is not there.
+ * <p>The reference answers that with a `ValidationException`, and it is the
+ * only answer that means "there is no certificate to give": a denied permission,
+ * a throttled service and a broken connection are all a read that did not come,
+ * and the console is told which it was.
  */
-function isClientError(error: unknown): boolean {
+function isNoCertificateRefusal(error: unknown): boolean {
     if (typeof error !== 'object' || error === null) return false
-    const status = (error as {$metadata?: {httpStatusCode?: number}}).$metadata?.httpStatusCode
-    return typeof status === 'number' && status >= 400 && status < 500
+    const failure = error as {name?: string; $metadata?: {httpStatusCode?: number}}
+    return failure.name === 'ValidationException' && failure.$metadata?.httpStatusCode === 400
 }
 
 /**
