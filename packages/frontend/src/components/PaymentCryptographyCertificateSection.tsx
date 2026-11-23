@@ -21,6 +21,10 @@ export function PaymentCryptographyCertificateSection({
     typeof resource.metadata.publicKeyCertificate === "string"
       ? resource.metadata.publicKeyCertificate
       : "";
+  const chain =
+    typeof resource.metadata.publicKeyCertificateChain === "string"
+      ? resource.metadata.publicKeyCertificateChain
+      : "";
 
   if (!certificate) {
     return (
@@ -68,6 +72,20 @@ export function PaymentCryptographyCertificateSection({
         value={certificate}
         aria-label="Public key certificate"
       />
+      {chain && (
+        <>
+          <p className="muted compact-text">
+            The chain the certificate is signed in, which a reader verifies it against.
+          </p>
+          <textarea
+            className="textarea code-textarea"
+            readOnly
+            rows={4}
+            value={chain}
+            aria-label="Public key certificate chain"
+          />
+        </>
+      )}
       <button className="button small" type="button" onClick={copy}>
         {copied ? <Check size={12} /> : <Copy size={12} />}
         {copied ? "Copied" : "Copy certificate"}
@@ -88,7 +106,11 @@ function certificateReason(resource: CloudResource): string {
   if (resource.metadata.publicKeyCertificateUnavailable === true) {
     return "The certificate could not be read.";
   }
-  if (resource.metadata.keyClass !== "ASYMMETRIC_KEY_PAIR") {
+  const keyClass = resource.metadata.keyClass;
+  if (keyClass === undefined) {
+    return "The service did not say what kind of key this is, so it has not said whether it has a public half.";
+  }
+  if (keyClass !== "ASYMMETRIC_KEY_PAIR") {
     return "This key has no public half, so it has no certificate.";
   }
   return "The service has not signed a certificate for this key.";

@@ -76,6 +76,29 @@ describe('the certificate of a payment key', () => {
         expect(resource?.metadata.publicKeyCertificate).toBe(CERTIFICATE)
     })
 
+    test('the chain the certificate is signed in travels with it', async () => {
+        const {client} = runtimeStub(asymmetricKey)
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(ARN)
+
+        // The leaf alone cannot be verified against anything, so the chain the
+        // service handed out is published beside it.
+        expect(resource?.metadata.publicKeyCertificateChain).toBe('')
+    })
+
+    test('a key whose class was not read is not asked for a certificate', async () => {
+        const {client, sent} = runtimeStub({...asymmetricKey, KeyAttributes: undefined})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(ARN)
+
+        // The class was not read, so the question of a certificate was never
+        // asked, and the metadata does not claim that the key has none.
+        expect(sent.some((each) => each instanceof GetPublicKeyCertificateCommand)).toBe(false)
+        expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
+    })
+
     test('a symmetric key has no public half, so it has no certificate', async () => {
         const {client, sent} = runtimeStub(symmetricKey)
         const adapter = new AwsPaymentCryptographyAdapter(client)

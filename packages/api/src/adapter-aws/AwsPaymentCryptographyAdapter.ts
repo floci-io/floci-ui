@@ -57,6 +57,8 @@ type TagLookup = {tags: KeyTag[]; unavailable?: true}
 type CertificateLookup = {
     /** The certificate, or null for a key that has none. */
     certificate?: string | null
+    /** The chain the certificate is signed in, when the service handed one out. */
+    chain?: string | null
     /** The certificate could not be read. */
     unavailable?: true
 }
@@ -289,14 +291,23 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      * and the key itself is still shown.
      */
     private async publicKeyCertificate(identifier: string, key: Key): Promise<CertificateLookup> {
-        if (key.KeyAttributes?.KeyClass !== PAYMENT_CRYPTOGRAPHY_KEY_CLASSES.pair) {
+        const keyClass = key.KeyAttributes?.KeyClass
+        // A key whose class was not read is neither a pair nor a symmetric key, so
+        // the question of a certificate was never asked of it.
+        if (keyClass === undefined) return {}
+        if (keyClass !== PAYMENT_CRYPTOGRAPHY_KEY_CLASSES.pair) {
             return {certificate: null}
         }
         try {
             const res = await this.client.send(
                 new GetPublicKeyCertificateCommand({KeyIdentifier: identifier}),
             )
-            return {certificate: res.KeyCertificate ?? null}
+            // The service hands out the chain with the certificate, so both are
+            // published: the leaf alone cannot be verified against anything.
+            return {
+                certificate: res.KeyCertificate ?? null,
+                chain: res.KeyCertificateChain ?? null,
+            }
         } catch {
             return {unavailable: true}
         }
@@ -441,6 +452,9 @@ function toResource(key: Key, tagLookup: TagLookup, certificateLookup: Certifica
             // was never inspected does not claim that the key has none.
             ...(certificateLookup.certificate !== undefined
                 ? {publicKeyCertificate: certificateLookup.certificate}
+                : {}),
+            ...(certificateLookup.chain !== undefined
+                ? {publicKeyCertificateChain: certificateLookup.chain}
                 : {}),
             ...(certificateLookup.unavailable ? {publicKeyCertificateUnavailable: true} : {}),
             tags: tagLookup.tags,

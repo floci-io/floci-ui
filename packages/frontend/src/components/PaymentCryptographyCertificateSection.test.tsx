@@ -71,4 +71,38 @@ describe("the certificate of a payment key", () => {
     expect(screen.queryByText(/no public half/)).toBeNull();
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
   });
+
+  it("says so when the service did not say what kind of key it is", () => {
+    render(
+      <PaymentCryptographyCertificateSection
+        resource={{...key, metadata: {enabled: true}}}
+      />,
+    );
+
+    // A key whose class was not read is neither a pair nor a symmetric key, so
+    // the section does not claim that it has no public half.
+    expect(screen.getByText(/did not say what kind of key/)).toBeDefined();
+    expect(screen.queryByText(/no public half/)).toBeNull();
+  });
+
+  it("shows the chain the certificate is signed in, when there is one", () => {
+    render(
+      <PaymentCryptographyCertificateSection
+        resource={{
+          ...key,
+          metadata: {...key.metadata, publicKeyCertificateChain: "LS0tLS1DSEVS"},
+        }}
+      />,
+    );
+
+    // The chain travels with the certificate: the leaf alone cannot be
+    // verified against anything.
+    expect(screen.getByLabelText("Public key certificate chain")).toBeDefined();
+  });
+
+  it("shows no chain when the service handed none out", () => {
+    render(<PaymentCryptographyCertificateSection resource={key} />);
+
+    expect(screen.queryByLabelText("Public key certificate chain")).toBeNull();
+  });
 });

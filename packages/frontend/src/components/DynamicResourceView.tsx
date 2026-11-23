@@ -627,18 +627,18 @@ export function DynamicResourceView({
     selectableResources.length > 0 &&
     selectableResources.every((r) => selectedItems.some((s) => s.id === r.id));
   const activeSelected = selectedForService;
+  // The detail the console read for the selected resource, and the row it falls
+  // back to while the detail is on its way or could not be read.
+  const inspectedDetail =
+    resourceDetailQuery.data?.id === activeSelected?.id ? resourceDetailQuery.data : undefined;
   const inspectedResource =
-    !resourceDetailQuery.isFetching && resourceDetailQuery.data?.id === activeSelected?.id
-      ? resourceDetailQuery.data
+    !resourceDetailQuery.isFetching && inspectedDetail !== undefined
+      ? inspectedDetail
       : activeSelected;
   // The certificate of a payment key is part of the key's detail, and the
-  // table's row carries none of it, so the panel waits for the detail of the
-  // selected key rather than speak about a key it has not read.
-  const inspectedPaymentKey =
-    resourceDetailQuery.data !== undefined &&
-    resourceDetailQuery.data.id === activeSelected?.id
-      ? resourceDetailQuery.data
-      : undefined;
+  // table's row carries none of it, so the panel shows the detail and never the
+  // row: it would speak about a key it has not read.
+  const inspectedPaymentKey = inspectedDetail;
   const runtimeReachable = cloudStatus?.runtime === "reachable";
   const resourceCapabilityInputs =
     schema.capabilities?.resourceActions ?? schema.actions;

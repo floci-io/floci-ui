@@ -94,6 +94,11 @@ const SYMMETRIC_ALGORITHMS = [...TDES_ALGORITHMS, 'AES_128', 'AES_192', 'AES_256
 const HMAC_ALGORITHMS = ['HMAC_SHA224', 'HMAC_SHA256', 'HMAC_SHA384', 'HMAC_SHA512'] as const
 const RSA_ALGORITHMS = ['RSA_2048', 'RSA_3072', 'RSA_4096'] as const
 const ECC_ALGORITHMS = ['ECC_NIST_P256', 'ECC_NIST_P384', 'ECC_NIST_P521'] as const
+/** The algorithms that make a key pair, and so a public half. */
+const ASYMMETRIC_ALGORITHMS: readonly PaymentCryptographyKeyAlgorithm[] = [
+    ...RSA_ALGORITHMS,
+    ...ECC_ALGORITHMS,
+]
 
 /** A key that derives another key, and nothing else. */
 const DERIVE_ONLY: readonly ModeCombination[] = [['DeriveKey'], ['NoRestrictions']]
@@ -202,10 +207,11 @@ export type PaymentCryptographyKeyClass =
  *
  * The class says what shape the key has, and the algorithm says what material it
  * has, so the two agree: an asymmetric algorithm makes a key pair and a symmetric
- * one makes a symmetric key.
+ * one makes a symmetric key. The algorithms that make a pair are the ones the
+ * usages are built from, so the rule is one list and not a guess from a name.
  */
 export function keyClassForAlgorithm(algorithm: PaymentCryptographyKeyAlgorithm): PaymentCryptographyKeyClass {
-    return algorithm.startsWith('RSA_') || algorithm.startsWith('ECC_')
+    return ASYMMETRIC_ALGORITHMS.includes(algorithm)
         ? PAYMENT_CRYPTOGRAPHY_KEY_CLASSES.pair
         : PAYMENT_CRYPTOGRAPHY_KEY_CLASSES.symmetric
 }
