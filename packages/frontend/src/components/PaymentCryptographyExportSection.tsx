@@ -10,7 +10,14 @@ import type {ServiceSchema} from "@/types/schema";
 interface PaymentCryptographyExportSectionProps {
   cloud: CloudProvider;
   resource: CloudResource;
-  /** The rows of the list, which name the keys a wrapping key may be chosen from. */
+  /**
+   * The rows of the service's own list, which name the keys a wrapping key may
+   * be chosen from.
+   *
+   * <p>They are not the rows the table shows: those are the ones the search box
+   * and the facet narrowed, and a wrapping key is a key of the account whether
+   * the table is showing it or not.
+   */
   resources?: CloudResource[];
   /** The service's schema, which publishes the pairings the service allows. */
   schema?: ServiceSchema;

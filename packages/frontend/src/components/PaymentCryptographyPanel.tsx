@@ -30,7 +30,7 @@ const PaymentCryptographyExportSection = lazyPanel(() =>
 interface PaymentCryptographyPanelProps {
   cloud: CloudProvider;
   resource?: CloudResource;
-  /** The rows of the list, which name the keys a wrapping key may be chosen from. */
+  /** The rows of the service's own list, which name the keys a wrapping key may be chosen from. */
   resources?: CloudResource[];
   /** The service's schema, which publishes the pairings the service allows. */
   schema?: ServiceSchema;

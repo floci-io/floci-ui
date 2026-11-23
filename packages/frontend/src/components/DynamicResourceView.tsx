@@ -1184,7 +1184,7 @@ export function DynamicResourceView({
           key={inspectedResource?.id}
           cloud={cloud}
           resource={inspectedResource}
-          resources={resourcesQuery.data}
+          resources={optionRowsQuery.data}
           schema={schema}
           runtimeReachable={canUseRuntime}
 >>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
