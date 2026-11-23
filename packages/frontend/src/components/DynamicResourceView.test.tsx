@@ -1972,3 +1972,455 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
     expect(screen.queryByRole("button", {name: /Export key/i})).toBeNull();
   });
 });
+
+describe("DynamicResourceView Empty bucket and object writes already sent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(ACCOUNT_A);
+    vi.mocked(getServiceSchema).mockResolvedValue(awsStorageWriteSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([storageBucket("logs"), storageBucket("assets")]);
+    vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) => storageBucket(id));
+    vi.mocked(listStorageObjects).mockResolvedValue({
+      prefix: "",
+      objects: [{ key: "a.txt", name: "a.txt", type: "object", size: 1, lastModified: null, metadata: {} }],
+    });
+    vi.mocked(copyStorageObject).mockResolvedValue(undefined);
+    vi.mocked(deleteStorageObject).mockResolvedValue(undefined);
+    vi.mocked(uploadStorageObject).mockResolvedValue(undefined);
+  });
+
+  async function openMoveOrCopy(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByTitle("Move / Copy a.txt"));
+    return screen.findByRole("dialog");
+  }
+
+  // Each write is held open by the call that lands in logs. Empty bucket on
+  // logs has to wait for it, then come back once it settles.
+  const writes: Array<{
+    name: string;
+    held: () => ReturnType<typeof vi.fn>;
+    start: (user: ReturnType<typeof userEvent.setup>) => Promise<void>;
+  }> = [
+    {
+      name: "an upload",
+      held: () => vi.mocked(uploadStorageObject),
+      start: async (user) => {
+        await user.upload(screen.getByLabelText("Choose file to upload"), new File(["x"], "new.txt"));
+      },
+    },
+    {
+      name: "a new folder",
+      held: () => vi.mocked(uploadStorageObject),
+      start: async (user) => {
+        await user.click(screen.getByRole("button", { name: "New folder" }));
+        await user.type(screen.getByPlaceholderText("new-folder/"), "docs");
+        await user.click(screen.getByRole("button", { name: "Create folder" }));
+      },
+    },
+    {
+      name: "an object delete",
+      held: () => vi.mocked(deleteStorageObject),
+      start: async (user) => {
+        await user.click(screen.getByTitle("Delete a.txt"));
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+      },
+    },
+    {
+      name: "a bulk object delete",
+      held: () => vi.mocked(deleteStorageObject),
+      start: async (user) => {
+        await user.click(screen.getByLabelText("Select a.txt"));
+        await user.click(screen.getByRole("button", { name: "Delete 1" }));
+      },
+    },
+    {
+      name: "a move whose copy is done and whose source delete is not",
+      held: () => vi.mocked(deleteStorageObject),
+      start: async (user) => {
+        const dialog = await openMoveOrCopy(user);
+        await user.clear(within(dialog).getByLabelText("Destination key"));
+        await user.type(within(dialog).getByLabelText("Destination key"), "moved.txt");
+        // The tab and the submit button are both named Move; the submit is last.
+        const moveButtons = within(dialog).getAllByRole("button", { name: "Move" });
+        await user.click(moveButtons[moveButtons.length - 1]);
+      },
+    },
+  ];
+
+  for (const write of writes) {
+    it(`waits for ${write.name} already sent to the bucket`, async () => {
+      const user = userEvent.setup();
+      const gate = deferred<void>();
+      write.held().mockReturnValue(gate.promise);
+      renderStorage();
+      await user.click(await screen.findByText("logs"));
+      await screen.findByText("a.txt");
+      expect(screen.getByRole("button", { name: "Empty bucket" })).toBeEnabled();
+
+      await write.start(user);
+
+      await waitFor(() => expect(screen.getByRole("button", { name: "Empty bucket" })).toBeDisabled());
+      expect(screen.getByRole("button", { name: "Empty bucket" })).toHaveAttribute("title", WAITING_FOR_WRITES);
+      await act(async () => gate.resolve());
+      await waitFor(() => expect(screen.getByRole("button", { name: "Empty bucket" })).toBeEnabled());
+      expect(emptyStorageBucket).not.toHaveBeenCalled();
+    });
+  }
+
+  it("waits for a copy into the bucket started from another bucket", async () => {
+    const user = userEvent.setup();
+    const gate = deferred<void>();
+    vi.mocked(copyStorageObject).mockReturnValue(gate.promise);
+    renderStorage();
+    await user.click(await screen.findByText("assets"));
+    await screen.findByText("a.txt");
+    const dialog = await openMoveOrCopy(user);
+    await user.click(within(dialog).getByRole("button", { name: "Copy" }));
+    await user.selectOptions(await within(dialog).findByLabelText("Destination bucket"), "logs");
+    const copyButtons = within(dialog).getAllByRole("button", { name: "Copy" });
+    await user.click(copyButtons[copyButtons.length - 1]);
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByText("logs"));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Empty bucket" })).toBeDisabled());
+    await act(async () => gate.resolve());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Empty bucket" })).toBeEnabled());
+  });
+
+  it("does not wait for a write to another bucket or another account", async () => {
+    const user = userEvent.setup();
+    const gate = deferred<void>();
+    vi.mocked(uploadStorageObject).mockReturnValue(gate.promise);
+    renderStorage();
+    await user.click(await screen.findByText("assets"));
+    await screen.findByText("a.txt");
+    await user.upload(screen.getByLabelText("Choose file to upload"), new File(["x"], "new.txt"));
+
+    await user.click(screen.getByText("logs"));
+    expect(await screen.findByRole("button", { name: "Empty bucket" })).toBeEnabled();
+
+    act(() => setAccountId(ACCOUNT_B));
+    await user.click(await screen.findByText("assets"));
+    expect(await screen.findByRole("button", { name: "Empty bucket" })).toBeEnabled();
+    await act(async () => gate.resolve());
+  });
+
+  describe("Key Vault deleted secrets view", () => {
+    const secretsSchema: ServiceSchema = {
+      cloud: "azure",
+      service: "secrets",
+      displayName: "Key Vault",
+      fields: [],
+      filters: [
+        { name: "search", label: "Search", type: "text", required: false },
+        {
+          name: "state",
+          label: "View",
+          type: "select",
+          required: false,
+          defaultValue: "active",
+          options: [
+            { label: "Active secrets", value: "active" },
+            { label: "Deleted secrets", value: "deleted" },
+          ],
+        },
+      ],
+      actions: ["list", "delete", "inspect"],
+      columns: [{ name: "name", label: "Secret Name" }, { name: "status", label: "Status" }],
+    };
+    const azureStatus: CloudStatus = { ...cloudStatus, cloud: "azure", endpoint: "http://localhost:4577" };
+    const activeSecret: CloudResource = {
+      id: "db-password", name: "db-password", cloud: "azure", service: "secrets", type: "secret",
+      region: null, createdAt: null, status: "enabled", metadata: {},
+    };
+    const deletedSecret: CloudResource = { ...activeSecret, id: "old-token", name: "old-token", status: "deleted" };
+
+    function renderSecrets() {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <DynamicResourceView
+            cloud="azure"
+            service="secrets"
+            serviceAvailability="available"
+            cloudStatus={azureStatus}
+            onOpenInfo={vi.fn()}
+          />
+        </QueryClientProvider>,
+      );
+    }
+
+    beforeEach(() => {
+      vi.mocked(getServiceSchema).mockResolvedValue(secretsSchema);
+      vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, _search, _signal, filters) =>
+        filters?.state === "deleted" ? [deletedSecret] : [activeSecret],
+      );
+      vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) =>
+        id === "old-token" ? deletedSecret : activeSecret,
+      );
+    });
+
+    it("lists active secrets first and switches to the deleted ones without offering delete", async () => {
+      const user = userEvent.setup();
+      renderSecrets();
+
+      expect(await screen.findByText("db-password")).toBeInTheDocument();
+      expect(listCloudResources).toHaveBeenLastCalledWith("azure", "secrets", "", expect.anything(), { state: "active" });
+      expect(screen.getByRole("button", { name: "Delete db-password" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Delete Multiple" })).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByLabelText("View"), "deleted");
+
+      expect(await screen.findByText("old-token")).toBeInTheDocument();
+      expect(listCloudResources).toHaveBeenLastCalledWith("azure", "secrets", "", expect.anything(), { state: "deleted" });
+      expect(screen.queryByRole("button", { name: "Delete old-token" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete Multiple" })).not.toBeInTheDocument();
+    });
+
+    it("offers recover and purge for a selected deleted secret", async () => {
+      const user = userEvent.setup();
+      renderSecrets();
+      await user.selectOptions(await screen.findByLabelText("View"), "deleted");
+      await user.click(await screen.findByText("old-token"));
+
+      expect(await screen.findByRole("button", { name: "Recover" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Purge" })).toBeEnabled();
+    });
+
+    it("does not render a view selector for a service that declares no state filter", async () => {
+      vi.mocked(getServiceSchema).mockResolvedValue(schema);
+      vi.mocked(listCloudResources).mockResolvedValue([summary]);
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <DynamicResourceView cloud="aws" service="cognito" serviceAvailability="available" cloudStatus={cloudStatus} onOpenInfo={vi.fn()} />
+        </QueryClientProvider>,
+      );
+
+      await screen.findByText("pool-a");
+      expect(screen.queryByLabelText("View")).not.toBeInTheDocument();
+      expect(listCloudResources).toHaveBeenLastCalledWith("aws", "cognito", "", expect.anything(), undefined);
+    });
+  });
+
+  describe("declared list filters", () => {
+    const filteredSchema: ServiceSchema = {
+      cloud: "aws",
+      service: "serverless",
+      displayName: "Serverless",
+      fields: [],
+      filters: [
+        { name: "search", label: "Search", type: "text", required: false },
+        {
+          name: "kind",
+          label: "Kind",
+          type: "select",
+          required: false,
+          options: [
+            { label: "Functions", value: "function" },
+          ],
+        },
+        { name: "runtime", label: "Runtime", type: "text", required: false },
+        { name: "notes", label: "Notes", type: "textarea", required: false },
+      ],
+      actions: ["list"],
+      columns: [{ name: "name", label: "Name" }],
+    };
+
+    function renderFiltered() {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <DynamicResourceView cloud="aws" service="serverless" serviceAvailability="available" cloudStatus={cloudStatus} onOpenInfo={vi.fn()} />
+        </QueryClientProvider>,
+      );
+    }
+
+    beforeEach(() => {
+      vi.mocked(getServiceSchema).mockResolvedValue(filteredSchema);
+      vi.mocked(listCloudResources).mockResolvedValue([summary]);
+    });
+
+    it("paints each select and text filter once and lists unfiltered until one is set", async () => {
+      renderFiltered();
+
+      const kind = await screen.findByLabelText("Kind");
+      expect(within(kind).getAllByRole("option").map((option) => option.textContent)).toEqual(["All", "Functions"]);
+      expect(screen.getByLabelText("Runtime")).toBeInTheDocument();
+      expect(screen.getAllByLabelText("Filter resources")).toHaveLength(1);
+      expect(screen.queryByLabelText("Notes")).not.toBeInTheDocument();
+      await screen.findByText("pool-a");
+      expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), undefined);
+    });
+
+    it("sends a chosen filter to the list call and refetches when it changes", async () => {
+      const user = userEvent.setup();
+      renderFiltered();
+
+      await user.selectOptions(await screen.findByLabelText("Kind"), "function");
+      await waitFor(() =>
+        expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), { kind: "function" }),
+      );
+
+      await user.type(screen.getByLabelText("Runtime"), "python");
+      await waitFor(() =>
+        expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), {
+          kind: "function",
+          runtime: "python",
+        }),
+      );
+
+      await user.selectOptions(screen.getByLabelText("Kind"), "");
+      await waitFor(() =>
+        expect(listCloudResources).toHaveBeenLastCalledWith("aws", "serverless", "", expect.anything(), { runtime: "python" }),
+      );
+    });
+  });
+});
+
+describe("DynamicResourceView the certificate of a payment key", () => {
+  const ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc";
+  const key: CloudResource = {
+    id: ARN,
+    name: ARN,
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    status: "CREATE_COMPLETE",
+    metadata: {
+      enabled: true,
+      keyClass: "ASYMMETRIC_KEY_PAIR",
+      publicKeyCertificate: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0t",
+      publicKeyCertificateState: "signed",
+    },
+  };
+
+  const paymentSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+  };
+
+  // The table's rows carry no certificate: the question is asked of the key
+  // that is inspected, and the row is not the key that was read.
+  const row: CloudResource = {
+    ...key,
+    metadata: {enabled: true, keyClass: "ASYMMETRIC_KEY_PAIR"},
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(paymentSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([row]);
+    vi.mocked(getCloudResource).mockResolvedValue(key);
+  });
+
+  it("shows the certificate of the key that was inspected", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    // The certificate is part of the key's detail, so the panel waits for it.
+    expect(await screen.findByLabelText("Public key certificate")).toBeDefined();
+  });
+
+  it("says so when the inspected key has no public half", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    vi.mocked(getCloudResource).mockResolvedValue({
+      ...key,
+      metadata: {
+        enabled: true,
+        keyClass: "SYMMETRIC_KEY",
+        publicKeyCertificateState: "no-public-half",
+      },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    expect(await screen.findByText(/no public half/)).toBeDefined();
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+  });
+
+  it("says nothing about the key until its detail has been read", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    // The detail never comes, so the panel waits for it.
+    vi.mocked(getCloudResource).mockImplementation(() => new Promise(() => undefined));
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    // The panel must not speak about a key it has not read: the row on screen
+    // carries no certificate, and a state it does not carry must not be
+    // invented for it.
+    await waitFor(() => expect(getCloudResource).toHaveBeenCalled());
+    expect(screen.queryByText(/did not say what state the certificate is in/)).toBeNull();
+    expect(screen.queryByText(/no public half/)).toBeNull();
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+  });
+
+  it("says so when the key itself could not be read", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    vi.mocked(getCloudResource).mockRejectedValue(new Error("The runtime is not answering."));
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    // The key could not be read, so nothing is known of its certificate, and
+    // the console says that rather than staying silent.
+    expect(await screen.findByText(/its certificate is unknown/)).toBeDefined();
+  });
+});

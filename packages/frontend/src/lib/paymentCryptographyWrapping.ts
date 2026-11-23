@@ -18,13 +18,13 @@ export const WRAPPING_USAGES = ["TR31_K0_KEY_ENCRYPTION_KEY", "TR31_K1_KEY_BLOCK
  * The algorithms the service allows a key of this algorithm to be carried by.
  *
  * <p>The schema publishes the matrix, and a service that publishes none allows
- * every pairing. A matrix that does not name an algorithm says that no key of
- * that algorithm may be carried, which is not the same as a matrix that is not
- * there.
+ * every pairing. A matrix that is there but does not name an algorithm says
+ * that no key of that algorithm may be carried at all, which is not the same
+ * as a matrix that is not there.
  *
- * <p>The matrix is a plain object and the algorithm comes from the service, so a
- * name the prototype chain answers for is not a row of it: the row is looked up
- * with an own-property test.
+ * @returns the algorithms the matrix names, an empty list when the matrix does
+ * not name the algorithm, and nothing at all when the service publishes no
+ * matrix.
  */
 export function allowedAlgorithms(
   schema: ServiceSchema | undefined,
@@ -33,10 +33,11 @@ export function allowedAlgorithms(
   const rule: PairingRule | undefined = schema?.pairings?.find(
     (each) => each.discriminator === "keyAlgorithm",
   );
-  const allowed = rule?.allowed;
-  if (!allowed) return undefined;
-  if (!Object.prototype.hasOwnProperty.call(allowed, carriedAlgorithm)) return [];
-  return allowed[carriedAlgorithm];
+  if (!rule) return undefined;
+  // The algorithm comes from the service, so a name the prototype chain answers
+  // for is not a row of the matrix.
+  if (!Object.prototype.hasOwnProperty.call(rule.allowed, carriedAlgorithm)) return [];
+  return rule.allowed[carriedAlgorithm];
 }
 
 /**
@@ -61,7 +62,9 @@ export function wrappingKeysFor(
     if (modes && !modes.Wrap && !modes.Encrypt) return false;
     const algorithm = String(row.metadata.keyAlgorithm ?? "");
     // A service that publishes no matrix says nothing about what may carry
-    // what, so every pairing is allowed.
-    return allowed === undefined || allowed.includes(algorithm);
+    // what, so every pairing is allowed. A matrix that does not name the
+    // carried algorithm says that no key may carry it.
+    if (allowed === undefined) return true;
+    return allowed.includes(algorithm);
   });
 }
