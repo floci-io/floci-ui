@@ -8,7 +8,10 @@ import type {CloudResource} from "@/types/resource";
 
 interface PaymentCryptographyPolicySectionProps {
   cloud: CloudProvider;
-  resource: CloudResource;
+  /** The key that was read, when it was read. */
+  resource?: CloudResource;
+  /** The key itself could not be read, so nothing is known of its policy. */
+  keyUnreadable?: boolean;
   runtimeReachable: boolean;
 }
 
@@ -19,7 +22,7 @@ interface PaymentCryptographyPolicySectionProps {
  * publishes none where it did not read one, and it says so when the read
  * failed. The console only picks the sentence.
  */
-type PolicyState = "held" | "none" | "unreadable" | "not-read";
+type PolicyState = "held" | "none" | "unreadable" | "not-read" | "key-unreadable";
 
 /** What the console says for each state the API published. */
 const POLICY_SENTENCES: Record<PolicyState, string> = {
@@ -27,6 +30,7 @@ const POLICY_SENTENCES: Record<PolicyState, string> = {
   none: "No policy: the key is used only by the account that holds it.",
   unreadable: "The policy could not be read.",
   "not-read": "The policy has not been read yet.",
+  "key-unreadable": "The key could not be read, so its policy is unknown.",
 };
 
 /**
@@ -34,49 +38,63 @@ const POLICY_SENTENCES: Record<PolicyState, string> = {
  *
  * <p>A policy is what lets another account use the key, and the reference refuses
  * one that grants public access.
+ *
+ * <p>The section speaks about the key it was given, which is the key the console
+ * read: a table's row carries no policy, so a section handed one would claim
+ * something of a key it has not read.
  */
 export function PaymentCryptographyPolicySection({
   cloud,
   resource,
+  keyUnreadable,
   runtimeReachable,
 }: PaymentCryptographyPolicySectionProps) {
   const queryClient = useQueryClient();
   // Captured now: an account switch while the request is in flight must not
   // refresh another account's resources.
   const accountId = getAccountId();
-  const held = typeof resource.metadata.keyPolicy === "string" ? resource.metadata.keyPolicy : "";
-  const state = policyState(resource);
+  const held = typeof resource?.metadata.keyPolicy === "string" ? resource.metadata.keyPolicy : "";
+  const state = policyState(resource, keyUnreadable);
   const [policy, setPolicy] = useState(held);
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     setPolicy(held);
     setEditing(false);
-  }, [held, resource.id]);
+  }, [held, resource?.id]);
 
   const save = useMutation({
-    mutationFn: (next: string) =>
-      setPaymentCryptographyKeyPolicy(cloud, resource.service, resource.id, { policy: next }),
-    onSuccess: () => {
+    mutationFn: (variables: {policy: string; target: CloudResource}) =>
+      setPaymentCryptographyKeyPolicy(cloud, variables.target.service, variables.target.id, {
+        policy: variables.policy,
+      }),
+    onSuccess: (_result, variables) => {
       setEditing(false);
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", accountId, cloud, resource.service, resource.id],
+        queryKey: [
+          "cloud-resource",
+          accountId,
+          cloud,
+          variables.target.service,
+          variables.target.id,
+        ],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, resource.service],
+        queryKey: ["cloud-resources", accountId, cloud, variables.target.service],
       });
     },
   });
 
   const remove = useMutation({
-    mutationFn: () => setPaymentCryptographyKeyPolicy(cloud, resource.service, resource.id, { policy: "" }),
-    onSuccess: () => {
+    mutationFn: (target: CloudResource) =>
+      setPaymentCryptographyKeyPolicy(cloud, target.service, target.id, { policy: "" }),
+    onSuccess: (_result, target) => {
       setEditing(false);
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", accountId, cloud, resource.service, resource.id],
+        queryKey: ["cloud-resource", accountId, cloud, target.service, target.id],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, resource.service],
+        queryKey: ["cloud-resources", accountId, cloud, target.service],
       });
     },
   });
@@ -97,7 +115,10 @@ export function PaymentCryptographyPolicySection({
             className="button small primary"
             type="button"
             disabled={save.isPending || policy.trim() === ""}
-            onClick={() => save.mutate(policy)}
+            onClick={() => {
+              if (!resource) return;
+              save.mutate({policy, target: resource});
+            }}
           >
             Save policy
           </button>{" "}
@@ -133,7 +154,10 @@ export function PaymentCryptographyPolicySection({
               className="button small"
               type="button"
               disabled={!runtimeReachable || remove.isPending}
-              onClick={() => remove.mutate()}
+              onClick={() => {
+                if (!resource) return;
+                remove.mutate(resource);
+              }}
             >
               <Trash2 size={12} />
               Remove policy
@@ -156,10 +180,16 @@ export function PaymentCryptographyPolicySection({
  * The state the metadata of a key publishes for its policy.
  *
  * <p>The names are the API's own, so they are read as own properties: a name
- * inherited from the prototype is not a state the API published.
+ * inherited from the prototype is not a state the API published. A key that was
+ * not read at all is not a key whose policy is none.
  */
-function policyState(resource: CloudResource): PolicyState {
-  const metadata = resource.metadata;
+function policyState(
+  resource: CloudResource | undefined,
+  keyUnreadable?: boolean,
+): PolicyState {
+  if (keyUnreadable) return "key-unreadable";
+  const metadata = resource?.metadata;
+  if (!metadata) return "not-read";
   if (metadata.keyPolicyUnavailable === true) return "unreadable";
   if (!Object.prototype.hasOwnProperty.call(metadata, "keyPolicy")) return "not-read";
   return typeof metadata.keyPolicy === "string" ? "held" : "none";

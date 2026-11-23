@@ -39,7 +39,10 @@ const key: CloudResource = {
   metadata: {enabled: true, keyPolicy: POLICY},
 };
 
-function renderSection(resource: CloudResource = key) {
+function renderSection(
+  resource: CloudResource | undefined,
+  options: {keyUnreadable?: boolean} = {},
+) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   const invalidated: unknown[][] = [];
   client.invalidateQueries = vi.fn(async (filters: unknown) => {
@@ -47,16 +50,24 @@ function renderSection(resource: CloudResource = key) {
     return {status: "success", statusText: "", data: undefined, error: null} as never;
   }) as typeof client.invalidateQueries;
 
-  render(
+  const view = (target: CloudResource | undefined) => (
     <QueryClientProvider client={client}>
       <PaymentCryptographyPolicySection
         cloud="aws"
-        resource={resource}
+        resource={target}
+        keyUnreadable={options.keyUnreadable}
         runtimeReachable={true}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
-  return {invalidated};
+
+  const {rerender} = render(view(resource));
+  return {
+    invalidated,
+    // The panel is rendered again by the view that holds it, so a section can
+    // be painted twice, as an account switch paints it.
+    rerender: (target: CloudResource | undefined = resource) => rerender(view(target)),
+  };
 }
 
 describe("the policy of a payment key", () => {
@@ -68,7 +79,7 @@ describe("the policy of a payment key", () => {
 
   it("attaches the policy the form holds", async () => {
     const user = userEvent.setup();
-    renderSection();
+    renderSection(key);
 
     await user.click(screen.getByRole("button", {name: /Edit policy/i}));
     const editor = screen.getByLabelText("Key policy");
@@ -81,7 +92,7 @@ describe("the policy of a payment key", () => {
 
   it("removes the policy the key holds", async () => {
     const user = userEvent.setup();
-    renderSection();
+    renderSection(key);
 
     await user.click(screen.getByRole("button", {name: /Remove policy/i}));
 
@@ -91,7 +102,7 @@ describe("the policy of a payment key", () => {
 
   it("refreshes the resource and the list of the account it saved in", async () => {
     const user = userEvent.setup();
-    const {invalidated} = renderSection();
+    const {invalidated} = renderSection(key);
 
     await user.click(screen.getByRole("button", {name: /Remove policy/i}));
 
@@ -138,5 +149,21 @@ describe("the policy of a payment key", () => {
     expect(
       screen.queryByText("No policy: the key is used only by the account that holds it."),
     ).toBeNull();
+  });
+
+  it("says the policy has not been read yet when the key is on its way", () => {
+    renderSection(undefined);
+
+    // Nothing was read, so the section must not speak of a policy it has not
+    // seen, and it must not offer to change one either.
+    expect(screen.getByText("The policy has not been read yet.")).toBeTruthy();
+    expect(screen.queryByRole("button", {name: /policy/i})).toBeNull();
+  });
+
+  it("says the key could not be read, so its policy is unknown", () => {
+    renderSection(undefined, {keyUnreadable: true});
+
+    expect(screen.getByText("The key could not be read, so its policy is unknown.")).toBeTruthy();
+    expect(screen.queryByRole("button", {name: /policy/i})).toBeNull();
   });
 });

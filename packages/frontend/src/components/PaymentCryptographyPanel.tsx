@@ -26,7 +26,10 @@ const PaymentCryptographyPolicySection = lazyPanel(() =>
 
 interface PaymentCryptographyPanelProps {
   cloud: CloudProvider;
+  /** The key that was read, when it was read. */
   resource?: CloudResource;
+  /** The key itself could not be read, so nothing is known of its policy. */
+  keyUnreadable?: boolean;
   runtimeReachable: boolean;
 }
 >>>>>>> 77473b1 (feat(paymentcryptography): the policy of a key)
@@ -72,16 +75,24 @@ export function PaymentCryptographyPanel({
   return <PaymentCryptographyCertificateSection resource={resource} />;
 =======
  * <p>Everything else a key shows comes from the schema, but the policy that lets another account use it.
+ *
+ * <p>The panel holds the key the console read, never the row of the table: a row
+ * carries no policy, so a panel handed one would speak about a key it has not
+ * read.
  */
 export function PaymentCryptographyPanel({
   cloud,
   resource,
+  keyUnreadable,
   runtimeReachable,
 }: PaymentCryptographyPanelProps) {
   const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
-  if (!isKey || !resource) return null;
+  // A resource that was read and is not a key has no policy of its own, so the
+  // panel says nothing about it.
+  if (resource && !isKey) return null;
 
   return (
+<<<<<<< HEAD
     <>
       <PaymentCryptographyPolicySection
         cloud={cloud}
@@ -90,6 +101,14 @@ export function PaymentCryptographyPanel({
         runtimeReachable={runtimeReachable}
       />
     </>
+=======
+    <PaymentCryptographyPolicySection
+      cloud={cloud}
+      resource={resource}
+      keyUnreadable={keyUnreadable}
+      runtimeReachable={runtimeReachable}
+    />
+>>>>>>> 47f990a (fix(paymentcryptography): the policy panel speaks about the key it read)
   );
 <<<<<<< HEAD
 =======

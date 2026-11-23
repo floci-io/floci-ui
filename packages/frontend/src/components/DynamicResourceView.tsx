@@ -1162,6 +1162,7 @@ export function DynamicResourceView({
         />
       )}
 <<<<<<< HEAD
+<<<<<<< HEAD
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
         // The certificate of a payment key and whether the key may be used are
         // part of the key's detail, and the table's row carries neither of
@@ -1180,10 +1181,21 @@ export function DynamicResourceView({
 =======
 =======
       {service === "paymentcryptography" && (
+=======
+      {service === "paymentcryptography" && activeSelected?.type === "key" && (
+        // The policy of a payment key is part of the key's detail, and the
+        // table's row carries none of it, so the panel shows the detail and
+        // never the row: it would speak about a key it has not read. A detail
+        // that was never read leaves the policy unknown, and the panel says so
+        // rather than staying silent. A later refetch that failed keeps the
+        // detail that was read, so the flag is scoped to a key that has never
+        // been read at all.
+>>>>>>> 5a6af66 (fix(paymentcryptography): the policy panel speaks about the key it read)
         <PaymentCryptographyPanel
-          key={inspectedResource?.id}
+          key={activeSelected.id}
           cloud={cloud}
-          resource={inspectedResource}
+          resource={inspectedDetail}
+          keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
           runtimeReachable={canUseRuntime}
 >>>>>>> 77473b1 (feat(paymentcryptography): the policy of a key)
 >>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
