@@ -35,6 +35,7 @@ import type {
 import type { CloudResource, StorageObject } from "@/types/resource";
 import type { FieldSchema, ServiceSchema } from "@/types/schema";
 import { dataExplorerPath } from "@/lib/dataExplorer";
+import { isPaymentKey } from "@/lib/paymentCryptography";
 import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
@@ -1184,13 +1185,22 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-      {service === "paymentcryptography" && (
+      {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
+        // The certificate of a payment key is part of the key's detail, and the
+        // table's row carries none of it, so the panel shows the detail and
+        // never the row: it would speak about a key it has not read. A detail
+        // that was never read leaves the certificate unknown, and the panel
+        // says so rather than staying silent. A later refetch that failed keeps
+        // the detail that was read, so the flag is scoped to a key that has
+        // never been read at all.
         <PaymentCryptographyPanel
+          key={activeSelected.id}
           cloud={cloud}
-          resource={inspectedResource}
+          resource={inspectedDetail}
           resources={resourcesQuery.data}
           schema={schema}
           runtimeReachable={canUseRuntime}
+          keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
         />
       )}
       {service === "kms" && !(cloud === "oci" && inspectedResource?.metadata.keyUsage === "SIGN_VERIFY") && (

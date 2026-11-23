@@ -105,6 +105,17 @@ const ASYMMETRIC_ALGORITHMS: readonly PaymentCryptographyKeyAlgorithm[] = [
     ...ECC_ALGORITHMS,
 ]
 
+/**
+ * The algorithms that make a key pair, and so a public half.
+ *
+ * <p>These are the two groups the asymmetric usages are built from, so the rule
+ * is the one the usages already carry.
+ */
+const ASYMMETRIC_ALGORITHMS: readonly PaymentCryptographyKeyAlgorithm[] = [
+    ...RSA_ALGORITHMS,
+    ...ECC_ALGORITHMS,
+]
+
 /** A key that derives another key, and nothing else. */
 const DERIVE_ONLY: readonly ModeCombination[] = [['DeriveKey'], ['NoRestrictions']]
 
@@ -247,6 +258,20 @@ export const PAYMENT_CRYPTOGRAPHY_KEY_STRENGTH: Record<string, number> = {
 }
 
 /**
+ * The class of a key.
+ *
+ * <p>The class says what shape the key has: a pair has a public half and a
+ * symmetric key has none.
+ */
+export const PAYMENT_CRYPTOGRAPHY_KEY_CLASSES = {
+    symmetric: 'SYMMETRIC_KEY',
+    pair: 'ASYMMETRIC_KEY_PAIR',
+} as const
+
+export type PaymentCryptographyKeyClass =
+    (typeof PAYMENT_CRYPTOGRAPHY_KEY_CLASSES)[keyof typeof PAYMENT_CRYPTOGRAPHY_KEY_CLASSES]
+
+/**
  * The wrapping keys each key may leave under, as the reference's matrix allows.
  *
  * <p>The matrix is a table of the key to protect against the wrapping key, and the
@@ -272,6 +297,29 @@ export const PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES = [
     'TR31_K0_KEY_ENCRYPTION_KEY',
     'TR31_K1_KEY_BLOCK_PROTECTION_KEY',
 ]
+
+/**
+ * The states the certificate of a key can be in.
+ *
+ * <p>The API names them and the console only picks the words: a state the
+ * console had to work out for itself is a state that can drift from the one
+ * the API means.
+ */
+export const PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES = {
+    /** The service did not say what kind of key it is, so it has not said whether it has a public half. */
+    unknown: 'unknown',
+    /** The key has no public half, so it has no certificate. */
+    noPublicHalf: 'no-public-half',
+    /** The service signed a certificate for the key's public half. */
+    signed: 'signed',
+    /** The key has a public half, but the service signed no certificate. */
+    unsigned: 'unsigned',
+    /** The certificate was asked for and could not be read. */
+    unreadable: 'unreadable',
+} as const
+
+export type PaymentCryptographyCertificateState =
+    (typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES)[keyof typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES]
 
 /**
  * Whether a key of one algorithm may be carried by a key of another.

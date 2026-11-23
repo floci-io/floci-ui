@@ -49,12 +49,28 @@ const PaymentCryptographyExportSection = lazyPanel(() =>
 
 interface PaymentCryptographyPanelProps {
   cloud: CloudProvider;
+  /**
+   * The key that was read, when it was read.
+   *
+   * <p>The table's rows carry no state and no enrichment, so the panel is handed
+   * the detail of the key that is inspected and never the row: it would speak
+   * about a key it has not read.
+   */
   resource?: CloudResource;
-  /** The rows of the list, which name the keys a wrapping key may be chosen from. */
+  /**
+   * The rows of the service's own list, which name the keys a wrapping key may
+   * be chosen from.
+   *
+   * <p>They are not the rows the table shows: those are the ones the search box
+   * and the facet narrowed, and a wrapping key is a key of the account whether
+   * the table is showing it or not.
+   */
   resources?: CloudResource[];
   /** The service's schema, which publishes the pairings the service allows. */
   schema?: ServiceSchema;
   runtimeReachable: boolean;
+  /** The key itself could not be read, so nothing is known of it. */
+  keyUnreadable?: boolean;
 }
 >>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
 >>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
@@ -63,6 +79,7 @@ interface PaymentCryptographyPanelProps {
  * The panels a payment key has of its own.
  *
 <<<<<<< HEAD
+<<<<<<< HEAD
  * <p>Everything else a key shows comes from the schema, but two things are not:
  * the certificate of a key's public half, and whether the key may be used.
  *
@@ -70,6 +87,8 @@ interface PaymentCryptographyPanelProps {
  * carries neither, so a panel handed one would speak about a key it has not
  * read.
 =======
+=======
+>>>>>>> badeb69 (feat(paymentcryptography): the certificate of a key's public half)
 <<<<<<< HEAD
  * <p>Everything else a key shows comes from the schema, but the certificate of a
  * key's public half does not, so it has a section of its own.
@@ -99,9 +118,12 @@ export function PaymentCryptographyPanel({
   return <PaymentCryptographyCertificateSection resource={resource} />;
 =======
  * <p>Everything else a key shows comes from the schema, but four things are
+=======
+ * <p>Everything else a key shows comes from the schema, but five things are
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
  * particular to a payment key: the certificate of its public half, whether it may
- * be used, the policy that lets another account use it, and the Regions it is
- * replicated to.
+ * be used, the policy that lets another account use it, the Regions it is
+ * replicated to, and the material it leaves under.
  */
 export function PaymentCryptographyPanel({
   cloud,
@@ -109,16 +131,22 @@ export function PaymentCryptographyPanel({
   resources,
   schema,
   runtimeReachable,
+  keyUnreadable,
 }: PaymentCryptographyPanelProps) {
   const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
-  if (!isKey || !resource) return null;
+  if (!isKey || !resource) {
+    // Nothing was read at all, so the key is unknown: the section that can say
+    // so without the key says it, and the rest stay away.
+    return keyUnreadable ? (
+      <PaymentCryptographyCertificateSection keyUnreadable />
+    ) : null;
+  }
 
   return (
     <>
       <PaymentCryptographyCertificateSection
-        cloud={cloud}
         resource={resource}
-        runtimeReachable={runtimeReachable}
+        keyUnreadable={keyUnreadable}
       />
       <PaymentCryptographyLifecycleSection
         cloud={cloud}

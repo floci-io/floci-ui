@@ -37,7 +37,11 @@ import {
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
 =======
     mayWrapWith,
+<<<<<<< HEAD
 >>>>>>> b5174b9 (feat(paymentcryptography): the export form offers only the pairings allowed)
+=======
+    PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
@@ -229,6 +233,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         const key = await this.describe(identifier)
         if (!key) return null
 <<<<<<< HEAD
+<<<<<<< HEAD
         // The tags and the certificate are reads of their own and do not depend on
         // each other, so they are asked together rather than one after the other.
         // Both are addressed by the ARN the key resolved to, because the service
@@ -240,6 +245,8 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         ])
         return toResource(key, tags, certificate)
 =======
+=======
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
 <<<<<<< HEAD
         return toResource(key, await this.getTags(identifier))
 =======
@@ -250,7 +257,22 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             await getKeyPolicy(this.client, identifier),
         )
 >>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
+<<<<<<< HEAD
 >>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
+=======
+=======
+        // The tags and the certificate are reads of their own and do not depend on
+        // each other, so they are asked together rather than one after the other.
+        // Both are addressed by the ARN the key resolved to, because the service
+        // takes an ARN and a key may have been asked for by an alias or a short id.
+        const arn = key.KeyArn ?? identifier
+        const [tags, certificate] = await Promise.all([
+            this.getTags(arn),
+            this.publicKeyCertificate(arn, key),
+        ])
+        return toResource(key, tags, certificate, await getKeyPolicy(this.client, identifier))
+>>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -488,6 +510,11 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /**
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
      * The certificate of an asymmetric key, which the reference signs and hands out
      * for the key's public half.
      *
@@ -529,7 +556,11 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
                 // published: the leaf alone cannot be verified against anything.
                 ...(res.KeyCertificateChain !== undefined ? {chain: res.KeyCertificateChain} : {}),
             }
+<<<<<<< HEAD
         } catch (error) {
+=======
+        } catch {
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
             // The reference gives a refusal one meaning: a denied permission, a
             // throttled service, a key that is gone or a request whose parameters
             // are invalid. The adapter already knows whether the key has a public
@@ -541,6 +572,10 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /**
+<<<<<<< HEAD
+=======
+>>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
      * Tags are enrichment, so a failure degrades the inspector rather than the
      * request, and is reported so it cannot pass for an untagged key.
      */
@@ -660,7 +695,9 @@ function toResource(key: Key, tagLookup: TagLookup): CloudResource {
 function toResource(
     key: Key,
     tagLookup: TagLookup,
-    publicKeyCertificate: string | null = null,
+    // A row of the table, or a key that was just made, has had no certificate
+    // read, so it carries no state at all.
+    certificateLookup: CertificateLookup = {},
     policyLookup?: KeyPolicyLookup,
 ): CloudResource {
 >>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
@@ -695,6 +732,7 @@ function toResource(
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
 <<<<<<< HEAD
+<<<<<<< HEAD
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -711,9 +749,28 @@ function toResource(
                 ? {publicKeyCertificateState: certificateLookup.state}
                 : {}),
 =======
+=======
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
 <<<<<<< HEAD
 =======
             publicKeyCertificate,
+=======
+            // The certificate is published only where it was read, so a row that
+            // was never inspected does not claim that the key has none. The
+            // state says which of the five it is, so the console does not have
+            // to work it out from the key's class, and it is published only
+            // where the question was asked, so it never contradicts the key
+            // class above.
+            ...(certificateLookup.certificate !== undefined
+                ? {publicKeyCertificate: certificateLookup.certificate}
+                : {}),
+            ...(certificateLookup.chain !== undefined
+                ? {publicKeyCertificateChain: certificateLookup.chain}
+                : {}),
+            ...(certificateLookup.state !== undefined
+                ? {publicKeyCertificateState: certificateLookup.state}
+                : {}),
+>>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
             ...policyMetadata(policyLookup),
             replicationRegions: replicationRegionsOf(key),
             usingDefaultReplicationRegions: key.UsingDefaultReplicationRegions,

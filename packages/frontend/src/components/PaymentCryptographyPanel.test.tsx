@@ -1,5 +1,9 @@
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {render, screen} from "@testing-library/react";
+<<<<<<< HEAD
+=======
+import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
 import {describe, expect, it} from "vitest";
 
 import {PaymentCryptographyPanel} from "@/components/PaymentCryptographyPanel";
@@ -16,7 +20,11 @@ function renderPanel(props: React.ComponentProps<typeof PaymentCryptographyPanel
 }
 
 const key: CloudResource = {
+<<<<<<< HEAD
   id: "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc",
+=======
+  id: "key/arn:aws:payment-cryptography:us-east-1:000000000000:key/abc",
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
   name: "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc",
   cloud: "aws",
   service: "paymentcryptography",
@@ -31,6 +39,7 @@ const key: CloudResource = {
   },
 };
 
+<<<<<<< HEAD
 describe("the panels of a payment key", () => {
   it("shows the certificate of a payment key", () => {
     renderPanel({resource: key, cloud: "aws", runtimeReachable: true});
@@ -45,8 +54,44 @@ describe("the panels of a payment key", () => {
     expect(screen.queryByText(/Public Key Certificate/)).toBeNull();
   });
 
+<<<<<<< HEAD
   it("shows nothing of the certificate while the key has not been read", () => {
     renderPanel({cloud: "aws", runtimeReachable: true});
+=======
+  it("shows nothing while the key has not been read", () => {
+    const {container} = render(<PaymentCryptographyPanel />);
+=======
+/** The panels of a key read through the query client, so it is given one. */
+function renderPanel(props: {
+  resource?: CloudResource;
+  keyUnreadable?: boolean;
+}) {
+  const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
+  return render(
+    <QueryClientProvider client={client}>
+      <PaymentCryptographyPanel cloud="aws" runtimeReachable={true} {...props} />
+    </QueryClientProvider>,
+  );
+}
+
+describe("the panels of a payment key", () => {
+  it("shows the certificate of a payment key", async () => {
+    renderPanel({resource: key});
+
+    expect(await screen.findByLabelText("Public key certificate")).toBeDefined();
+  });
+
+  it("shows nothing for a resource that is not a payment key", () => {
+    const {container} = renderPanel({resource: {...key, type: "alias"}});
+
+    // An alias is not a key, so it has none of the panels of a key.
+    expect(container.textContent).toBe("");
+  });
+
+  it("shows nothing while the key has not been read", () => {
+    const {container} = renderPanel({});
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
+>>>>>>> badeb69 (feat(paymentcryptography): the certificate of a key's public half)
 
     // The certificate is part of the key's detail, and the detail has not been
     // read, so the panel says nothing of it.
@@ -55,11 +100,24 @@ describe("the panels of a payment key", () => {
     expect(screen.getByText(/has not been read yet/)).toBeDefined();
   });
 
+<<<<<<< HEAD
   it("says so when the key could not be read", () => {
     renderPanel({keyUnreadable: true, cloud: "aws", runtimeReachable: true});
 
     // The key could not be read, so nothing is known of its certificate, and
     // the panel says that rather than staying silent.
+<<<<<<< HEAD
     expect(screen.getByText(/its certificate is unknown/)).toBeDefined();
+=======
+    expect(screen.getByText(/could not be read/)).toBeDefined();
+=======
+  it("says so when the key could not be read", async () => {
+    renderPanel({keyUnreadable: true});
+
+    // The key could not be read, so nothing is known of its certificate, and
+    // the panel says that rather than staying silent.
+    expect(await screen.findByText(/could not be read/)).toBeDefined();
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
+>>>>>>> badeb69 (feat(paymentcryptography): the certificate of a key's public half)
   });
 });

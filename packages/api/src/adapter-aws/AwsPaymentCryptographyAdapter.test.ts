@@ -246,6 +246,11 @@ describe('AwsPaymentCryptographyAdapter', () => {
     })
 
     describe('get', () => {
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
         test('reads the certificate of an asymmetric key', async () => {
             const {client, sent} = runtimeStub({
                 get: {Key: {...key, KeyAttributes: {...attributes, KeyClass: 'ASYMMETRIC_KEY_PAIR'}}},
@@ -262,13 +267,22 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
 
+<<<<<<< HEAD
             // A symmetric key has no public half, so the service is not asked
             // and the state says why there is no certificate.
+=======
+            // The state says that the key has no public half, and no certificate
+            // is published, because the service was never asked about one.
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
             expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
             expect(resource?.metadata.publicKeyCertificateState).toBe('no-public-half')
             expect(sent.some((command) => command instanceof GetPublicKeyCertificateCommand)).toBe(false)
         })
 
+<<<<<<< HEAD
+=======
+>>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
+>>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
         test('shows the attributes, the check value and the tags the inspector needs', async () => {
             const {client} = runtimeStub({tags: {Tags: [{Key: 'env', Value: 'prod'}]}})
 
