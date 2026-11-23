@@ -1162,6 +1162,7 @@ export function DynamicResourceView({
         />
       )}
 <<<<<<< HEAD
+<<<<<<< HEAD
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
         // The certificate of a payment key and whether the key may be used are
         // part of the key's detail, and the table's row carries neither of
@@ -1180,10 +1181,18 @@ export function DynamicResourceView({
 =======
 =======
       {service === "paymentcryptography" && (
+=======
+      {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
+        // The Regions a key is replicated to are in the key's detail, and the
+        // table's row carries none of them, so the panel shows the detail and
+        // never the row: it would speak about a key it has not read. A detail
+        // that could not be read says so rather than staying silent.
+>>>>>>> b8a9162 (fix(paymentcryptography): the panel speaks only of a key it has read)
         <PaymentCryptographyPanel
-          key={inspectedResource?.id}
+          key={activeSelected.id}
           cloud={cloud}
-          resource={inspectedResource}
+          resource={inspectedDetail}
+          keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
           runtimeReachable={canUseRuntime}
 >>>>>>> e30cba0 (feat(paymentcryptography): the Regions a key is replicated to)
 >>>>>>> 73a94ac (feat(paymentcryptography): the Regions a key is replicated to)

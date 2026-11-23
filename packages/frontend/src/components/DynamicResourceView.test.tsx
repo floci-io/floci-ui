@@ -1323,6 +1323,75 @@ describe("DynamicResourceView Empty bucket and object writes already sent", () =
   });
 });
 
+describe("DynamicResourceView the Regions a payment key is replicated to", () => {
+  const row: CloudResource = {
+    id: "key/key-a",
+    name: "key-a",
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    metadata: {replicationRegions: []},
+  };
+  const detail: CloudResource = {
+    ...row,
+    metadata: {replicationRegions: ["us-east-2"]},
+  };
+
+  const replicationSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(replicationSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([row]);
+  });
+
+  it("waits for the detail before it says which Regions the key holds", async () => {
+    let releaseDetail: (value: CloudResource) => void = () => {};
+    const detailPromise = new Promise<CloudResource>((resolve) => {
+      releaseDetail = resolve;
+    });
+    vi.mocked(getCloudResource).mockImplementation(() => detailPromise);
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("key-a"));
+
+    // The row carries no Regions of its own, so the panel must not speak of
+    // the key's Regions before the detail has arrived.
+    expect(await screen.findByText(/has not been read yet/i)).toBeInTheDocument();
+    expect(screen.queryByText("The key is replicated to no other Region.")).not.toBeInTheDocument();
+
+    await act(async () => {
+      releaseDetail(detail);
+    });
+
+    expect(await screen.findByText("us-east-2")).toBeInTheDocument();
+  });
+});
+
 describe("DynamicResourceView a field that names another resource", () => {
   const keyA: CloudResource = {
     id: "key/key-a",

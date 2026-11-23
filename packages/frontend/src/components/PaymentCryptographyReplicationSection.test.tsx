@@ -26,7 +26,7 @@ const key: CloudResource = {
   metadata: {enabled: true, replicationRegions: ["us-east-2"]},
 };
 
-function renderSection(resource: CloudResource = key) {
+function renderSection(resource: CloudResource | undefined, keyUnreadable?: boolean) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   const invalidated: unknown[][] = [];
   client.invalidateQueries = vi.fn(async (filters: unknown) => {
@@ -39,6 +39,7 @@ function renderSection(resource: CloudResource = key) {
       <PaymentCryptographyReplicationSection
         cloud="aws"
         resource={resource}
+        keyUnreadable={keyUnreadable}
         runtimeReachable={true}
       />
     </QueryClientProvider>,
@@ -55,7 +56,7 @@ describe("the replication of a payment key", () => {
 
   it("replicates the key to the Region that is chosen", async () => {
     const user = userEvent.setup();
-    renderSection();
+    renderSection(key);
 
     await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
     await user.click(screen.getByRole("button", {name: /Replicate to/i}));
@@ -66,7 +67,7 @@ describe("the replication of a payment key", () => {
 
   it("stops replicating to a Region that is taken away", async () => {
     const user = userEvent.setup();
-    renderSection();
+    renderSection(key);
 
     await user.click(screen.getByRole("button", {name: /Stop replicating to us-east-2/i}));
 
@@ -76,7 +77,7 @@ describe("the replication of a payment key", () => {
 
   it("refreshes the resource and the list of the account it saved in", async () => {
     const user = userEvent.setup();
-    const {invalidated} = renderSection();
+    const {invalidated} = renderSection(key);
 
     await user.click(screen.getByRole("button", {name: /Stop replicating to us-east-2/i}));
 
@@ -95,5 +96,19 @@ describe("the replication of a payment key", () => {
       "aws",
       "paymentcryptography",
     ]);
+  });
+
+  it("says the Regions are unknown while the key has not been read", () => {
+    renderSection(undefined);
+
+    expect(screen.getByText(/has not been read yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/replicated to no other Region/i)).not.toBeInTheDocument();
+  });
+
+  it("says the Regions are unknown when the key could not be read", () => {
+    renderSection(undefined, true);
+
+    expect(screen.getByText(/could not be read/i)).toBeInTheDocument();
+    expect(screen.queryByText(/replicated to no other Region/i)).not.toBeInTheDocument();
   });
 });

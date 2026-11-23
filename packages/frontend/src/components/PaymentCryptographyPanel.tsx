@@ -17,20 +17,27 @@ interface PaymentCryptographyPanelProps extends PaymentCryptographyCertificateSe
 type PaymentCryptographyPanelProps = PaymentCryptographyCertificateSectionProps;
 =======
 import {lazyPanel} from "@/lib/lazyPanel";
-import type {CloudProvider} from "@/types/cloud";
-import type {CloudResource} from "@/types/resource";
+import type {PaymentCryptographyReplicationSectionProps} from "@/components/PaymentCryptographyReplicationSection";
 
 const PaymentCryptographyReplicationSection = lazyPanel(() =>
   import("@/components/PaymentCryptographyReplicationSection").then((m) => m.PaymentCryptographyReplicationSection),
 );
 
+<<<<<<< HEAD
 interface PaymentCryptographyPanelProps {
   cloud: CloudProvider;
   resource?: CloudResource;
   runtimeReachable: boolean;
 }
 >>>>>>> e30cba0 (feat(paymentcryptography): the Regions a key is replicated to)
+<<<<<<< HEAD
 >>>>>>> 73a94ac (feat(paymentcryptography): the Regions a key is replicated to)
+=======
+=======
+/** The panel shows what the section shows, so it holds the section's contract. */
+type PaymentCryptographyPanelProps = PaymentCryptographyReplicationSectionProps;
+>>>>>>> b8a9162 (fix(paymentcryptography): the panel speaks only of a key it has read)
+>>>>>>> ef53cd8 (fix(paymentcryptography): the panel speaks only of a key it has read)
 
 /**
  * The panels a payment key has of its own.
@@ -73,6 +80,7 @@ export function PaymentCryptographyPanel({
 =======
  * <p>Everything else a key shows comes from the schema, but the Regions it is replicated to.
  */
+<<<<<<< HEAD
 export function PaymentCryptographyPanel({
   cloud,
   resource,
@@ -94,5 +102,12 @@ export function PaymentCryptographyPanel({
 <<<<<<< HEAD
 =======
 >>>>>>> e30cba0 (feat(paymentcryptography): the Regions a key is replicated to)
+<<<<<<< HEAD
 >>>>>>> 73a94ac (feat(paymentcryptography): the Regions a key is replicated to)
+=======
+=======
+export function PaymentCryptographyPanel(props: PaymentCryptographyPanelProps) {
+  return <PaymentCryptographyReplicationSection {...props} />;
+>>>>>>> b8a9162 (fix(paymentcryptography): the panel speaks only of a key it has read)
+>>>>>>> ef53cd8 (fix(paymentcryptography): the panel speaks only of a key it has read)
 }
