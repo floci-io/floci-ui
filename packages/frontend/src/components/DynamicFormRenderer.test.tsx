@@ -135,6 +135,69 @@ describe("the create form's button", () => {
     expect(onSubmit).toHaveBeenCalledWith({aliasTargetKey: "key/key-a"});
   });
 
+  it("says so when the options of a field could not be loaded, and asks again", async () => {
+    // An account with no keys and a request that failed leave the same empty
+    // dropdown, so the failure is said so beside the field that needs the
+    // choices, and the request can be made again.
+    const target: FieldSchema = {
+      name: "aliasTargetKey",
+      label: "Target Key",
+      type: "select",
+      required: true,
+      options: [],
+      optionsFrom: "key",
+    };
+    const onRetryOptions = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <DynamicFormRenderer
+        schema={{...schema, fields: [target]}}
+        isSubmitting={false}
+        optionsError="The options could not be loaded: the runtime is not answering"
+        onRetryOptions={onRetryOptions}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    const failure = screen.getByRole("alert");
+    expect(failure.textContent).toContain("The options could not be loaded: the runtime is not answering");
+
+    await user.click(screen.getByRole("button", {name: "Retry"}));
+
+    expect(onRetryOptions).toHaveBeenCalled();
+  });
+
+  it("says the failure beside the field that needs the options", () => {
+    const target: FieldSchema = {
+      name: "aliasTargetKey",
+      label: "Target Key",
+      type: "select",
+      required: true,
+      options: [],
+      optionsFrom: "key",
+    };
+    const other: FieldSchema = {name: "aliasName", label: "Alias Name", type: "text", required: false};
+
+    render(
+      <DynamicFormRenderer
+        schema={{...schema, fields: [other, target]}}
+        isSubmitting={false}
+        optionsError="The options could not be loaded"
+        onRetryOptions={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    // The failure belongs to the field that names another resource, so it is
+    // shown with that field and not with the one beside it.
+    const targetField = screen.getByLabelText(/Target Key/);
+    expect(targetField.closest("label")?.textContent).toContain("The options could not be loaded");
+    expect(screen.getByLabelText(/Alias Name/).closest("label")?.textContent).not.toContain(
+      "The options could not be loaded",
+    );
+  });
+
   it("takes the label from a field that is on the form", () => {
     // A field hidden by another answer keeps its value, so a hidden field must
     // not decide what the button says. The hidden field comes first here, so a

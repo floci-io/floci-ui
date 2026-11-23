@@ -10,6 +10,17 @@ interface DynamicFormRendererProps {
     submitLabel?: string
     pendingLabel?: string
     submitError?: string | null
+    /**
+     * Why the options of a field that names another resource could not be
+     * loaded, and the way to ask again.
+     *
+     * <p>A field whose options come from the service holds none when the request
+     * fails, and an empty choice and a failed request look the same to the
+     * caller. The failure is said so beside the field, and the request can be
+     * made again.
+     */
+    optionsError?: string
+    onRetryOptions?: () => void
     onCancel?: () => void
     onSubmit: (values: Record<string, unknown>) => void
 }
@@ -22,6 +33,8 @@ export function DynamicFormRenderer({
     submitLabel = 'Create',
     pendingLabel = 'Creating',
     submitError,
+    optionsError,
+    onRetryOptions,
     onCancel,
     onSubmit,
 }: DynamicFormRendererProps) {
@@ -77,6 +90,8 @@ export function DynamicFormRenderer({
                     maxLength={fieldMaxLength(field, values).value}
                     value={values[field.name] ?? ''}
                     error={errors[field.name]}
+                    optionsError={field.optionsFrom ? optionsError : undefined}
+                    onRetryOptions={onRetryOptions}
                     onChange={(value) => {
                         setValues((prev) => ({...prev, [field.name]: value}))
                         setErrors((prev) => {
@@ -103,7 +118,7 @@ export function DynamicFormRenderer({
     )
 }
 
-function FieldRow({field, showGroup, required, maxLength, value, error, onChange}: {field: FieldSchema; showGroup: boolean; required: boolean; maxLength?: number; value: string; error?: string; onChange: (value: string) => void}) {
+function FieldRow({field, showGroup, required, maxLength, value, error, optionsError, onRetryOptions, onChange}: {field: FieldSchema; showGroup: boolean; required: boolean; maxLength?: number; value: string; error?: string; optionsError?: string; onRetryOptions?: () => void; onChange: (value: string) => void}) {
     return (
         <>
             {showGroup && <div className="dynamic-form-group">{field.group}</div>}
@@ -116,6 +131,14 @@ function FieldRow({field, showGroup, required, maxLength, value, error, onChange
                 {(error || field.description) && (
                     <small id={`${field.name}-message`} className={error ? 'field-error' : undefined}>
                         {error ?? field.description}
+                    </small>
+                )}
+                {optionsError && (
+                    <small className="field-error" role="alert">
+                        {optionsError}{' '}
+                        {onRetryOptions && (
+                            <button className="link-button" type="button" onClick={onRetryOptions}>Retry</button>
+                        )}
                     </small>
                 )}
             </label>
