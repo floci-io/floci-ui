@@ -1431,6 +1431,7 @@ describe("DynamicResourceView a field that names another resource", () => {
     expect(values).toContain(keyB.id);
   });
 
+<<<<<<< HEAD
   it("refreshes the choices as well as the table", async () => {
     vi.mocked(listCloudResources).mockResolvedValue([keyA]);
 
@@ -1464,6 +1465,8 @@ describe("DynamicResourceView a field that names another resource", () => {
     });
   });
 
+=======
+>>>>>>> a71861d (fix(console): the shared console surface is the reviewed one)
   it("says so when the target keys could not be loaded, and asks again", async () => {
     let failing = true;
     vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) => {
