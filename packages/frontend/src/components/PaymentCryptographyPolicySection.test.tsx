@@ -246,4 +246,27 @@ describe("the policy of a payment key", () => {
       "paymentcryptography",
     ]);
   });
+
+  it("does not let a save start while a removal is in flight", async () => {
+    let release: (() => void) | undefined;
+    setPolicy.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Remove policy/i}));
+    await waitFor(() => expect(setPolicy).toHaveBeenCalledTimes(1));
+
+    // Two writes in flight at once: the one that lands last wins, and the
+    // policy the key holds is whichever it was.
+    expect(screen.getByRole("button", {name: /Edit policy/i})).toBeDisabled();
+
+    await act(async () => {
+      release?.();
+    });
+  });
 });

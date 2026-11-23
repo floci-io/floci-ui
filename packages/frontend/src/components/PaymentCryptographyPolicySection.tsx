@@ -101,6 +101,11 @@ export function PaymentCryptographyPolicySection({
     },
   });
 
+  // A write that is in flight holds the controls still: a second write would
+  // land after it and win, and the policy the key holds would be whichever
+  // landed last.
+  const writing = save.isPending || remove.isPending;
+
   return (
     <section className="inspector-section">
       <p className="metric-label">Key Policy</p>
@@ -116,7 +121,7 @@ export function PaymentCryptographyPolicySection({
           <button
             className="button small primary"
             type="button"
-            disabled={save.isPending || policy.trim() === ""}
+            disabled={writing || policy.trim() === ""}
             onClick={() => {
               if (!resource) return;
               save.mutate({policy, target: resource});
@@ -144,7 +149,7 @@ export function PaymentCryptographyPolicySection({
             <button
               className="button small"
               type="button"
-              disabled={!runtimeReachable}
+              disabled={!runtimeReachable || writing}
               onClick={() => setEditing(true)}
             >
               <ShieldCheck size={12} />
@@ -155,7 +160,7 @@ export function PaymentCryptographyPolicySection({
             <button
               className="button small"
               type="button"
-              disabled={!runtimeReachable || remove.isPending}
+              disabled={!runtimeReachable || writing}
               onClick={() => {
                 if (!resource) return;
                 remove.mutate(resource);
