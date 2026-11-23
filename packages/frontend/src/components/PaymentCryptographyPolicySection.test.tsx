@@ -269,4 +269,30 @@ describe("the policy of a payment key", () => {
       release?.();
     });
   });
+
+  it("keeps the editor still while it saves", async () => {
+    let release: (() => void) | undefined;
+    setPolicy.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Edit policy/i}));
+    fireEvent.change(screen.getByLabelText("Key policy"), {target: {value: "{}"}});
+    await user.click(screen.getByRole("button", {name: /Save policy/i}));
+    await waitFor(() => expect(setPolicy).toHaveBeenCalledTimes(1));
+
+    // The editor closes when the save succeeds, so an edit made during the
+    // request would be lost without a word.
+    expect(screen.getByLabelText("Key policy")).toBeDisabled();
+    expect(screen.getByRole("button", {name: /Cancel/i})).toBeDisabled();
+
+    await act(async () => {
+      release?.();
+    });
+  });
 });

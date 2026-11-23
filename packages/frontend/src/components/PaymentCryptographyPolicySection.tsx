@@ -116,6 +116,9 @@ export function PaymentCryptographyPolicySection({
             rows={8}
             value={policy}
             aria-label="Key policy"
+            // The editor closes when the save succeeds, so an edit made during
+            // the request would be lost without a word.
+            disabled={save.isPending}
             onChange={(event) => setPolicy(event.target.value)}
           />
           <button
@@ -132,6 +135,9 @@ export function PaymentCryptographyPolicySection({
           <button
             className="button small"
             type="button"
+            // The editor closes when the save succeeds, so a cancel during the
+            // request would throw away the draft that was sent.
+            disabled={save.isPending}
             onClick={() => {
               // The draft is gone: the policy the key holds is what the editor
               // shows the next time it is opened.
