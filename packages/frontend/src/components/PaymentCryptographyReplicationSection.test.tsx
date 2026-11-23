@@ -34,7 +34,7 @@ function renderSection(resource: CloudResource | undefined, keyUnreadable?: bool
     return {status: "success", statusText: "", data: undefined, error: null} as never;
   }) as typeof client.invalidateQueries;
 
-  render(
+  const element = () => (
     <QueryClientProvider client={client}>
       <PaymentCryptographyReplicationSection
         cloud="aws"
@@ -42,9 +42,10 @@ function renderSection(resource: CloudResource | undefined, keyUnreadable?: bool
         keyUnreadable={keyUnreadable}
         runtimeReachable={true}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
-  return {invalidated};
+  const view = render(element());
+  return {invalidated, rerender: () => view.rerender(element())};
 }
 
 describe("the replication of a payment key", () => {
@@ -95,6 +96,45 @@ describe("the replication of a payment key", () => {
       DEFAULT_ACCOUNT_ID,
       "aws",
       "paymentcryptography",
+    ]);
+  });
+
+  it("refreshes the account the write was made in, not the one the user is in", async () => {
+    const user = userEvent.setup();
+    let settle: () => void = () => {};
+    setReplication.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    const {invalidated, rerender} = renderSection(key);
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
+
+    // The account is switched while the request is in flight, and the panel is
+    // painted again, which is what an account switch does to the explorer.
+    setAccountId("111111111111");
+    rerender();
+    settle();
+
+    await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+    const keys = invalidated.map(([filters]) => (filters as {queryKey: unknown[]}).queryKey);
+    expect(keys).toContainEqual([
+      "cloud-resource",
+      DEFAULT_ACCOUNT_ID,
+      "aws",
+      "paymentcryptography",
+      key.id,
+    ]);
+    expect(keys).not.toContainEqual([
+      "cloud-resource",
+      "111111111111",
+      "aws",
+      "paymentcryptography",
+      key.id,
     ]);
   });
 

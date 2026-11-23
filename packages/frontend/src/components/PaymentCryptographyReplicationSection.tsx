@@ -39,9 +39,6 @@ export function PaymentCryptographyReplicationSection({
   runtimeReachable,
 }: PaymentCryptographyReplicationSectionProps) {
   const queryClient = useQueryClient();
-  // Captured now: an account switch while the request is in flight must not
-  // refresh another account's resources.
-  const accountId = getAccountId();
   const regions = reportedRegions(resource);
   const kind = typeof resource?.metadata.multiRegionKeyType === "string"
     ? resource.metadata.multiRegionKeyType
@@ -57,15 +54,19 @@ export function PaymentCryptographyReplicationSection({
       setPaymentCryptographyKeyReplication(cloud, change.service, change.id, {
         replicationRegions: change.regions,
       }),
-    onSettled: (_result, _error, change) => {
+    // Captured now: an account switch while the request is in flight must not
+    // refresh another account's resources.
+    onMutate: () => ({accountId: getAccountId()}),
+    onSettled: (_result, _error, change, context) => {
       // The Regions that are gone go first, so a change that fails halfway
       // leaves the panel showing what the service now holds.
       setRegion("");
+      if (!context) return;
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", accountId, cloud, change.service, change.id],
+        queryKey: ["cloud-resource", context.accountId, cloud, change.service, change.id],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, change.service],
+        queryKey: ["cloud-resources", context.accountId, cloud, change.service],
       });
     },
   });
