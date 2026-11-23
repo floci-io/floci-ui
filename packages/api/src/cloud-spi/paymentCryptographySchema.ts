@@ -94,17 +94,16 @@ const SYMMETRIC_ALGORITHMS = [...TDES_ALGORITHMS, 'AES_128', 'AES_192', 'AES_256
 const HMAC_ALGORITHMS = ['HMAC_SHA224', 'HMAC_SHA256', 'HMAC_SHA384', 'HMAC_SHA512'] as const
 const RSA_ALGORITHMS = ['RSA_2048', 'RSA_3072', 'RSA_4096'] as const
 const ECC_ALGORITHMS = ['ECC_NIST_P256', 'ECC_NIST_P384', 'ECC_NIST_P521'] as const
-/** The algorithms that are neither a symmetric nor a hash key: they make a pair. */
-const NON_PAIR_ALGORITHMS = new Set<string>([...SYMMETRIC_ALGORITHMS, ...HMAC_ALGORITHMS])
-
 /**
  * The algorithms that make a key pair, and so a public half.
  *
- * <p>Everything that is neither a symmetric nor a hash key is an asymmetric one,
- * so a new algorithm is a pair until it is said to be otherwise.
+ * <p>These are the two groups the asymmetric usages are built from, so the rule
+ * is the one the usages already carry.
  */
-const ASYMMETRIC_ALGORITHMS: readonly PaymentCryptographyKeyAlgorithm[] =
-    PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS.filter((algorithm) => !NON_PAIR_ALGORITHMS.has(algorithm))
+const ASYMMETRIC_ALGORITHMS: readonly PaymentCryptographyKeyAlgorithm[] = [
+    ...RSA_ALGORITHMS,
+    ...ECC_ALGORITHMS,
+]
 
 /** A key that derives another key, and nothing else. */
 const DERIVE_ONLY: readonly ModeCombination[] = [['DeriveKey'], ['NoRestrictions']]
@@ -216,7 +215,7 @@ export type PaymentCryptographyKeyClass =
  * the API means.
  */
 export const PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES = {
-    /** The key's class was not read, so the question was never asked of it. */
+    /** The service did not say what kind of key it is, so it has not said whether it has a public half. */
     unknown: 'unknown',
     /** The key has no public half, so it has no certificate. */
     noPublicHalf: 'no-public-half',
@@ -236,9 +235,7 @@ export type PaymentCryptographyCertificateState =
  *
  * The class says what shape the key has, and the algorithm says what material it
  * has, so the two agree: an asymmetric algorithm makes a key pair and a symmetric
- * one makes a symmetric key. Everything that is neither a symmetric nor a hash
- * key is an asymmetric one, so a new algorithm is a pair until it is said to be
- * otherwise.
+ * one makes a symmetric key.
  */
 export function keyClassForAlgorithm(algorithm: PaymentCryptographyKeyAlgorithm): PaymentCryptographyKeyClass {
     return ASYMMETRIC_ALGORITHMS.includes(algorithm)

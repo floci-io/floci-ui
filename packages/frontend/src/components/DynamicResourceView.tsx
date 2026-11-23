@@ -627,8 +627,8 @@ export function DynamicResourceView({
     selectableResources.length > 0 &&
     selectableResources.every((r) => selectedItems.some((s) => s.id === r.id));
   const activeSelected = selectedForService;
-  // The detail the console read for the selected resource, and the row it falls
-  // back to while the detail is on its way or could not be read.
+  // The detail the console read for the selected resource, or nothing while it
+  // is on its way or could not be read.
   const inspectedDetail =
     resourceDetailQuery.data?.id === activeSelected?.id ? resourceDetailQuery.data : undefined;
   const inspectedResource =
@@ -1156,16 +1156,18 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-      {service === "paymentcryptography" && activeSelected && (
+      {service === "paymentcryptography" && activeSelected?.type === "key" && (
         // The certificate of a payment key is part of the key's detail, and the
         // table's row carries none of it, so the panel shows the detail and
         // never the row: it would speak about a key it has not read. A detail
-        // that could not be read leaves the certificate unknown, and the panel
-        // says so rather than staying silent.
+        // that was never read leaves the certificate unknown, and the panel
+        // says so rather than staying silent. A later refetch that failed keeps
+        // the detail that was read, so the flag is scoped to a key that has
+        // never been read at all.
         <PaymentCryptographyPanel
           key={activeSelected.id}
           resource={inspectedDetail}
-          unreadable={resourceDetailQuery.isError}
+          keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
         />
       )}
       {service === "configuration" && cloud === "aws" && (

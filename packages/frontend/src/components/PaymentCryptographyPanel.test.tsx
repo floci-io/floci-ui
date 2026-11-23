@@ -41,7 +41,7 @@ describe("the panels of a payment key", () => {
   });
 
   it("says so when the key could not be read", () => {
-    render(<PaymentCryptographyPanel unreadable />);
+    render(<PaymentCryptographyPanel keyUnreadable />);
 
     // The key could not be read, so nothing is known of its certificate, and
     // the panel says that rather than staying silent.

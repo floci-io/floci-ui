@@ -53,13 +53,13 @@ type TagLookup = {tags: KeyTag[]; unavailable?: true}
  * The certificate of a key's public half, as the read found it.
  *
  * <p>The state says which of the five there is, so the console never has to
- * work it out for itself. The certificate and the chain are published only
- * where the service answered: absent means it did not, and null means it
- * answered that there is none.
+ * work it out for itself. The state, the certificate and the chain are
+ * published only where the service answered: absent means it did not, and
+ * null means it answered that there is none.
  */
 type CertificateLookup = {
-    /** The state the certificate is in. */
-    state: PaymentCryptographyCertificateState
+    /** The state the certificate is in, where the question was asked of the key. */
+    state?: PaymentCryptographyCertificateState
     /** The certificate the service signed, or null for a key that has none. */
     certificate?: string | null
     /** The chain the certificate is signed in, when the service handed one out. */
@@ -109,9 +109,12 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (!key) return null
         // The tags and the certificate are reads of their own and do not depend on
         // each other, so they are asked together rather than one after the other.
+        // Both are addressed by the ARN the key resolved to, because the service
+        // takes an ARN and a key may have been asked for by an alias or a short id.
+        const arn = key.KeyArn ?? identifier
         const [tags, certificate] = await Promise.all([
-            this.getTags(identifier),
-            this.publicKeyCertificate(identifier, key),
+            this.getTags(arn),
+            this.publicKeyCertificate(arn, key),
         ])
         return toResource(key, tags, certificate)
     }
@@ -297,7 +300,9 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         const keyClass = key.KeyAttributes?.KeyClass
         // A key whose class was not read is neither a pair nor a symmetric key, so
         // the question of a certificate was never asked of it.
-        if (keyClass === undefined) return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unknown}
+        if (keyClass === undefined) {
+            return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unknown}
+        }
         if (keyClass !== PAYMENT_CRYPTOGRAPHY_KEY_CLASSES.pair) {
             return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.noPublicHalf}
         }
@@ -308,17 +313,22 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
                 // short id.
                 new GetPublicKeyCertificateCommand({KeyIdentifier: key.KeyArn ?? identifier}),
             )
-            // The service hands out the chain with the certificate, so both are
-            // published: the leaf alone cannot be verified against anything.
             if (!res.KeyCertificate) {
-                return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unsigned, certificate: null, chain: null}
+                // The service answered about the leaf only, so the chain is left
+                // absent rather than claimed to be none.
+                return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unsigned, certificate: null}
             }
             return {
                 state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.signed,
                 certificate: res.KeyCertificate,
-                chain: res.KeyCertificateChain ?? null,
+                // The service hands out the chain with the certificate, so both are
+                // published: the leaf alone cannot be verified against anything.
+                ...(res.KeyCertificateChain !== undefined ? {chain: res.KeyCertificateChain} : {}),
             }
         } catch {
+            // A denied permission and a transient failure are both a read that
+            // did not come, the way a failed tag lookup is, and the state says
+            // so rather than the request failing over a certificate.
             return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unreadable}
         }
     }
@@ -432,8 +442,8 @@ function toResource(
     key: Key,
     tagLookup: TagLookup,
     // A row of the table, or a key that was just made, has had no certificate
-    // read, so its state is the unknown one.
-    certificateLookup: CertificateLookup = {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unknown},
+    // read, so it carries no state at all.
+    certificateLookup: CertificateLookup = {},
 ): CloudResource {
     const arn = key.KeyArn ?? ''
 
@@ -467,14 +477,18 @@ function toResource(
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
-            // to work it out from the key's class.
+            // to work it out from the key's class, and it is published only
+            // where the question was asked, so it never contradicts the key
+            // class above.
             ...(certificateLookup.certificate !== undefined
                 ? {publicKeyCertificate: certificateLookup.certificate}
                 : {}),
             ...(certificateLookup.chain !== undefined
                 ? {publicKeyCertificateChain: certificateLookup.chain}
                 : {}),
-            publicKeyCertificateState: certificateLookup.state,
+            ...(certificateLookup.state !== undefined
+                ? {publicKeyCertificateState: certificateLookup.state}
+                : {}),
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },

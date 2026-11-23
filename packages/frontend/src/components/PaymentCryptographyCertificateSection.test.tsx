@@ -86,7 +86,7 @@ describe("the certificate of a payment key", () => {
   });
 
   it("says so when the key itself could not be read", () => {
-    render(<PaymentCryptographyCertificateSection unreadable />);
+    render(<PaymentCryptographyCertificateSection keyUnreadable />);
 
     // The key could not be read, so nothing is known of its certificate, and
     // the section says that rather than staying silent.

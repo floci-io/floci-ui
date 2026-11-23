@@ -120,11 +120,11 @@ describe('the certificate of a payment key', () => {
 
         const rows = await adapter.list()
 
-        // The certificate belongs to the key's detail, so the table's rows do
-        // not carry one: absent says the question was not asked, where null
-        // says the key has none.
+        // The certificate belongs to the key's detail, so the table's rows carry
+        // neither one nor a state: the question was never asked of them, and a
+        // state would contradict the key class the row does carry.
         expect(rows[0]?.metadata.publicKeyCertificate).toBeUndefined()
-        expect(rows[0]?.metadata.publicKeyCertificateState).toBe('unknown')
+        expect(rows[0]?.metadata.publicKeyCertificateState).toBeUndefined()
     })
 
     test('a certificate that cannot be read does not take the key with it', async () => {
