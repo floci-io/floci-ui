@@ -487,11 +487,18 @@ describe("DynamicResourceView AWS compute", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const invalidated: unknown[][] = [];
     const original = queryClient.invalidateQueries.bind(queryClient);
+<<<<<<< HEAD
     const spy = vi.spyOn(queryClient, "invalidateQueries");
     spy.mockImplementation(((filters: InvalidateQueryFilters) => {
       invalidated.push(filters.queryKey as unknown[]);
       return original(filters);
     }) as typeof queryClient.invalidateQueries);
+=======
+    vi.spyOn(queryClient, "invalidateQueries").mockImplementation((filters, options) => {
+      invalidated.push((filters as {queryKey: unknown[]} | undefined)?.queryKey ?? []);
+      return original(filters, options);
+    });
+>>>>>>> 590046f (fix(console): a delete refreshes the account it was made in)
 
     render(
       <QueryClientProvider client={queryClient}>
