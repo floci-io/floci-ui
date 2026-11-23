@@ -61,7 +61,11 @@ function KeyUsage({
   // Captured now: an account switch while the request is in flight must not
   // refresh another account's resources.
   const accountId = getAccountId();
-  const enabled = resource.metadata.enabled === true;
+  // The API publishes whether the key may be used. A key it said nothing about
+  // is neither in use nor out of use, so the console does not work the state
+  // out for itself.
+  const enabled =
+    typeof resource.metadata.enabled === "boolean" ? resource.metadata.enabled : null;
   const start = typeof resource.metadata.usageStartTimestamp === "string"
     ? resource.metadata.usageStartTimestamp
     : null;
@@ -84,20 +88,18 @@ function KeyUsage({
 
   return (
     <>
-      <p className="muted compact-text">
-        {enabled
-          ? "The key may be used. Disabling it is the reversible alternative to deleting it."
-          : "The key is disabled: no operation runs under it until it is enabled again."}
-      </p>
-      <button
-        className="button small"
-        type="button"
-        disabled={!runtimeReachable || toggle.isPending}
-        onClick={() => toggle.mutate(!enabled)}
-      >
-        {enabled ? <PowerOff size={12} /> : <Power size={12} />}
-        {enabled ? "Disable key" : "Enable key"}
-      </button>
+      <p className="muted compact-text">{usageSentence(enabled)}</p>
+      {enabled !== null && (
+        <button
+          className="button small"
+          type="button"
+          disabled={!runtimeReachable || toggle.isPending}
+          onClick={() => toggle.mutate(!enabled)}
+        >
+          {enabled ? <PowerOff size={12} /> : <Power size={12} />}
+          {enabled ? "Disable key" : "Enable key"}
+        </button>
+      )}
       {(start || stop) && (
         <p className="muted compact-text">
           {start ? `In use since ${start}.` : ""} {stop ? `Out of use from ${stop}.` : ""}
@@ -110,4 +112,18 @@ function KeyUsage({
       )}
     </>
   );
+}
+
+/**
+ * What the console says about a key's usage.
+ *
+ * <p>The API names the state a key's usage is in, so the console only chooses the
+ * sentence: a state the console worked out for itself is a state that can drift
+ * from the one the API means.
+ */
+function usageSentence(enabled: boolean | null): string {
+  if (enabled === null) return "The service did not say whether the key may be used.";
+  return enabled
+    ? "The key may be used. Disabling it is the reversible alternative to deleting it."
+    : "The key is disabled: no operation runs under it until it is enabled again.";
 }

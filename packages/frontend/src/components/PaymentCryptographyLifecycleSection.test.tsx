@@ -100,6 +100,17 @@ describe("the usage of a payment key", () => {
     ]);
   });
 
+  it("says the usage is unknown when the service did not say whether the key may be used", () => {
+    renderSection({...key, metadata: {}});
+
+    // The API publishes the key's Enabled, so a key it said nothing about is
+    // neither in use nor out of use: the console does not work the state out
+    // for itself.
+    expect(screen.getByText(/did not say whether the key may be used/)).toBeDefined();
+    expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
+    expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
+  });
+
   it("says the usage is unknown when the key could not be read", () => {
     renderSection(undefined, {keyUnreadable: true});
 
