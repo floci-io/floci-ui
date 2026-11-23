@@ -7,6 +7,7 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
+import {getKeyPolicy} from './paymentCryptographyPolicies'
 import {ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
@@ -140,5 +141,39 @@ describe('the policy of a payment key', () => {
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
         await expect(adapter.setPolicy(ALIAS_ID, {policy: POLICY})).rejects.toBeInstanceOf(ValidationError)
+    })
+
+    test('a policy that cannot be read is reported, not thrown', async () => {
+        const {client} = stubClient(() => {
+            throw Object.assign(new Error('throttled'), {name: 'ThrottlingException'})
+        })
+
+        // The policy is enrichment: a refusal says nothing of the policy the key
+        // holds, so it must not take the key with it.
+        expect(await getKeyPolicy(client, ARN)).toEqual({policy: null, unavailable: true})
+    })
+
+    test('a key that holds no policy is not a policy that could not be read', async () => {
+        const {client} = stubClient(() => {
+            throw Object.assign(new Error('not found'), {name: 'ResourceNotFoundException'})
+        })
+
+        expect(await getKeyPolicy(client, ARN)).toEqual({policy: null})
+    })
+
+    test('a policy that cannot be read leaves the key on screen and says so', async () => {
+        const {client} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: key}
+            if (command instanceof GetResourcePolicyCommand) {
+                throw Object.assign(new Error('Access denied'), {name: 'AccessDeniedException'})
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        expect(resource?.name).toBe(ARN)
+        expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
     })
 })

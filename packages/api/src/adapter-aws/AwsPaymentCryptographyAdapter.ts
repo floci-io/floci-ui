@@ -18,6 +18,7 @@ import {
 } from '@aws-sdk/client-payment-cryptography'
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 import {setKeyUsage} from './paymentCryptographyLifecycle'
 =======
 import {deleteKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
@@ -25,6 +26,9 @@ import {deleteKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
 =======
 import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
 >>>>>>> 1c14678 (fix(paymentcryptography): the policy the key holds is read with the key)
+=======
+import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
+>>>>>>> 72f7f58 (fix(paymentcryptography): a policy that could not be read leaves the key on screen)
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -515,6 +519,7 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 function toResource(
     key: Key,
     tagLookup: TagLookup,
@@ -525,6 +530,9 @@ function toResource(
 =======
 function toResource(key: Key, tagLookup: TagLookup, keyPolicy: string | null = null): CloudResource {
 >>>>>>> 37e0994 (fix(paymentcryptography): the policy the key holds is read with the key)
+=======
+function toResource(key: Key, tagLookup: TagLookup, policyLookup?: KeyPolicyLookup): CloudResource {
+>>>>>>> 918f832 (fix(paymentcryptography): a policy that could not be read leaves the key on screen)
     const arn = key.KeyArn ?? ''
 
     return {
@@ -555,6 +563,7 @@ function toResource(key: Key, tagLookup: TagLookup, keyPolicy: string | null = n
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
 <<<<<<< HEAD
+<<<<<<< HEAD
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -573,10 +582,25 @@ function toResource(key: Key, tagLookup: TagLookup, keyPolicy: string | null = n
 =======
             keyPolicy,
 >>>>>>> 37e0994 (fix(paymentcryptography): the policy the key holds is read with the key)
+=======
+            ...policyMetadata(policyLookup),
+>>>>>>> 918f832 (fix(paymentcryptography): a policy that could not be read leaves the key on screen)
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },
     }
+}
+
+/**
+ * The policy of a key, as the metadata carries it.
+ *
+ * <p>A policy that could not be read is said so, so it cannot pass for a key
+ * that holds none.
+ */
+function policyMetadata(policyLookup: KeyPolicyLookup | undefined): Record<string, unknown> {
+    if (!policyLookup) return {keyPolicy: null}
+    if (policyLookup.unavailable) return {keyPolicy: null, keyPolicyUnavailable: true}
+    return {keyPolicy: policyLookup.policy}
 }
 
 /**

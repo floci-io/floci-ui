@@ -271,6 +271,21 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(resource?.metadata.tags).toEqual([])
             expect(resource?.metadata.tagsUnavailable).toBe(true)
         })
+
+        test('keeps the key when the policy lookup fails, and says the policy is unknown', async () => {
+            const {client} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) return {Key: key}
+                if (command instanceof ListTagsForResourceCommand) return {Tags: []}
+                throw Object.assign(new Error('Access denied'), {name: 'AccessDeniedException'})
+            })
+
+            // The policy is enrichment: a refusal leaves the key on screen and
+            // says the policy cannot be read.
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            expect(resource?.name).toBe(ARN)
+            expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+        })
     })
 
     describe('create', () => {
