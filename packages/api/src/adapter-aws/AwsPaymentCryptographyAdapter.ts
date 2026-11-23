@@ -187,6 +187,14 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const regions = wanted as string[]
         const key = await this.readKey(identifier)
+        // A replica is read-only: the reference says a Replica Region key cannot
+        // be configured to replicate to other Regions, so the API refuses what
+        // it cannot do rather than sending a request the service would refuse.
+        if (key?.MultiRegionKeyType === 'REPLICA') {
+            throw new ValidationError(
+                'a replica is read-only, so the Regions it is replicated to are those of its primary',
+            )
+        }
         const primary = key?.PrimaryRegion ?? null
         if (primary && regions.includes(primary)) {
             // The Region the primary is in is not a replica, and the reference

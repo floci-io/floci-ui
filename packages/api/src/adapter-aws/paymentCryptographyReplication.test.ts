@@ -142,6 +142,24 @@ describe('the replication of a payment key', () => {
         expect(sent.some((command) => command instanceof AddKeyReplicationRegionsCommand)).toBe(false)
     })
 
+    test('a replica is read-only, so the Regions of its primary are not its own to change', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) {
+                return {Key: {...key, MultiRegionKeyType: 'REPLICA', PrimaryRegion: 'us-east-1', ReplicationStatus: {'us-east-2': {}}}}
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The reference says a Replica Region key cannot be configured to
+        // replicate to other Regions, so the API refuses what it cannot do.
+        await expect(
+            adapter.setReplication(KEY_ID, {replicationRegions: ['us-west-2']}),
+        ).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof AddKeyReplicationRegionsCommand)).toBe(false)
+        expect(sent.some((command) => command instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
+    })
+
     test('a member that is not a list of Regions is refused', async () => {
         const {client, sent} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)
