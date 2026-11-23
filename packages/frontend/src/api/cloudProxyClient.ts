@@ -224,6 +224,25 @@ export async function updateCloudResourceTags(
   );
 }
 
+/**
+ * Whether a payment cryptography key may be used.
+ *
+ * <p>Disabling a key is the reversible alternative to deleting it.
+ */
+export async function setPaymentCryptographyKeyUsage(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<unknown, Record<string, unknown>>(
+    apiEndpointKeys.clouds.resources.usage,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+}
+
 /** The material a payment cryptography key leaves under. */
 export interface ExportedPaymentCryptographyKey {
   keyMaterial: string;

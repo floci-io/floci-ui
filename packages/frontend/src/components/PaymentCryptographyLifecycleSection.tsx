@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {Power, PowerOff} from "lucide-react";
 import {setPaymentCryptographyKeyUsage} from "@/api/cloudProxyClient";
@@ -8,6 +9,11 @@ import {useQueryClient} from "@tanstack/react-query";
 import {Power, PowerOff} from "lucide-react";
 import {updateCloudResource} from "@/api/cloudProxyClient";
 >>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
+=======
+import {useMutation, useQueryClient} from "@tanstack/react-query";
+import {Power, PowerOff} from "lucide-react";
+import {setPaymentCryptographyKeyUsage} from "@/api/cloudProxyClient";
+>>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
 import {getAccountId} from "@/lib/accountStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
@@ -82,6 +88,9 @@ function KeyUsage({
   runtimeReachable,
 }: PaymentCryptographyLifecycleSectionProps) {
   const queryClient = useQueryClient();
+  // Captured now: an account switch while the request is in flight must not
+  // refresh another account's resources.
+  const accountId = getAccountId();
   const enabled = resource.metadata.enabled === true;
 >>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
   const start = typeof resource.metadata.usageStartTimestamp === "string"
@@ -94,6 +103,7 @@ function KeyUsage({
   const toggle = useMutation({
     mutationFn: (next: boolean) =>
 <<<<<<< HEAD
+<<<<<<< HEAD
       setPaymentCryptographyKeyUsage(cloud, resource.service, resource.id, { enabled: next }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -103,13 +113,20 @@ function KeyUsage({
         queryKey: ["cloud-resources", accountId, cloud, resource.service],
 =======
       updateCloudResource(cloud, resource.service, resource.id, { enabled: String(next) }),
+=======
+      setPaymentCryptographyKeyUsage(cloud, resource.service, resource.id, { enabled: next }),
+>>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", getAccountId(), cloud, resource.service, resource.id],
+        queryKey: ["cloud-resource", accountId, cloud, resource.service, resource.id],
       });
       void queryClient.invalidateQueries({
+<<<<<<< HEAD
         queryKey: ["cloud-console-resources", cloud, resource.service],
 >>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
+=======
+        queryKey: ["cloud-resources", accountId, cloud, resource.service],
+>>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
       });
     },
   });

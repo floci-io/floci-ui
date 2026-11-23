@@ -284,6 +284,28 @@ export class CloudProxyService {
     }
 
     /**
+     * Whether a key may be used.
+     *
+     * <p>Only the payment cryptography service has this, so the adapter's own
+     * method answers it.
+     */
+    async setPaymentCryptographyKeyUsage(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        id: string,
+        input: Record<string, unknown>,
+    ): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        const setter = adapter as {
+            setUsage?: (id: string, input: Record<string, unknown>) => Promise<void>
+        }
+        if (!setter.setUsage) {
+            throw new NotSupportedError(`${cloud}/${service} does not do this`)
+        }
+        await setter.setUsage(id, input)
+    }
+
+    /**
      * The material a key leaves under.
      *
      * <p>Only the payment cryptography service exports a key, so the adapter's own

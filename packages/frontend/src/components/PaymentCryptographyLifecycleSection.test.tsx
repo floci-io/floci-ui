@@ -26,10 +26,14 @@ const key: CloudResource = {
   metadata: {enabled: true},
 };
 
+<<<<<<< HEAD
 function renderSection(
   resource: CloudResource | undefined,
   options: {keyUnreadable?: boolean} = {},
 ) {
+=======
+function renderSection(resource: CloudResource = key) {
+>>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   const invalidated: unknown[][] = [];
   client.invalidateQueries = vi.fn(async (filters: unknown) => {
@@ -42,7 +46,10 @@ function renderSection(
       <PaymentCryptographyLifecycleSection
         cloud="aws"
         resource={resource}
+<<<<<<< HEAD
         keyUnreadable={options.keyUnreadable}
+=======
+>>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
         runtimeReachable={true}
       />
     </QueryClientProvider>,
@@ -59,7 +66,11 @@ describe("the usage of a payment key", () => {
 
   it("disables a key that is in use", async () => {
     const user = userEvent.setup();
+<<<<<<< HEAD
     renderSection(key);
+=======
+    renderSection();
+>>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
 
     await user.click(screen.getByRole("button", {name: /Disable key/i}));
 
@@ -79,7 +90,11 @@ describe("the usage of a payment key", () => {
 
   it("refreshes the resource and the list of the account it saved in", async () => {
     const user = userEvent.setup();
+<<<<<<< HEAD
     const {invalidated} = renderSection(key);
+=======
+    const {invalidated} = renderSection();
+>>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
 
     await user.click(screen.getByRole("button", {name: /Disable key/i}));
 
@@ -99,6 +114,7 @@ describe("the usage of a payment key", () => {
       "paymentcryptography",
     ]);
   });
+<<<<<<< HEAD
 
   it("says the usage is unknown when the service did not say whether the key may be used", () => {
     renderSection({...key, metadata: {}});
@@ -126,4 +142,6 @@ describe("the usage of a payment key", () => {
     expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
     expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
   });
+=======
+>>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
 });
