@@ -1925,4 +1925,34 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
     // though the table is showing one row.
     expect(values).toContain(wrapping.id);
   });
+
+  it("says so when the key itself could not be read", async () => {
+    vi.mocked(listCloudResources).mockImplementation(async () => [
+      {...carried, metadata: {...carried.metadata, exportable: false}},
+    ]);
+    vi.mocked(getCloudResource).mockRejectedValue(new Error("The runtime is not answering."));
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(CARRIED_ARN));
+
+    // The key could not be read, so nothing is known of the material it leaves
+    // under, and the console says that rather than speaking about a key it has
+    // not read.
+    expect(await screen.findByText(/could not be read/)).toBeDefined();
+    expect(screen.queryByText(/not exportable/)).toBeNull();
+    expect(screen.queryByRole("button", {name: /Export key/i})).toBeNull();
+  });
 });

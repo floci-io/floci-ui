@@ -9,7 +9,8 @@ import type {ServiceSchema} from "@/types/schema";
 
 interface PaymentCryptographyExportSectionProps {
   cloud: CloudProvider;
-  resource: CloudResource;
+  /** The key that was read, when it was read. */
+  resource?: CloudResource;
   /**
    * The rows of the service's own list, which name the keys a wrapping key may
    * be chosen from.
@@ -22,6 +23,8 @@ interface PaymentCryptographyExportSectionProps {
   /** The service's schema, which publishes the pairings the service allows. */
   schema?: ServiceSchema;
   runtimeReachable: boolean;
+  /** The key itself could not be read, so nothing is known of its material. */
+  keyUnreadable?: boolean;
 }
 
 /**
@@ -38,18 +41,19 @@ export function PaymentCryptographyExportSection({
   resources,
   schema,
   runtimeReachable,
+  keyUnreadable,
 }: PaymentCryptographyExportSectionProps) {
   const [wrappingKey, setWrappingKey] = useState("");
   const [copied, setCopied] = useState(false);
 
   const allowed = useMemo(
-    () => wrappingKeysFor(resource, resources, schema),
+    () => (resource ? wrappingKeysFor(resource, resources, schema) : []),
     [resource, resources, schema],
   );
 
   const exportMut = useMutation({
-    mutationFn: () =>
-      exportPaymentCryptographyKey(cloud, resource.service, resource.id, {
+    mutationFn: (target: CloudResource) =>
+      exportPaymentCryptographyKey(cloud, target.service, target.id, {
         wrappingKeyArn: wrappingKey,
       }),
   });
@@ -65,6 +69,21 @@ export function PaymentCryptographyExportSection({
       setCopied(false);
     }
   };
+
+  if (keyUnreadable) {
+    // The key was not read, so nothing is known of the material it leaves
+    // under: the console says that rather than speaking about a key it has
+    // not read.
+    return (
+      <section className="inspector-section">
+        <p className="metric-label">Export</p>
+        <p className="muted compact-text">
+          The key could not be read, so its material is unknown.
+        </p>
+      </section>
+    );
+  }
+  if (!resource) return null;
 
   return (
     <section className="inspector-section">
@@ -107,7 +126,7 @@ export function PaymentCryptographyExportSection({
             wrappingKey === "" ||
             resource.metadata.exportable === false
           }
-          onClick={() => exportMut.mutate()}
+          onClick={() => exportMut.mutate(resource)}
         >
           <Download size={12} />
           Export key

@@ -1162,6 +1162,7 @@ export function DynamicResourceView({
         />
       )}
 <<<<<<< HEAD
+<<<<<<< HEAD
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
         // The certificate of a payment key and whether the key may be used are
         // part of the key's detail, and the table's row carries neither of
@@ -1180,15 +1181,32 @@ export function DynamicResourceView({
 =======
 =======
       {service === "paymentcryptography" && (
+=======
+      {service === "paymentcryptography" && activeSelected && (
+        // The material a key leaves under is part of the key's detail, and the
+        // table's row carries none of it, so the panel shows the detail and
+        // never the row: it would speak about a key it has not read. A detail
+        // that was never read leaves the material unknown, and the panel says
+        // so rather than staying silent. A later refetch that failed keeps the
+        // detail that was read, so the flag is scoped to a key that has never
+        // been read at all.
+>>>>>>> 65dd1da (fix(paymentcryptography): the panel speaks about the key it has read)
         <PaymentCryptographyPanel
-          key={inspectedResource?.id}
+          key={activeSelected.id}
           cloud={cloud}
-          resource={inspectedResource}
+          resource={inspectedDetail}
           resources={optionRowsQuery.data}
           schema={schema}
           runtimeReachable={canUseRuntime}
+<<<<<<< HEAD
 >>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
+<<<<<<< HEAD
 >>>>>>> 4b52260 (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
+=======
+=======
+          keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
+>>>>>>> 65dd1da (fix(paymentcryptography): the panel speaks about the key it has read)
+>>>>>>> 75509f0 (fix(paymentcryptography): the panel speaks about the key it has read)
         />
       )}
       {service === "configuration" && cloud === "aws" && (

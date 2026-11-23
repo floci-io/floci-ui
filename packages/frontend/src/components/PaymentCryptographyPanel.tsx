@@ -29,12 +29,15 @@ const PaymentCryptographyExportSection = lazyPanel(() =>
 
 interface PaymentCryptographyPanelProps {
   cloud: CloudProvider;
+  /** The key that was read, when it was read. */
   resource?: CloudResource;
   /** The rows of the service's own list, which name the keys a wrapping key may be chosen from. */
   resources?: CloudResource[];
   /** The service's schema, which publishes the pairings the service allows. */
   schema?: ServiceSchema;
   runtimeReachable: boolean;
+  /** The key itself could not be read, so nothing is known of its material. */
+  keyUnreadable?: boolean;
 }
 >>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
 >>>>>>> 4b52260 (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
@@ -87,21 +90,35 @@ export function PaymentCryptographyPanel({
   resources,
   schema,
   runtimeReachable,
+  keyUnreadable,
 }: PaymentCryptographyPanelProps) {
   const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
-  if (!isKey || !resource) return null;
-
-  return (
-    <>
+  if (!isKey || !resource) {
+    // Nothing was read at all, so the key is unknown: the section says so.
+    return keyUnreadable ? (
       <PaymentCryptographyExportSection
         cloud={cloud}
+<<<<<<< HEAD
         resource={resource}
         resources={resources}
         schema={schema}
 >>>>>>> 4b52260 (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
+=======
+>>>>>>> 75509f0 (fix(paymentcryptography): the panel speaks about the key it has read)
         runtimeReachable={runtimeReachable}
+        keyUnreadable
       />
-    </>
+    ) : null;
+  }
+
+  return (
+    <PaymentCryptographyExportSection
+      cloud={cloud}
+      resource={resource}
+      resources={resources}
+      schema={schema}
+      runtimeReachable={runtimeReachable}
+    />
   );
 <<<<<<< HEAD
 =======
