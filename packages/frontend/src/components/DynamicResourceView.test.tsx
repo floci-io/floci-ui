@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { InvalidateQueryFilters } from "@tanstack/react-query";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -486,10 +487,11 @@ describe("DynamicResourceView AWS compute", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const invalidated: unknown[][] = [];
     const original = queryClient.invalidateQueries.bind(queryClient);
-    vi.spyOn(queryClient, "invalidateQueries").mockImplementation((filters: any, options?: any) => {
-      invalidated.push((filters as any).queryKey);
-      return original(filters, options);
-    });
+    const spy = vi.spyOn(queryClient, "invalidateQueries");
+    spy.mockImplementation(((filters: InvalidateQueryFilters) => {
+      invalidated.push(filters.queryKey as unknown[]);
+      return original(filters);
+    }) as typeof queryClient.invalidateQueries);
 
     render(
       <QueryClientProvider client={queryClient}>
