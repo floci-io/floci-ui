@@ -1,17 +1,8 @@
-import {lazyPanel} from "@/lib/lazyPanel";
-import type {CloudProvider} from "@/types/cloud";
+import {PaymentCryptographyCertificateSection} from "@/components/PaymentCryptographyCertificateSection";
 import type {CloudResource} from "@/types/resource";
 
-const PaymentCryptographyCertificateSection = lazyPanel(() =>
-  import("@/components/PaymentCryptographyCertificateSection").then(
-    (m) => m.PaymentCryptographyCertificateSection,
-  ),
-);
-
 interface PaymentCryptographyPanelProps {
-  cloud: CloudProvider;
   resource?: CloudResource;
-  runtimeReachable: boolean;
 }
 
 /**
@@ -20,21 +11,8 @@ interface PaymentCryptographyPanelProps {
  * <p>Everything else a key shows comes from the schema, but the certificate of a
  * key's public half does not, so it has a section of its own.
  */
-export function PaymentCryptographyPanel({
-  cloud,
-  resource,
-  runtimeReachable,
-}: PaymentCryptographyPanelProps) {
-  const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
-  if (!isKey || !resource) return null;
+export function PaymentCryptographyPanel({resource}: PaymentCryptographyPanelProps) {
+  if (!resource || resource.service !== "paymentcryptography" || resource.type !== "key") return null;
 
-  return (
-    <>
-      <PaymentCryptographyCertificateSection
-        cloud={cloud}
-        resource={resource}
-        runtimeReachable={runtimeReachable}
-      />
-    </>
-  );
+  return <PaymentCryptographyCertificateSection resource={resource} />;
 }

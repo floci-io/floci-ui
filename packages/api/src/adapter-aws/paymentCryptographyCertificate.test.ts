@@ -52,10 +52,11 @@ const asymmetricKey = {
 
 const CERTIFICATE = 'LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t'
 
-function runtimeStub(key: unknown) {
+function runtimeStub(key: unknown, certificate?: () => never) {
     return stubClient((command) => {
         if (command instanceof GetKeyCommand) return {Key: key}
         if (command instanceof GetPublicKeyCertificateCommand) {
+            if (certificate) return certificate()
             return {KeyCertificate: CERTIFICATE, KeyCertificateChain: ''}
         }
         return {}
@@ -83,5 +84,34 @@ describe('the certificate of a payment key', () => {
 
         expect(sent.some((each) => each instanceof GetPublicKeyCertificateCommand)).toBe(false)
         expect(resource?.metadata.publicKeyCertificate).toBeNull()
+    })
+
+    test('a key that was never inspected carries no certificate at all', async () => {
+        const {client} = runtimeStub(asymmetricKey)
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const rows = await adapter.list()
+
+        // The certificate belongs to the key's detail, so the table's rows do
+        // not carry one: absent says the question was not asked, where null
+        // says the key has none.
+        expect(rows[0]?.metadata.publicKeyCertificate).toBeUndefined()
+    })
+
+    test('a certificate that cannot be read does not take the key with it', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('The service is busy.'), {
+                name: 'InternalServerException',
+                $metadata: {httpStatusCode: 500},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(ARN)
+
+        // The certificate is enrichment, so a failure degrades the inspector
+        // rather than the request, the way the tag lookup does.
+        expect(resource?.metadata.publicKeyCertificateUnavailable).toBe(true)
+        expect(resource?.metadata.keyAlgorithm).toBe('RSA_2048')
     })
 })

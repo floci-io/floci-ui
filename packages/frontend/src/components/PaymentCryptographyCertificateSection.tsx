@@ -1,12 +1,9 @@
 import {useState} from "react";
-import {Check, Copy} from "lucide-react";
-import type {CloudProvider} from "@/types/cloud";
+import {Check, Copy, KeyRound} from "lucide-react";
 import type {CloudResource} from "@/types/resource";
 
 interface PaymentCryptographyCertificateSectionProps {
-  cloud: CloudProvider;
   resource: CloudResource;
-  runtimeReachable: boolean;
 }
 
 /**
@@ -20,17 +17,23 @@ export function PaymentCryptographyCertificateSection({
   resource,
 }: PaymentCryptographyCertificateSectionProps) {
   const [copied, setCopied] = useState(false);
-  const certificate = typeof resource.metadata.publicKeyCertificate === "string"
-    ? resource.metadata.publicKeyCertificate
-    : "";
+  const certificate =
+    typeof resource.metadata.publicKeyCertificate === "string"
+      ? resource.metadata.publicKeyCertificate
+      : "";
 
   if (!certificate) {
     return (
-      <section className="inspector-section">
-        <p className="metric-label">Public Key Certificate</p>
-        <p className="muted compact-text">
-          This key has no public half, so it has no certificate.
-        </p>
+      <section className="table-panel">
+        <div className="dynamic-stage-header">
+          <div>
+            <p className="eyebrow">Payment Cryptography</p>
+            <h2>
+              <KeyRound size={15} /> Public Key Certificate
+            </h2>
+            <p className="muted compact-text">{certificateReason(resource)}</p>
+          </div>
+        </div>
       </section>
     );
   }
@@ -46,11 +49,18 @@ export function PaymentCryptographyCertificateSection({
   };
 
   return (
-    <section className="inspector-section">
-      <p className="metric-label">Public Key Certificate</p>
-      <p className="muted compact-text">
-        The public half of the key, signed into a certificate by the service.
-      </p>
+    <section className="table-panel">
+      <div className="dynamic-stage-header">
+        <div>
+          <p className="eyebrow">Payment Cryptography</p>
+          <h2>
+            <KeyRound size={15} /> Public Key Certificate
+          </h2>
+          <p className="muted compact-text">
+            The public half of the key, signed into a certificate by the service.
+          </p>
+        </div>
+      </div>
       <textarea
         className="textarea code-textarea"
         readOnly
@@ -64,4 +74,22 @@ export function PaymentCryptographyCertificateSection({
       </button>
     </section>
   );
+}
+
+/**
+ * Why there is no certificate to show.
+ *
+ * <p>A key of a pair has a certificate, a symmetric key has no public half at
+ * all, and a read that failed is neither of those: each says so in its own
+ * words, so the console never tells a caller that a key has no certificate when
+ * the certificate was simply not read.
+ */
+function certificateReason(resource: CloudResource): string {
+  if (resource.metadata.publicKeyCertificateUnavailable === true) {
+    return "The certificate could not be read.";
+  }
+  if (resource.metadata.keyClass !== "ASYMMETRIC_KEY_PAIR") {
+    return "This key has no public half, so it has no certificate.";
+  }
+  return "The service has not signed a certificate for this key.";
 }

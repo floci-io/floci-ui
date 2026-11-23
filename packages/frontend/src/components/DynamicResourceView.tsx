@@ -631,6 +631,14 @@ export function DynamicResourceView({
     !resourceDetailQuery.isFetching && resourceDetailQuery.data?.id === activeSelected?.id
       ? resourceDetailQuery.data
       : activeSelected;
+  // The certificate of a payment key is part of the key's detail, and the
+  // table's row carries none of it, so the panel waits for the detail of the
+  // selected key rather than speak about a key it has not read.
+  const inspectedPaymentKey =
+    resourceDetailQuery.data !== undefined &&
+    resourceDetailQuery.data.id === activeSelected?.id
+      ? resourceDetailQuery.data
+      : undefined;
   const runtimeReachable = cloudStatus?.runtime === "reachable";
   const resourceCapabilityInputs =
     schema.capabilities?.resourceActions ?? schema.actions;
@@ -1152,12 +1160,10 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-      {service === "paymentcryptography" && (
+      {service === "paymentcryptography" && inspectedPaymentKey && (
         <PaymentCryptographyPanel
-          key={inspectedResource?.id}
-          cloud={cloud}
-          resource={inspectedResource}
-          runtimeReachable={canUseRuntime}
+          key={inspectedPaymentKey.id}
+          resource={inspectedPaymentKey}
         />
       )}
       {service === "configuration" && cloud === "aws" && (

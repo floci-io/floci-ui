@@ -1534,3 +1534,86 @@ describe("DynamicResourceView a service whose kinds do not take the same actions
     await waitFor(() => expect(screen.queryByRole("button", {name: /Edit tags/})).toBeNull());
   });
 });
+
+describe("DynamicResourceView the certificate of a payment key", () => {
+  const ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc";
+  const key: CloudResource = {
+    id: ARN,
+    name: ARN,
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    status: "CREATE_COMPLETE",
+    metadata: {
+      enabled: true,
+      keyClass: "ASYMMETRIC_KEY_PAIR",
+      publicKeyCertificate: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0t",
+    },
+  };
+
+  const paymentSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(paymentSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([key]);
+    vi.mocked(getCloudResource).mockResolvedValue(key);
+  });
+
+  it("shows the certificate of the key that was inspected", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    // The certificate is part of the key's detail, so the panel waits for it.
+    expect(await screen.findByLabelText("Public key certificate")).toBeDefined();
+  });
+
+  it("says so when the inspected key has no public half", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    vi.mocked(getCloudResource).mockResolvedValue({
+      ...key,
+      metadata: {...key.metadata, keyClass: "SYMMETRIC_KEY", publicKeyCertificate: null},
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    expect(await screen.findByText(/no public half/)).toBeDefined();
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+  });
+});

@@ -184,14 +184,30 @@ export function algorithmsForUsage(usage: PaymentCryptographyKeyUsage): readonly
 }
 
 /**
+ * The class of a key.
+ *
+ * The class says what shape the key has: a pair has a public half and a
+ * symmetric key has none.
+ */
+export const PAYMENT_CRYPTOGRAPHY_KEY_CLASSES = {
+    symmetric: 'SYMMETRIC_KEY',
+    pair: 'ASYMMETRIC_KEY_PAIR',
+} as const
+
+export type PaymentCryptographyKeyClass =
+    (typeof PAYMENT_CRYPTOGRAPHY_KEY_CLASSES)[keyof typeof PAYMENT_CRYPTOGRAPHY_KEY_CLASSES]
+
+/**
  * The class a key of an algorithm has.
  *
  * The class says what shape the key has, and the algorithm says what material it
  * has, so the two agree: an asymmetric algorithm makes a key pair and a symmetric
  * one makes a symmetric key.
  */
-export function keyClassForAlgorithm(algorithm: PaymentCryptographyKeyAlgorithm): 'SYMMETRIC_KEY' | 'ASYMMETRIC_KEY_PAIR' {
-    return algorithm.startsWith('RSA_') || algorithm.startsWith('ECC_') ? 'ASYMMETRIC_KEY_PAIR' : 'SYMMETRIC_KEY'
+export function keyClassForAlgorithm(algorithm: PaymentCryptographyKeyAlgorithm): PaymentCryptographyKeyClass {
+    return algorithm.startsWith('RSA_') || algorithm.startsWith('ECC_')
+        ? PAYMENT_CRYPTOGRAPHY_KEY_CLASSES.pair
+        : PAYMENT_CRYPTOGRAPHY_KEY_CLASSES.symmetric
 }
 
 /**

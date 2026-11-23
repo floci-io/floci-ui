@@ -22,6 +22,7 @@ import {
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
+    PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
     PAYMENT_CRYPTOGRAPHY_KIND_PREFIX,
     PAYMENT_CRYPTOGRAPHY_KINDS,
@@ -45,6 +46,20 @@ type KeyTag = {key: string; value: string}
 
 /** Tags plus whether the lookup itself failed, so an untagged key and an unreadable one stay distinguishable. */
 type TagLookup = {tags: KeyTag[]; unavailable?: true}
+
+/**
+ * The certificate of a key's public half, as the read found it.
+ *
+ * <p>A key that was never inspected has no certificate read at all, so the
+ * certificate is absent rather than null: null says the key has none, and absent
+ * says the question was not asked.
+ */
+type CertificateLookup = {
+    /** The certificate, or null for a key that has none. */
+    certificate?: string | null
+    /** The certificate could not be read. */
+    unavailable?: true
+}
 
 /** ListKeys takes at most 100 keys per page. */
 const LIST_PAGE_SIZE = 100
@@ -87,7 +102,13 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
-        return toResource(key, await this.getTags(identifier), await this.publicKeyCertificate(key))
+        // The tags and the certificate are reads of their own and do not depend on
+        // each other, so they are asked together rather than one after the other.
+        const [tags, certificate] = await Promise.all([
+            this.getTags(identifier),
+            this.publicKeyCertificate(identifier, key),
+        ])
+        return toResource(key, tags, certificate)
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -262,13 +283,23 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      * refuses the question, so it is only asked of a key that has a pair. The
      * certificate belongs to the key's detail rather than to the table, so it is read
      * when a key is inspected and not for every row.
+     *
+     * <p>The certificate is enrichment, so a failure degrades the inspector rather
+     * than the request, the way the tag lookup does: it is reported as unreadable
+     * and the key itself is still shown.
      */
-    private async publicKeyCertificate(key: Key): Promise<string | null> {
-        if (key.KeyAttributes?.KeyClass !== 'ASYMMETRIC_KEY_PAIR') return null
-        const res = await this.client.send(
-            new GetPublicKeyCertificateCommand({KeyIdentifier: key.KeyArn}),
-        )
-        return res.KeyCertificate ?? null
+    private async publicKeyCertificate(identifier: string, key: Key): Promise<CertificateLookup> {
+        if (key.KeyAttributes?.KeyClass !== PAYMENT_CRYPTOGRAPHY_KEY_CLASSES.pair) {
+            return {certificate: null}
+        }
+        try {
+            const res = await this.client.send(
+                new GetPublicKeyCertificateCommand({KeyIdentifier: identifier}),
+            )
+            return {certificate: res.KeyCertificate ?? null}
+        } catch {
+            return {unavailable: true}
+        }
     }
 
     /**
@@ -376,7 +407,7 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
     return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
-function toResource(key: Key, tagLookup: TagLookup, publicKeyCertificate: string | null = null): CloudResource {
+function toResource(key: Key, tagLookup: TagLookup, certificateLookup: CertificateLookup = {}): CloudResource {
     const arn = key.KeyArn ?? ''
 
     return {
@@ -406,7 +437,12 @@ function toResource(key: Key, tagLookup: TagLookup, publicKeyCertificate: string
             deleteTimestamp: isoDate(key.DeleteTimestamp),
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
-            publicKeyCertificate,
+            // The certificate is published only where it was read, so a row that
+            // was never inspected does not claim that the key has none.
+            ...(certificateLookup.certificate !== undefined
+                ? {publicKeyCertificate: certificateLookup.certificate}
+                : {}),
+            ...(certificateLookup.unavailable ? {publicKeyCertificateUnavailable: true} : {}),
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },
