@@ -50,9 +50,6 @@ export function PaymentCryptographyPolicySection({
   runtimeReachable,
 }: PaymentCryptographyPolicySectionProps) {
   const queryClient = useQueryClient();
-  // Captured now: an account switch while the request is in flight must not
-  // refresh another account's resources.
-  const accountId = getAccountId();
   const held = typeof resource?.metadata.keyPolicy === "string" ? resource.metadata.keyPolicy : "";
   const state = policyState(resource, keyUnreadable);
   const [policy, setPolicy] = useState(held);
@@ -68,19 +65,22 @@ export function PaymentCryptographyPolicySection({
       setPaymentCryptographyKeyPolicy(cloud, variables.target.service, variables.target.id, {
         policy: variables.policy,
       }),
-    onSuccess: (_result, variables) => {
+    // Captured when the request is made: an account switch while it is in
+    // flight must not refresh another account's resources.
+    onMutate: () => ({accountId: getAccountId()}),
+    onSuccess: (_result, variables, context) => {
       setEditing(false);
       void queryClient.invalidateQueries({
         queryKey: [
           "cloud-resource",
-          accountId,
+          context.accountId,
           cloud,
           variables.target.service,
           variables.target.id,
         ],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, variables.target.service],
+        queryKey: ["cloud-resources", context.accountId, cloud, variables.target.service],
       });
     },
   });
@@ -88,13 +88,15 @@ export function PaymentCryptographyPolicySection({
   const remove = useMutation({
     mutationFn: (target: CloudResource) =>
       setPaymentCryptographyKeyPolicy(cloud, target.service, target.id, { policy: "" }),
-    onSuccess: (_result, target) => {
+    // Captured when the request is made, for the same reason as the save.
+    onMutate: () => ({accountId: getAccountId()}),
+    onSuccess: (_result, target, context) => {
       setEditing(false);
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", accountId, cloud, target.service, target.id],
+        queryKey: ["cloud-resource", context.accountId, cloud, target.service, target.id],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, target.service],
+        queryKey: ["cloud-resources", context.accountId, cloud, target.service],
       });
     },
   });
