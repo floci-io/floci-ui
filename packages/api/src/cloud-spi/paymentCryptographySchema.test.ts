@@ -1,4 +1,5 @@
 import {describe, expect, test} from 'bun:test'
+<<<<<<< HEAD
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
@@ -8,6 +9,10 @@ import {
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
 } from './paymentCryptographySchema'
+=======
+<<<<<<< HEAD
+import {awsPaymentCryptographySchema} from './paymentCryptographySchema'
+>>>>>>> d7092c2 (feat(paymentcryptography): the material a key leaves under)
 
 describe('awsPaymentCryptographySchema', () => {
     test('offers the tag editor for a key and not for an alias', () => {
@@ -19,12 +24,37 @@ describe('awsPaymentCryptographySchema', () => {
         expect(updateTags?.excludedTypes).toEqual(['alias'])
     })
 
+=======
+import {awsPaymentCryptographySchema, mayWrapWith} from './paymentCryptographySchema'
+
+describe('awsPaymentCryptographySchema', () => {
+>>>>>>> d75e0a0 (feat(paymentcryptography): the material a key leaves under)
     test('names the kind a field that names another resource takes its options from', () => {
         const schema = awsPaymentCryptographySchema()
         const target = schema.fields.find(field => field.name === 'aliasTargetKey')
 
         expect(target?.optionsFrom).toBe('key')
     })
+<<<<<<< HEAD
+=======
+
+    test('the matrix says which key may carry which', () => {
+        expect(mayWrapWith('AES_256', 'AES_256')).toBe(true)
+        expect(mayWrapWith('AES_256', 'AES_128')).toBe(false)
+        expect(mayWrapWith('TDES_3KEY', 'TDES_2KEY')).toBe(false)
+        // The matrix names the symmetric keys, so a key it does not name may not
+        // be carried by any.
+        expect(mayWrapWith('RSA_2048', 'AES_256')).toBe(false)
+    })
+
+    test('the matrix is not read through the prototype chain', () => {
+        // The algorithm comes from the service, so a name the prototype chain
+        // answers for is not a row of the matrix.
+        for (const name of ['__proto__', 'constructor', 'toString']) {
+            expect(mayWrapWith(name, 'AES_256')).toBe(false)
+        }
+    })
+>>>>>>> d75e0a0 (feat(paymentcryptography): the material a key leaves under)
 })
 
 describe('the class of a payment key', () => {

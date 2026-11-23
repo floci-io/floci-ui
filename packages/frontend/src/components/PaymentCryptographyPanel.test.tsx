@@ -116,8 +116,15 @@ describe("the panels of a payment key", () => {
 
     // The key could not be read, so nothing is known of its certificate, and
     // the panel says that rather than staying silent.
+<<<<<<< HEAD
     expect(await screen.findByText(/could not be read/)).toBeDefined();
 >>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
+<<<<<<< HEAD
 >>>>>>> badeb69 (feat(paymentcryptography): the certificate of a key's public half)
+=======
+=======
+    expect(await screen.findByText(/its certificate is unknown/)).toBeDefined();
+>>>>>>> d7092c2 (feat(paymentcryptography): the material a key leaves under)
+>>>>>>> dba61d0 (feat(paymentcryptography): the material a key leaves under)
   });
 });

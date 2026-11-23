@@ -322,14 +322,26 @@ export type PaymentCryptographyCertificateState =
     (typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES)[keyof typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES]
 
 /**
+ * The wrapping keys a key of one algorithm may leave under.
+ *
+ * <p>The matrix is a plain object and the algorithm comes from the service, so a
+ * name the prototype chain answers for is not a row of the matrix.
+ */
+export function wrappingAlgorithmsFor(carriedAlgorithm: string): string[] {
+    if (!Object.prototype.hasOwnProperty.call(PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS, carriedAlgorithm)) {
+        return []
+    }
+    return PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS[carriedAlgorithm]
+}
+
+/**
  * Whether a key of one algorithm may be carried by a key of another.
  *
  * <p>The rule is the reference's matrix, and it is the same rule the local runtime
  * holds to, so the table and the runtime agree.
  */
 export function mayWrapWith(carriedAlgorithm: string, wrappingAlgorithm: string): boolean {
-    const allowed = PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS[carriedAlgorithm]
-    return allowed ? allowed.includes(wrappingAlgorithm) : false
+    return wrappingAlgorithmsFor(carriedAlgorithm).includes(wrappingAlgorithm)
 }
 >>>>>>> b5174b9 (feat(paymentcryptography): the export form offers only the pairings allowed)
 

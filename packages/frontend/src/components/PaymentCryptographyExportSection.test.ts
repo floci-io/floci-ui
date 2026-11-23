@@ -103,9 +103,42 @@ describe("the wrapping keys a key may leave under", () => {
     expect(wrappingKeysFor(carried("AES_256"), [key("weak", "TDES_2KEY")], schema)).toEqual([]);
   });
 
+  it("offers no key for a key the matrix does not name", () => {
+    const rows = [key("kek-aes256", "AES_256")];
+
+    // The matrix names the symmetric keys, which are the ones that leave under
+    // a TR-31 block. A key it does not name leaves under no key at all, so the
+    // console may not offer the account's keys for it.
+    expect(wrappingKeysFor(carried("RSA_2048"), rows, schema)).toEqual([]);
+    expect(wrappingKeysFor(carried("ECC_NIST_P256"), rows, schema)).toEqual([]);
+  });
+
+  it("allows every pairing when the service publishes no matrix", () => {
+    const rows = [key("kek-aes256", "AES_256")];
+
+    // A service that publishes no matrix says nothing about what may carry
+    // what, so every pairing is allowed.
+    expect(wrappingKeysFor(carried("AES_256"), rows, undefined).map((r) => r.id)).toEqual([
+      "kek-aes256",
+    ]);
+  });
+
   it("reads the matrix the schema publishes", () => {
     expect(allowedAlgorithms(schema, "AES_128")).toEqual(["AES_128", "AES_192", "AES_256"]);
     expect(allowedAlgorithms(schema, "AES_256")).toEqual(["AES_256"]);
-    expect(allowedAlgorithms(undefined, "AES_256")).toEqual([]);
+    // A matrix that does not name an algorithm says that no key of that
+    // algorithm may be carried, which is not the same as a matrix that is not
+    // there.
+    expect(allowedAlgorithms(schema, "RSA_2048")).toEqual([]);
+    expect(allowedAlgorithms(undefined, "AES_256")).toBeUndefined();
+  });
+
+  it("does not read the matrix through the prototype chain", () => {
+    // The algorithm comes from the service, so a name the prototype chain
+    // answers for is not a row of the matrix.
+    for (const name of ["__proto__", "constructor", "toString"]) {
+      expect(allowedAlgorithms(schema, name)).toEqual([]);
+      expect(wrappingKeysFor(carried(name), [key("kek-aes256", "AES_256")], schema)).toEqual([]);
+    }
   });
 });

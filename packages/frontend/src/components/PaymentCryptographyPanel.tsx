@@ -135,10 +135,17 @@ export function PaymentCryptographyPanel({
 }: PaymentCryptographyPanelProps) {
   const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
   if (!isKey || !resource) {
-    // Nothing was read at all, so the key is unknown: the section that can say
-    // so without the key says it, and the rest stay away.
+    // Nothing was read at all, so the key is unknown: the sections that can say
+    // so without the key say it, and the rest stay away.
     return keyUnreadable ? (
-      <PaymentCryptographyCertificateSection keyUnreadable />
+      <>
+        <PaymentCryptographyCertificateSection keyUnreadable />
+        <PaymentCryptographyExportSection
+          cloud={cloud}
+          runtimeReachable={runtimeReachable}
+          keyUnreadable
+        />
+      </>
     ) : null;
   }
 
@@ -173,6 +180,7 @@ export function PaymentCryptographyPanel({
         schema={schema}
 >>>>>>> 75762b3 (feat(paymentcryptography): the export form offers only the pairings allowed)
         runtimeReachable={runtimeReachable}
+        keyUnreadable={keyUnreadable}
       />
     </>
   );

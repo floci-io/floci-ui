@@ -3,18 +3,29 @@ import {useMutation} from "@tanstack/react-query";
 import {Check, Copy, Download} from "lucide-react";
 import {exportPaymentCryptographyKey} from "@/api/cloudProxyClient";
 import {wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
+import {useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 import type {ServiceSchema} from "@/types/schema";
 
 interface PaymentCryptographyExportSectionProps {
   cloud: CloudProvider;
-  resource: CloudResource;
-  /** The rows of the list, which name the keys a wrapping key may be chosen from. */
+  /** The key that was read, when it was read. */
+  resource?: CloudResource;
+  /**
+   * The rows of the service's own list, which name the keys a wrapping key may
+   * be chosen from.
+   *
+   * <p>They are not the rows the table shows: those are the ones the search box
+   * and the facet narrowed, and a wrapping key is a key of the account whether
+   * the table is showing it or not.
+   */
   resources?: CloudResource[];
   /** The service's schema, which publishes the pairings the service allows. */
   schema?: ServiceSchema;
   runtimeReachable: boolean;
+  /** The key itself could not be read, so nothing is known of its material. */
+  keyUnreadable?: boolean;
 }
 
 /**
@@ -31,33 +42,39 @@ export function PaymentCryptographyExportSection({
   resources,
   schema,
   runtimeReachable,
+  keyUnreadable,
 }: PaymentCryptographyExportSectionProps) {
   const [wrappingKey, setWrappingKey] = useState("");
-  const [copied, setCopied] = useState(false);
+  const {copied, copyFailed, copy} = useCopyToClipboard();
 
   const allowed = useMemo(
-    () => wrappingKeysFor(resource, resources, schema),
+    () => (resource ? wrappingKeysFor(resource, resources, schema) : []),
     [resource, resources, schema],
   );
 
   const exportMut = useMutation({
-    mutationFn: () =>
-      exportPaymentCryptographyKey(cloud, resource.service, resource.id, {
+    mutationFn: (target: CloudResource) =>
+      exportPaymentCryptographyKey(cloud, target.service, target.id, {
         wrappingKeyArn: wrappingKey,
       }),
   });
 
   const material = exportMut.data?.keyMaterial ?? "";
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(material);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
-  };
+  if (keyUnreadable) {
+    // The key was not read, so nothing is known of the material it leaves
+    // under: the console says that rather than speaking about a key it has
+    // not read.
+    return (
+      <section className="inspector-section">
+        <p className="metric-label">Export</p>
+        <p className="muted compact-text">
+          The key could not be read, so its material is unknown.
+        </p>
+      </section>
+    );
+  }
+  if (!resource) return null;
 
   return (
     <section className="inspector-section">
@@ -72,8 +89,14 @@ export function PaymentCryptographyExportSection({
         <select
           className="input"
           aria-label="Wrapping key"
+          disabled={exportMut.isPending}
           value={wrappingKey}
-          onChange={(event) => setWrappingKey(event.target.value)}
+          onChange={(event) => {
+            setWrappingKey(event.target.value);
+            // The material of the last export is not the material of this one, so
+            // it goes rather than being left on the screen under another key.
+            exportMut.reset();
+          }}
         >
           <option value="">Choose a wrapping key</option>
           {allowed.map((row) => (
@@ -87,13 +110,24 @@ export function PaymentCryptographyExportSection({
         <button
           className="button small"
           type="button"
-          disabled={!runtimeReachable || exportMut.isPending || wrappingKey === ""}
-          onClick={() => exportMut.mutate()}
+          disabled={
+            !runtimeReachable ||
+            exportMut.isPending ||
+            wrappingKey === "" ||
+            resource.metadata.exportable === false
+          }
+          onClick={() => exportMut.mutate(resource)}
         >
           <Download size={12} />
           Export key
         </button>
       </div>
+      {resource.metadata.exportable === false && (
+        <p className="muted compact-text">
+          This key is not exportable, so its material does not leave. A key that
+          has to be shared is made exportable.
+        </p>
+      )}
       {allowed.length === 0 && (
         <p className="muted compact-text">
           No key of this account may carry this one: a wrapping key has to be a key
@@ -109,10 +143,15 @@ export function PaymentCryptographyExportSection({
             value={material}
             aria-label="Exported key material"
           />
-          <button className="button small" type="button" onClick={copy}>
+          <button className="button small" type="button" onClick={() => void copy(material)}>
             {copied ? <Check size={12} /> : <Copy size={12} />}
             {copied ? "Copied" : "Copy material"}
           </button>
+          {copyFailed && (
+            <p className="form-error" role="alert">
+              The clipboard was not available, so nothing was copied.
+            </p>
+          )}
         </>
       )}
       {exportMut.error instanceof Error && (

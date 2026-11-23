@@ -34,6 +34,11 @@ import {
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    mayWrapWith,
+    wrappingAlgorithmsFor,
+>>>>>>> d7092c2 (feat(paymentcryptography): the material a key leaves under)
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
 =======
     mayWrapWith,
@@ -49,7 +54,6 @@ import {
     PAYMENT_CRYPTOGRAPHY_KINDS,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
     PAYMENT_CRYPTOGRAPHY_SOURCES,
-    PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
@@ -126,13 +130,20 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      *
      * <p>The form the console offers is the TR-31 block the service wraps with a
      * key the account holds, which is the form a key usually leaves in.
+     *
+     * <p>The wrapping key has to be one the reference allows: a key encryption key
+     * that may wrap, and at least as strong as the key it carries. The matrix is
+     * the reference's own, and it is in one place, so the panel and this agree
+     * about it.
      */
     async exportKey(id: string, input: {wrappingKeyArn: string}): Promise<ExportedKeyMaterial> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {
             throw new ValidationError('an alias is a name for a key; it is the key that leaves')
         }
-        const wrappingKeyArn = requiredString(input.wrappingKeyArn, 'wrappingKeyArn')
+        // The form names a resource, and the resource id carries its kind, so the
+        // prefix is taken off before the runtime is asked about it.
+        const wrappingKeyArn = targetKeyArn(requiredString(input?.wrappingKeyArn, 'wrappingKeyArn'))
 
         // The pairing is checked here as well as by the runtime, so a caller that
         // goes past the form is refused with the reference's own reason.
@@ -144,10 +155,13 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
         const wrappingAlgorithm = String(wrapping.KeyAttributes?.KeyAlgorithm ?? '')
         if (!mayWrapWith(carriedAlgorithm, wrappingAlgorithm)) {
+            const allowed = wrappingAlgorithmsFor(carriedAlgorithm)
             throw new ValidationError(
                 `a ${carriedAlgorithm} key may not be carried by a ${wrappingAlgorithm} key: ` +
                 'the wrapping key has to be at least as strong as the key it carries, ' +
-                `so it may be one of ${(PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS[carriedAlgorithm] ?? []).join(', ')}`,
+                (allowed.length > 0
+                    ? `so it may be one of ${allowed.join(', ')}`
+                    : 'and the matrix names no key that may carry it'),
             )
         }
 

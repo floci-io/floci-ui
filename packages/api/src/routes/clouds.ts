@@ -1205,11 +1205,15 @@ export function createCloudRoutes(
 
         return withRuntime(c, async () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
             const input = await jsonBody<Record<string, unknown>>(c)
             await svc(c).setPaymentCryptographyKeyUsage(cloud, serviceType, c.req.param('id'), input)
             return c.json({ok: true})
 =======
             const input = await c.req.json<{wrappingKeyArn: string}>()
+=======
+            const input = await jsonBody<{wrappingKeyArn: string}>(c)
+>>>>>>> dba61d0 (feat(paymentcryptography): the material a key leaves under)
             const material = await svc(c).exportPaymentCryptographyKey(cloud, serviceType, c.req.param('id'), input)
             return c.json(material, 200)
 >>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)

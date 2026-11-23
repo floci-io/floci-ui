@@ -189,4 +189,51 @@ describe('the payment cryptography routes', () => {
             expect(res.status).toBe(400)
         }
     })
+
+    test('the export route passes the body to the adapter', async () => {
+        const seen: Array<{wrappingKeyArn: string}> = []
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async (_id: string, input: {wrappingKeyArn: string}) => {
+                    seen.push(input)
+                    return {keyMaterial: 'D0112K1AB00E0000'}
+                },
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/arn:aws:payment-cryptography:us-east-1:000000000000:key/abc'}),
+            },
+        )
+
+        expect(res.status).toBe(200)
+        expect(seen[0]).toEqual({
+            wrappingKeyArn: 'key/arn:aws:payment-cryptography:us-east-1:000000000000:key/abc',
+        })
+    })
+
+    test('a body that is not an object is refused by the export route', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => ({keyMaterial: 'D0112K1AB00E0000'}),
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        for (const body of ['null', '[]', '42']) {
+            const res = await app.request(
+                '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+                {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body,
+                },
+            )
+
+            expect(res.status).toBe(400)
+        }
+    })
 })
