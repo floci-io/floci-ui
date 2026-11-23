@@ -57,6 +57,7 @@ const WorkflowExecutionsPanel = lazyPanel(() => import("@/components/WorkflowExe
 const DatabaseSnapshotsPanel = lazyPanel(() => import("@/components/DatabaseSnapshotsPanel").then((m) => m.DatabaseSnapshotsPanel));
 const AppConfigPanel = lazyPanel(() => import("@/components/AppConfigPanel").then((m) => m.AppConfigPanel));
 const KmsCryptoPanel = lazyPanel(() => import("@/components/KmsCryptoPanel").then((m) => m.KmsCryptoPanel));
+const PaymentCryptographyPanel = lazyPanel(() => import("@/components/PaymentCryptographyPanel").then((m) => m.PaymentCryptographyPanel));
 const AzureKeyVaultPanel = lazyPanel(() => import("@/components/AzureKeyVaultPanel").then((m) => m.AzureKeyVaultPanel));
 const EventGridSubscriptionsPanel = lazyPanel(() => import("@/components/EventGridSubscriptionsPanel").then((m) => m.EventGridSubscriptionsPanel));
 const OciGovernancePanel = lazyPanel(() => import("@/components/OciGovernancePanel").then((m) => m.OciGovernancePanel));
@@ -1148,6 +1149,14 @@ export function DynamicResourceView({
         <ServerlessInvokePanel
           cloud={cloud}
           resource={activeSelected}
+          runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "paymentcryptography" && (
+        <PaymentCryptographyPanel
+          key={inspectedResource?.id}
+          cloud={cloud}
+          resource={inspectedResource}
           runtimeReachable={canUseRuntime}
         />
       )}

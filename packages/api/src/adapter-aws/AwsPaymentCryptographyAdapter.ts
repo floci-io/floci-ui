@@ -5,6 +5,7 @@ import {
     DeleteKeyCommand,
     GetAliasCommand,
     GetKeyCommand,
+    GetPublicKeyCertificateCommand,
     ListAliasesCommand,
     ListKeysCommand,
     ListTagsForResourceCommand,
@@ -86,7 +87,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
-        return toResource(key, await this.getTags(identifier))
+        return toResource(key, await this.getTags(identifier), await this.publicKeyCertificate(key))
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -254,6 +255,23 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /**
+     * The certificate of an asymmetric key, which the reference signs and hands out
+     * for the key's public half.
+     *
+     * <p>A symmetric key has no public half and so no certificate, and the reference
+     * refuses the question, so it is only asked of a key that has a pair. The
+     * certificate belongs to the key's detail rather than to the table, so it is read
+     * when a key is inspected and not for every row.
+     */
+    private async publicKeyCertificate(key: Key): Promise<string | null> {
+        if (key.KeyAttributes?.KeyClass !== 'ASYMMETRIC_KEY_PAIR') return null
+        const res = await this.client.send(
+            new GetPublicKeyCertificateCommand({KeyIdentifier: key.KeyArn}),
+        )
+        return res.KeyCertificate ?? null
+    }
+
+    /**
      * Tags are enrichment, so a failure degrades the inspector rather than the
      * request, and is reported so it cannot pass for an untagged key.
      */
@@ -358,7 +376,7 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
     return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
-function toResource(key: Key, tagLookup: TagLookup): CloudResource {
+function toResource(key: Key, tagLookup: TagLookup, publicKeyCertificate: string | null = null): CloudResource {
     const arn = key.KeyArn ?? ''
 
     return {
@@ -388,6 +406,7 @@ function toResource(key: Key, tagLookup: TagLookup): CloudResource {
             deleteTimestamp: isoDate(key.DeleteTimestamp),
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
+            publicKeyCertificate,
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },
