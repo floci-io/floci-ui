@@ -1432,6 +1432,9 @@ describe("DynamicResourceView a field that names another resource", () => {
   });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
   it("refreshes the choices as well as the table", async () => {
     vi.mocked(listCloudResources).mockResolvedValue([keyA]);
 
@@ -1465,8 +1468,11 @@ describe("DynamicResourceView a field that names another resource", () => {
     });
   });
 
+<<<<<<< HEAD
 =======
 >>>>>>> a71861d (fix(console): the shared console surface is the reviewed one)
+=======
+>>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
   it("says so when the target keys could not be loaded, and asks again", async () => {
     let failing = true;
     vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) => {

@@ -136,6 +136,9 @@ describe("the create form's button", () => {
   });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
   it("drops a value the options no longer offer", async () => {
     // The create form is inline, so the table stays usable while it is open.
     // The key the form points at is deleted, the choices are asked again, and
@@ -184,8 +187,11 @@ describe("the create form's button", () => {
     expect(onSubmit).toHaveBeenCalledWith({aliasTargetKey: "key/key-b"});
   });
 
+<<<<<<< HEAD
 =======
 >>>>>>> a71861d (fix(console): the shared console surface is the reviewed one)
+=======
+>>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
   it("says so when the options of a field could not be loaded, and asks again", async () => {
     // An account with no keys and a request that failed leave the same empty
     // dropdown, so the failure is said so beside the field that needs the

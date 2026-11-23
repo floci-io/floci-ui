@@ -49,25 +49,35 @@ export function DynamicFormRenderer({
     // shows a choice. The value follows the option the browser paints, including
     // when the options arrive after the form opens.
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
     //
     // The value follows the options the form has, not the ones it had: the form
     // is inline, so the table stays usable while it is open, and the resource it
     // points at may be deleted, which leaves the choices asking again without
     // it.
+<<<<<<< HEAD
 =======
 >>>>>>> a71861d (fix(console): the shared console surface is the reviewed one)
+=======
+>>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
     useEffect(() => {
         setValues((prev) => {
             let next = prev
             for (const field of visibleFields) {
                 if (field.type !== 'select' || !isFieldRequired(field, prev)) continue
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
                 const current = prev[field.name] ?? ''
                 const options = field.options ?? []
                 if (current !== '' && options.some((option) => option.value === current)) continue
                 const first = options[0]
                 const value = first && first.value !== '' ? first.value : ''
                 if (value === current) continue
+<<<<<<< HEAD
                 next = next === prev ? {...prev} : next
                 next[field.name] = value
 =======
@@ -77,6 +87,10 @@ export function DynamicFormRenderer({
                 next = next === prev ? {...prev} : next
                 next[field.name] = first.value
 >>>>>>> a71861d (fix(console): the shared console surface is the reviewed one)
+=======
+                next = next === prev ? {...prev} : next
+                next[field.name] = value
+>>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
             }
             return next
         })
