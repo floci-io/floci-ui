@@ -48,16 +48,24 @@ export function DynamicFormRenderer({
     // the form value stays empty, so the submit is refused for a field that
     // shows a choice. The value follows the option the browser paints, including
     // when the options arrive after the form opens.
+    //
+    // The value follows the options the form has, not the ones it had: the form
+    // is inline, so the table stays usable while it is open, and the resource it
+    // points at may be deleted, which leaves the choices asking again without
+    // it.
     useEffect(() => {
         setValues((prev) => {
             let next = prev
             for (const field of visibleFields) {
                 if (field.type !== 'select' || !isFieldRequired(field, prev)) continue
-                if ((prev[field.name] ?? '') !== '') continue
-                const first = field.options?.[0]
-                if (!first || first.value === '') continue
+                const current = prev[field.name] ?? ''
+                const options = field.options ?? []
+                if (current !== '' && options.some((option) => option.value === current)) continue
+                const first = options[0]
+                const value = first && first.value !== '' ? first.value : ''
+                if (value === current) continue
                 next = next === prev ? {...prev} : next
-                next[field.name] = first.value
+                next[field.name] = value
             }
             return next
         })

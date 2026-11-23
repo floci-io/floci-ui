@@ -1385,6 +1385,39 @@ describe("DynamicResourceView a field that names another resource", () => {
     expect(values).toContain(keyB.id);
   });
 
+  it("refreshes the choices as well as the table", async () => {
+    vi.mocked(listCloudResources).mockResolvedValue([keyA]);
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("key-a");
+
+    const before = vi.mocked(listCloudResources).mock.calls.length;
+
+    await user.click(screen.getByRole("button", {name: "Refresh"}));
+
+    // The Refresh button refreshes the table and the choices with it: the
+    // choices are a query of their own, and a refresh that leaves them alone
+    // keeps offering a key that is gone.
+    await waitFor(() => {
+      const calls = vi.mocked(listCloudResources).mock.calls.slice(before);
+      expect(calls.some(([, , search]) => search === undefined)).toBe(true);
+      expect(calls.some(([, , search]) => search === "")).toBe(true);
+    });
+  });
+
   it("says so when the target keys could not be loaded, and asks again", async () => {
     let failing = true;
     vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) => {

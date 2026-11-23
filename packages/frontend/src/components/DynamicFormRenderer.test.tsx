@@ -135,6 +135,54 @@ describe("the create form's button", () => {
     expect(onSubmit).toHaveBeenCalledWith({aliasTargetKey: "key/key-a"});
   });
 
+  it("drops a value the options no longer offer", async () => {
+    // The create form is inline, so the table stays usable while it is open.
+    // The key the form points at is deleted, the choices are asked again, and
+    // the options no longer offer it: the value follows the options the form
+    // has, not the one it had.
+    const first: FieldSchema = {
+      name: "aliasTargetKey",
+      label: "Target Key",
+      type: "select",
+      required: true,
+      options: [{label: "key-a", value: "key/key-a"}],
+    };
+    const second: FieldSchema = {
+      ...first,
+      options: [{label: "key-b", value: "key/key-b"}],
+    };
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+
+    const {rerender} = render(
+      <DynamicFormRenderer
+        schema={{...schema, fields: [first]}}
+        isSubmitting={false}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await waitFor(() =>
+      expect((screen.getByLabelText(/Target Key/) as HTMLSelectElement).value).toBe("key/key-a"),
+    );
+
+    rerender(
+      <DynamicFormRenderer
+        schema={{...schema, fields: [second]}}
+        isSubmitting={false}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await waitFor(() =>
+      expect((screen.getByLabelText(/Target Key/) as HTMLSelectElement).value).toBe("key/key-b"),
+    );
+
+    await user.click(screen.getByRole("button", {name: "Create"}));
+
+    expect(onSubmit).toHaveBeenCalledWith({aliasTargetKey: "key/key-b"});
+  });
+
   it("says so when the options of a field could not be loaded, and asks again", async () => {
     // An account with no keys and a request that failed leave the same empty
     // dropdown, so the failure is said so beside the field that needs the
