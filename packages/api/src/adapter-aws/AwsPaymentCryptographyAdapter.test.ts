@@ -6,6 +6,7 @@ import {
     DeleteKeyCommand,
     GetAliasCommand,
     GetKeyCommand,
+    GetResourcePolicyCommand,
     ListAliasesCommand,
     GetPublicKeyCertificateCommand,
     ListKeysCommand,
@@ -84,6 +85,7 @@ function runtimeStub(overrides: Record<string, SendResult | (() => never)> = {})
             return respond('certificate', {KeyCertificate: 'CERTIFICATE-PEM'})
         }
         if (command instanceof ListTagsForResourceCommand) return respond('tags', {Tags: []})
+        if (command instanceof GetResourcePolicyCommand) return respond('policy', {})
         if (command instanceof TagResourceCommand) return respond('tag', {})
         if (command instanceof UntagResourceCommand) return respond('untag', {})
         return {}
@@ -182,6 +184,16 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(rows.map((row) => row.id)).toEqual([KEY_ID, OTHER_KEY_ID])
             const listCalls = sent.filter((command) => command instanceof ListKeysCommand)
             expect((listCalls[1] as ListKeysCommand).input.NextToken).toBe('page-2')
+        })
+
+        test('a row of the table carries no policy, because it was not read', async () => {
+            const {client} = runtimeStub()
+
+            const [row] = await new AwsPaymentCryptographyAdapter(client).list()
+
+            // The policy is read with the key, not with the table, so a row says
+            // nothing of a policy it never read.
+            expect(row?.metadata).not.toHaveProperty('keyPolicy')
         })
 
         test('searches the ARN and the usage', async () => {
@@ -284,6 +296,28 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
 
             expect(resource?.name).toBe(ARN)
+            expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+        })
+
+        test('a key that was read and holds no policy says so', async () => {
+            const {client} = runtimeStub({policy: {}})
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            expect(resource?.metadata.keyPolicy).toBeNull()
+        })
+
+        test('a policy that could not be read is not a key that holds none', async () => {
+            const {client} = runtimeStub({
+                policy: () => {
+                    throw new Error('denied')
+                },
+            })
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            // The policy was not read, so none is published: the marker says so.
+            expect(resource?.metadata).not.toHaveProperty('keyPolicy')
             expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
         })
     })

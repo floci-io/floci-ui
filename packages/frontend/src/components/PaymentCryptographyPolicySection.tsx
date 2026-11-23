@@ -13,6 +13,23 @@ interface PaymentCryptographyPolicySectionProps {
 }
 
 /**
+ * The state the API published for the policy of a key.
+ *
+ * <p>The API owns the state: it publishes the policy where it read one, it
+ * publishes none where it did not read one, and it says so when the read
+ * failed. The console only picks the sentence.
+ */
+type PolicyState = "held" | "none" | "unreadable" | "not-read";
+
+/** What the console says for each state the API published. */
+const POLICY_SENTENCES: Record<PolicyState, string> = {
+  held: "The policy that lets another account use this key.",
+  none: "No policy: the key is used only by the account that holds it.",
+  unreadable: "The policy could not be read.",
+  "not-read": "The policy has not been read yet.",
+};
+
+/**
  * The resource-based policy of a key.
  *
  * <p>A policy is what lets another account use the key, and the reference refuses
@@ -28,6 +45,7 @@ export function PaymentCryptographyPolicySection({
   // refresh another account's resources.
   const accountId = getAccountId();
   const held = typeof resource.metadata.keyPolicy === "string" ? resource.metadata.keyPolicy : "";
+  const state = policyState(resource);
   const [policy, setPolicy] = useState(held);
   const [editing, setEditing] = useState(false);
 
@@ -98,21 +116,19 @@ export function PaymentCryptographyPolicySection({
         </>
       ) : (
         <>
-          <p className="muted compact-text">
-            {held
-              ? "The policy that lets another account use this key."
-              : "No policy: the key is used only by the account that holds it."}
-          </p>
-          <button
-            className="button small"
-            type="button"
-            disabled={!runtimeReachable}
-            onClick={() => setEditing(true)}
-          >
-            <ShieldCheck size={12} />
-            {held ? "Edit policy" : "Attach a policy"}
-          </button>{" "}
-          {held && (
+          <p className="muted compact-text">{POLICY_SENTENCES[state]}</p>
+          {(state === "held" || state === "none") && (
+            <button
+              className="button small"
+              type="button"
+              disabled={!runtimeReachable}
+              onClick={() => setEditing(true)}
+            >
+              <ShieldCheck size={12} />
+              {state === "held" ? "Edit policy" : "Attach a policy"}
+            </button>
+          )}{" "}
+          {state === "held" && (
             <button
               className="button small"
               type="button"
@@ -134,4 +150,17 @@ export function PaymentCryptographyPolicySection({
       )}
     </section>
   );
+}
+
+/**
+ * The state the metadata of a key publishes for its policy.
+ *
+ * <p>The names are the API's own, so they are read as own properties: a name
+ * inherited from the prototype is not a state the API published.
+ */
+function policyState(resource: CloudResource): PolicyState {
+  const metadata = resource.metadata;
+  if (metadata.keyPolicyUnavailable === true) return "unreadable";
+  if (!Object.prototype.hasOwnProperty.call(metadata, "keyPolicy")) return "not-read";
+  return typeof metadata.keyPolicy === "string" ? "held" : "none";
 }

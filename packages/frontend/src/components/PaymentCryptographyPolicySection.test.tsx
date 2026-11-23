@@ -111,4 +111,32 @@ describe("the policy of a payment key", () => {
       "paymentcryptography",
     ]);
   });
+
+  it("says the key holds no policy when it was read and holds none", () => {
+    renderSection({...key, metadata: {enabled: true, keyPolicy: null}});
+
+    expect(
+      screen.getByText("No policy: the key is used only by the account that holds it."),
+    ).toBeTruthy();
+  });
+
+  it("says the policy has not been read, rather than that the key holds none", () => {
+    renderSection({...key, metadata: {enabled: true}});
+
+    // The API owns the state: a row that never read a policy publishes none,
+    // which is not the same as a key that was read and holds none.
+    expect(screen.getByText("The policy has not been read yet.")).toBeTruthy();
+    expect(
+      screen.queryByText("No policy: the key is used only by the account that holds it."),
+    ).toBeNull();
+  });
+
+  it("says the policy could not be read", () => {
+    renderSection({...key, metadata: {enabled: true, keyPolicyUnavailable: true}});
+
+    expect(screen.getByText("The policy could not be read.")).toBeTruthy();
+    expect(
+      screen.queryByText("No policy: the key is used only by the account that holds it."),
+    ).toBeNull();
+  });
 });

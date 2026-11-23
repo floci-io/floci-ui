@@ -594,12 +594,13 @@ function toResource(key: Key, tagLookup: TagLookup, policyLookup?: KeyPolicyLook
 /**
  * The policy of a key, as the metadata carries it.
  *
- * <p>A policy that could not be read is said so, so it cannot pass for a key
- * that holds none.
+ * <p>The policy is published only where it was read: a row of the table carries
+ * none, because it never read one. A read that failed is said so, so it cannot
+ * pass for a key that holds none.
  */
 function policyMetadata(policyLookup: KeyPolicyLookup | undefined): Record<string, unknown> {
-    if (!policyLookup) return {keyPolicy: null}
-    if (policyLookup.unavailable) return {keyPolicy: null, keyPolicyUnavailable: true}
+    if (!policyLookup) return {}
+    if (policyLookup.unavailable) return {keyPolicyUnavailable: true}
     return {keyPolicy: policyLookup.policy}
 }
 
