@@ -186,7 +186,8 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             throw new ValidationError('the replication Regions of the request must be a list of Region names')
         }
         const regions = wanted as string[]
-        const primary = await this.primaryRegionOf(identifier)
+        const key = await this.readKey(identifier)
+        const primary = key?.PrimaryRegion ?? null
         if (primary && regions.includes(primary)) {
             // The Region the primary is in is not a replica, and the reference
             // refuses it. It is refused here too, before anything is changed:
@@ -196,7 +197,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
                 `the key is the primary in ${primary}, so it is not replicated to it`,
             )
         }
-        const current = await this.replicationRegionsOf(identifier)
+        const current = key ? replicationRegionsOf(key) : []
         const added = regions.filter((region) => !current.includes(region))
         const removed = current.filter((region) => !regions.includes(region))
         // The Regions that are gone go first: a key that replicates to as many
@@ -210,27 +211,10 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
     }
 
-    /**
-     * The Regions a key is replicated to, as the key answers them.
-     *
-     * <p>A replica answers with the kind of the key and its primary Region alone,
-     * so the Regions are the ones a primary holds.
-     */
-    /** The Region the key is the primary in, if it is one. */
-    private async primaryRegionOf(keyArn: string): Promise<string | null> {
+    /** The key as it answers, which is where the rules of its replication are read from. */
+    private async readKey(keyArn: string): Promise<Key | undefined> {
         const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
-        return res.Key?.PrimaryRegion ?? null
-    }
-
-    private async replicationRegionsOf(keyArn: string): Promise<string[]> {
-        const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
-        const status = res.Key?.ReplicationStatus
-        const primary = res.Key?.PrimaryRegion
-        // The status holds the Regions the key is replicated to, and the Region
-        // the primary is in is not one of them. It is named apart, and a runtime
-        // that answered with it in the status would have it taken away, which the
-        // reference refuses.
-        return status ? Object.keys(status).filter((region) => region !== primary) : []
+        return res.Key
     }
 
     /**
@@ -530,6 +514,7 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
     return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
+<<<<<<< HEAD
 function toResource(
     key: Key,
     tagLookup: TagLookup,
@@ -537,6 +522,23 @@ function toResource(
     // read, so it carries no state at all.
     certificateLookup: CertificateLookup = {},
 ): CloudResource {
+=======
+/**
+ * The Regions a key is replicated to, as the key answers them.
+ *
+ * <p>The status holds the Regions the key is replicated to, and the Region the
+ * primary is in is not one of them. It is named apart, and a runtime that
+ * answered with it in the status would have it taken away, which the reference
+ * refuses.
+ */
+function replicationRegionsOf(key: Key): string[] {
+    const status = key.ReplicationStatus
+    if (!status) return []
+    return Object.keys(status).filter((region) => region !== key.PrimaryRegion)
+}
+
+function toResource(key: Key, tagLookup: TagLookup): CloudResource {
+>>>>>>> 036d12f (fix(paymentcryptography): the Regions a key holds are published by the API)
     const arn = key.KeyArn ?? ''
 
     return {
@@ -566,6 +568,7 @@ function toResource(
             deleteTimestamp: isoDate(key.DeleteTimestamp),
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
+<<<<<<< HEAD
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -581,6 +584,9 @@ function toResource(
             ...(certificateLookup.state !== undefined
                 ? {publicKeyCertificateState: certificateLookup.state}
                 : {}),
+=======
+            replicationRegions: replicationRegionsOf(key),
+>>>>>>> 036d12f (fix(paymentcryptography): the Regions a key holds are published by the API)
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },

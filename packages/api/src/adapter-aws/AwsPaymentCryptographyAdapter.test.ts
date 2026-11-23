@@ -244,6 +244,28 @@ describe('AwsPaymentCryptographyAdapter', () => {
             })
         })
 
+        test('publishes the Regions the key is replicated to', async () => {
+            const {client} = runtimeStub({
+                get: {
+                    Key: {
+                        ...key,
+                        MultiRegionKeyType: 'PRIMARY',
+                        PrimaryRegion: 'us-east-1',
+                        // The status holds the Regions the key is replicated to,
+                        // and the Region the primary is in is not one of them.
+                        ReplicationStatus: {
+                            'us-east-1': {Status: 'SYNCHRONIZED'},
+                            'us-east-2': {Status: 'SYNCHRONIZED'},
+                        },
+                    },
+                },
+            })
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            expect(resource?.metadata.replicationRegions).toEqual(['us-east-2'])
+        })
+
         test('returns null for a key that does not exist', async () => {
             const {client} = runtimeStub({get: notFound})
 
