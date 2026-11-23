@@ -155,4 +155,20 @@ describe('the certificate of a payment key', () => {
         expect(resource?.metadata.publicKeyCertificateState).toBe('unsigned')
         expect(resource?.metadata.publicKeyCertificate).toBeNull()
     })
+
+    test('a service that refuses the request has no certificate to give', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('the key has no public key'), {
+                name: 'ValidationException',
+                $metadata: {httpStatusCode: 400},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(ARN)
+
+        // A refusal is the service saying it has none to give, which is not the
+        // same thing as a read that did not come.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unsigned')
+    })
 })

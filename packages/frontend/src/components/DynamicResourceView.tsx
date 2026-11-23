@@ -39,6 +39,7 @@ import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { activeListFilters, filterOptions, filterValueOf, listFiltersOf } from "@/lib/listFilters";
+import { isPaymentKey } from "@/lib/paymentCryptography";
 import { ModalOverlay } from "@/components/ModalOverlay";
 import {
   storageObjectsKey,
@@ -1156,7 +1157,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-      {service === "paymentcryptography" && activeSelected?.type === "key" && (
+      {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
         // The certificate of a payment key is part of the key's detail, and the
         // table's row carries none of it, so the panel shows the detail and
         // never the row: it would speak about a key it has not read. A detail

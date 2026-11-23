@@ -325,10 +325,13 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
                 // published: the leaf alone cannot be verified against anything.
                 ...(res.KeyCertificateChain !== undefined ? {chain: res.KeyCertificateChain} : {}),
             }
-        } catch {
-            // A denied permission and a transient failure are both a read that
-            // did not come, the way a failed tag lookup is, and the state says
-            // so rather than the request failing over a certificate.
+        } catch (error) {
+            // A refusal is the service saying it has no certificate to give, and
+            // a failure is the read that did not come: the two are not the same
+            // thing, so the console is told which it was.
+            if (isClientError(error)) {
+                return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unsigned, certificate: null}
+            }
             return {state: PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES.unreadable}
         }
     }
@@ -654,6 +657,20 @@ function oneOf<T extends readonly string[]>(
         throw new ValidationError(`${field} must be one of ${allowed.join(', ')}`)
     }
     return raw as T[number]
+}
+
+/**
+ * Whether the service refused the request rather than failing to answer it.
+ *
+ * <p>A refusal is the service saying the request makes no sense, which for a
+ * certificate is the service saying it has none to give. A failure is the read
+ * that did not come: a throttled service, a broken connection, a permission
+ * that is not there.
+ */
+function isClientError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false
+    const status = (error as {$metadata?: {httpStatusCode?: number}}).$metadata?.httpStatusCode
+    return typeof status === 'number' && status >= 400 && status < 500
 }
 
 /**

@@ -1,5 +1,5 @@
-import {useEffect, useRef, useState} from "react";
 import {Check, Copy, KeyRound} from "lucide-react";
+import {useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudResource} from "@/types/resource";
 
 export interface PaymentCryptographyCertificateSectionProps {
@@ -20,43 +20,7 @@ export function PaymentCryptographyCertificateSection({
   resource,
   keyUnreadable,
 }: PaymentCryptographyCertificateSectionProps) {
-  const [copied, setCopied] = useState<"certificate" | "chain" | null>(null);
-  const [copyFailed, setCopyFailed] = useState(false);
-  const copyRequestRef = useRef(0);
-  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      // A write that resolves after the section is gone is stale, and the
-      // request counter is what says so.
-      copyRequestRef.current += 1;
-      if (copyResetTimerRef.current !== null) clearTimeout(copyResetTimerRef.current);
-    };
-  }, []);
-
-  const copyText = async (text: string, which: "certificate" | "chain") => {
-    const request = ++copyRequestRef.current;
-    if (copyResetTimerRef.current !== null) {
-      clearTimeout(copyResetTimerRef.current);
-      copyResetTimerRef.current = null;
-    }
-    setCopied(null);
-    setCopyFailed(false);
-    try {
-      await navigator.clipboard.writeText(text);
-      if (request !== copyRequestRef.current) return;
-      setCopied(which);
-      copyResetTimerRef.current = setTimeout(() => {
-        if (request === copyRequestRef.current) setCopied(null);
-        copyResetTimerRef.current = null;
-      }, 1500);
-    } catch {
-      if (request !== copyRequestRef.current) return;
-      // The clipboard is refused in some contexts and denied by some browsers,
-      // and a button that does nothing looks broken, so the failure is said.
-      setCopyFailed(true);
-    }
-  };
+  const {copied, copyFailed, copy} = useCopyToClipboard();
 
   const certificate =
     typeof resource?.metadata.publicKeyCertificate === "string"
@@ -84,8 +48,8 @@ export function PaymentCryptographyCertificateSection({
           value={certificate}
           rows={6}
           copyLabel="Copy certificate"
-          copied={copied === "certificate"}
-          onCopy={() => void copyText(certificate, "certificate")}
+          copied={copied}
+          onCopy={() => void copy(certificate)}
         />
       )}
       {chain && (
@@ -98,8 +62,8 @@ export function PaymentCryptographyCertificateSection({
             value={chain}
             rows={4}
             copyLabel="Copy chain"
-            copied={copied === "chain"}
-            onCopy={() => void copyText(chain, "chain")}
+            copied={copied}
+            onCopy={() => void copy(chain)}
           />
         </>
       )}
@@ -178,12 +142,20 @@ function CopyableValue({
  */
 function certificateReason(resource: CloudResource | undefined): string {
   const state = resource?.metadata.publicKeyCertificateState;
-  return typeof state === "string" && state in CERTIFICATE_REASONS
+  // The state travels as metadata, so it is checked against the table with an
+  // own-property test: a name inherited from the prototype is not a state.
+  return typeof state === "string" && Object.prototype.hasOwnProperty.call(CERTIFICATE_REASONS, state)
     ? CERTIFICATE_REASONS[state as CertificateState]
     : "The service did not say what state the certificate is in.";
 }
 
-/** The states the API names a certificate's state by. */
+/**
+ * The states the API names a certificate's state by.
+ *
+ * <p>The API owns the vocabulary, in `cloud-spi/paymentCryptographySchema.ts`, and
+ * the console cannot import that package, so the five names are mirrored here the
+ * way the schema's own types are mirrored in `types/schema.ts`.
+ */
 type CertificateState = "unknown" | "no-public-half" | "signed" | "unsigned" | "unreadable";
 
 const CERTIFICATE_REASONS: Record<CertificateState, string> = {
@@ -191,5 +163,5 @@ const CERTIFICATE_REASONS: Record<CertificateState, string> = {
   unsigned: "The service has not signed a certificate for this key.",
   unreadable: "The certificate could not be read.",
   unknown: "The service did not say what kind of key this is, so it has not said whether it has a public half.",
-  signed: "The service signed a certificate for this key, but it did not hand it out.",
+  signed: "The service signed a certificate for this key's public half.",
 };
