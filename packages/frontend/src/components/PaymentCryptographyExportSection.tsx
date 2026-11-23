@@ -3,6 +3,7 @@ import {useMutation} from "@tanstack/react-query";
 import {Check, Copy, Download} from "lucide-react";
 import {exportPaymentCryptographyKey} from "@/api/cloudProxyClient";
 import {wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
+import {useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 import type {ServiceSchema} from "@/types/schema";
@@ -44,7 +45,7 @@ export function PaymentCryptographyExportSection({
   keyUnreadable,
 }: PaymentCryptographyExportSectionProps) {
   const [wrappingKey, setWrappingKey] = useState("");
-  const [copied, setCopied] = useState(false);
+  const {copied, copyFailed, copy} = useCopyToClipboard();
 
   const allowed = useMemo(
     () => (resource ? wrappingKeysFor(resource, resources, schema) : []),
@@ -59,16 +60,6 @@ export function PaymentCryptographyExportSection({
   });
 
   const material = exportMut.data?.keyMaterial ?? "";
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(material);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
-  };
 
   if (keyUnreadable) {
     // The key was not read, so nothing is known of the material it leaves
@@ -105,7 +96,6 @@ export function PaymentCryptographyExportSection({
             // The material of the last export is not the material of this one, so
             // it goes rather than being left on the screen under another key.
             exportMut.reset();
-            setCopied(false);
           }}
         >
           <option value="">Choose a wrapping key</option>
@@ -153,10 +143,15 @@ export function PaymentCryptographyExportSection({
             value={material}
             aria-label="Exported key material"
           />
-          <button className="button small" type="button" onClick={copy}>
+          <button className="button small" type="button" onClick={() => void copy(material)}>
             {copied ? <Check size={12} /> : <Copy size={12} />}
             {copied ? "Copied" : "Copy material"}
           </button>
+          {copyFailed && (
+            <p className="form-error" role="alert">
+              The clipboard was not available, so nothing was copied.
+            </p>
+          )}
         </>
       )}
       {exportMut.error instanceof Error && (

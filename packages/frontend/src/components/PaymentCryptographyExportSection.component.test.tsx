@@ -127,4 +127,23 @@ describe("the material a payment key leaves under", () => {
     // Only the choice that asks for a wrapping key, so nothing may carry it.
     expect(options.length).toBe(1);
   });
+
+  it("says so when the clipboard refuses", async () => {
+    const user = userEvent.setup();
+    // The setup replaces the clipboard with a stub of its own, so the refusal
+    // is put in place after it.
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+    renderSection(key, [wrapping]);
+
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
+    await user.click(screen.getByRole("button", {name: /Export key/i}));
+    await waitFor(() => expect(screen.getByLabelText("Exported key material")).toBeDefined());
+
+    await user.click(screen.getByRole("button", {name: /Copy material/i}));
+
+    // The clipboard is refused in some contexts, so a copy that did not happen
+    // is said rather than left to look like a button that does nothing.
+    expect(await screen.findByRole("alert")).toHaveTextContent(/clipboard was not available/i);
+  });
 });
