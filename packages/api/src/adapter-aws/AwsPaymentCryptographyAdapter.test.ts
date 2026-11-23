@@ -522,51 +522,6 @@ describe('AwsPaymentCryptographyAdapter', () => {
         expect((sent[0] as ListKeysCommand).input).toEqual({MaxResults: 1})
     })
 
-    describe("the key's settings", () => {
-        test("enables and disables a key", async () => {
-            const {client, sent} = runtimeStub()
-            const adapter = new AwsPaymentCryptographyAdapter(client)
-
-            await adapter.update(KEY_ID, {values: {enabled: 'false'}})
-            await adapter.update(KEY_ID, {values: {enabled: 'true'}})
-
-            expect(sent.some((command) => command instanceof StopKeyUsageCommand)).toBe(true)
-            expect(sent.some((command) => command instanceof StartKeyUsageCommand)).toBe(true)
-        })
-
-        test("attaches and removes the policy of a key", async () => {
-            const {client, sent} = runtimeStub()
-            const adapter = new AwsPaymentCryptographyAdapter(client)
-
-            await adapter.update(KEY_ID, {values: {policy: '{"Version": "2012-10-17"}'}})
-            await adapter.update(KEY_ID, {values: {policy: ''}})
-
-            const attached = sent.find((command) => command instanceof PutResourcePolicyCommand) as PutResourcePolicyCommand
-            expect(attached.input.Policy).toBe('{"Version": "2012-10-17"}')
-            expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(true)
-        })
-
-        test("adds and takes away the regions a key is replicated to", async () => {
-            const {client, sent} = runtimeStub({
-                get: {Key: {...key, ReplicationStatus: {'us-east-2': {Status: 'SYNCHRONIZED'}}}},
-            })
-            const adapter = new AwsPaymentCryptographyAdapter(client)
-
-            await adapter.update(KEY_ID, {values: {replicationRegions: 'us-east-2,eu-west-1'}})
-
-            const added = sent.find((command) => command instanceof AddKeyReplicationRegionsCommand) as AddKeyReplicationRegionsCommand
-            expect(added.input.ReplicationRegions).toEqual(['eu-west-1'])
-        })
-
-        test("refuses to change an alias, which has no settings of its own", async () => {
-            const {client} = runtimeStub()
-
-            await expect(
-                new AwsPaymentCryptographyAdapter(client).update(ALIAS_ID, {values: {enabled: 'false'}}),
-            ).rejects.toBeInstanceOf(ValidationError)
-        })
-    })
-
     describe("a key's material", () => {
         test("refuses a wrapping key that is too weak to carry the key", async () => {
             const {client, sent} = runtimeStub({

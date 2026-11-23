@@ -244,6 +244,25 @@ export async function setPaymentCryptographyKeyUsage(
 }
 
 /**
+ * The Regions a payment cryptography key is replicated to.
+ *
+ * <p>The list is the whole one: a Region that is not on it is taken away.
+ */
+export async function setPaymentCryptographyKeyReplication(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<unknown, Record<string, unknown>>(
+    apiEndpointKeys.clouds.resources.replication,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+}
+
+/**
  * The policy that lets another account use a payment cryptography key.
  *
  * <p>An empty policy removes the one the key holds.

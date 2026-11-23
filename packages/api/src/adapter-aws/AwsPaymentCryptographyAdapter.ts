@@ -60,7 +60,6 @@ import type {
     CreateResourceInput,
     ResourceQuery,
     ServiceSchema,
-    UpdateResourceInput,
 } from '../cloud-spi/types'
 
 type KeyTag = {key: string; value: string}
@@ -152,62 +151,58 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /**
-     * A change to a key that is not its attributes: whether it may be used, the
-     * policy it carries, and the Regions it is replicated to.
+     * The Regions a key is replicated to.
      *
-     * <p>Each part says what it changes by the value it carries, so the parts do
-     * not depend on each other.
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
      */
-    async update(id: string, input: UpdateResourceInput): Promise<CloudResource> {
+    async setReplication(id: string, input: Record<string, unknown>): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {
             throw new ValidationError('an alias has no settings of its own; the key it names does')
         }
-
-        if (input.values.enabled !== undefined) {
-            await setKeyUsage(this.client, identifier, booleanValue(input.values.enabled, 'enabled'))
+        const wanted = input?.replicationRegions
+        if (!Array.isArray(wanted) || wanted.some((region) => typeof region !== 'string')) {
+            throw new ValidationError('the replication Regions of the request must be a list of Region names')
         }
-        if (input.values.policy !== undefined) {
-            const policy = optionalString(input.values.policy, 'policy')
-            if (policy === undefined) {
-                await deleteKeyPolicy(this.client, identifier)
-            } else {
-                await putKeyPolicy(this.client, identifier, policy)
-            }
+        const regions = wanted as string[]
+        const key = await this.readKey(identifier)
+        // A replica is read-only: the reference says a Replica Region key cannot
+        // be configured to replicate to other Regions, so the API refuses what
+        // it cannot do rather than sending a request the service would refuse.
+        if (key?.MultiRegionKeyType === 'REPLICA') {
+            throw new ValidationError(
+                'a replica is read-only, so the Regions it is replicated to are those of its primary',
+            )
         }
-        if (input.values.replicationRegions !== undefined) {
-            const wanted = stringList(input.values.replicationRegions, 'replicationRegions')
-            const current = await this.replicationRegionsOf(identifier)
-            const added = wanted.filter((region) => !current.includes(region))
-            const removed = current.filter((region) => !wanted.includes(region))
-            if (added.length > 0) {
-                await setReplicationRegions(this.client, identifier, added, true)
-            }
-            if (removed.length > 0) {
-                await setReplicationRegions(this.client, identifier, removed, false)
-            }
+        const primary = key?.PrimaryRegion ?? null
+        if (primary && regions.includes(primary)) {
+            // The Region the primary is in is not a replica, and the reference
+            // refuses it. It is refused here too, before anything is changed:
+            // the Regions that are gone go first, so a request that named the
+            // primary would take a replica away and then fail.
+            throw new ValidationError(
+                `the key is the primary in ${primary}, so it is not replicated to it`,
+            )
         }
-
-        const key = await this.describe(identifier)
-        if (!key) throw new ValidationError(`the key ${identifier} is not there`)
-        return toResource(
-            key,
-            await this.getTags(identifier),
-            await this.publicKeyCertificate(key),
-            await getKeyPolicy(this.client, identifier),
-        )
+        const current = key ? replicationRegionsOf(key) : []
+        const added = regions.filter((region) => !current.includes(region))
+        const removed = current.filter((region) => !regions.includes(region))
+        // The Regions that are gone go first: a key that replicates to as many
+        // Regions as it may would be refused a fifth one, so a Region that is
+        // replaced would fail to be replaced.
+        if (removed.length > 0) {
+            await setReplicationRegions(this.client, identifier, removed, false)
+        }
+        if (added.length > 0) {
+            await setReplicationRegions(this.client, identifier, added, true)
+        }
     }
 
-    /**
-     * The Regions a key is replicated to, as the key answers them.
-     *
-     * <p>A replica answers with the kind of the key and its primary Region alone,
-     * so the Regions are the ones a primary holds.
-     */
-    private async replicationRegionsOf(keyArn: string): Promise<string[]> {
+    /** The key as it answers, which is where the rules of its replication are read from. */
+    private async readKey(keyArn: string): Promise<Key | undefined> {
         const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
-        const status = res.Key?.ReplicationStatus
-        return status ? Object.keys(status) : []
+        return res.Key
     }
 
     /** The Regions the account replicates a new key to by default. */
@@ -720,7 +715,7 @@ function toResource(
 =======
             publicKeyCertificate,
             ...policyMetadata(policyLookup),
-            replicationRegions: key.ReplicationStatus ? Object.keys(key.ReplicationStatus) : [],
+            replicationRegions: replicationRegionsOf(key),
             usingDefaultReplicationRegions: key.UsingDefaultReplicationRegions,
 >>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
 >>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
@@ -862,16 +857,24 @@ function filterBySearch(resources: CloudResource[], search?: string): CloudResou
     })
 }
 
+/**
+ * The Regions a key is replicated to, as the key answers them.
+ *
+ * <p>The status holds the Regions the key is replicated to, and the Region the
+ * primary is in is not one of them. It is named apart, and a runtime that
+ * answered with it in the status would have it taken away, which the reference
+ * refuses.
+ */
+function replicationRegionsOf(key: Key): string[] {
+    const status = key.ReplicationStatus
+    if (!status) return []
+    return Object.keys(status).filter((region) => region !== key.PrimaryRegion)
+}
+
 function optionalString(value: unknown, field: string): string | undefined {
     if (value === undefined || value === null || value === '') return undefined
     if (typeof value !== 'string') throw new ValidationError(`${field} must be a string`)
     return value
-}
-
-function stringList(value: unknown, field: string): string[] {
-    const raw = optionalString(value, field)
-    if (raw === undefined) return []
-    return raw.split(',').map((each) => each.trim()).filter(Boolean)
 }
 
 function requiredString(value: unknown, field: string): string {

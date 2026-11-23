@@ -1,7 +1,7 @@
 import {useState} from "react";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {Globe2, Plus, Trash2} from "lucide-react";
-import {updateCloudResource} from "@/api/cloudProxyClient";
+import {setPaymentCryptographyKeyReplication} from "@/api/cloudProxyClient";
 import {getAccountId} from "@/lib/accountStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
@@ -24,6 +24,9 @@ export function PaymentCryptographyReplicationSection({
   runtimeReachable,
 }: PaymentCryptographyReplicationSectionProps) {
   const queryClient = useQueryClient();
+  // Captured now: an account switch while the request is in flight must not
+  // refresh another account's resources.
+  const accountId = getAccountId();
   const regions = Array.isArray(resource.metadata.replicationRegions)
     ? (resource.metadata.replicationRegions as string[])
     : [];
@@ -38,16 +41,18 @@ export function PaymentCryptographyReplicationSection({
 
   const save = useMutation({
     mutationFn: (next: string[]) =>
-      updateCloudResource(cloud, resource.service, resource.id, {
-        replicationRegions: next.join(","),
+      setPaymentCryptographyKeyReplication(cloud, resource.service, resource.id, {
+        replicationRegions: next,
       }),
-    onSuccess: () => {
+    onSettled: () => {
+      // The Regions that are gone go first, so a change that fails halfway
+      // leaves the panel showing what the service now holds.
       setRegion("");
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", getAccountId(), cloud, resource.service, resource.id],
+        queryKey: ["cloud-resource", accountId, cloud, resource.service, resource.id],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-console-resources", cloud, resource.service],
+        queryKey: ["cloud-resources", accountId, cloud, resource.service],
       });
     },
   });
@@ -56,10 +61,16 @@ export function PaymentCryptographyReplicationSection({
     <section className="inspector-section">
       <p className="metric-label">Replication</p>
       {isReplica ? (
-        <p className="muted compact-text">
-          This key is a replica of the key in {primary ?? "another Region"}, and a replica is
-          read-only.
-        </p>
+        <>
+          <p className="muted compact-text">
+            This key is a replica of the key in {primary ?? "another Region"}, and a replica is
+            read-only.
+          </p>
+          <p className="muted compact-text">
+            The Regions the key is replicated to are those of its primary:{" "}
+            {regions.length === 0 ? "none reported" : regions.join(", ")}.
+          </p>
+        </>
       ) : (
         <>
           <p className="muted compact-text">

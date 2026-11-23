@@ -145,4 +145,48 @@ describe('the payment cryptography routes', () => {
             expect(res.status).toBe(400)
         }
     })
+
+    test('the replication route passes the body to the adapter', async () => {
+        const seen: Array<Record<string, unknown>> = []
+        const app = appWithRoutes([
+            paymentAdapter({
+                setReplication: async (_id: string, input: Record<string, unknown>) => {
+                    seen.push(input)
+                },
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/replication',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({replicationRegions: ['us-east-2']}),
+            },
+        )
+
+        expect(res.status).toBe(200)
+        expect(seen[0]).toEqual({replicationRegions: ['us-east-2']})
+    })
+
+    test('a body that is not an object is refused by the replication route', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                setReplication: async () => {},
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        for (const body of ['null', '[]', '42']) {
+            const res = await app.request(
+                '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/replication',
+                {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body,
+                },
+            )
+
+            expect(res.status).toBe(400)
+        }
+    })
 })
