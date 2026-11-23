@@ -179,11 +179,11 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (kind === 'aliases') {
             throw new ValidationError('an alias has no settings of its own; the key it names does')
         }
-        const wanted = input?.replicationRegions
-        if (!Array.isArray(wanted) || wanted.some((region) => typeof region !== 'string')) {
-            throw new ValidationError('the replication Regions of the request must be a list of Region names')
-        }
-        const regions = wanted as string[]
+        // The reference's own commands add and remove one Region at a time, so
+        // the request says which Region to add and which to remove rather than a
+        // set the service has to diff.
+        const added = regionList(input?.addReplicationRegions, 'addReplicationRegions')
+        const removed = regionList(input?.removeReplicationRegions, 'removeReplicationRegions')
         const key = await this.readKey(identifier)
         // A replica is read-only: the reference says a Replica Region key cannot
         // be configured to replicate to other Regions, so the API refuses what
@@ -194,7 +194,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             )
         }
         const primary = key?.PrimaryRegion ?? null
-        if (primary && regions.includes(primary)) {
+        if (primary && (added.includes(primary) || removed.includes(primary))) {
             // The Region the primary is in is not a replica, and the reference
             // refuses it. It is refused here too, before anything is changed:
             // the Regions that are gone go first, so a request that named the
@@ -204,16 +204,18 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             )
         }
         const current = key ? replicationRegionsOf(key) : []
-        const added = regions.filter((region) => !current.includes(region))
-        const removed = current.filter((region) => !regions.includes(region))
+        // A Region the key already holds is not added again, and one it does not
+        // hold is not taken away.
+        const toAdd = added.filter((region) => !current.includes(region))
+        const toRemove = removed.filter((region) => current.includes(region))
         // The Regions that are gone go first: a key that replicates to as many
         // Regions as it may would be refused a fifth one, so a Region that is
         // replaced would fail to be replaced.
-        if (removed.length > 0) {
-            await setReplicationRegions(this.client, identifier, removed, false)
+        if (toRemove.length > 0) {
+            await setReplicationRegions(this.client, identifier, toRemove, false)
         }
-        if (added.length > 0) {
-            await setReplicationRegions(this.client, identifier, added, true)
+        if (toAdd.length > 0) {
+            await setReplicationRegions(this.client, identifier, toAdd, true)
         }
     }
 
@@ -940,6 +942,13 @@ function replicationRegionsOf(key: Key): string[] {
     const status = key.ReplicationStatus
     if (!status) return []
     return Object.keys(status).filter((region) => region !== key.PrimaryRegion)
+}
+
+function regionList(value: unknown, field: string): string[] {
+    if (!Array.isArray(value) || value.some((region) => typeof region !== 'string')) {
+        throw new ValidationError(`the ${field} of the request must be a list of Region names`)
+    }
+    return value as string[]
 }
 
 function optionalString(value: unknown, field: string): string | undefined {

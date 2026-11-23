@@ -6,10 +6,30 @@ import {getAccountId} from "@/lib/accountStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
-interface PaymentCryptographyReplicationSectionProps {
+export interface PaymentCryptographyReplicationSectionProps {
   cloud: CloudProvider;
-  resource: CloudResource;
+  /** The key that was read, when it was read. */
+  resource?: CloudResource;
+  /** The key itself could not be read, so nothing is known of its Regions. */
+  keyUnreadable?: boolean;
   runtimeReachable: boolean;
+}
+
+/**
+ * The Regions a key is replicated to, and the key they belong to.
+ *
+ * <p>The Regions the key held when the draft began are kept next to the draft,
+ * so a change is diffed against them and not against what the service holds
+ * now: a Region that arrived while the panel was open is not one the draft ever
+ * had, and a save that named the whole set would take it away.
+ */
+interface ReplicationChange {
+  service: string;
+  id: string;
+  /** The Regions the key held when the draft began. */
+  base: string[];
+  /** The Regions the panel shows. */
+  regions: string[];
 }
 
 /**
@@ -17,45 +37,95 @@ interface PaymentCryptographyReplicationSectionProps {
  *
  * <p>A replica is read-only, so the Regions of a replica are the ones its primary
  * holds and the section says so rather than offering the controls.
+ *
+ * <p>The Regions are the detail's to say, so the section speaks only of a key it
+ * has read: a key that is not read yet and a key that could not be read are told
+ * apart, and neither of them is shown as a key with no Regions.
  */
 export function PaymentCryptographyReplicationSection({
   cloud,
   resource,
+  keyUnreadable,
   runtimeReachable,
 }: PaymentCryptographyReplicationSectionProps) {
   const queryClient = useQueryClient();
-  // Captured now: an account switch while the request is in flight must not
-  // refresh another account's resources.
-  const accountId = getAccountId();
-  const regions = Array.isArray(resource.metadata.replicationRegions)
-    ? (resource.metadata.replicationRegions as string[])
-    : [];
-  const kind = typeof resource.metadata.multiRegionKeyType === "string"
+  const reported = reportedRegions(resource);
+  const kind = typeof resource?.metadata.multiRegionKeyType === "string"
     ? resource.metadata.multiRegionKeyType
     : null;
-  const primary = typeof resource.metadata.primaryRegion === "string"
+  const primary = typeof resource?.metadata.primaryRegion === "string"
     ? resource.metadata.primaryRegion
     : null;
   const isReplica = kind === "REPLICA";
   const [region, setRegion] = useState("");
+  // The Regions the key held when the draft began, and the Regions the panel
+  // shows. The draft begins with the first change and lives as long as the
+  // panel does.
+  const [draft, setDraft] = useState<{base: string[]; regions: string[]} | null>(null);
 
   const save = useMutation({
-    mutationFn: (next: string[]) =>
-      setPaymentCryptographyKeyReplication(cloud, resource.service, resource.id, {
-        replicationRegions: next,
-      }),
-    onSettled: () => {
-      // The Regions that are gone go first, so a change that fails halfway
-      // leaves the panel showing what the service now holds.
+    mutationFn: (change: ReplicationChange) => {
+      // The reference's own commands add and remove one Region at a time, so
+      // the request says which Region to add and which to remove rather than a
+      // set the service has to diff.
+      const add = change.regions.filter((each) => !change.base.includes(each));
+      const remove = change.base.filter((each) => !change.regions.includes(each));
+      return setPaymentCryptographyKeyReplication(cloud, change.service, change.id, {
+        addReplicationRegions: add,
+        removeReplicationRegions: remove,
+      });
+    },
+    // Captured now: an account switch while the request is in flight must not
+    // refresh another account's resources.
+    onMutate: () => ({accountId: getAccountId()}),
+    onSuccess: (_result, change) => {
+      // The key holds the draft's Regions now, so the next change is diffed
+      // against them.
+      setDraft((current) => (current ? {...current, base: change.regions} : current));
+    },
+    onSettled: (_result, _error, change, context) => {
+      // The Region that was chosen is gone from the input, and the key is read
+      // again, so the panel shows what the service now holds.
       setRegion("");
+      if (!context) return;
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", accountId, cloud, resource.service, resource.id],
+        queryKey: ["cloud-resource", context.accountId, cloud, change.service, change.id],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, resource.service],
+        queryKey: ["cloud-resources", context.accountId, cloud, change.service],
       });
     },
   });
+
+  if (keyUnreadable) {
+    return (
+      <UnknownReplication reason="The key could not be read, so the Regions it is replicated to are unknown." />
+    );
+  }
+  if (!resource) {
+    return (
+      <UnknownReplication reason="The key has not been read yet, so the Regions it is replicated to are not known yet." />
+    );
+  }
+  if (!reported) {
+    return (
+      <UnknownReplication reason="The service did not say which Regions the key is replicated to." />
+    );
+  }
+
+  const {service, id} = resource;
+  // The Regions the panel shows: the draft's, or the detail's while there is
+  // no draft.
+  const regions = draft?.regions ?? reported;
+  // The Regions the key held when the draft began: the removals are diffed
+  // against these and not against what the service holds now.
+  const base = draft?.base ?? reported;
+
+  /** A change of the Regions, which is saved as it is made. */
+  const change = (next: string[]) => {
+    setDraft({base, regions: next});
+    save.mutate({service, id, base, regions: next});
+  };
 
   return (
     <section className="inspector-section">
@@ -89,7 +159,7 @@ export function PaymentCryptographyReplicationSection({
                     type="button"
                     aria-label={`Stop replicating to ${each}`}
                     disabled={!runtimeReachable || save.isPending}
-                    onClick={() => save.mutate(regions.filter((other) => other !== each))}
+                    onClick={() => change(regions.filter((other) => other !== each))}
                   >
                     <Trash2 size={12} />
                   </button>
@@ -103,13 +173,23 @@ export function PaymentCryptographyReplicationSection({
               aria-label="Region to replicate to"
               placeholder="us-east-2"
               value={region}
+              // The input is cleared when the save settles, so it is closed
+              // while the request is in flight: a Region typed now would be
+              // wiped without a word.
+              disabled={save.isPending}
               onChange={(event) => setRegion(event.target.value)}
             />
             <button
               className="button small"
               type="button"
               disabled={!runtimeReachable || save.isPending || region.trim() === ""}
-              onClick={() => save.mutate([...regions, region.trim()])}
+              onClick={() =>
+                change(
+                  regions.includes(region.trim())
+                    ? regions
+                    : [...regions, region.trim()],
+                )
+              }
             >
               <Plus size={12} />
               Replicate to
@@ -124,4 +204,26 @@ export function PaymentCryptographyReplicationSection({
       )}
     </section>
   );
+}
+
+/** The section's frame, with the reason the Regions of the key are not known. */
+function UnknownReplication({reason}: {reason: string}) {
+  return (
+    <section className="inspector-section">
+      <p className="metric-label">Replication</p>
+      <p className="muted compact-text">{reason}</p>
+    </section>
+  );
+}
+
+/**
+ * The Regions the key holds, as the detail answers them.
+ *
+ * <p>The detail carries them and the table's row carries none of them, so a key
+ * that was not read has no Regions to say.
+ */
+function reportedRegions(resource: CloudResource | undefined): string[] | undefined {
+  const regions = resource?.metadata.replicationRegions;
+  if (!Array.isArray(regions)) return undefined;
+  return regions.filter((each): each is string => typeof each === "string");
 }

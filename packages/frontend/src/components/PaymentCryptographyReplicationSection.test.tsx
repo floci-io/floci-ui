@@ -26,7 +26,7 @@ const key: CloudResource = {
   metadata: {enabled: true, replicationRegions: ["us-east-2"]},
 };
 
-function renderSection(resource: CloudResource = key) {
+function renderSection(resource: CloudResource | undefined, keyUnreadable?: boolean) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   const invalidated: unknown[][] = [];
   client.invalidateQueries = vi.fn(async (filters: unknown) => {
@@ -34,16 +34,18 @@ function renderSection(resource: CloudResource = key) {
     return {status: "success", statusText: "", data: undefined, error: null} as never;
   }) as typeof client.invalidateQueries;
 
-  render(
+  const element = () => (
     <QueryClientProvider client={client}>
       <PaymentCryptographyReplicationSection
         cloud="aws"
         resource={resource}
+        keyUnreadable={keyUnreadable}
         runtimeReachable={true}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
-  return {invalidated};
+  const view = render(element());
+  return {invalidated, rerender: () => view.rerender(element())};
 }
 
 describe("the replication of a payment key", () => {
@@ -55,28 +57,75 @@ describe("the replication of a payment key", () => {
 
   it("replicates the key to the Region that is chosen", async () => {
     const user = userEvent.setup();
-    renderSection();
+    renderSection(key);
 
     await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
     await user.click(screen.getByRole("button", {name: /Replicate to/i}));
 
     await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
-    expect(setReplication.mock.calls[0][3]).toEqual({replicationRegions: ["us-east-2", "us-west-2"]});
+    expect(setReplication.mock.calls[0][3]).toEqual({
+      addReplicationRegions: ["us-west-2"],
+      removeReplicationRegions: [],
+    });
   });
 
   it("stops replicating to a Region that is taken away", async () => {
     const user = userEvent.setup();
-    renderSection();
+    renderSection(key);
 
     await user.click(screen.getByRole("button", {name: /Stop replicating to us-east-2/i}));
 
     await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
-    expect(setReplication.mock.calls[0][3]).toEqual({replicationRegions: []});
+    expect(setReplication.mock.calls[0][3]).toEqual({
+      addReplicationRegions: [],
+      removeReplicationRegions: ["us-east-2"],
+    });
+  });
+
+  it("never takes away a Region the draft never had", async () => {
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
+
+    // The detail has not caught up with the save yet, so the panel still shows
+    // the Regions the key held when the draft began.
+    await user.type(screen.getByLabelText("Region to replicate to"), "eu-west-1");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(2));
+
+    // The Region that was added a moment ago is not one the draft never had,
+    // so the second save does not take it away.
+    const second = setReplication.mock.calls[1][3] as {
+      addReplicationRegions: string[];
+      removeReplicationRegions: string[];
+    };
+    expect(second.removeReplicationRegions).toEqual([]);
+    expect(second.addReplicationRegions).toContain("eu-west-1");
+  });
+
+  it("takes away a Region it added a moment ago", async () => {
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
+
+    await user.click(await screen.findByRole("button", {name: /Stop replicating to us-west-2/i}));
+
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(2));
+    expect(setReplication.mock.calls[1][3]).toEqual({
+      addReplicationRegions: [],
+      removeReplicationRegions: ["us-west-2"],
+    });
   });
 
   it("refreshes the resource and the list of the account it saved in", async () => {
     const user = userEvent.setup();
-    const {invalidated} = renderSection();
+    const {invalidated} = renderSection(key);
 
     await user.click(screen.getByRole("button", {name: /Stop replicating to us-east-2/i}));
 
@@ -95,5 +144,79 @@ describe("the replication of a payment key", () => {
       "aws",
       "paymentcryptography",
     ]);
+  });
+
+  it("refreshes the account the write was made in, not the one the user is in", async () => {
+    const user = userEvent.setup();
+    let settle: () => void = () => {};
+    setReplication.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    const {invalidated, rerender} = renderSection(key);
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
+
+    // The account is switched while the request is in flight, and the panel is
+    // painted again, which is what an account switch does to the explorer.
+    setAccountId("111111111111");
+    rerender();
+    settle();
+
+    await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+    const keys = invalidated.map(([filters]) => (filters as {queryKey: unknown[]}).queryKey);
+    expect(keys).toContainEqual([
+      "cloud-resource",
+      DEFAULT_ACCOUNT_ID,
+      "aws",
+      "paymentcryptography",
+      key.id,
+    ]);
+    expect(keys).not.toContainEqual([
+      "cloud-resource",
+      "111111111111",
+      "aws",
+      "paymentcryptography",
+      key.id,
+    ]);
+  });
+
+  it("closes the Region to replicate to while the save is pending", async () => {
+    const user = userEvent.setup();
+    let settle: () => void = () => {};
+    setReplication.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    renderSection(key);
+
+    const input = screen.getByLabelText("Region to replicate to");
+    await user.type(input, "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+
+    // The input is cleared when the save settles, so a Region typed while the
+    // request is in flight would be wiped without a word.
+    await waitFor(() => expect(input).toBeDisabled());
+    settle();
+  });
+
+  it("says the Regions are unknown while the key has not been read", () => {
+    renderSection(undefined);
+
+    expect(screen.getByText(/has not been read yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/replicated to no other Region/i)).not.toBeInTheDocument();
+  });
+
+  it("says the Regions are unknown when the key could not be read", () => {
+    renderSection(undefined, true);
+
+    expect(screen.getByText(/could not be read/i)).toBeInTheDocument();
+    expect(screen.queryByText(/replicated to no other Region/i)).not.toBeInTheDocument();
   });
 });
