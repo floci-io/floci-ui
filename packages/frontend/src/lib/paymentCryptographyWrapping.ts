@@ -18,16 +18,23 @@ export const WRAPPING_USAGES = ["TR31_K0_KEY_ENCRYPTION_KEY", "TR31_K1_KEY_BLOCK
  * The algorithms the service allows a key of this algorithm to be carried by.
  *
  * <p>The schema publishes the matrix, and a service that publishes none allows
- * every pairing.
+ * every pairing. A matrix that is there but does not name an algorithm says
+ * that no key of that algorithm may be carried at all, which is not the same
+ * as a matrix that is not there.
+ *
+ * @returns the algorithms the matrix names, an empty list when the matrix does
+ * not name the algorithm, and nothing at all when the service publishes no
+ * matrix.
  */
 export function allowedAlgorithms(
   schema: ServiceSchema | undefined,
   carriedAlgorithm: string,
-): string[] {
+): string[] | undefined {
   const rule: PairingRule | undefined = schema?.pairings?.find(
     (each) => each.discriminator === "keyAlgorithm",
   );
-  return rule?.allowed?.[carriedAlgorithm] ?? [];
+  if (!rule) return undefined;
+  return rule.allowed[carriedAlgorithm] ?? [];
 }
 
 /**
@@ -51,6 +58,10 @@ export function wrappingKeysFor(
     // Wrap nor Encrypt is the one that cannot.
     if (modes && !modes.Wrap && !modes.Encrypt) return false;
     const algorithm = String(row.metadata.keyAlgorithm ?? "");
-    return allowed.length === 0 || allowed.includes(algorithm);
+    // A service that publishes no matrix says nothing about what may carry
+    // what, so every pairing is allowed. A matrix that does not name the
+    // carried algorithm says that no key may carry it.
+    if (allowed === undefined) return true;
+    return allowed.includes(algorithm);
   });
 }
