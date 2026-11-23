@@ -50,9 +50,6 @@ export function PaymentCryptographyPolicySection({
   runtimeReachable,
 }: PaymentCryptographyPolicySectionProps) {
   const queryClient = useQueryClient();
-  // Captured now: an account switch while the request is in flight must not
-  // refresh another account's resources.
-  const accountId = getAccountId();
   const held = typeof resource?.metadata.keyPolicy === "string" ? resource.metadata.keyPolicy : "";
   const state = policyState(resource, keyUnreadable);
   const [policy, setPolicy] = useState(held);
@@ -68,19 +65,22 @@ export function PaymentCryptographyPolicySection({
       setPaymentCryptographyKeyPolicy(cloud, variables.target.service, variables.target.id, {
         policy: variables.policy,
       }),
-    onSuccess: (_result, variables) => {
+    // Captured when the request is made: an account switch while it is in
+    // flight must not refresh another account's resources.
+    onMutate: () => ({accountId: getAccountId()}),
+    onSuccess: (_result, variables, context) => {
       setEditing(false);
       void queryClient.invalidateQueries({
         queryKey: [
           "cloud-resource",
-          accountId,
+          context.accountId,
           cloud,
           variables.target.service,
           variables.target.id,
         ],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, variables.target.service],
+        queryKey: ["cloud-resources", context.accountId, cloud, variables.target.service],
       });
     },
   });
@@ -88,16 +88,23 @@ export function PaymentCryptographyPolicySection({
   const remove = useMutation({
     mutationFn: (target: CloudResource) =>
       setPaymentCryptographyKeyPolicy(cloud, target.service, target.id, { policy: "" }),
-    onSuccess: (_result, target) => {
+    // Captured when the request is made, for the same reason as the save.
+    onMutate: () => ({accountId: getAccountId()}),
+    onSuccess: (_result, target, context) => {
       setEditing(false);
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", accountId, cloud, target.service, target.id],
+        queryKey: ["cloud-resource", context.accountId, cloud, target.service, target.id],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, target.service],
+        queryKey: ["cloud-resources", context.accountId, cloud, target.service],
       });
     },
   });
+
+  // A write that is in flight holds the controls still: a second write would
+  // land after it and win, and the policy the key holds would be whichever
+  // landed last.
+  const writing = save.isPending || remove.isPending;
 
   return (
     <section className="inspector-section">
@@ -109,12 +116,15 @@ export function PaymentCryptographyPolicySection({
             rows={8}
             value={policy}
             aria-label="Key policy"
+            // The editor closes when the save succeeds, so an edit made during
+            // the request would be lost without a word.
+            disabled={save.isPending}
             onChange={(event) => setPolicy(event.target.value)}
           />
           <button
             className="button small primary"
             type="button"
-            disabled={save.isPending || policy.trim() === ""}
+            disabled={writing || policy.trim() === ""}
             onClick={() => {
               if (!resource) return;
               save.mutate({policy, target: resource});
@@ -125,6 +135,9 @@ export function PaymentCryptographyPolicySection({
           <button
             className="button small"
             type="button"
+            // The editor closes when the save succeeds, so a cancel during the
+            // request would throw away the draft that was sent.
+            disabled={save.isPending}
             onClick={() => {
               // The draft is gone: the policy the key holds is what the editor
               // shows the next time it is opened.
@@ -142,7 +155,7 @@ export function PaymentCryptographyPolicySection({
             <button
               className="button small"
               type="button"
-              disabled={!runtimeReachable}
+              disabled={!runtimeReachable || writing}
               onClick={() => setEditing(true)}
             >
               <ShieldCheck size={12} />
@@ -153,7 +166,7 @@ export function PaymentCryptographyPolicySection({
             <button
               className="button small"
               type="button"
-              disabled={!runtimeReachable || remove.isPending}
+              disabled={!runtimeReachable || writing}
               onClick={() => {
                 if (!resource) return;
                 remove.mutate(resource);

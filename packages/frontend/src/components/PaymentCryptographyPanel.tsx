@@ -159,13 +159,12 @@ export function PaymentCryptographyPanel({
         keyUnreadable={keyUnreadable}
         runtimeReachable={runtimeReachable}
       />
-      {resource && (
-        <PaymentCryptographyPolicySection
-          cloud={cloud}
-          resource={resource}
-          runtimeReachable={runtimeReachable}
-        />
-      )}
+      <PaymentCryptographyPolicySection
+        cloud={cloud}
+        resource={resource}
+        keyUnreadable={keyUnreadable}
+        runtimeReachable={runtimeReachable}
+      />
       {resource && (
         <PaymentCryptographyReplicationSection
           cloud={cloud}

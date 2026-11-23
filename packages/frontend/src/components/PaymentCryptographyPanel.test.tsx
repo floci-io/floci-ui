@@ -108,7 +108,7 @@ describe("the panels of a payment key", () => {
 
     // The key has not been read yet, so the panels say that rather than
     // speaking about a key they know nothing of.
-    expect(await screen.findByText(/has not been read yet/)).toBeDefined();
+    expect((await screen.findAllByText(/has not been read yet/)).length).toBeGreaterThan(0);
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
 >>>>>>> 9452c1c (fix(paymentcryptography): the usage panel speaks about the key it read)
   });

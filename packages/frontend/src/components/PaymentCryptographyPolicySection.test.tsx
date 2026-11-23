@@ -1,4 +1,4 @@
-import {fireEvent, render, screen, waitFor} from "@testing-library/react";
+import {act, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {beforeEach, describe, expect, it, vi} from "vitest";
@@ -165,5 +165,134 @@ describe("the policy of a payment key", () => {
 
     expect(screen.getByText("The key could not be read, so its policy is unknown.")).toBeTruthy();
     expect(screen.queryByRole("button", {name: /policy/i})).toBeNull();
+  });
+
+  it("refreshes the account the save was made in, not the account the user is in by then", async () => {
+    let release: (() => void) | undefined;
+    setPolicy.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    const {invalidated, rerender} = renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Edit policy/i}));
+    fireEvent.change(screen.getByLabelText("Key policy"), {target: {value: "{}"}});
+    await user.click(screen.getByRole("button", {name: /Save policy/i}));
+    await waitFor(() => expect(setPolicy).toHaveBeenCalledTimes(1));
+
+    // The account is switched while the request is in flight, and the view is
+    // painted again, which is what an account switch does.
+    setAccountId("111122223333");
+    rerender();
+
+    await act(async () => {
+      release?.();
+    });
+
+    await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+    const keys = invalidated.map(([filters]) => (filters as {queryKey: unknown[]}).queryKey);
+    expect(keys).toContainEqual([
+      "cloud-resource",
+      DEFAULT_ACCOUNT_ID,
+      "aws",
+      "paymentcryptography",
+      key.id,
+    ]);
+    expect(keys).toContainEqual([
+      "cloud-resources",
+      DEFAULT_ACCOUNT_ID,
+      "aws",
+      "paymentcryptography",
+    ]);
+  });
+
+  it("refreshes the account the removal was made in, not the account the user is in by then", async () => {
+    let release: (() => void) | undefined;
+    setPolicy.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    const {invalidated, rerender} = renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Remove policy/i}));
+    await waitFor(() => expect(setPolicy).toHaveBeenCalledTimes(1));
+
+    setAccountId("111122223333");
+    rerender();
+
+    await act(async () => {
+      release?.();
+    });
+
+    await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+    const keys = invalidated.map(([filters]) => (filters as {queryKey: unknown[]}).queryKey);
+    expect(keys).toContainEqual([
+      "cloud-resource",
+      DEFAULT_ACCOUNT_ID,
+      "aws",
+      "paymentcryptography",
+      key.id,
+    ]);
+    expect(keys).toContainEqual([
+      "cloud-resources",
+      DEFAULT_ACCOUNT_ID,
+      "aws",
+      "paymentcryptography",
+    ]);
+  });
+
+  it("does not let a save start while a removal is in flight", async () => {
+    let release: (() => void) | undefined;
+    setPolicy.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Remove policy/i}));
+    await waitFor(() => expect(setPolicy).toHaveBeenCalledTimes(1));
+
+    // Two writes in flight at once: the one that lands last wins, and the
+    // policy the key holds is whichever it was.
+    expect(screen.getByRole("button", {name: /Edit policy/i})).toBeDisabled();
+
+    await act(async () => {
+      release?.();
+    });
+  });
+
+  it("keeps the editor still while it saves", async () => {
+    let release: (() => void) | undefined;
+    setPolicy.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Edit policy/i}));
+    fireEvent.change(screen.getByLabelText("Key policy"), {target: {value: "{}"}});
+    await user.click(screen.getByRole("button", {name: /Save policy/i}));
+    await waitFor(() => expect(setPolicy).toHaveBeenCalledTimes(1));
+
+    // The editor closes when the save succeeds, so an edit made during the
+    // request would be lost without a word.
+    expect(screen.getByLabelText("Key policy")).toBeDisabled();
+    expect(screen.getByRole("button", {name: /Cancel/i})).toBeDisabled();
+
+    await act(async () => {
+      release?.();
+    });
   });
 });

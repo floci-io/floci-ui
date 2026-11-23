@@ -2524,3 +2524,83 @@ describe("DynamicResourceView the usage of a payment key", () => {
     expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
   });
 });
+
+describe("DynamicResourceView the policy of a payment key", () => {
+  const keyRow: CloudResource = {
+    id: "key/key-a",
+    name: "key-a",
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    metadata: {},
+  };
+  const keyDetail: CloudResource = {
+    ...keyRow,
+    metadata: {keyPolicy: '{"Version":"2012-10-17","Statement":[]}'},
+  };
+
+  const keySchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+  };
+
+  const renderView = () => {
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(keySchema);
+    vi.mocked(listCloudResources).mockResolvedValue([keyRow]);
+    vi.mocked(getCloudResource).mockResolvedValue(keyDetail);
+  });
+
+  it("shows the policy of the key it read", async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(await screen.findByText("key-a"));
+
+    // The row of the table carries no policy, so the panel speaks about the
+    // detail it read.
+    expect(
+      await screen.findByText("The policy that lets another account use this key."),
+    ).toBeInTheDocument();
+  });
+
+  it("says the key could not be read, rather than speaking about a key it has not read", async () => {
+    vi.mocked(getCloudResource).mockRejectedValue(new Error("the runtime is not answering"));
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(await screen.findByText("key-a"));
+
+    // The row would say the key holds no policy, which is a claim about a key
+    // the console never read.
+    expect(
+      await screen.findByText("The key could not be read, so its policy is unknown."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("No policy: the key is used only by the account that holds it."),
+    ).toBeNull();
+  });
+});
