@@ -1737,6 +1737,7 @@ describe("DynamicResourceView the certificate of a payment key", () => {
     // The key could not be read, so nothing is known of its certificate, and
     // the console says that rather than staying silent.
     expect(await screen.findByText(/its certificate is unknown/)).toBeDefined();
+<<<<<<< HEAD
   });
 });
 
@@ -1831,6 +1832,8 @@ describe("DynamicResourceView the usage of a payment key", () => {
     expect(screen.queryByText(/The key may be used/)).toBeNull();
     expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
     expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
+=======
+>>>>>>> e083ec2 (fix(paymentcryptography): the panel holds the certificate and the policy)
   });
 });
 

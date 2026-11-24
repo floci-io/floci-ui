@@ -1161,9 +1161,8 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-<<<<<<< HEAD
-<<<<<<< HEAD
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
+<<<<<<< HEAD
         // The certificate of a payment key and whether the key may be used are
         // part of the key's detail, and the table's row carries neither of
         // them, so the panel shows the detail and never the row: it would speak
@@ -1191,14 +1190,26 @@ export function DynamicResourceView({
         // detail that was read, so the flag is scoped to a key that has never
         // been read at all.
 >>>>>>> 5a6af66 (fix(paymentcryptography): the policy panel speaks about the key it read)
+=======
+        // The certificate of a payment key and the policy that lets another
+        // account use it are part of the key's detail, and the table's row
+        // carries neither of them, so the panel shows the detail and never the
+        // row: it would speak about a key it has not read. A detail that was
+        // never read leaves them unknown, and the panel says so rather than
+        // staying silent. A later refetch that failed keeps the detail that was
+        // read, so the flag is scoped to a key that has never been read at all.
+>>>>>>> e083ec2 (fix(paymentcryptography): the panel holds the certificate and the policy)
         <PaymentCryptographyPanel
           key={activeSelected.id}
           cloud={cloud}
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
           runtimeReachable={canUseRuntime}
+<<<<<<< HEAD
 >>>>>>> 77473b1 (feat(paymentcryptography): the policy of a key)
 >>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
+=======
+>>>>>>> e083ec2 (fix(paymentcryptography): the panel holds the certificate and the policy)
         />
       )}
       {service === "configuration" && cloud === "aws" && (

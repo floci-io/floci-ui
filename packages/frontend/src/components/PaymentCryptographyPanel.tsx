@@ -1,8 +1,8 @@
-<<<<<<< HEAD
 import {
   PaymentCryptographyCertificateSection,
   type PaymentCryptographyCertificateSectionProps,
 } from "@/components/PaymentCryptographyCertificateSection";
+<<<<<<< HEAD
 import {PaymentCryptographyLifecycleSection} from "@/components/PaymentCryptographyLifecycleSection";
 import {isPaymentKey} from "@/lib/paymentCryptography";
 import type {CloudProvider} from "@/types/cloud";
@@ -17,27 +17,26 @@ interface PaymentCryptographyPanelProps extends PaymentCryptographyCertificateSe
 type PaymentCryptographyPanelProps = PaymentCryptographyCertificateSectionProps;
 =======
 import {lazyPanel} from "@/lib/lazyPanel";
+=======
+import {PaymentCryptographyPolicySection} from "@/components/PaymentCryptographyPolicySection";
+import {isPaymentKey} from "@/lib/paymentCryptography";
+>>>>>>> e083ec2 (fix(paymentcryptography): the panel holds the certificate and the policy)
 import type {CloudProvider} from "@/types/cloud";
-import type {CloudResource} from "@/types/resource";
 
-const PaymentCryptographyPolicySection = lazyPanel(() =>
-  import("@/components/PaymentCryptographyPolicySection").then((m) => m.PaymentCryptographyPolicySection),
-);
-
-interface PaymentCryptographyPanelProps {
+interface PaymentCryptographyPanelProps extends PaymentCryptographyCertificateSectionProps {
   cloud: CloudProvider;
-  /** The key that was read, when it was read. */
-  resource?: CloudResource;
-  /** The key itself could not be read, so nothing is known of its policy. */
-  keyUnreadable?: boolean;
   runtimeReachable: boolean;
 }
+<<<<<<< HEAD
 >>>>>>> 77473b1 (feat(paymentcryptography): the policy of a key)
 >>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
+=======
+>>>>>>> e083ec2 (fix(paymentcryptography): the panel holds the certificate and the policy)
 
 /**
  * The panels a payment key has of its own.
  *
+<<<<<<< HEAD
 <<<<<<< HEAD
  * <p>Everything else a key shows comes from the schema, but two things are not:
  * the certificate of a key's public half, and whether the key may be used.
@@ -75,9 +74,14 @@ export function PaymentCryptographyPanel({
   return <PaymentCryptographyCertificateSection resource={resource} />;
 =======
  * <p>Everything else a key shows comes from the schema, but the policy that lets another account use it.
+=======
+ * <p>Everything else a key shows comes from the schema, but two things are not:
+ * the certificate of a key's public half, and the policy that lets another
+ * account use it.
+>>>>>>> e083ec2 (fix(paymentcryptography): the panel holds the certificate and the policy)
  *
  * <p>The panel holds the key the console read, never the row of the table: a row
- * carries no policy, so a panel handed one would speak about a key it has not
+ * carries neither, so a panel handed one would speak about a key it has not
  * read.
  */
 export function PaymentCryptographyPanel({
@@ -86,12 +90,10 @@ export function PaymentCryptographyPanel({
   keyUnreadable,
   runtimeReachable,
 }: PaymentCryptographyPanelProps) {
-  const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
-  // A resource that was read and is not a key has no policy of its own, so the
-  // panel says nothing about it.
-  if (resource && !isKey) return null;
+  if (resource && !isPaymentKey(resource)) return null;
 
   return (
+<<<<<<< HEAD
 <<<<<<< HEAD
     <>
       <PaymentCryptographyPolicySection
@@ -114,4 +116,20 @@ export function PaymentCryptographyPanel({
 =======
 >>>>>>> 77473b1 (feat(paymentcryptography): the policy of a key)
 >>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
+=======
+    <>
+      {resource ? (
+        <PaymentCryptographyCertificateSection resource={resource} />
+      ) : keyUnreadable ? (
+        <PaymentCryptographyCertificateSection keyUnreadable />
+      ) : null}
+      <PaymentCryptographyPolicySection
+        cloud={cloud}
+        resource={resource}
+        keyUnreadable={keyUnreadable}
+        runtimeReachable={runtimeReachable}
+      />
+    </>
+  );
+>>>>>>> e083ec2 (fix(paymentcryptography): the panel holds the certificate and the policy)
 }

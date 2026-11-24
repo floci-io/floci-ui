@@ -120,7 +120,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
-<<<<<<< HEAD
         // The tags and the certificate are reads of their own and do not depend on
         // each other, so they are asked together rather than one after the other.
         // Both are addressed by the ARN the key resolved to, because the service
@@ -130,10 +129,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             this.getTags(arn),
             this.publicKeyCertificate(arn, key),
         ])
-        return toResource(key, tags, certificate)
-=======
-        return toResource(key, await this.getTags(identifier), await getKeyPolicy(this.client, identifier))
->>>>>>> 37e0994 (fix(paymentcryptography): the policy the key holds is read with the key)
+        return toResource(key, tags, certificate, await getKeyPolicy(this.client, identifier))
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -518,21 +514,16 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
     return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 function toResource(
     key: Key,
     tagLookup: TagLookup,
     // A row of the table, or a key that was just made, has had no certificate
     // read, so it carries no state at all.
     certificateLookup: CertificateLookup = {},
+    // The policy is read with the key, and a policy that could not be read is
+    // said rather than taken for none.
+    policyLookup?: KeyPolicyLookup,
 ): CloudResource {
-=======
-function toResource(key: Key, tagLookup: TagLookup, keyPolicy: string | null = null): CloudResource {
->>>>>>> 37e0994 (fix(paymentcryptography): the policy the key holds is read with the key)
-=======
-function toResource(key: Key, tagLookup: TagLookup, policyLookup?: KeyPolicyLookup): CloudResource {
->>>>>>> 918f832 (fix(paymentcryptography): a policy that could not be read leaves the key on screen)
     const arn = key.KeyArn ?? ''
 
     return {
@@ -562,8 +553,6 @@ function toResource(key: Key, tagLookup: TagLookup, policyLookup?: KeyPolicyLook
             deleteTimestamp: isoDate(key.DeleteTimestamp),
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
-<<<<<<< HEAD
-<<<<<<< HEAD
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -579,12 +568,7 @@ function toResource(key: Key, tagLookup: TagLookup, policyLookup?: KeyPolicyLook
             ...(certificateLookup.state !== undefined
                 ? {publicKeyCertificateState: certificateLookup.state}
                 : {}),
-=======
-            keyPolicy,
->>>>>>> 37e0994 (fix(paymentcryptography): the policy the key holds is read with the key)
-=======
             ...policyMetadata(policyLookup),
->>>>>>> 918f832 (fix(paymentcryptography): a policy that could not be read leaves the key on screen)
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },
