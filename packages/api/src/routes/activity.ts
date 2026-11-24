@@ -47,6 +47,8 @@ const ACTION_VERBS = new Set([
     'attach', 'detach', 'associate', 'disassociate',
     'authorize', 'authorize-egress', 'revoke', 'revoke-egress',
     'modify-attribute', 'release', 'deregister',
+    // The usage of a payment key: the key is enabled or disabled, not created.
+    'usage',
 ])
 
 const CLOUD_PROVIDERS = new Set(['aws', 'azure', 'gcp', 'oci'])

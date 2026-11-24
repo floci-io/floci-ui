@@ -299,6 +299,28 @@ export class CloudProxyService {
         await adapter.updateTags(id, tags)
     }
 
+    /**
+     * Whether a key may be used.
+     *
+     * <p>Only the payment cryptography service has this, so the adapter's own
+     * method answers it.
+     */
+    async setPaymentCryptographyKeyUsage(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        id: string,
+        input: Record<string, unknown>,
+    ): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        const setter = adapter as {
+            setUsage?: (id: string, input: Record<string, unknown>) => Promise<void>
+        }
+        if (!setter.setUsage) {
+            throw new NotSupportedError(`${cloud}/${service} does not do this`)
+        }
+        await setter.setUsage(id, input)
+    }
+
     async encryptKms(cloud: CloudProvider, keyId: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {
         const adapter = this.requireAdapter(cloud, 'kms')
         if (!adapter.encrypt) throw new NotSupportedError(`${cloud}/kms encrypt is not supported`)

@@ -370,11 +370,15 @@ export function DynamicResourceView({
         message: `Could not delete ${resource.name || resource.id}: ${errorMessage(error)}`,
       });
     },
-    onSuccess: (_, resource) => {
+    onSuccess: (_, resource, context) => {
       if (selected?.id === resource.id) selectResource(undefined);
       setSelectedItems((prev) => prev.filter((item) => item.id !== resource.id));
+      // The account the delete was made in, not the account the user is in by
+      // now: a switch while the request was in flight must not leave the
+      // account that was written to stale.
+      const deletedIn = context?.accountId ?? accountId;
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, service],
+        queryKey: ["cloud-resources", deletedIn, cloud, service],
       });
     },
   });
@@ -405,9 +409,9 @@ export function DynamicResourceView({
 
       return { succeededIds, failedItems };
     },
-    onSettled: () => {
+    onSettled: (_data, _error, _items, context) => {
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, service],
+        queryKey: ["cloud-resources", context?.accountId ?? accountId, cloud, service],
       });
     },
     onMutate: () => ({ accountId, cloud, service }),
@@ -1158,17 +1162,19 @@ export function DynamicResourceView({
         />
       )}
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
-        // The certificate of a payment key is part of the key's detail, and the
-        // table's row carries none of it, so the panel shows the detail and
-        // never the row: it would speak about a key it has not read. A detail
-        // that was never read leaves the certificate unknown, and the panel
-        // says so rather than staying silent. A later refetch that failed keeps
-        // the detail that was read, so the flag is scoped to a key that has
-        // never been read at all.
+        // The certificate of a payment key and whether the key may be used are
+        // part of the key's detail, and the table's row carries neither of
+        // them, so the panel shows the detail and never the row: it would speak
+        // about a key it has not read. A detail that was never read leaves them
+        // unknown, and the panel says so rather than staying silent. A later
+        // refetch that failed keeps the detail that was read, so the flag is
+        // scoped to a key that has never been read at all.
         <PaymentCryptographyPanel
           key={activeSelected.id}
+          cloud={cloud}
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
+          runtimeReachable={canUseRuntime}
         />
       )}
       {service === "configuration" && cloud === "aws" && (
