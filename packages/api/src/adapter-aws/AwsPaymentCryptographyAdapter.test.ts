@@ -7,6 +7,7 @@ import {
     GetAliasCommand,
     GetKeyCommand,
     ListAliasesCommand,
+    GetPublicKeyCertificateCommand,
     ListKeysCommand,
     ListTagsForResourceCommand,
     type PaymentCryptographyClient,
@@ -79,6 +80,9 @@ function runtimeStub(overrides: Record<string, SendResult | (() => never)> = {})
         if (command instanceof GetAliasCommand) return respond('getAlias', {Alias: alias})
         if (command instanceof CreateAliasCommand) return respond('createAlias', {Alias: alias})
         if (command instanceof DeleteAliasCommand) return respond('deleteAlias', {})
+        if (command instanceof GetPublicKeyCertificateCommand) {
+            return respond('certificate', {KeyCertificate: 'CERTIFICATE-PEM'})
+        }
         if (command instanceof ListTagsForResourceCommand) return respond('tags', {Tags: []})
         if (command instanceof TagResourceCommand) return respond('tag', {})
         if (command instanceof UntagResourceCommand) return respond('untag', {})
@@ -204,6 +208,29 @@ describe('AwsPaymentCryptographyAdapter', () => {
     })
 
     describe('get', () => {
+        test('reads the certificate of an asymmetric key', async () => {
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, KeyAttributes: {...attributes, KeyClass: 'ASYMMETRIC_KEY_PAIR'}}},
+            })
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            expect(resource?.metadata.publicKeyCertificate).toBe('CERTIFICATE-PEM')
+            expect(sent.some((command) => command instanceof GetPublicKeyCertificateCommand)).toBe(true)
+        })
+
+        test('does not ask a symmetric key for a certificate, which it has none of', async () => {
+            const {client, sent} = runtimeStub()
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            // A symmetric key has no public half, so the service is not asked
+            // and the state says why there is no certificate.
+            expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
+            expect(resource?.metadata.publicKeyCertificateState).toBe('no-public-half')
+            expect(sent.some((command) => command instanceof GetPublicKeyCertificateCommand)).toBe(false)
+        })
+
         test('shows the attributes, the check value and the tags the inspector needs', async () => {
             const {client} = runtimeStub({tags: {Tags: [{Key: 'env', Value: 'prod'}]}})
 

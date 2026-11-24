@@ -39,6 +39,7 @@ import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { activeListFilters, filterOptions, filterValueOf, listFiltersOf } from "@/lib/listFilters";
+import { isPaymentKey } from "@/lib/paymentCryptography";
 import { ModalOverlay } from "@/components/ModalOverlay";
 import {
   storageObjectsKey,
@@ -57,6 +58,7 @@ const WorkflowExecutionsPanel = lazyPanel(() => import("@/components/WorkflowExe
 const DatabaseSnapshotsPanel = lazyPanel(() => import("@/components/DatabaseSnapshotsPanel").then((m) => m.DatabaseSnapshotsPanel));
 const AppConfigPanel = lazyPanel(() => import("@/components/AppConfigPanel").then((m) => m.AppConfigPanel));
 const KmsCryptoPanel = lazyPanel(() => import("@/components/KmsCryptoPanel").then((m) => m.KmsCryptoPanel));
+const PaymentCryptographyPanel = lazyPanel(() => import("@/components/PaymentCryptographyPanel").then((m) => m.PaymentCryptographyPanel));
 const AzureKeyVaultPanel = lazyPanel(() => import("@/components/AzureKeyVaultPanel").then((m) => m.AzureKeyVaultPanel));
 const EventGridSubscriptionsPanel = lazyPanel(() => import("@/components/EventGridSubscriptionsPanel").then((m) => m.EventGridSubscriptionsPanel));
 const OciGovernancePanel = lazyPanel(() => import("@/components/OciGovernancePanel").then((m) => m.OciGovernancePanel));
@@ -626,9 +628,13 @@ export function DynamicResourceView({
     selectableResources.length > 0 &&
     selectableResources.every((r) => selectedItems.some((s) => s.id === r.id));
   const activeSelected = selectedForService;
+  // The detail the console read for the selected resource, or nothing while it
+  // is on its way or could not be read.
+  const inspectedDetail =
+    resourceDetailQuery.data?.id === activeSelected?.id ? resourceDetailQuery.data : undefined;
   const inspectedResource =
-    !resourceDetailQuery.isFetching && resourceDetailQuery.data?.id === activeSelected?.id
-      ? resourceDetailQuery.data
+    !resourceDetailQuery.isFetching && inspectedDetail !== undefined
+      ? inspectedDetail
       : activeSelected;
   const runtimeReachable = cloudStatus?.runtime === "reachable";
   const resourceCapabilityInputs =
@@ -1149,6 +1155,20 @@ export function DynamicResourceView({
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}
+        />
+      )}
+      {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
+        // The certificate of a payment key is part of the key's detail, and the
+        // table's row carries none of it, so the panel shows the detail and
+        // never the row: it would speak about a key it has not read. A detail
+        // that was never read leaves the certificate unknown, and the panel
+        // says so rather than staying silent. A later refetch that failed keeps
+        // the detail that was read, so the flag is scoped to a key that has
+        // never been read at all.
+        <PaymentCryptographyPanel
+          key={activeSelected.id}
+          resource={inspectedDetail}
+          keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
         />
       )}
       {service === "configuration" && cloud === "aws" && (

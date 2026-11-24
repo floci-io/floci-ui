@@ -1,0 +1,226 @@
+import {describe, expect, test} from 'bun:test'
+import {
+    GetKeyCommand,
+    GetPublicKeyCertificateCommand,
+    ListKeysCommand,
+    type PaymentCryptographyClient,
+} from '@aws-sdk/client-payment-cryptography'
+import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
+
+type SendResult = Record<string, unknown>
+
+/** Minimal PaymentCryptographyClient stub that records the commands it was sent. */
+function stubClient(handler: (command: object) => SendResult | Promise<SendResult>) {
+    const sent: object[] = []
+    const client = {
+        async send(command: object) {
+            sent.push(command)
+            return handler(command)
+        },
+    } as unknown as PaymentCryptographyClient
+    return {client, sent}
+}
+
+const ARN = 'arn:aws:payment-cryptography:us-east-1:000000000000:key/4a1b2c3d4e5f60718293a4b5c6d7e8f9'
+/** A resource id carries its kind, so the key's own id is the kind and the ARN. */
+const KEY_ID = `key/${ARN}`
+
+const symmetricKey = {
+    KeyArn: ARN,
+    KeyAttributes: {
+        KeyClass: 'SYMMETRIC_KEY',
+        KeyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY',
+        KeyAlgorithm: 'AES_256',
+        KeyModesOfUse: {Encrypt: true, Decrypt: true, Wrap: true, Unwrap: true},
+    },
+    KeyCheckValue: '3F2A1B',
+    KeyCheckValueAlgorithm: 'CMAC',
+    Enabled: true,
+    Exportable: false,
+    KeyState: 'CREATE_COMPLETE',
+    KeyOrigin: 'AWS_PAYMENT_CRYPTOGRAPHY',
+    CreateTimestamp: new Date('2026-11-04T09:15:00.000Z'),
+}
+
+/** An asymmetric key has a public half, and the reference signs a certificate for it. */
+const asymmetricKey = {
+    ...symmetricKey,
+    KeyAttributes: {
+        ...symmetricKey.KeyAttributes,
+        KeyClass: 'ASYMMETRIC_KEY_PAIR',
+        KeyUsage: 'TR31_S0_ASYMMETRIC_KEY_FOR_DIGITAL_SIGNATURE',
+        KeyAlgorithm: 'RSA_2048',
+    },
+}
+
+const CERTIFICATE = 'LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t'
+
+function runtimeStub(key: unknown, certificate?: () => never, certificateResponse?: Record<string, unknown>) {
+    return stubClient((command) => {
+        if (command instanceof ListKeysCommand) return {Keys: [{KeyArn: ARN}]}
+        if (command instanceof GetKeyCommand) return {Key: key}
+        if (command instanceof GetPublicKeyCertificateCommand) {
+            if (certificate) return certificate()
+            return {KeyCertificate: CERTIFICATE, KeyCertificateChain: '', ...certificateResponse}
+        }
+        return {}
+    })
+}
+
+describe('the certificate of a payment key', () => {
+    test('an asymmetric key carries the certificate of its public half', async () => {
+        const {client, sent} = runtimeStub(asymmetricKey)
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        const command = sent.find((each) => each instanceof GetPublicKeyCertificateCommand)
+        expect(command).toBeDefined()
+        expect((command as GetPublicKeyCertificateCommand).input.KeyIdentifier).toBe(ARN)
+        expect(resource?.metadata.publicKeyCertificate).toBe(CERTIFICATE)
+        expect(resource?.metadata.publicKeyCertificateState).toBe('signed')
+    })
+
+    test('the chain the certificate is signed in travels with it', async () => {
+        const {client} = runtimeStub(asymmetricKey)
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // The leaf alone cannot be verified against anything, so the chain the
+        // service handed out is published beside it.
+        expect(resource?.metadata.publicKeyCertificateChain).toBe('')
+    })
+
+    test('a key whose class was not read is not asked for a certificate', async () => {
+        const {client, sent} = runtimeStub({...asymmetricKey, KeyAttributes: undefined})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // The class was not read, so the question of a certificate was never
+        // asked, and the metadata does not claim that the key has none.
+        expect(sent.some((each) => each instanceof GetPublicKeyCertificateCommand)).toBe(false)
+        expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unknown')
+    })
+
+    test('a symmetric key has no public half, so it has no certificate', async () => {
+        const {client, sent} = runtimeStub(symmetricKey)
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        expect(sent.some((each) => each instanceof GetPublicKeyCertificateCommand)).toBe(false)
+        expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
+        expect(resource?.metadata.publicKeyCertificateState).toBe('no-public-half')
+    })
+
+    test('a key that was never inspected carries no certificate at all', async () => {
+        const {client} = runtimeStub(asymmetricKey)
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const rows = await adapter.list()
+
+        // The certificate belongs to the key's detail, so the table's rows carry
+        // neither one nor a state: the question was never asked of them, and a
+        // state would contradict the key class the row does carry.
+        expect(rows[0]?.metadata.publicKeyCertificate).toBeUndefined()
+        expect(rows[0]?.metadata.publicKeyCertificateState).toBeUndefined()
+    })
+
+    test('a certificate that cannot be read does not take the key with it', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('The service is busy.'), {
+                name: 'InternalServerException',
+                $metadata: {httpStatusCode: 500},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // The certificate is enrichment, so a failure degrades the inspector
+        // rather than the request, the way the tag lookup does.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
+        expect(resource?.metadata.keyAlgorithm).toBe('RSA_2048')
+    })
+
+    test('a service that signed no certificate says so', async () => {
+        const {client} = runtimeStub(asymmetricKey, undefined, {KeyCertificate: undefined})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // The key has a public half, so it is the service that signed none,
+        // and the state says that rather than claiming there is no half.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unsigned')
+        expect(resource?.metadata.publicKeyCertificate).toBeNull()
+    })
+
+    test('a refusal that is an invalid request is a read that did not come', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('the key has no public key'), {
+                name: 'ValidationException',
+                $metadata: {httpStatusCode: 400},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // The reference gives a ValidationException one meaning: "one or more
+        // parameters in your request are invalid". The adapter already knows
+        // whether the key has a public half, so it never asks the service about
+        // a key that has none, and a refusal here is a request that did not
+        // come, not an answer about the certificate.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
+        expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
+    })
+
+    test('a denied request is a read that did not come', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('the account may not read the certificate'), {
+                name: 'AccessDeniedException',
+                $metadata: {httpStatusCode: 403},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // A permission that is not there says nothing about whether the service
+        // has signed a certificate, so it is not a key with none.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
+    })
+
+    test('a throttled request is a read that did not come', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('the service is busy'), {
+                name: 'ThrottlingException',
+                $metadata: {httpStatusCode: 429},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
+    })
+
+    test('a key that is gone is a read that did not come', async () => {
+        const {client} = runtimeStub(asymmetricKey, () => {
+            throw Object.assign(new Error('the key was not found'), {
+                name: 'ResourceNotFoundException',
+                $metadata: {httpStatusCode: 400},
+            })
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // A missing key is neither a key with no certificate nor one that has
+        // one: the key itself is gone.
+        expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
+    })
+})

@@ -1534,3 +1534,149 @@ describe("DynamicResourceView a service whose kinds do not take the same actions
     await waitFor(() => expect(screen.queryByRole("button", {name: /Edit tags/})).toBeNull());
   });
 });
+
+describe("DynamicResourceView the certificate of a payment key", () => {
+  const ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc";
+  const key: CloudResource = {
+    id: ARN,
+    name: ARN,
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    status: "CREATE_COMPLETE",
+    metadata: {
+      enabled: true,
+      keyClass: "ASYMMETRIC_KEY_PAIR",
+      publicKeyCertificate: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0t",
+      publicKeyCertificateState: "signed",
+    },
+  };
+
+  const paymentSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "paymentcryptography",
+    displayName: "Payment Cryptography",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+  };
+
+  // The table's rows carry no certificate: the question is asked of the key
+  // that is inspected, and the row is not the key that was read.
+  const row: CloudResource = {
+    ...key,
+    metadata: {enabled: true, keyClass: "ASYMMETRIC_KEY_PAIR"},
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(paymentSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([row]);
+    vi.mocked(getCloudResource).mockResolvedValue(key);
+  });
+
+  it("shows the certificate of the key that was inspected", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    // The certificate is part of the key's detail, so the panel waits for it.
+    expect(await screen.findByLabelText("Public key certificate")).toBeDefined();
+  });
+
+  it("says so when the inspected key has no public half", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    vi.mocked(getCloudResource).mockResolvedValue({
+      ...key,
+      metadata: {
+        enabled: true,
+        keyClass: "SYMMETRIC_KEY",
+        publicKeyCertificateState: "no-public-half",
+      },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    expect(await screen.findByText(/no public half/)).toBeDefined();
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+  });
+
+  it("says nothing about the key until its detail has been read", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    // The detail never comes, so the panel waits for it.
+    vi.mocked(getCloudResource).mockImplementation(() => new Promise(() => undefined));
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    // The panel must not speak about a key it has not read: the row on screen
+    // carries no certificate, and a state it does not carry must not be
+    // invented for it.
+    await waitFor(() => expect(getCloudResource).toHaveBeenCalled());
+    expect(screen.queryByText(/did not say what state the certificate is in/)).toBeNull();
+    expect(screen.queryByText(/no public half/)).toBeNull();
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+  });
+
+  it("says so when the key itself could not be read", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    vi.mocked(getCloudResource).mockRejectedValue(new Error("The runtime is not answering."));
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(ARN));
+
+    // The key could not be read, so nothing is known of its certificate, and
+    // the console says that rather than staying silent.
+    expect(await screen.findByText(/could not be read/)).toBeDefined();
+  });
+});
