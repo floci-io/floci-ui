@@ -6,6 +6,7 @@ import {
   type KmsEncryptionAlgorithm,
 } from "@/api/cloudProxyClient";
 import {useAccountId} from "@/lib/accountStore";
+import {useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
@@ -35,7 +36,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
   const [result, setResult] = useState<CryptoResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const {copied, copyFailed, copy} = useCopyToClipboard(1200);
   const activeRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -49,7 +50,6 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
     setResult(null);
     setError(null);
     setPending(false);
-    setCopied(false);
     return () => {
       activeRequest.current?.abort();
       activeRequest.current = null;
@@ -72,7 +72,6 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
     setResult(null);
     setError(null);
     setPending(false);
-    setCopied(false);
   };
 
   const submit = async () => {
@@ -80,7 +79,6 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
 
     setError(null);
     setResult(null);
-    setCopied(false);
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -117,11 +115,9 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
     }
   };
 
-  const copyResult = async () => {
+  const copyResult = () => {
     if (!result) return;
-    await navigator.clipboard.writeText(result.value);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
+    void copy(result.value);
   };
 
   if (!resource || resource.service !== "kms") {
@@ -218,10 +214,15 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
           <div className="inspector-section">
             <div className="inspector-section-header">
               <p className="metric-label">{result.label}</p>
-              <button className="button" type="button" onClick={() => void copyResult()}>
+              <button className="button" type="button" onClick={copyResult}>
                 <Copy size={13} /> {copied ? "Copied" : "Copy"}
               </button>
             </div>
+            {copyFailed && (
+              <p className="form-error" role="alert">
+                The clipboard was not available, so nothing was copied.
+              </p>
+            )}
             <pre className="invoke-result success">{result.value}</pre>
           </div>
         )}

@@ -1,4 +1,4 @@
-import {act, fireEvent, render, screen} from "@testing-library/react";
+import {act, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, describe, expect, test, vi} from "vitest";
 import {encryptKmsResource, type KmsEncryptResponse} from "@/api/cloudProxyClient";
@@ -70,6 +70,54 @@ describe("KmsCryptoPanel", () => {
     });
 
     expect(screen.queryByText("old-account-result")).not.toBeInTheDocument();
+  });
+
+  test("copies the result and says it did", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+    vi.mocked(encryptKmsResource).mockResolvedValue({
+      ciphertextBlobBase64: "the-ciphertext",
+      keyId: "key-1",
+      encryptionAlgorithm: "SYMMETRIC_DEFAULT",
+    });
+
+    render(<KmsCryptoPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.type(screen.getByLabelText("Plaintext (UTF-8)"), "a secret");
+    const encryptButtons = screen.getAllByRole("button", {name: "Encrypt"});
+    await user.click(encryptButtons[encryptButtons.length - 1]);
+
+    await screen.findByText("the-ciphertext");
+
+    await user.click(screen.getByRole("button", {name: /Copy/}));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("the-ciphertext"));
+    expect(await screen.findByRole("button", {name: /Copied/})).toBeDefined();
+  });
+
+  test("says so when the clipboard is not available", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+    vi.mocked(encryptKmsResource).mockResolvedValue({
+      ciphertextBlobBase64: "the-ciphertext",
+      keyId: "key-1",
+      encryptionAlgorithm: "SYMMETRIC_DEFAULT",
+    });
+
+    render(<KmsCryptoPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.type(screen.getByLabelText("Plaintext (UTF-8)"), "a secret");
+    const encryptButtons = screen.getAllByRole("button", {name: "Encrypt"});
+    await user.click(encryptButtons[encryptButtons.length - 1]);
+
+    await screen.findByText("the-ciphertext");
+
+    await user.click(screen.getByRole("button", {name: /Copy/}));
+
+    // A button that does nothing looks broken, so the refusal is said.
+    expect(await screen.findByText(/clipboard was not available/)).toBeDefined();
   });
 
   test("accepts an OCI key whose lifecycle state is ENABLED", () => {
