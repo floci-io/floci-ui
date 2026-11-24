@@ -32,17 +32,40 @@ describe("the clipboard", () => {
     });
 
     it("drops a write that resolves after a later one", async () => {
+        // Both writes are in flight, and the first one lands while the second
+        // is still going: it is stale, and it must not say the copy happened.
+        let finishFirst: (() => void) | undefined;
+        let finishSecond: (() => void) | undefined;
         const writeText = vi
             .fn()
-            .mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve(undefined), 50)))
-            .mockResolvedValue(undefined);
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                finishFirst = () => resolve(undefined);
+            }))
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                finishSecond = () => resolve(undefined);
+            }));
         Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
         const {result} = renderHook(() => useCopyToClipboard());
 
+        let first!: Promise<void>;
+        let second!: Promise<void>;
+        act(() => {
+            first = result.current.copy("the first");
+            second = result.current.copy("the second");
+        });
+
         await act(async () => {
-            const first = result.current.copy("the first");
-            await result.current.copy("the second");
+            finishFirst?.();
             await first;
+        });
+
+        expect(result.current.copied).toBe(false);
+        expect(result.current.copyFailed).toBe(false);
+
+        // The second write lands, and it is the one on screen.
+        await act(async () => {
+            finishSecond?.();
+            await second;
         });
 
         await waitFor(() => expect(result.current.copied).toBe(true));

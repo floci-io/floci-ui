@@ -6,7 +6,7 @@ import {
   type KmsEncryptionAlgorithm,
 } from "@/api/cloudProxyClient";
 import {useAccountId} from "@/lib/accountStore";
-import {useCopyToClipboard} from "@/lib/useCopyToClipboard";
+import {COPY_REFUSED_MESSAGE, useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
@@ -36,7 +36,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
   const [result, setResult] = useState<CryptoResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const {copied, copyFailed, copy} = useCopyToClipboard(1200);
+  const {copied, copyFailed, copy, reset: resetCopy} = useCopyToClipboard(1200);
   const activeRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -50,11 +50,12 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
     setResult(null);
     setError(null);
     setPending(false);
+    resetCopy();
     return () => {
       activeRequest.current?.abort();
       activeRequest.current = null;
     };
-  }, [accountId, resource?.id, keySpec]);
+  }, [accountId, resource?.id, keySpec, resetCopy]);
 
   const isKmsKey = resource?.service === "kms" && resource.type === "key";
   const isSupportedKey = keyUsage === "ENCRYPT_DECRYPT" && keyEnabled && isEncryptKeySpec(keySpec) && !runtimeGap;
@@ -72,6 +73,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
     setResult(null);
     setError(null);
     setPending(false);
+    resetCopy();
   };
 
   const submit = async () => {
@@ -79,6 +81,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
 
     setError(null);
     setResult(null);
+    resetCopy();
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -220,7 +223,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
             </div>
             {copyFailed && (
               <p className="form-error" role="alert">
-                The clipboard was not available, so nothing was copied.
+                {COPY_REFUSED_MESSAGE}
               </p>
             )}
             <pre className="invoke-result success">{result.value}</pre>

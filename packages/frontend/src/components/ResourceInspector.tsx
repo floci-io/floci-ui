@@ -53,7 +53,12 @@ export function ResourceInspector({
   }, [cloud, resource?.cloud, resource?.service, resource?.id, object?.key, resetCopyJson]);
 
   const handleCopyJson = (metadata: Record<string, unknown>) => {
-    void copyJson(JSON.stringify(metadata, null, 2));
+    try {
+      void copyJson(JSON.stringify(metadata, null, 2));
+    } catch {
+      // A value that cannot be written as JSON is not a value to copy, and the
+      // button stays as it was.
+    }
   };
 
   const triggersQuery = useQuery({

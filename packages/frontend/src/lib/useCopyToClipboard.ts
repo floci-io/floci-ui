@@ -1,6 +1,14 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 
 /**
+ * What is said when the clipboard refuses.
+ *
+ * <p>It reads the same in every panel that says it, so the words are here
+ * rather than in each of them.
+ */
+export const COPY_REFUSED_MESSAGE = "The clipboard was not available, so nothing was copied.";
+
+/**
  * Copying a value to the clipboard, with the feedback the caller shows.
  *
  * <p>The clipboard is refused in some contexts and denied by some browsers, so a

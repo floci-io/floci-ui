@@ -96,6 +96,35 @@ describe("KmsCryptoPanel", () => {
     expect(await screen.findByRole("button", {name: /Copied/})).toBeDefined();
   });
 
+  test("does not claim a copy of one result for the next", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+    vi.mocked(encryptKmsResource).mockResolvedValue({
+      ciphertextBlobBase64: "the-ciphertext",
+      keyId: "key-1",
+      encryptionAlgorithm: "SYMMETRIC_DEFAULT",
+    });
+
+    render(<KmsCryptoPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.type(screen.getByLabelText("Plaintext (UTF-8)"), "a secret");
+    const encryptButtons = screen.getAllByRole("button", {name: "Encrypt"});
+    await user.click(encryptButtons[encryptButtons.length - 1]);
+
+    await screen.findByText("the-ciphertext");
+    await user.click(screen.getByRole("button", {name: /Copy/}));
+    expect(await screen.findByRole("button", {name: /Copied/})).toBeDefined();
+
+    // Another operation starts, so the copy of the last result is not claimed
+    // for the one that follows it.
+    await user.type(screen.getByLabelText("Plaintext (UTF-8)"), " another secret");
+    const secondEncrypt = screen.getAllByRole("button", {name: "Encrypt"});
+    await user.click(secondEncrypt[secondEncrypt.length - 1]);
+
+    await waitFor(() => expect(screen.queryByRole("button", {name: /Copied/})).toBeNull());
+  });
+
   test("says so when the clipboard is not available", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockRejectedValue(new Error("denied"));
