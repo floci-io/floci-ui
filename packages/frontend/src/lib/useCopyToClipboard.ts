@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 
 /**
  * Copying a value to the clipboard, with the feedback the caller shows.
@@ -10,6 +10,9 @@ import {useEffect, useRef, useState} from "react";
  * <p>A write that resolves after a later one is stale and is dropped, and the
  * reset timer is cleared when the caller goes away, so the state is never set
  * on a component that is no longer there.
+ *
+ * <p>A caller whose subject changes under the button resets it, so a copy that
+ * was made of one resource is not claimed for the next.
  */
 export function useCopyToClipboard(resetAfterMs = 1500) {
   const [copied, setCopied] = useState(false);
@@ -24,6 +27,18 @@ export function useCopyToClipboard(resetAfterMs = 1500) {
       requestRef.current += 1;
       if (resetTimerRef.current !== null) clearTimeout(resetTimerRef.current);
     };
+  }, []);
+
+  const reset = useCallback(() => {
+    // A write that is still in flight is stale, and the timer that would clear
+    // the state is gone with it.
+    requestRef.current += 1;
+    if (resetTimerRef.current !== null) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
+    setCopied(false);
+    setCopyFailed(false);
   }, []);
 
   const copy = async (text: string) => {
@@ -48,5 +63,5 @@ export function useCopyToClipboard(resetAfterMs = 1500) {
     }
   };
 
-  return {copied, copyFailed, copy};
+  return {copied, copyFailed, copy, reset};
 }

@@ -49,6 +49,25 @@ describe("the clipboard", () => {
         expect(writeText).toHaveBeenCalledTimes(2);
     });
 
+    it("drops the copy when the caller resets it", async () => {
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+        const {result} = renderHook(() => useCopyToClipboard());
+
+        await act(async () => {
+            await result.current.copy("the value");
+        });
+        await waitFor(() => expect(result.current.copied).toBe(true));
+
+        // The resource under the button changed, so the copy that was made of
+        // the last one is not claimed for this one.
+        act(() => {
+            result.current.reset();
+        });
+
+        expect(result.current.copied).toBe(false);
+    });
+
     it("drops a write that fails after a later one", async () => {
         const writeText = vi
             .fn()
