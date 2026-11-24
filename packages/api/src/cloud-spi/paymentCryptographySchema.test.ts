@@ -1,34 +1,14 @@
 import {describe, expect, test} from 'bun:test'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
+    mayWrapWith,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
 } from './paymentCryptographySchema'
-=======
-<<<<<<< HEAD
-import {awsPaymentCryptographySchema} from './paymentCryptographySchema'
->>>>>>> d7092c2 (feat(paymentcryptography): the material a key leaves under)
-
-describe('awsPaymentCryptographySchema', () => {
-    test('offers the tag editor for a key and not for an alias', () => {
-        const schema = awsPaymentCryptographySchema()
-        const updateTags = schema.capabilities?.resourceActions?.find(capability => capability.name === 'updateTags')
-
-        expect(updateTags?.enabled).toBe(true)
-        // An alias carries no tags of its own, so the tag editor is the key's.
-        expect(updateTags?.excludedTypes).toEqual(['alias'])
-    })
-
-=======
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
-import {awsPaymentCryptographySchema, mayWrapWith} from './paymentCryptographySchema'
 
 describe('awsPaymentCryptographySchema', () => {
     test('names the kind a field that names another resource takes its options from', () => {

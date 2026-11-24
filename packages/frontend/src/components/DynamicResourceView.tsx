@@ -40,7 +40,6 @@ import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { activeListFilters, filterOptions, filterValueOf, listFiltersOf } from "@/lib/listFilters";
-import { isPaymentKey } from "@/lib/paymentCryptography";
 import { ModalOverlay } from "@/components/ModalOverlay";
 import {
   storageObjectsKey,
@@ -1175,6 +1174,11 @@ export function DynamicResourceView({
           cloud={cloud}
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
+<<<<<<< HEAD
+=======
+          resources={optionRowsQuery.data}
+          schema={schema}
+>>>>>>> d83690d (fix(console): the panels are the branch's own, the shared surface is main's)
           runtimeReachable={canUseRuntime}
         />
       )}

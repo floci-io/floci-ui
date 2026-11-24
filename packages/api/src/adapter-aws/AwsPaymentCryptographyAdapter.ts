@@ -33,20 +33,8 @@ import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
     mayWrapWith,
-    wrappingAlgorithmsFor,
->>>>>>> d7092c2 (feat(paymentcryptography): the material a key leaves under)
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
-=======
-    mayWrapWith,
-<<<<<<< HEAD
->>>>>>> b5174b9 (feat(paymentcryptography): the export form offers only the pairings allowed)
-=======
-    PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
->>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
@@ -55,6 +43,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
     PAYMENT_CRYPTOGRAPHY_SOURCES,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
+    wrappingAlgorithmsFor,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
     type PaymentCryptographyKeyAlgorithm,
@@ -248,38 +237,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-        // The tags and the certificate are reads of their own and do not depend on
-        // each other, so they are asked together rather than one after the other.
-        // Both are addressed by the ARN the key resolved to, because the service
-        // takes an ARN and a key may have been asked for by an alias or a short id.
-        const arn = key.KeyArn ?? identifier
-        const [tags, certificate] = await Promise.all([
-            this.getTags(arn),
-            this.publicKeyCertificate(arn, key),
-        ])
-        return toResource(key, tags, certificate)
-=======
-=======
->>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
-<<<<<<< HEAD
-        return toResource(key, await this.getTags(identifier))
-=======
-        return toResource(
-            key,
-            await this.getTags(identifier),
-            await this.publicKeyCertificate(key),
-            await getKeyPolicy(this.client, identifier),
-        )
->>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
-<<<<<<< HEAD
->>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
-=======
-=======
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
         // The tags and the certificate are reads of their own and do not depend on
         // each other, so they are asked together rather than one after the other.
         // Both are addressed by the ARN the key resolved to, because the service
@@ -290,11 +247,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             this.publicKeyCertificate(arn, key),
         ])
         return toResource(key, tags, certificate, await getKeyPolicy(this.client, identifier))
-<<<<<<< HEAD
->>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
->>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -532,14 +484,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /**
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
->>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
      * The certificate of an asymmetric key, which the reference signs and hands out
      * for the key's public half.
      *
@@ -581,11 +525,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
                 // published: the leaf alone cannot be verified against anything.
                 ...(res.KeyCertificateChain !== undefined ? {chain: res.KeyCertificateChain} : {}),
             }
-<<<<<<< HEAD
         } catch (error) {
-=======
-        } catch {
->>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
             // The reference gives a refusal one meaning: a denied permission, a
             // throttled service, a key that is gone or a request whose parameters
             // are invalid. The adapter already knows whether the key has a public
@@ -597,13 +537,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /**
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
->>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
      * Tags are enrichment, so a failure degrades the inspector rather than the
      * request, and is reported so it cannot pass for an untagged key.
      */
@@ -708,34 +641,16 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
     return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 function toResource(
     key: Key,
     tagLookup: TagLookup,
     // A row of the table, or a key that was just made, has had no certificate
     // read, so it carries no state at all.
     certificateLookup: CertificateLookup = {},
-): CloudResource {
-=======
-<<<<<<< HEAD
-function toResource(key: Key, tagLookup: TagLookup): CloudResource {
-=======
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
-function toResource(
-    key: Key,
-    tagLookup: TagLookup,
-    // A row of the table, or a key that was just made, has had no certificate
-    // read, so it carries no state at all.
-    certificateLookup: CertificateLookup = {},
+    // The policy is read with the key, and a policy that could not be read is
+    // said rather than taken for none.
     policyLookup?: KeyPolicyLookup,
 ): CloudResource {
-<<<<<<< HEAD
->>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
->>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
     const arn = key.KeyArn ?? ''
 
     return {
@@ -765,33 +680,6 @@ function toResource(
             deleteTimestamp: isoDate(key.DeleteTimestamp),
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-            // The certificate is published only where it was read, so a row that
-            // was never inspected does not claim that the key has none. The
-            // state says which of the five it is, so the console does not have
-            // to work it out from the key's class, and it is published only
-            // where the question was asked, so it never contradicts the key
-            // class above.
-            ...(certificateLookup.certificate !== undefined
-                ? {publicKeyCertificate: certificateLookup.certificate}
-                : {}),
-            ...(certificateLookup.chain !== undefined
-                ? {publicKeyCertificateChain: certificateLookup.chain}
-                : {}),
-            ...(certificateLookup.state !== undefined
-                ? {publicKeyCertificateState: certificateLookup.state}
-                : {}),
-=======
-=======
->>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
-<<<<<<< HEAD
-=======
-            publicKeyCertificate,
-=======
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -810,11 +698,6 @@ function toResource(
             ...policyMetadata(policyLookup),
             replicationRegions: replicationRegionsOf(key),
             usingDefaultReplicationRegions: key.UsingDefaultReplicationRegions,
-<<<<<<< HEAD
->>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
->>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },

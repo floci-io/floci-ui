@@ -1596,6 +1596,7 @@ describe("DynamicResourceView a service whose kinds do not take the same actions
   });
 });
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 describe("DynamicResourceView the certificate of a payment key", () => {
   const ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc";
@@ -2671,3 +2672,5 @@ describe("DynamicResourceView the Regions a payment key is replicated to", () =>
 });
 =======
 >>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
+=======
+>>>>>>> d83690d (fix(console): the panels are the branch's own, the shared surface is main's)
