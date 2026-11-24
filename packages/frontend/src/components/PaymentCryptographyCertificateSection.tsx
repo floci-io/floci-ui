@@ -1,5 +1,5 @@
 import {Check, Copy, KeyRound} from "lucide-react";
-import {useCopyToClipboard} from "@/lib/useCopyToClipboard";
+import {COPY_REFUSED_MESSAGE, useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudResource} from "@/types/resource";
 
 export interface PaymentCryptographyCertificateSectionProps {
@@ -120,7 +120,7 @@ function CopyableValue({
       </span>
       {copyFailed && (
         <p className="form-error" role="alert">
-          The clipboard was not available, so nothing was copied.
+          {COPY_REFUSED_MESSAGE}
         </p>
       )}
     </>
