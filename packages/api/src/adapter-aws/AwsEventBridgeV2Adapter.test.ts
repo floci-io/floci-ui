@@ -170,11 +170,24 @@ describe('AwsEventBridgeV2Adapter', () => {
 
     test('refuses a subscriber with a missing field, an unknown bus, or a pattern that is not JSON', async () => {
         const adapter = createAdapter(async () => ({EventBuses: []}))
-        const values = {kind: 'subscribers', name: 'large-orders', eventBus: 'orders', targetArn: QUEUE_ARN, roleArn: ROLE_ARN}
+        const values = {kind: 'subscribers', name: 'large-orders', eventBus: 'orders', targetArn: QUEUE_ARN, roleArn: ROLE_ARN, filterPattern: '{"source":["com.shop"]}'}
 
         await expect(adapter.create({values: {...values, roleArn: ''}})).rejects.toThrow('roleArn is required')
         await expect(adapter.create({values})).rejects.toThrow('event bus not found: orders')
         await expect(adapter.create({values: {...values, filterPattern: '{'}})).rejects.toThrow('filterPattern must be a JSON event pattern')
+    })
+
+    test('requires an event pattern, as CreateSubscriber does, before calling the runtime', async () => {
+        const commands: unknown[] = []
+        const adapter = createAdapter(async (command) => {
+            commands.push(command)
+            return {EventBuses: [{Name: 'orders', EventBusArn: BUS_ARN}]}
+        })
+        const values = {kind: 'subscribers', name: 'large-orders', eventBus: 'orders', targetArn: QUEUE_ARN, roleArn: ROLE_ARN}
+
+        await expect(adapter.create({values})).rejects.toThrow('filterPattern is required')
+        await expect(adapter.create({values: {...values, filterPattern: '  '}})).rejects.toThrow('filterPattern is required')
+        expect(commands).toHaveLength(0)
     })
 
     test('reports a create response without an ARN as a runtime failure', async () => {
@@ -186,6 +199,7 @@ describe('AwsEventBridgeV2Adapter', () => {
         await expect(adapter.create({values: {kind: 'buses', name: 'orders'}})).rejects.toBeInstanceOf(RuntimeError)
         await expect(adapter.create({values: {
             kind: 'subscribers', name: 'large-orders', eventBus: 'orders', targetArn: QUEUE_ARN, roleArn: ROLE_ARN,
+            filterPattern: '{"source":["com.shop"]}',
         }})).rejects.toThrow('CreateSubscriber did not return a SubscriberArn')
     })
 
