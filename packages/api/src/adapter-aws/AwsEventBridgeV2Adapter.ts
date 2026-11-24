@@ -79,7 +79,7 @@ export class AwsEventBridgeV2Adapter implements CloudServiceAdapter {
 
         const targetArn = requiredValue(input.values.targetArn, 'targetArn')
         const roleArn = requiredValue(input.values.roleArn, 'roleArn')
-        const filterConfiguration = filterConfigurationFrom(input.values.filterPattern)
+        const filterConfiguration = filterConfigurationFrom(requiredValue(input.values.filterPattern, 'filterPattern'))
         const eventBusArn = await this.resolveEventBusArn(requiredValue(input.values.eventBus, 'eventBus'))
         const response = await this.eventbridge.send(new CreateSubscriberCommand({
             Name: name,
@@ -204,9 +204,7 @@ function nextPageToken(token: string | undefined, seenTokens: Set<string>, opera
     return token
 }
 
-function filterConfigurationFrom(value: unknown): FilterConfiguration | undefined {
-    const pattern = stringValue(value)
-    if (!pattern) return undefined
+function filterConfigurationFrom(pattern: string): FilterConfiguration {
     try {
         JSON.parse(pattern)
     } catch {
