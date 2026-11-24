@@ -47,8 +47,16 @@ const ACTION_VERBS = new Set([
     'attach', 'detach', 'associate', 'disassociate',
     'authorize', 'authorize-egress', 'revoke', 'revoke-egress',
     'modify-attribute', 'release', 'deregister',
+<<<<<<< HEAD
     // The usage of a payment key: the key is enabled or disabled, not created.
     'usage',
+=======
+    // The payment cryptography routes: the key is changed, not created.
+    'usage',
+    'policy',
+    'replication',
+    'export',
+>>>>>>> 9c9f90b (fix(activity): the payment cryptography routes are not creations)
 ])
 
 const CLOUD_PROVIDERS = new Set(['aws', 'azure', 'gcp', 'oci'])
