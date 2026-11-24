@@ -22,6 +22,8 @@ function stubClient(handler: (command: object) => SendResult | Promise<SendResul
 }
 
 const ARN = 'arn:aws:payment-cryptography:us-east-1:000000000000:key/4a1b2c3d4e5f60718293a4b5c6d7e8f9'
+/** A resource id carries its kind, so the key's own id is the kind and the ARN. */
+const KEY_ID = `key/${ARN}`
 
 const symmetricKey = {
     KeyArn: ARN,
@@ -70,7 +72,7 @@ describe('the certificate of a payment key', () => {
         const {client, sent} = runtimeStub(asymmetricKey)
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         const command = sent.find((each) => each instanceof GetPublicKeyCertificateCommand)
         expect(command).toBeDefined()
@@ -83,7 +85,7 @@ describe('the certificate of a payment key', () => {
         const {client} = runtimeStub(asymmetricKey)
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         // The leaf alone cannot be verified against anything, so the chain the
         // service handed out is published beside it.
@@ -94,7 +96,7 @@ describe('the certificate of a payment key', () => {
         const {client, sent} = runtimeStub({...asymmetricKey, KeyAttributes: undefined})
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         // The class was not read, so the question of a certificate was never
         // asked, and the metadata does not claim that the key has none.
@@ -107,7 +109,7 @@ describe('the certificate of a payment key', () => {
         const {client, sent} = runtimeStub(symmetricKey)
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         expect(sent.some((each) => each instanceof GetPublicKeyCertificateCommand)).toBe(false)
         expect(resource?.metadata.publicKeyCertificate).toBeUndefined()
@@ -136,7 +138,7 @@ describe('the certificate of a payment key', () => {
         })
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         // The certificate is enrichment, so a failure degrades the inspector
         // rather than the request, the way the tag lookup does.
@@ -148,7 +150,7 @@ describe('the certificate of a payment key', () => {
         const {client} = runtimeStub(asymmetricKey, undefined, {KeyCertificate: undefined})
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         // The key has a public half, so it is the service that signed none,
         // and the state says that rather than claiming there is no half.
@@ -165,7 +167,7 @@ describe('the certificate of a payment key', () => {
         })
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         // The reference gives a ValidationException one meaning: "one or more
         // parameters in your request are invalid". The adapter already knows
@@ -185,7 +187,7 @@ describe('the certificate of a payment key', () => {
         })
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         // A permission that is not there says nothing about whether the service
         // has signed a certificate, so it is not a key with none.
@@ -201,7 +203,7 @@ describe('the certificate of a payment key', () => {
         })
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         expect(resource?.metadata.publicKeyCertificateState).toBe('unreadable')
     })
@@ -215,7 +217,7 @@ describe('the certificate of a payment key', () => {
         })
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
-        const resource = await adapter.get(ARN)
+        const resource = await adapter.get(KEY_ID)
 
         // A missing key is neither a key with no certificate nor one that has
         // one: the key itself is gone.

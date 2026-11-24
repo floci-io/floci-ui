@@ -1,5 +1,13 @@
 import {describe, expect, test} from 'bun:test'
-import {awsPaymentCryptographySchema} from './paymentCryptographySchema'
+import {
+    algorithmsForUsage,
+    awsPaymentCryptographySchema,
+    keyClassForAlgorithm,
+    PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
+    PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
+    PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
+    PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
+} from './paymentCryptographySchema'
 
 describe('awsPaymentCryptographySchema', () => {
     test('offers the tag editor for a key and not for an alias', () => {

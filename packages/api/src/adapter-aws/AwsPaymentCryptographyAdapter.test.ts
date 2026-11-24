@@ -213,7 +213,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
                 get: {Key: {...key, KeyAttributes: {...attributes, KeyClass: 'ASYMMETRIC_KEY_PAIR'}}},
             })
 
-            const resource = await new AwsPaymentCryptographyAdapter(client).get(ARN)
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
 
             expect(resource?.metadata.publicKeyCertificate).toBe('CERTIFICATE-PEM')
             expect(sent.some((command) => command instanceof GetPublicKeyCertificateCommand)).toBe(true)
@@ -222,7 +222,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
         test('does not ask a symmetric key for a certificate, which it has none of', async () => {
             const {client, sent} = runtimeStub()
 
-            const resource = await new AwsPaymentCryptographyAdapter(client).get(ARN)
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
 
             // A symmetric key has no public half, so the service is not asked
             // and the state says why there is no certificate.
