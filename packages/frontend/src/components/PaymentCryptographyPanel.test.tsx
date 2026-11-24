@@ -5,7 +5,11 @@ import {describe, expect, it} from "vitest";
 import {PaymentCryptographyPanel} from "@/components/PaymentCryptographyPanel";
 import type {CloudResource} from "@/types/resource";
 
+<<<<<<< HEAD
 /** The usage section asks the query client, so the panel needs one. */
+=======
+/** The replication section asks the query client, so the panel needs one. */
+>>>>>>> 6347c4d (fix(paymentcryptography): the panel holds the certificate and the Regions)
 function renderPanel(props: React.ComponentProps<typeof PaymentCryptographyPanel>) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   return render(
@@ -51,7 +55,11 @@ describe("the panels of a payment key", () => {
     // The certificate is part of the key's detail, and the detail has not been
     // read, so the panel says nothing of it.
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+<<<<<<< HEAD
     // The usage says what it does not know.
+=======
+    // The Regions say what they do not know.
+>>>>>>> 6347c4d (fix(paymentcryptography): the panel holds the certificate and the Regions)
     expect(screen.getByText(/has not been read yet/)).toBeDefined();
   });
 
@@ -61,5 +69,11 @@ describe("the panels of a payment key", () => {
     // The key could not be read, so nothing is known of its certificate, and
     // the panel says that rather than staying silent.
     expect(screen.getByText(/its certificate is unknown/)).toBeDefined();
+<<<<<<< HEAD
+=======
+    expect(
+      screen.getByText(/The key could not be read, so the Regions it is replicated to are unknown/),
+    ).toBeDefined();
+>>>>>>> 6347c4d (fix(paymentcryptography): the panel holds the certificate and the Regions)
   });
 });

@@ -524,22 +524,11 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
     return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
-<<<<<<< HEAD
-function toResource(
-    key: Key,
-    tagLookup: TagLookup,
-    // A row of the table, or a key that was just made, has had no certificate
-    // read, so it carries no state at all.
-    certificateLookup: CertificateLookup = {},
-): CloudResource {
-=======
 /**
- * The Regions a key is replicated to, as the key answers them.
+ * The Regions a key is replicated to.
  *
- * <p>The status holds the Regions the key is replicated to, and the Region the
- * primary is in is not one of them. It is named apart, and a runtime that
- * answered with it in the status would have it taken away, which the reference
- * refuses.
+ * <p>The key's own status names them, and the primary Region is not one of
+ * them: it is where the key is.
  */
 function replicationRegionsOf(key: Key): string[] {
     const status = key.ReplicationStatus
@@ -547,8 +536,13 @@ function replicationRegionsOf(key: Key): string[] {
     return Object.keys(status).filter((region) => region !== key.PrimaryRegion)
 }
 
-function toResource(key: Key, tagLookup: TagLookup): CloudResource {
->>>>>>> 036d12f (fix(paymentcryptography): the Regions a key holds are published by the API)
+function toResource(
+    key: Key,
+    tagLookup: TagLookup,
+    // A row of the table, or a key that was just made, has had no certificate
+    // read, so it carries no state at all.
+    certificateLookup: CertificateLookup = {},
+): CloudResource {
     const arn = key.KeyArn ?? ''
 
     return {
@@ -578,7 +572,9 @@ function toResource(key: Key, tagLookup: TagLookup): CloudResource {
             deleteTimestamp: isoDate(key.DeleteTimestamp),
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
-<<<<<<< HEAD
+            // The Regions the key is replicated to are published where the key
+            // is read, so the console does not work them out for itself.
+            replicationRegions: replicationRegionsOf(key),
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -594,9 +590,6 @@ function toResource(key: Key, tagLookup: TagLookup): CloudResource {
             ...(certificateLookup.state !== undefined
                 ? {publicKeyCertificateState: certificateLookup.state}
                 : {}),
-=======
-            replicationRegions: replicationRegionsOf(key),
->>>>>>> 036d12f (fix(paymentcryptography): the Regions a key holds are published by the API)
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },

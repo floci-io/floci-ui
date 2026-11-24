@@ -1161,16 +1161,20 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-<<<<<<< HEAD
-<<<<<<< HEAD
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
+<<<<<<< HEAD
         // The certificate of a payment key and whether the key may be used are
         // part of the key's detail, and the table's row carries neither of
+=======
+        // The certificate of a payment key and the Regions it is replicated to
+        // are part of the key's detail, and the table's row carries neither of
+>>>>>>> 6347c4d (fix(paymentcryptography): the panel holds the certificate and the Regions)
         // them, so the panel shows the detail and never the row: it would speak
         // about a key it has not read. A detail that was never read leaves them
         // unknown, and the panel says so rather than staying silent. A later
         // refetch that failed keeps the detail that was read, so the flag is
         // scoped to a key that has never been read at all.
+<<<<<<< HEAD
         <PaymentCryptographyPanel
           key={activeSelected.id}
           cloud={cloud}
@@ -1188,14 +1192,19 @@ export function DynamicResourceView({
         // never the row: it would speak about a key it has not read. A detail
         // that could not be read says so rather than staying silent.
 >>>>>>> b8a9162 (fix(paymentcryptography): the panel speaks only of a key it has read)
+=======
+>>>>>>> 6347c4d (fix(paymentcryptography): the panel holds the certificate and the Regions)
         <PaymentCryptographyPanel
           key={activeSelected.id}
           cloud={cloud}
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
           runtimeReachable={canUseRuntime}
+<<<<<<< HEAD
 >>>>>>> e30cba0 (feat(paymentcryptography): the Regions a key is replicated to)
 >>>>>>> 73a94ac (feat(paymentcryptography): the Regions a key is replicated to)
+=======
+>>>>>>> 6347c4d (fix(paymentcryptography): the panel holds the certificate and the Regions)
         />
       )}
       {service === "configuration" && cloud === "aws" && (
