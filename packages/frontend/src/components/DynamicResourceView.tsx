@@ -1161,39 +1161,20 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-<<<<<<< HEAD
-<<<<<<< HEAD
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
-        // The certificate of a payment key is part of the key's detail, and the
-        // table's row carries none of it, so the panel shows the detail and
-        // never the row: it would speak about a key it has not read. A detail
-        // that was never read leaves the certificate unknown, and the panel
-        // says so rather than staying silent. A later refetch that failed keeps
-        // the detail that was read, so the flag is scoped to a key that has
-        // never been read at all.
-        <PaymentCryptographyPanel
-          key={activeSelected.id}
-          resource={inspectedDetail}
-          keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
-=======
-      {service === "paymentcryptography" && (
-=======
-      {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
-        // The usage of a payment key is part of the key's detail, and the
-        // table's row carries none of it, so the panel shows the detail and
-        // never the row: it would speak about a key it has not read. A detail
-        // that was never read leaves the usage unknown, and the panel says so
-        // rather than staying silent. A later refetch that failed keeps the
-        // detail that was read, so the flag is scoped to a key that has never
-        // been read at all.
->>>>>>> 077efc2 (fix(paymentcryptography): the panel waits for the key it speaks of)
+        // The certificate of a payment key and whether the key may be used are
+        // part of the key's detail, and the table's row carries neither of
+        // them, so the panel shows the detail and never the row: it would speak
+        // about a key it has not read. A detail that was never read leaves them
+        // unknown, and the panel says so rather than staying silent. A later
+        // refetch that failed keeps the detail that was read, so the flag is
+        // scoped to a key that has never been read at all.
         <PaymentCryptographyPanel
           key={activeSelected.id}
           cloud={cloud}
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
           runtimeReachable={canUseRuntime}
->>>>>>> 877377b (feat(paymentcryptography): a key may be disabled and enabled again)
         />
       )}
       {service === "configuration" && cloud === "aws" && (

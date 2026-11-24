@@ -1,20 +1,22 @@
-<<<<<<< HEAD
-import {render, screen} from "@testing-library/react";
-=======
-import {act, render, screen} from "@testing-library/react";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
->>>>>>> 077efc2 (fix(paymentcryptography): the panel waits for the key it speaks of)
+import {render, screen} from "@testing-library/react";
 import {describe, expect, it} from "vitest";
 
 import {PaymentCryptographyPanel} from "@/components/PaymentCryptographyPanel";
 import type {CloudResource} from "@/types/resource";
 
+/** The usage section asks the query client, so the panel needs one. */
+function renderPanel(props: React.ComponentProps<typeof PaymentCryptographyPanel>) {
+  const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
+  return render(
+    <QueryClientProvider client={client}>
+      <PaymentCryptographyPanel {...props} />
+    </QueryClientProvider>,
+  );
+}
+
 const key: CloudResource = {
-<<<<<<< HEAD
   id: "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc",
-=======
-  id: "key/arn:aws:payment-cryptography:us-east-1:000000000000:key/abc",
->>>>>>> 077efc2 (fix(paymentcryptography): the panel waits for the key it speaks of)
   name: "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc",
   cloud: "aws",
   service: "paymentcryptography",
@@ -22,7 +24,6 @@ const key: CloudResource = {
   region: "us-east-1",
   createdAt: null,
   status: "CREATE_COMPLETE",
-<<<<<<< HEAD
   metadata: {
     enabled: true,
     publicKeyCertificate: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0t",
@@ -32,85 +33,33 @@ const key: CloudResource = {
 
 describe("the panels of a payment key", () => {
   it("shows the certificate of a payment key", () => {
-    render(<PaymentCryptographyPanel resource={key} />);
+    renderPanel({resource: key, cloud: "aws", runtimeReachable: true});
 
     expect(screen.getByLabelText("Public key certificate")).toBeDefined();
   });
 
   it("shows nothing for a resource that is not a payment key", () => {
-    render(<PaymentCryptographyPanel resource={{...key, type: "alias"}} />);
+    renderPanel({resource: {...key, type: "alias"}, cloud: "aws", runtimeReachable: true});
 
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
     expect(screen.queryByText(/Public Key Certificate/)).toBeNull();
   });
 
-  it("shows nothing while the key has not been read", () => {
-    const {container} = render(<PaymentCryptographyPanel />);
+  it("shows nothing of the certificate while the key has not been read", () => {
+    renderPanel({cloud: "aws", runtimeReachable: true});
 
-    expect(container.textContent).toBe("");
+    // The certificate is part of the key's detail, and the detail has not been
+    // read, so the panel says nothing of it.
+    expect(screen.queryByLabelText("Public key certificate")).toBeNull();
+    // The usage says what it does not know.
+    expect(screen.getByText(/has not been read yet/)).toBeDefined();
   });
 
   it("says so when the key could not be read", () => {
-    render(<PaymentCryptographyPanel keyUnreadable />);
+    renderPanel({keyUnreadable: true, cloud: "aws", runtimeReachable: true});
 
     // The key could not be read, so nothing is known of its certificate, and
     // the panel says that rather than staying silent.
-    expect(screen.getByText(/could not be read/)).toBeDefined();
-=======
-  metadata: {enabled: true},
-};
-
-function renderPanel(props: {
-  resource?: CloudResource;
-  keyUnreadable?: boolean;
-}) {
-  const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
-  return render(
-    <QueryClientProvider client={client}>
-      <PaymentCryptographyPanel
-        cloud="aws"
-        resource={props.resource}
-        keyUnreadable={props.keyUnreadable}
-        runtimeReachable
-      />
-    </QueryClientProvider>,
-  );
-}
-
-describe("the panels of a payment key", () => {
-  it("shows the usage of the key that was read", async () => {
-    renderPanel({resource: key});
-
-    expect(await screen.findByText(/The key may be used/)).toBeDefined();
-    expect(screen.getByRole("button", {name: /Disable key/})).toBeDefined();
-  });
-
-  it("shows nothing for a resource that is not a payment key", async () => {
-    const {container} = renderPanel({resource: {...key, type: "alias"}});
-
-    // The panel holds the rule that a resource is a payment key, so an alias
-    // gets no section of its own.
-    await act(async () => undefined);
-    expect(container.textContent).toBe("");
-  });
-
-  it("says so when the key could not be read", async () => {
-    renderPanel({keyUnreadable: true});
-
-    // The key could not be read, so nothing is known of its usage, and the
-    // panel says that rather than speaking about a key it has not read.
-    expect(await screen.findByText(/could not be read/)).toBeDefined();
-    expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
-    expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
-  });
-
-  it("says the usage is unknown while the key has not been read", async () => {
-    renderPanel({});
-
-    // The detail is on its way: nothing is known of the key's usage yet.
-    expect(await screen.findByText(/has not been read/)).toBeDefined();
-    expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
-    expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
->>>>>>> 077efc2 (fix(paymentcryptography): the panel waits for the key it speaks of)
+    expect(screen.getByText(/its certificate is unknown/)).toBeDefined();
   });
 });

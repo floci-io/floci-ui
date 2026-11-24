@@ -1723,7 +1723,7 @@ describe("DynamicResourceView the certificate of a payment key", () => {
 
     // The key could not be read, so nothing is known of its certificate, and
     // the console says that rather than staying silent.
-    expect(await screen.findByText(/could not be read/)).toBeDefined();
+    expect(await screen.findByText(/its certificate is unknown/)).toBeDefined();
   });
 });
 
@@ -1814,7 +1814,7 @@ describe("DynamicResourceView the usage of a payment key", () => {
 
     // The key could not be read, so nothing is known of its usage, and the
     // console says that rather than speaking from the row.
-    expect(await screen.findByText(/could not be read/)).toBeDefined();
+    expect(await screen.findByText(/whether it may be used is unknown/)).toBeDefined();
     expect(screen.queryByText(/The key may be used/)).toBeNull();
     expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
     expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
