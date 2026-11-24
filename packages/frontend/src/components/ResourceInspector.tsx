@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronDown, ChevronUp, Copy, Zap } from 'lucide-react'
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
@@ -9,6 +9,7 @@ import { formatBytes } from "@/lib/format";
 import { InspectorTabs, type InspectorTab } from "@/components/InspectorTabs";
 import { ResourceTagsEditor } from "@/components/ResourceTagsEditor";
 import { resourceTags } from "@/lib/resourceTags";
+import { useCopyToClipboard } from "@/lib/useCopyToClipboard";
 import { lazyPanel } from "@/lib/lazyPanel";
 
 const LogsExplorerPanel = lazyPanel(() => import("@/components/LogsExplorerPanel").then((m) => m.LogsExplorerPanel));
@@ -37,9 +38,7 @@ export function ResourceInspector({
   canEditTags,
 }: ResourceInspectorProps) {
   const [activeTab, setActiveTab] = useState<InspectorTab>('plain');
-  const [copiedJson, setCopiedJson] = useState(false);
-  const copyRequestRef = useRef(0);
-  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {copied: copiedJson, copy: copyJson, reset: resetCopyJson} = useCopyToClipboard();
   const [showTriggers, setShowTriggers] = useState(false);
   const isLambda = Boolean(
     resource && (resource.service === "serverless" || resource.type === "lambda")
@@ -47,36 +46,14 @@ export function ResourceInspector({
   const resourceCloud = cloud ?? resource?.cloud;
   const isAwsLambda = isLambda && resourceCloud === "aws";
 
+  // The copy is of the resource on screen, so a resource that changes under the
+  // button takes the claim of the last copy with it.
   useLayoutEffect(() => {
-    setCopiedJson(false);
-    return () => {
-      copyRequestRef.current += 1;
-      if (copyResetTimerRef.current !== null) {
-        clearTimeout(copyResetTimerRef.current);
-        copyResetTimerRef.current = null;
-      }
-    };
-  }, [cloud, resource?.cloud, resource?.service, resource?.id, object?.key]);
+    resetCopyJson();
+  }, [cloud, resource?.cloud, resource?.service, resource?.id, object?.key, resetCopyJson]);
 
-  const handleCopyJson = async (metadata: Record<string, unknown>) => {
-    const request = ++copyRequestRef.current;
-    if (copyResetTimerRef.current !== null) {
-      clearTimeout(copyResetTimerRef.current);
-      copyResetTimerRef.current = null;
-    }
-    setCopiedJson(false);
-    try {
-      const text = JSON.stringify(metadata, null, 2);
-      await navigator.clipboard.writeText(text);
-      if (request !== copyRequestRef.current) return;
-      setCopiedJson(true);
-      copyResetTimerRef.current = setTimeout(() => {
-        if (request === copyRequestRef.current) setCopiedJson(false);
-        copyResetTimerRef.current = null;
-      }, 1500);
-    } catch {
-      if (request === copyRequestRef.current) setCopiedJson(false);
-    }
+  const handleCopyJson = (metadata: Record<string, unknown>) => {
+    void copyJson(JSON.stringify(metadata, null, 2));
   };
 
   const triggersQuery = useQuery({
