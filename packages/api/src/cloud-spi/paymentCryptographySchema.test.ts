@@ -1,5 +1,6 @@
 import {describe, expect, test} from 'bun:test'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
@@ -25,18 +26,17 @@ describe('awsPaymentCryptographySchema', () => {
     })
 
 =======
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
 import {awsPaymentCryptographySchema, mayWrapWith} from './paymentCryptographySchema'
 
 describe('awsPaymentCryptographySchema', () => {
->>>>>>> d75e0a0 (feat(paymentcryptography): the material a key leaves under)
     test('names the kind a field that names another resource takes its options from', () => {
         const schema = awsPaymentCryptographySchema()
         const target = schema.fields.find(field => field.name === 'aliasTargetKey')
 
         expect(target?.optionsFrom).toBe('key')
     })
-<<<<<<< HEAD
-=======
 
     test('the matrix says which key may carry which', () => {
         expect(mayWrapWith('AES_256', 'AES_256')).toBe(true)
@@ -54,7 +54,6 @@ describe('awsPaymentCryptographySchema', () => {
             expect(mayWrapWith(name, 'AES_256')).toBe(false)
         }
     })
->>>>>>> d75e0a0 (feat(paymentcryptography): the material a key leaves under)
 })
 
 describe('the class of a payment key', () => {

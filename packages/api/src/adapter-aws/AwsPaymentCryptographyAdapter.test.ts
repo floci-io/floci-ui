@@ -8,13 +8,10 @@ import {
     DeleteKeyCommand,
     GetAliasCommand,
     GetKeyCommand,
-<<<<<<< HEAD
-=======
     GetPublicKeyCertificateCommand,
     PutResourcePolicyCommand,
     StartKeyUsageCommand,
     StopKeyUsageCommand,
->>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
     ListAliasesCommand,
     GetPublicKeyCertificateCommand,
     ListKeysCommand,
@@ -100,8 +97,6 @@ function runtimeStub(overrides: Record<string, SendResult | (() => never)> = {})
         if (command instanceof CreateKeyCommand) return respond('create', {Key: key})
         if (command instanceof DeleteKeyCommand) return respond('delete', {Key: key})
         if (command instanceof ListAliasesCommand) return respond('listAliases', {Aliases: []})
-<<<<<<< HEAD
-=======
         if (command instanceof StartKeyUsageCommand) return respond('startUsage', {Key: key})
         if (command instanceof StopKeyUsageCommand) return respond('stopUsage', {Key: key})
         if (command instanceof PutResourcePolicyCommand) return respond('putPolicy', {})
@@ -114,7 +109,6 @@ function runtimeStub(overrides: Record<string, SendResult | (() => never)> = {})
         if (command instanceof GetPublicKeyCertificateCommand) {
             return respond('certificate', {KeyCertificate: 'CERTIFICATE-PEM'})
         }
->>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
         if (command instanceof GetAliasCommand) return respond('getAlias', {Alias: alias})
         if (command instanceof CreateAliasCommand) return respond('createAlias', {Alias: alias})
         if (command instanceof DeleteAliasCommand) return respond('deleteAlias', {})
@@ -247,10 +241,13 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
     describe('get', () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 =======
 >>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
         test('reads the certificate of an asymmetric key', async () => {
             const {client, sent} = runtimeStub({
                 get: {Key: {...key, KeyAttributes: {...attributes, KeyClass: 'ASYMMETRIC_KEY_PAIR'}}},
@@ -280,9 +277,12 @@ describe('AwsPaymentCryptographyAdapter', () => {
         })
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
 >>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
         test('shows the attributes, the check value and the tags the inspector needs', async () => {
             const {client} = runtimeStub({tags: {Tags: [{Key: 'env', Value: 'prod'}]}})
 

@@ -250,6 +250,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (!key) return null
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         // The tags and the certificate are reads of their own and do not depend on
         // each other, so they are asked together rather than one after the other.
         // Both are addressed by the ARN the key resolved to, because the service
@@ -277,6 +278,8 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
 >>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
 =======
 =======
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
         // The tags and the certificate are reads of their own and do not depend on
         // each other, so they are asked together rather than one after the other.
         // Both are addressed by the ARN the key resolved to, because the service
@@ -287,8 +290,11 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             this.publicKeyCertificate(arn, key),
         ])
         return toResource(key, tags, certificate, await getKeyPolicy(this.client, identifier))
+<<<<<<< HEAD
 >>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
 >>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -527,10 +533,13 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
 
     /**
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 =======
 >>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
      * The certificate of an asymmetric key, which the reference signs and hands out
      * for the key's public half.
      *
@@ -589,9 +598,12 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
 
     /**
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
 >>>>>>> debebdc (feat(paymentcryptography): the certificate of a key's public half)
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
      * Tags are enrichment, so a failure degrades the inspector rather than the
      * request, and is reported so it cannot pass for an untagged key.
      */
@@ -697,6 +709,7 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 function toResource(
     key: Key,
     tagLookup: TagLookup,
@@ -708,6 +721,8 @@ function toResource(
 <<<<<<< HEAD
 function toResource(key: Key, tagLookup: TagLookup): CloudResource {
 =======
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
 function toResource(
     key: Key,
     tagLookup: TagLookup,
@@ -716,8 +731,11 @@ function toResource(
     certificateLookup: CertificateLookup = {},
     policyLookup?: KeyPolicyLookup,
 ): CloudResource {
+<<<<<<< HEAD
 >>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
 >>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
     const arn = key.KeyArn ?? ''
 
     return {
@@ -749,6 +767,7 @@ function toResource(
             primaryRegion: key.PrimaryRegion,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -771,6 +790,8 @@ function toResource(
 =======
             publicKeyCertificate,
 =======
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -786,12 +807,14 @@ function toResource(
             ...(certificateLookup.state !== undefined
                 ? {publicKeyCertificateState: certificateLookup.state}
                 : {}),
->>>>>>> be82d93 (feat(paymentcryptography): the certificate of a key's public half)
             ...policyMetadata(policyLookup),
             replicationRegions: replicationRegionsOf(key),
             usingDefaultReplicationRegions: key.UsingDefaultReplicationRegions,
+<<<<<<< HEAD
 >>>>>>> debf197 (feat(paymentcryptography): the panels a payment key has of its own)
 >>>>>>> 3a8a552 (feat(paymentcryptography): the panels a payment key has of its own)
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },

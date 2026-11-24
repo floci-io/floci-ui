@@ -135,10 +135,6 @@ describe("the create form's button", () => {
     expect(onSubmit).toHaveBeenCalledWith({aliasTargetKey: "key/key-a"});
   });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
   it("drops a value the options no longer offer", async () => {
     // The create form is inline, so the table stays usable while it is open.
     // The key the form points at is deleted, the choices are asked again, and
@@ -187,11 +183,6 @@ describe("the create form's button", () => {
     expect(onSubmit).toHaveBeenCalledWith({aliasTargetKey: "key/key-b"});
   });
 
-<<<<<<< HEAD
-=======
->>>>>>> a71861d (fix(console): the shared console surface is the reviewed one)
-=======
->>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
   it("says so when the options of a field could not be loaded, and asks again", async () => {
     // An account with no keys and a request that failed leave the same empty
     // dropdown, so the failure is said so beside the field that needs the
@@ -281,34 +272,4 @@ describe("the create form's button", () => {
     expect(screen.getByRole("button", {name: "Create key"})).toBeDefined();
     expect(screen.queryByRole("button", {name: "Create an alias"})).toBeNull();
   });
-<<<<<<< HEAD
-=======
-
-  it("shows a field that is hidden from every answer but one", async () => {
-    // A condition may name the answer that hides a field rather than the one
-    // that shows it, so the field is there for every answer but that one.
-    const aliasName: FieldSchema = {
-      name: "aliasName",
-      label: "Alias Name",
-      type: "text",
-      required: false,
-      visibleWhen: {field: "kind", notEquals: "aliases"},
-    };
-
-    const user = userEvent.setup();
-    render(
-      <DynamicFormRenderer
-        schema={{...schema, fields: [kind, aliasName]}}
-        isSubmitting={false}
-        onSubmit={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByLabelText(/Alias Name/)).toBeVisible();
-
-    await user.selectOptions(screen.getByRole("combobox"), "aliases");
-
-    expect(screen.queryByLabelText(/Alias Name/)).toBeNull();
-  });
->>>>>>> a71861d (fix(console): the shared console surface is the reviewed one)
 });

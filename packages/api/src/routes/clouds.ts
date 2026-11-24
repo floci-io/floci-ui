@@ -1184,10 +1184,6 @@ export function createCloudRoutes(
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
-<<<<<<< HEAD
-=======
-            // A key with a null value is one whose tag is removed.
->>>>>>> b929419 (fix(console): the tag editor compares against the snapshot it was opened with)
             const tags = tagChanges(await jsonBody<Record<string, unknown>>(c))
             await svc(c).updateTags(cloud, serviceType, c.req.param('id'), tags)
             return c.json({ok: true})
@@ -1291,7 +1287,6 @@ function parseStreamReadQuery(query: Record<string, string>): ReadStreamMessages
 }
 
 /**
-<<<<<<< HEAD
  * The tag changes a request carries.
  *
  * <p>A key with a value is one that is set, and a key with a null is one that is
@@ -1299,12 +1294,6 @@ function parseStreamReadQuery(query: Record<string, string>): ReadStreamMessages
  * compile-time claim: a body that is an array, or one whose values are not
  * strings, is a fault of the caller and is refused here rather than reaching the
  * cloud.
-=======
- * The changes between the tags a resource has and the tags it is given.
- *
- * <p>A tag that is removed is named with a null value, and a value that is not a
- * string is a fault of the caller rather than a quiet removal.
->>>>>>> b929419 (fix(console): the tag editor compares against the snapshot it was opened with)
  *
  * <p>The changes are built through a map, so a tag named `__proto__` is an own
  * property of the result and not the prototype of it.

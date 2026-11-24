@@ -1,5 +1,4 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { InvalidateQueryFilters } from "@tanstack/react-query";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -479,6 +478,7 @@ describe("DynamicResourceView AWS compute", () => {
     ).toBeInTheDocument();
   });
 
+<<<<<<< HEAD
   it("refreshes the account the delete was made in", async () => {
     const user = userEvent.setup();
     const gate = deferred<void>();
@@ -537,6 +537,8 @@ describe("DynamicResourceView AWS compute", () => {
     });
   });
 
+=======
+>>>>>>> 8ed603e (fix(console): the shared surface is main's, the panels are the branch's own)
   it("hides a late delete refusal from the page the user navigated to", async () => {
     const user = userEvent.setup();
     const gate = deferred<void>();
@@ -1444,10 +1446,6 @@ describe("DynamicResourceView a field that names another resource", () => {
     expect(values).toContain(keyB.id);
   });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
   it("refreshes the choices as well as the table", async () => {
     vi.mocked(listCloudResources).mockResolvedValue([keyA]);
 
@@ -1481,11 +1479,6 @@ describe("DynamicResourceView a field that names another resource", () => {
     });
   });
 
-<<<<<<< HEAD
-=======
->>>>>>> a71861d (fix(console): the shared console surface is the reviewed one)
-=======
->>>>>>> b1e5591 (fix(console): a required select keeps only a value the options offer)
   it("says so when the target keys could not be loaded, and asks again", async () => {
     let failing = true;
     vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) => {
@@ -1602,6 +1595,7 @@ describe("DynamicResourceView a service whose kinds do not take the same actions
     await waitFor(() => expect(screen.queryByRole("button", {name: /Edit tags/})).toBeNull());
   });
 });
+<<<<<<< HEAD
 
 describe("DynamicResourceView the certificate of a payment key", () => {
   const ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc";
@@ -2675,3 +2669,5 @@ describe("DynamicResourceView the Regions a payment key is replicated to", () =>
     expect(await screen.findByText("us-east-2")).toBeInTheDocument();
   });
 });
+=======
+>>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
