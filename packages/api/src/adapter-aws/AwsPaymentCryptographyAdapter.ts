@@ -26,24 +26,16 @@ import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
+    mayWrapWith,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
-<<<<<<< HEAD
-<<<<<<< HEAD
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
-=======
-    PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS,
-    mayWrapWith,
->>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
-=======
-    mayWrapWith,
-    wrappingAlgorithmsFor,
->>>>>>> e78344e (fix(paymentcryptography): the matrix is not read through the prototype chain)
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
     PAYMENT_CRYPTOGRAPHY_KIND_PREFIX,
     PAYMENT_CRYPTOGRAPHY_KINDS,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
+    wrappingAlgorithmsFor,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
     type PaymentCryptographyKeyAlgorithm,

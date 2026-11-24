@@ -1737,6 +1737,7 @@ describe("DynamicResourceView the certificate of a payment key", () => {
     // The key could not be read, so nothing is known of its certificate, and
     // the console says that rather than staying silent.
     expect(await screen.findByText(/its certificate is unknown/)).toBeDefined();
+<<<<<<< HEAD
   });
 });
 
@@ -1831,6 +1832,8 @@ describe("DynamicResourceView the usage of a payment key", () => {
     expect(screen.queryByText(/The key may be used/)).toBeNull();
     expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
     expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
+=======
+>>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
   });
 });
 
@@ -1964,7 +1967,7 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
     // The key could not be read, so nothing is known of the material it leaves
     // under, and the console says that rather than speaking about a key it has
     // not read.
-    expect(await screen.findByText(/could not be read/)).toBeDefined();
+    expect(await screen.findByText(/its material is unknown/)).toBeDefined();
     expect(screen.queryByText(/not exportable/)).toBeNull();
     expect(screen.queryByRole("button", {name: /Export key/i})).toBeNull();
   });

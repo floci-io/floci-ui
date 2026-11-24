@@ -1161,9 +1161,8 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
         />
       )}
-<<<<<<< HEAD
-<<<<<<< HEAD
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
+<<<<<<< HEAD
         // The certificate of a payment key and whether the key may be used are
         // part of the key's detail, and the table's row carries neither of
         // them, so the panel shows the detail and never the row: it would speak
@@ -1191,13 +1190,24 @@ export function DynamicResourceView({
         // detail that was read, so the flag is scoped to a key that has never
         // been read at all.
 >>>>>>> 65dd1da (fix(paymentcryptography): the panel speaks about the key it has read)
+=======
+        // The certificate of a payment key and the material it leaves under are
+        // part of the key's detail, and the table's row carries neither of them,
+        // so the panel shows the detail and never the row: it would speak about
+        // a key it has not read. A detail that was never read leaves them
+        // unknown, and the panel says so rather than staying silent. A later
+        // refetch that failed keeps the detail that was read, so the flag is
+        // scoped to a key that has never been read at all.
+>>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
         <PaymentCryptographyPanel
           key={activeSelected.id}
           cloud={cloud}
           resource={inspectedDetail}
+          keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
           resources={optionRowsQuery.data}
           schema={schema}
           runtimeReachable={canUseRuntime}
+<<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
 <<<<<<< HEAD
@@ -1207,6 +1217,8 @@ export function DynamicResourceView({
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
 >>>>>>> 65dd1da (fix(paymentcryptography): the panel speaks about the key it has read)
 >>>>>>> 75509f0 (fix(paymentcryptography): the panel speaks about the key it has read)
+=======
+>>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
         />
       )}
       {service === "configuration" && cloud === "aws" && (

@@ -1,5 +1,4 @@
 import {describe, expect, test} from 'bun:test'
-<<<<<<< HEAD
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
@@ -9,9 +8,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
 } from './paymentCryptographySchema'
-=======
-import {awsPaymentCryptographySchema, mayWrapWith} from './paymentCryptographySchema'
->>>>>>> e78344e (fix(paymentcryptography): the matrix is not read through the prototype chain)
+import {mayWrapWith} from './paymentCryptographySchema'
 
 describe('awsPaymentCryptographySchema', () => {
     test('offers the tag editor for a key and not for an alias', () => {

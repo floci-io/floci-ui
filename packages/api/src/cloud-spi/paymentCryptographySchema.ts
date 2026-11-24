@@ -194,7 +194,6 @@ export function algorithmsForUsage(usage: PaymentCryptographyKeyUsage): readonly
 }
 
 /**
-<<<<<<< HEAD
  * The class of a key.
  *
  * The class says what shape the key has: a pair has a public half and a
@@ -230,7 +229,8 @@ export const PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES = {
 
 export type PaymentCryptographyCertificateState =
     (typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES)[keyof typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES]
-=======
+
+/**
  * The strength of a symmetric key, in bits, as the reference's matrix counts it.
  *
  * <p>The matrix is the reference's own, and a wrapping key has to be at least as
@@ -295,7 +295,6 @@ export function wrappingAlgorithmsFor(carriedAlgorithm: string): string[] {
 export function mayWrapWith(carriedAlgorithm: string, wrappingAlgorithm: string): boolean {
     return wrappingAlgorithmsFor(carriedAlgorithm).includes(wrappingAlgorithm)
 }
->>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
 
 /**
  * The class a key of an algorithm has.
