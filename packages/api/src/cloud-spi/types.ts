@@ -220,14 +220,29 @@ export interface TableColumnSchema {
 }
 
 /**
+ * The discriminators a service publishes a pairing rule under.
+ *
+ * <p>The discriminator is part of the wire contract: a consumer picks its rule
+ * by comparing this value against a literal, so a rename on the service side
+ * has to be a mistake the compiler catches where the rule is published.
+ */
+export type PairingDiscriminator = 'keyAlgorithm'
+
+/**
  * A rule a service publishes about what may carry what, for a panel that has to
  * offer only the pairings the service allows.
  */
 export interface PairingRule {
     /** The metadata member that says what the resource is, such as its algorithm. */
-    discriminator: string
-    /** What it may carry, by that member's value. */
-    allowed: Record<string, string[]>
+    discriminator: PairingDiscriminator
+    /**
+     * The pairings, keyed by the discriminator value of the resource that is
+     * carried: `allowed[X]` holds the discriminator values of the resources that
+     * may carry a resource whose discriminator value is `X`. A value the map
+     * does not name may not be carried at all, which is not the same as a
+     * service that publishes no table at all.
+     */
+    allowed: Readonly<Record<string, readonly string[]>>
 }
 
 export interface ServiceSchema {
@@ -252,8 +267,13 @@ export interface ServiceSchema {
     updateFields?: FieldSchema[]
     /**
      * The pairings the service allows, for a panel that chooses one resource to
-     * carry another. The service publishes its own table, so the panel and the
-     * adapter cannot disagree about it.
+     * carry another.
+     *
+     * <p>The absence of a rule is a rule of its own and both sides must read it
+     * the same way: a service that publishes no `pairings`, a rule for another
+     * discriminator, or a discriminator value the table does not name all mean
+     * that nothing may carry the resource. A panel that reads the absence as
+     * "anything goes" offers pairings the adapter refuses.
      */
     pairings?: PairingRule[]
     /** A standing caveat shown above the list, for what the local runtime emulates but does not do. */

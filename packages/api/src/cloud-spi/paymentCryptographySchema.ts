@@ -254,7 +254,7 @@ export const PAYMENT_CRYPTOGRAPHY_KEY_STRENGTH: Record<string, number> = {
  * block are not here, because a key that leaves under an RSA or an elliptic curve
  * key leaves as a cryptogram and not as a block.
  */
-export const PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS: Record<string, string[]> = {
+export const PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS: Readonly<Record<string, readonly string[]>> = {
     TDES_2KEY: ['TDES_2KEY', 'TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
     TDES_3KEY: ['TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
     AES_128: ['AES_128', 'AES_192', 'AES_256'],
@@ -325,7 +325,7 @@ export function mayWrapKey(
  * <p>The matrix is a plain object and the algorithm comes from the service, so a
  * name the prototype chain answers for is not a row of the matrix.
  */
-export function wrappingAlgorithmsFor(carriedAlgorithm: string): string[] {
+export function wrappingAlgorithmsFor(carriedAlgorithm: string): readonly string[] {
     if (!Object.prototype.hasOwnProperty.call(PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS, carriedAlgorithm)) {
         return []
     }

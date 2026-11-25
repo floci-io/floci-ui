@@ -25,7 +25,7 @@ import type {PairingRule, ServiceSchema} from "@/types/schema";
 export function allowedAlgorithms(
   schema: ServiceSchema | undefined,
   carriedAlgorithm: string,
-): string[] | undefined {
+): readonly string[] | undefined {
   const rule: PairingRule | undefined = schema?.pairings?.find(
     (each) => each.discriminator === "keyAlgorithm",
   );

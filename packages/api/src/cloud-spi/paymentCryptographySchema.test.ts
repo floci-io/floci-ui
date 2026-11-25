@@ -1,4 +1,5 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
@@ -11,6 +12,7 @@ import {
 } from './paymentCryptographySchema'
 import {mayWrapWith} from './paymentCryptographySchema'
 import {mayWrapKey} from './paymentCryptographySchema'
+import type {PairingRule} from './types'
 
 describe('awsPaymentCryptographySchema', () => {
     test('offers the tag editor for a key and not for an alias', () => {
@@ -95,6 +97,52 @@ describe('awsPaymentCryptographySchema', () => {
         for (const name of ['__proto__', 'constructor', 'toString']) {
             expect(mayWrapWith(name, 'AES_256')).toBe(false)
         }
+    })
+
+    test('the published matrix is a value and not a handle', () => {
+        const schema = awsPaymentCryptographySchema()
+
+        // The table the schema publishes is the very one the adapter validates
+        // against, so a consumer that changed it in process would change what
+        // the adapter accepts. The change is never made here: the compiler is
+        // what refuses it.
+        const change = () => {
+            // @ts-expect-error the published matrix is read-only
+            schema.pairings![0].allowed['AES_256'].push('TDES_2KEY')
+        }
+
+        expect(change).toBeInstanceOf(Function)
+        expect(schema.pairings?.[0].allowed['AES_256']).toEqual(['AES_256'])
+    })
+
+    test('the rule names the discriminator the panel reads', () => {
+        // The discriminator is part of the wire contract, so a rule under
+        // another one is a mistake the compiler catches where it is published.
+        // @ts-expect-error the console reads one discriminator
+        const other: PairingRule = {discriminator: 'keyClass', allowed: {}}
+
+        expect(other).toBeDefined()
+    })
+
+    test('the rule says which way round the map is', () => {
+        const doc = readFileSync(new URL('./types.ts', import.meta.url), 'utf8')
+            .replace(/\*/g, ' ')
+            .replace(/\s+/g, ' ')
+
+        // The doc says which side of the map is the carried one, and that a
+        // value the map does not name may not be carried at all.
+        expect(doc).toContain('the resource that is carried')
+        expect(doc).toContain('may not be carried at all')
+    })
+
+    test('the absence of a rule is a rule of its own', () => {
+        const doc = readFileSync(new URL('./types.ts', import.meta.url), 'utf8')
+            .replace(/\*/g, ' ')
+            .replace(/\s+/g, ' ')
+
+        // The doc says that no rule means that nothing may carry the resource,
+        // so a panel cannot read the absence as "anything goes".
+        expect(doc).toContain('nothing may carry the resource')
     })
 })
 
