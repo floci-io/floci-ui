@@ -6,6 +6,7 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
+import {setReplicationRegions} from './paymentCryptographyReplication'
 import {ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
@@ -201,5 +202,19 @@ describe('the replication of a payment key', () => {
                 removeReplicationRegions: [],
             }),
         ).rejects.toBeInstanceOf(ValidationError)
+    })
+})
+
+describe('the helper that changes the Regions of a key', () => {
+    test('a list that names no Region sends no command', async () => {
+        const {client, sent} = stubClient(() => ({}))
+
+        // The reference's own commands name the Regions they change, so a list
+        // that names no Region is not a request the service can act on. The
+        // helper is exported, so it does not leave the check to every caller.
+        await setReplicationRegions(client, ARN, [], true)
+        await setReplicationRegions(client, ARN, [], false)
+
+        expect(sent).toHaveLength(0)
     })
 })
