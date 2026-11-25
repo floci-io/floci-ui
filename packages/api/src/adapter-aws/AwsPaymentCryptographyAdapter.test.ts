@@ -752,6 +752,21 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
         })
 
+        test('refuses a wrapping key that does not say whether it is enabled', async () => {
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, Exportable: true}},
+                wrapping: {Key: {...key, KeyArn: WRAPPING_ARN, Enabled: undefined}},
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            // A state that was not read is not a permission, the same way the
+            // modes of use are read.
+            await expect(
+                adapter.exportKey(KEY_ID, {wrappingKeyArn: WRAPPING_ARN}),
+            ).rejects.toThrow(/does not say whether it is enabled/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
         test('refuses a key that may not carry itself', async () => {
             const {client, sent} = runtimeStub({get: {Key: {...key, Exportable: true}}})
             const adapter = new AwsPaymentCryptographyAdapter(client)

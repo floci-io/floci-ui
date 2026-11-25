@@ -200,4 +200,11 @@ describe('the keys that may carry another key', () => {
         expect(modesAllowWrapping(undefined)).toBe(false)
         expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', undefined, true)).toBe(false)
     })
+
+    test('the enabled state that was not read is not a permission to wrap', () => {
+        // The state of a key that was not read is not a state the console may
+        // read as a permission: a key that may not say whether it is enabled may
+        // not wrap, the same way the modes of use are read.
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, undefined)).toBe(false)
+    })
 })

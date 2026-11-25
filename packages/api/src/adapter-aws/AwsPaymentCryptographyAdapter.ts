@@ -558,13 +558,19 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
                 `which may not wrap a key: a wrapping key has to be one of ${PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES.join(', ')}`,
             )
         }
-        // A key that is allowed to encrypt may not wrap a block, and a disabled
-        // key does no work at all.
+        // A key that is allowed to encrypt may not wrap a block, and a key that
+        // is not enabled does no work at all. A key whose enabled state was not
+        // read is not a key that may wrap either: a state that is not read is
+        // not a permission, the same way the modes of use are not one.
         if (!modesAllowWrapping(wrapping.KeyAttributes?.KeyModesOfUse)) {
             throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not allowed to wrap a key`)
         }
-        if (wrapping.Enabled === false) {
-            throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not enabled`)
+        if (wrapping.Enabled !== true) {
+            throw new ValidationError(
+                wrapping.Enabled === false
+                    ? `the wrapping key ${wrappingKeyArn} is not enabled`
+                    : `the wrapping key ${wrappingKeyArn} does not say whether it is enabled`,
+            )
         }
         return wrapping
     }
