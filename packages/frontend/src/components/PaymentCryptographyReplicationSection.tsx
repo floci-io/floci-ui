@@ -202,14 +202,18 @@ export function PaymentCryptographyReplicationSection({
             <button
               className="button small"
               type="button"
-              disabled={!runtimeReachable || save.isPending || region.trim() === ""}
-              onClick={() =>
-                change(
-                  regions.includes(region.trim())
-                    ? regions
-                    : [...regions, region.trim()],
-                )
+              // A Region the key is already replicated to is not a change: the
+              // diff against the Regions the key holds would be empty, and the
+              // request would add and remove nothing, so the input would be
+              // cleared and the queries refreshed for a write that never
+              // happened.
+              disabled={
+                !runtimeReachable ||
+                save.isPending ||
+                region.trim() === "" ||
+                regions.includes(region.trim())
               }
+              onClick={() => change([...regions, region.trim()])}
             >
               <Plus size={12} />
               Replicate to
