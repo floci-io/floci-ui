@@ -384,6 +384,11 @@ export const PAYMENT_CRYPTOGRAPHY_KIND_PREFIX: Record<PaymentCryptographyKind, s
 const paymentCryptographyColumns: TableColumnSchema[] = [
     {name: 'kind', label: 'Kind', path: 'type', format: 'badge'},
     {name: 'name', label: 'Name', format: 'code'},
+    // A key has no name of its own, so the ARN is all the table could show.
+    // The alias is the friendly name for a key, and it is the name the operator
+    // knows it by, so the table shows it beside the ARN. A key no alias names
+    // shows nothing here rather than a dash that reads as a missing value.
+    {name: 'aliasNames', label: 'Alias', path: 'metadata.aliasNames', format: 'list', emptyText: '—'},
     {name: 'keyClass', label: 'Key Type', path: 'metadata.keyClass', format: 'badge', emptyText: '—'},
     {name: 'keyUsage', label: 'Key Usage', path: 'metadata.keyUsage', emptyText: '—'},
     {name: 'keyAlgorithm', label: 'Key Algorithm', path: 'metadata.keyAlgorithm', emptyText: '—'},

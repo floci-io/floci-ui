@@ -110,7 +110,14 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         const kinds = kind ? [kind] : [...PAYMENT_CRYPTOGRAPHY_KINDS]
         // The aliases are read once. They are rows of the table, and they name
         // the keys the table shows.
-        const aliases = await this.listAliases()
+        //
+        // When the list holds alias rows, the aliases are what the list is, so
+        // a read that fails fails the list. When it does not, they only name
+        // the keys, and a read that fails leaves the names unknown and the keys
+        // standing.
+        const aliases = kinds.includes('aliases')
+            ? await this.listAliases()
+            : await this.aliasesOfAccount()
         const groups = await Promise.all(kinds.map((each) => this.listKind(each, aliases)))
         const resources = groups.flat()
         if (kinds.includes('keys')) {
@@ -261,18 +268,51 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
-        // The tags, the certificate and the policy are reads of their own and do
-        // not depend on each other, so they are asked together rather than one
-        // after the other. All three are addressed by the ARN the key resolved
-        // to, because the service takes an ARN and a key may have been asked
-        // for by an alias or a short id.
+        // The tags, the certificate, the policy and the aliases are reads of
+        // their own and do not depend on each other, so they are asked together
+        // rather than one after the other. All four are addressed by the ARN
+        // the key resolved to, because the service takes an ARN and a key may
+        // have been asked for by an alias or a short id.
         const arn = key.KeyArn ?? identifier
-        const [tags, certificate, policy] = await Promise.all([
+        const [tags, certificate, policy, aliases] = await Promise.all([
             this.getTags(arn),
             this.publicKeyCertificate(arn, key),
             getKeyPolicy(this.client, arn),
+            this.aliasesOf(arn),
         ])
-        return toResource(key, tags, certificate, policy)
+        const resource = toResource(key, tags, certificate, policy)
+        // The key carries the names it was given here as well as in the list, so
+        // the two never disagree about what a key is called.
+        const names = aliases.map((alias) => alias.AliasName).filter((name): name is string => Boolean(name))
+        if (names.length > 0) resource.metadata.aliasNames = names
+        return resource
+    }
+
+    /**
+     * The aliases that name one key.
+     *
+     * <p>The service lists the aliases of a key when it is asked for them, so
+     * the key's own detail can say what it is called.
+     *
+     * <p>A read that fails leaves the names unknown and the key standing: a key
+     * whose names could not be read is still a key, and the console says what
+     * it does not know rather than losing the key with it.
+     */
+    private async aliasesOf(keyArn: string): Promise<Alias[]> {
+        try {
+            return await this.listAliases(keyArn)
+        } catch {
+            return []
+        }
+    }
+
+    /** The aliases of the account, or none when the read failed. */
+    private async aliasesOfAccount(): Promise<Alias[]> {
+        try {
+            return await this.listAliases()
+        } catch {
+            return []
+        }
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -440,7 +480,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /** ListAliases pages like ListKeys, so an account past that would be truncated. */
-    private async listAliases(): Promise<Alias[]> {
+    private async listAliases(keyArn?: string): Promise<Alias[]> {
         const aliases: Alias[] = []
         let nextToken: string | undefined
 
@@ -448,6 +488,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             const res = await this.client.send(
                 new ListAliasesCommand({
                     MaxResults: LIST_PAGE_SIZE,
+                    ...(keyArn ? {KeyArn: keyArn} : {}),
                     ...(nextToken ? {NextToken: nextToken} : {}),
                 }),
             )
@@ -913,7 +954,12 @@ function filterBySearch(resources: CloudResource[], search?: string): CloudResou
 
     return resources.filter((resource) => {
         const usage = String(resource.metadata.keyUsage ?? '').toLowerCase()
-        return resource.name.toLowerCase().includes(normalized) || usage.includes(normalized)
+        if (resource.name.toLowerCase().includes(normalized) || usage.includes(normalized)) return true
+        // A key is known by the name it was given, so the search finds it by
+        // that name and not only by its ARN.
+        const names = resource.metadata.aliasNames
+        if (!Array.isArray(names)) return false
+        return names.some((each) => typeof each === 'string' && each.toLowerCase().includes(normalized))
     })
 }
 

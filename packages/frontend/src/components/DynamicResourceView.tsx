@@ -1423,7 +1423,12 @@ function optionsFromRows(field: FieldSchema, rows: CloudResource[] | undefined):
  * is offered under the alias when the row has one.
  */
 function optionLabel(field: FieldSchema, row: CloudResource): string {
-  const named = field.optionsLabelFrom ? row.metadata[field.optionsLabelFrom] : undefined;
+  const metadata = row.metadata ?? {};
+  // A name inherited from the prototype is not a state the API published.
+  const named =
+    field.optionsLabelFrom && Object.prototype.hasOwnProperty.call(metadata, field.optionsLabelFrom)
+      ? metadata[field.optionsLabelFrom]
+      : undefined;
   if (Array.isArray(named)) {
     const names = named.filter((each): each is string => typeof each === 'string' && each !== '');
     if (names.length > 0) return names.join(', ');

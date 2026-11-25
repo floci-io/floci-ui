@@ -219,6 +219,75 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(keyRow?.metadata.aliasNames).toBeUndefined()
         })
 
+        test('the search finds a key by the name it was given', async () => {
+            const {client} = runtimeStub({
+                listAliases: {Aliases: [{AliasName: 'alias/card-cvk', KeyArn: ARN}]},
+            })
+
+            const rows = await new AwsPaymentCryptographyAdapter(client).list({search: 'card-cvk'})
+
+            // An ARN is not something an operator remembers, and the name it
+            // was given is. The alias is found by its own name as well.
+            expect(rows.map((row) => row.id)).toContain(KEY_ID)
+            expect(rows.map((row) => row.id)).toContain('alias/card-cvk')
+        })
+
+        test("a key's detail carries the names it was given", async () => {
+            const {client} = runtimeStub({
+                listAliases: {Aliases: [{AliasName: 'alias/card-cvk', KeyArn: ARN}]},
+            })
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            // The key is called the same thing in the list and in its detail, so
+            // the two never disagree about what it is called.
+            expect(resource?.metadata.aliasNames).toEqual(['alias/card-cvk'])
+        })
+
+        test("a key whose names could not be read is still a key", async () => {
+            const {client} = runtimeStub({
+                listAliases: () => {
+                    throw new Error('The aliases could not be read.')
+                },
+            })
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            // A read that fails leaves the key standing, and the console says
+            // what it does not know rather than losing the key with it.
+            expect(resource?.id).toEqual(KEY_ID)
+            expect(resource?.metadata.aliasNames).toBeUndefined()
+        })
+
+        test('a list of keys whose names could not be read is still a list of keys', async () => {
+            const {client} = runtimeStub({
+                listAliases: () => {
+                    throw new Error('The aliases could not be read.')
+                },
+            })
+
+            const rows = await new AwsPaymentCryptographyAdapter(client).list({filters: {kind: 'keys'}})
+
+            // The aliases only name the keys here, so a read that fails leaves
+            // the names unknown and the keys standing.
+            expect(rows.map((row) => row.id)).toEqual([KEY_ID])
+            expect(rows[0].metadata.aliasNames).toBeUndefined()
+        })
+
+        test('a list that holds aliases fails when the aliases cannot be read', async () => {
+            const {client} = runtimeStub({
+                listAliases: () => {
+                    throw new Error('The aliases could not be read.')
+                },
+            })
+
+            // The aliases are what this list is, so a read that fails fails the
+            // list rather than showing fewer rows without saying so.
+            expect(new AwsPaymentCryptographyAdapter(client).list()).rejects.toThrow(
+                'The aliases could not be read.',
+            )
+        })
+
         test('follows NextToken so a long account is not truncated', async () => {
             const pages = [
                 {Keys: [key], NextToken: 'page-2'},
