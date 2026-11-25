@@ -183,6 +183,14 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // adapter refuses it with.
         const key = await this.describe(identifier)
         if (!key) throw new ValidationError(`the key ${identifier} is not there`)
+        // The reference only lets an exportable key be replicated to another
+        // Region, and the console states that, so the key is refused here with
+        // the reference's own reason rather than by the service.
+        if (key.Exportable === false) {
+            throw new ValidationError(
+                `the key ${identifier} is not exportable, so it is not replicated to another Region`,
+            )
+        }
         // A replica is read-only: the reference says a Replica Region key cannot
         // be configured to replicate to other Regions, so the API refuses what
         // it cannot do rather than sending a request the service would refuse.

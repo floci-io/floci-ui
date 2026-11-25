@@ -243,6 +243,22 @@ describe('the replication of a payment key', () => {
         expect(sent.some((command) => command instanceof AddKeyReplicationRegionsCommand)).toBe(false)
     })
 
+    test('a key that may not leave is not replicated to another Region', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: {...key, Exportable: false}}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The reference only lets an exportable key be replicated to another
+        // Region, and the console states that, so the reason is given here
+        // rather than by the service.
+        await expect(
+            adapter.setReplication(KEY_ID, {addReplicationRegions: ['us-east-2'], removeReplicationRegions: []}),
+        ).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof AddKeyReplicationRegionsCommand)).toBe(false)
+    })
+
     test('a member that is not a list of Regions is refused', async () => {
         const {client, sent} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)
