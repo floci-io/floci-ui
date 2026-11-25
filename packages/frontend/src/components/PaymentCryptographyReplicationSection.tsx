@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {Globe2, Plus, Trash2} from "lucide-react";
 import {setPaymentCryptographyKeyReplication} from "@/api/cloudProxyClient";
@@ -83,6 +83,12 @@ export function PaymentCryptographyReplicationSection({
       // against them.
       setDraft((current) => (current ? {...current, base: change.regions} : current));
     },
+    onError: (_error, change) => {
+      // The change did not happen, so the panel shows the Regions the key holds:
+      // a Region the service refused is not on screen, and the next change is
+      // not sent it again.
+      setDraft((current) => (current ? {base: change.base, regions: change.base} : current));
+    },
     onSettled: (_result, _error, change, context) => {
       // The Region that was chosen is gone from the input, and the key is read
       // again, so the panel shows what the service now holds.
@@ -96,6 +102,20 @@ export function PaymentCryptographyReplicationSection({
       });
     },
   });
+
+  // The detail is the truth: when it arrives, the draft is reconciled with it,
+  // so a Region another client added is not hidden by the draft. A change that
+  // is in flight is not discarded.
+  const pendingRef = useRef(false);
+  useEffect(() => {
+    pendingRef.current = save.isPending;
+  }, [save.isPending]);
+  useEffect(() => {
+    if (pendingRef.current) return;
+    const held = reportedRegions(resource);
+    if (!held) return;
+    setDraft((current) => (current ? {base: held, regions: held} : current));
+  }, [resource]);
 
   if (keyUnreadable) {
     return (
