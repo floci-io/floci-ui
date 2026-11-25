@@ -778,6 +778,16 @@ describe('AwsPaymentCryptographyAdapter', () => {
         })
     })
 
+    test('the field a caller asks for is the field the refusal names', () => {
+        const source = readFileSync(new URL('./AwsPaymentCryptographyAdapter.ts', import.meta.url), 'utf8')
+
+        // The helper is told which field it is reading, so the refusal names
+        // the field the caller asked for and the value is not checked twice.
+        expect(source).toContain('function targetKeyArn(value: unknown, field: string)')
+        expect(source).toContain("targetKeyArn(input.values.aliasTargetKey, 'aliasTargetKey')")
+        expect(source).toMatch(/targetKeyArn\(input[^)]*wrappingKeyArn, 'wrappingKeyArn'\)/)
+    })
+
     test('the health check reads one page rather than every key in the account', async () => {
         const {client, sent} = runtimeStub()
 

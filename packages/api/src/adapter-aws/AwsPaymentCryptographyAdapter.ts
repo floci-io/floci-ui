@@ -177,7 +177,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         // The form names a resource, and the resource id carries its kind, so the
         // prefix is taken off before the runtime is asked about it.
-        const wrappingKeyArn = targetKeyArn(requiredString(input?.wrappingKeyArn, 'wrappingKeyArn'))
+        const wrappingKeyArn = targetKeyArn(input?.wrappingKeyArn, 'wrappingKeyArn')
         // A key may not carry itself, and the service refuses a key that does.
         if (wrappingKeyArn === identifier) {
             throw new ValidationError(`the key ${identifier} may not carry itself`)
@@ -217,7 +217,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     private async importKey(input: CreateResourceInput): Promise<CloudResource> {
         // The form names a resource, and the resource id carries its kind, so the
         // prefix is taken off before the runtime is asked about it.
-        const wrappingKeyArn = targetKeyArn(requiredString(input.values?.wrappingKeyArn, 'wrappingKeyArn'))
+        const wrappingKeyArn = targetKeyArn(input.values?.wrappingKeyArn, 'wrappingKeyArn')
         const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
         // The choice the import group publishes, and not the one the key group
         // publishes: a field hidden by another answer keeps its value, so the
@@ -373,7 +373,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     /** An alias points at a key, and the reference refuses one that points at none. */
     private async createAlias(input: CreateResourceInput): Promise<CloudResource> {
         const aliasName = requiredAliasName(input.values.aliasName)
-        const targetKey = targetKeyArn(input.values.aliasTargetKey)
+        const targetKey = targetKeyArn(input.values.aliasTargetKey, 'aliasTargetKey')
 
         const res = await this.client.send(new CreateAliasCommand({AliasName: aliasName, KeyArn: targetKey}))
         if (!res.Alias) throw new RuntimeError('Payment Cryptography did not return the alias it created')
@@ -713,9 +713,12 @@ function optionalKind(value: unknown): PaymentCryptographyKind | undefined {
  * <p>The form offers the keys the account holds, by the id the console knows them
  * by, and an ARN is accepted as well for a caller that has one. The reference names
  * a key that exists, so the alias never names one that is not there yet.
+ *
+ * <p>The field is named by the caller, so the refusal is about the field the
+ * caller asked for rather than about one this helper made up.
  */
-function targetKeyArn(value: unknown): string {
-    const raw = requiredString(value, 'aliasTargetKey')
+function targetKeyArn(value: unknown, field: string): string {
+    const raw = requiredString(value, field)
     const prefix = `${PAYMENT_CRYPTOGRAPHY_KIND_PREFIX.keys}/`
     return raw.startsWith(prefix) ? raw.slice(prefix.length) : raw
 }
