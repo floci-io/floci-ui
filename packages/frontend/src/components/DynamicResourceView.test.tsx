@@ -1893,6 +1893,8 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
         type: "select",
         required: false,
         optionsFrom: "key",
+        // The API publishes this: a key is known by the alias that names it.
+        optionsLabelFrom: "aliasNames",
       },
     ],
     filters: [],
@@ -1911,6 +1913,47 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
     setAccountId(DEFAULT_ACCOUNT_ID);
     vi.mocked(getServiceSchema).mockResolvedValue(exportSchema);
     vi.mocked(getCloudResource).mockResolvedValue(carried);
+  });
+
+  it("offers a wrapping key under the name it was given", async () => {
+    // A key has no name of its own, so an ARN is all the console could offer.
+    // The alias that names it is what the operator knows it by.
+    const named: CloudResource = {
+      ...wrapping,
+      metadata: {...wrapping.metadata, aliasNames: ["alias/prosa-kek"]},
+    };
+    vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) =>
+      search === undefined ? [carried, named] : [carried],
+    );
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(CARRIED_ARN));
+
+    const select = await screen.findByLabelText("Wrapping key");
+    const options = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).textContent ?? "");
+
+    // The option is offered under the alias, and the value is still the key, so
+    // the service is asked for exactly the key that was chosen.
+    expect(options.some((text) => text.includes("alias/prosa-kek"))).toBe(true);
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+    expect(values).toContain(named.id);
   });
 
   it("offers the wrapping keys the account holds, not the rows the table shows", async () => {

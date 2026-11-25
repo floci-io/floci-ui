@@ -534,6 +534,11 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 // Only the keys the service says may wrap are offered, so the
                 // form does not offer a key the service refuses.
                 optionsState: 'mayWrap',
+                // A key is known by the alias that names it, and an ARN is not
+                // something an operator remembers. The alias names the key and
+                // the key is what the service takes, so the option is offered
+                // under the name it was given.
+                optionsLabelFrom: 'aliasNames',
             },
             {
                 name: 'wrappedKeyBlock',
@@ -569,6 +574,9 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 requiredWhen: {field: 'source', equals: 'aliases'},
                 description: 'The key the alias points at. An alias names a key that exists.',
                 optionsFrom: 'key',
+                // The reference takes the key's ARN here and not an alias, so
+                // the choice is a key, offered under the name it was given.
+                optionsLabelFrom: 'aliasNames',
             },
         ],
         actions: ['list', 'create', 'delete', 'inspect'],

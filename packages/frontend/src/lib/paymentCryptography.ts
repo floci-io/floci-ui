@@ -29,3 +29,23 @@ export function publishedPolicy(
   if (!Object.prototype.hasOwnProperty.call(metadata, "keyPolicy")) return undefined;
   return typeof metadata.keyPolicy === "string" ? metadata.keyPolicy : null;
 }
+
+/**
+ * The names a key was given.
+ *
+ * <p>A key has no name of its own, so an ARN is all the console could offer,
+ * and an ARN is not something an operator remembers. An alias is the friendly
+ * name for a key, and it is the name the operator knows it by.
+ *
+ * <p>The API publishes the names with the key, so the console reads them rather
+ * than working out which alias names which key. The name is read as an own
+ * property, because a name inherited from the prototype is not a state the API
+ * published.
+ */
+export function aliasNamesOf(resource: CloudResource | undefined): string[] {
+  const metadata = resource?.metadata;
+  if (!metadata || !Object.prototype.hasOwnProperty.call(metadata, "aliasNames")) return [];
+  const names = metadata.aliasNames;
+  if (!Array.isArray(names)) return [];
+  return names.filter((each): each is string => typeof each === "string" && each !== "");
+}

@@ -1410,8 +1410,27 @@ function optionsFromRows(field: FieldSchema, rows: CloudResource[] | undefined):
   const options = (rows ?? [])
     .filter((row) => row.type === field.optionsFrom)
     .filter((row) => !field.optionsState || row.metadata[field.optionsState] === true)
-    .map((row) => ({ label: row.name || row.id, value: row.id }));
+    .map((row) => ({ label: optionLabel(field, row), value: row.id }));
   return { ...field, options };
+}
+
+/**
+ * The name an option is offered under.
+ *
+ * <p>A field may say which member of the row's metadata carries the name the
+ * operator knows the resource by. A payment key is known by the alias that
+ * names it, and an ARN is not something an operator remembers, so the option
+ * is offered under the alias when the row has one.
+ */
+function optionLabel(field: FieldSchema, row: CloudResource): string {
+  const named = field.optionsLabelFrom ? row.metadata[field.optionsLabelFrom] : undefined;
+  if (Array.isArray(named)) {
+    const names = named.filter((each): each is string => typeof each === 'string' && each !== '');
+    if (names.length > 0) return names.join(', ');
+  } else if (typeof named === 'string' && named !== '') {
+    return named;
+  }
+  return row.name || row.id;
 }
 
 function errorMessage(error: unknown): string {

@@ -130,6 +130,16 @@ export interface FieldSchema {
      * allows rather than the ones the console worked out for itself.
      */
     optionsState?: string
+    /**
+     * The member of a row's metadata that carries the name the operator knows
+     * the resource by.
+     *
+     * <p>A row's own name is not always what an operator would call it. A
+     * payment key is known by the alias that names it, and an ARN is not
+     * something an operator remembers, so the field says where the name comes
+     * from and the console does not work it out for itself.
+     */
+    optionsLabelFrom?: string
 }
 
 /** The power verbs a compute adapter may implement, reached through `/compute/resources/:id/<verb>`. */
