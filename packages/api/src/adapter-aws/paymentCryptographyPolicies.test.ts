@@ -2,6 +2,7 @@ import {describe, expect, test} from 'bun:test'
 import {
     DeleteResourcePolicyCommand,
     GetKeyCommand,
+    GetPublicKeyCertificateCommand,
     GetResourcePolicyCommand,
     PutResourcePolicyCommand,
     type PaymentCryptographyClient,
@@ -45,6 +46,12 @@ const key = {
     KeyState: 'CREATE_COMPLETE',
     KeyOrigin: 'AWS_PAYMENT_CRYPTOGRAPHY',
     CreateTimestamp: new Date('2026-11-04T09:15:00.000Z'),
+}
+
+/** A key with a public half, so the certificate is read with it. */
+const pairKey = {
+    ...key,
+    KeyAttributes: {...attributes, KeyClass: 'ASYMMETRIC_KEY_PAIR'},
 }
 
 const POLICY = JSON.stringify({
@@ -175,5 +182,28 @@ describe('the policy of a payment key', () => {
 
         expect(resource?.name).toBe(ARN)
         expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+    })
+
+    test('the policy is read with the key, not after it', async () => {
+        let inFlight = 0
+        let peak = 0
+        const {client} = stubClient(async (command) => {
+            inFlight += 1
+            peak = Math.max(peak, inFlight)
+            await new Promise((resolve) => setTimeout(resolve, 0))
+            inFlight -= 1
+            if (command instanceof GetKeyCommand) return {Key: pairKey}
+            if (command instanceof GetResourcePolicyCommand) return {Policy: POLICY}
+            if (command instanceof GetPublicKeyCertificateCommand) return {KeyCertificate: 'CERTIFICATE-PEM'}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await adapter.get(KEY_ID)
+
+        // The tags, the certificate and the policy depend on none of each other,
+        // so they are asked together: reading one key costs one round trip and
+        // not three.
+        expect(peak).toBe(3)
     })
 })

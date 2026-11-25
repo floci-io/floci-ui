@@ -110,16 +110,18 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
-        // The tags and the certificate are reads of their own and do not depend on
-        // each other, so they are asked together rather than one after the other.
-        // Both are addressed by the ARN the key resolved to, because the service
-        // takes an ARN and a key may have been asked for by an alias or a short id.
+        // The tags, the certificate and the policy are reads of their own and do
+        // not depend on each other, so they are asked together rather than one
+        // after the other. All three are addressed by the ARN the key resolved
+        // to, because the service takes an ARN and a key may have been asked
+        // for by an alias or a short id.
         const arn = key.KeyArn ?? identifier
-        const [tags, certificate] = await Promise.all([
+        const [tags, certificate, policy] = await Promise.all([
             this.getTags(arn),
             this.publicKeyCertificate(arn, key),
+            getKeyPolicy(this.client, arn),
         ])
-        return toResource(key, tags, certificate, await getKeyPolicy(this.client, identifier))
+        return toResource(key, tags, certificate, policy)
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
