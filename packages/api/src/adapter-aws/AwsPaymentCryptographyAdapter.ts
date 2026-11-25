@@ -766,11 +766,17 @@ function toResource(
  *
  * <p>The policy is published only where it was read: a row of the table carries
  * none, because it never read one. A read that failed is said so, so it cannot
- * pass for a key that holds none.
+ * pass for a key that holds none, and the reason it failed is published with
+ * it, so a throttle is told apart from a denial.
  */
 function policyMetadata(policyLookup: KeyPolicyLookup | undefined): Record<string, unknown> {
     if (!policyLookup) return {}
-    if (policyLookup.unavailable) return {keyPolicyUnavailable: true}
+    if (policyLookup.unavailable) {
+        return {
+            keyPolicyUnavailable: true,
+            ...(policyLookup.reason ? {keyPolicyUnavailableReason: policyLookup.reason} : {}),
+        }
+    }
     return {keyPolicy: policyLookup.policy}
 }
 

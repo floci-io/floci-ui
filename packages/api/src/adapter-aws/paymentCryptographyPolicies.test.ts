@@ -7,7 +7,7 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
-import {getKeyPolicy} from './paymentCryptographyPolicies'
+import {getKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
 import {ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
@@ -150,7 +150,41 @@ describe('the policy of a payment key', () => {
 
         // The policy is enrichment: a refusal says nothing of the policy the key
         // holds, so it must not take the key with it.
-        expect(await getKeyPolicy(client, ARN)).toEqual({policy: null, unavailable: true})
+        expect(await getKeyPolicy(client, ARN)).toEqual({
+            policy: null,
+            unavailable: true,
+            reason: 'ThrottlingException',
+        })
+    })
+
+    test('the reason the policy could not be read is kept', async () => {
+        const {client} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: key}
+            if (command instanceof GetResourcePolicyCommand) {
+                throw Object.assign(new Error('throttled'), {name: 'ThrottlingException'})
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // The caught error was dropped, so a throttle was told apart from a
+        // denial by nothing at all.
+        expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+        expect(resource?.metadata.keyPolicyUnavailableReason).toBe('ThrottlingException')
+    })
+
+    test('a lookup that failed cannot carry a policy', () => {
+        const failed: KeyPolicyLookup = {policy: null, unavailable: true}
+        const read: KeyPolicyLookup = {policy: POLICY}
+
+        expect(failed.policy).toBeNull()
+        expect(read.policy).toBe(POLICY)
+
+        // @ts-expect-error a lookup that failed carries no policy of its own.
+        const impossible: KeyPolicyLookup = {policy: POLICY, unavailable: true}
+        expect(impossible.policy).toBe(POLICY)
     })
 
     test('a key that holds no policy is not a policy that could not be read', async () => {

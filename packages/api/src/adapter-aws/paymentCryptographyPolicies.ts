@@ -14,9 +14,14 @@ const KEY_ARN_PREFIX = 'arn:aws:payment-cryptography:'
  * The policy of a key, and whether the lookup of it failed.
  *
  * <p>A key that holds no policy is not the same as a key whose policy cannot be
- * read, so the two are told apart here rather than by the caller.
+ * read, so the two are told apart here rather than by the caller. A lookup that
+ * failed carries no policy: the two cannot happen at once, so the type says so
+ * and a policy that was read cannot be dropped by a caller that answers both.
  */
-export type KeyPolicyLookup = {policy: string | null; unavailable?: true}
+export type KeyPolicyLookup =
+    | {policy: string; unavailable?: false}
+    | {policy: null; unavailable?: false}
+    | {policy: null; unavailable: true; reason?: string}
 
 /**
  * The resource-based policy of a key, which is what lets another account use it.
@@ -40,12 +45,22 @@ export async function getKeyPolicy(
     }
     try {
         const res = await client.send(new GetResourcePolicyCommand({ResourceArn: keyArn}))
-        return {policy: res.Policy ?? null}
+        const policy = res.Policy ?? null
+        // A key that holds a policy and a key that holds none are two states,
+        // and the type says so.
+        return policy === null ? {policy: null} : {policy}
     } catch (error) {
         if (isNotFound(error)) return {policy: null}
         // The refusal says nothing of the policy the key holds, so it is reported
-        // as unreadable rather than taken for one that is not there.
-        return {policy: null, unavailable: true}
+        // as unreadable rather than taken for one that is not there. The reason
+        // is kept, so a throttle is told apart from a denial and a request the
+        // service refused as malformed is not passed off as an unreadable
+        // policy.
+        return {
+            policy: null,
+            unavailable: true,
+            reason: error instanceof Error ? error.name : 'unknown',
+        }
     }
 }
 
