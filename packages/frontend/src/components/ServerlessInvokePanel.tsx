@@ -6,6 +6,13 @@ import type {ServerlessInvokeResult} from "@/api/cloudProxyClient";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
+const PROVIDER_FUNCTION_LABELS: Record<CloudProvider, {article: string; name: string}> = {
+  aws: {article: "a", name: "Lambda function"},
+  azure: {article: "an", name: "Azure Function"},
+  gcp: {article: "a", name: "Google Cloud Function"},
+  oci: {article: "an", name: "OCI function"},
+};
+
 interface ServerlessInvokePanelProps {
   cloud: CloudProvider;
   resource?: CloudResource;
@@ -41,14 +48,7 @@ export function ServerlessInvokePanel({
   const canInvoke = Boolean(resource && isSupportedResource && runtimeReachable);
   const canSubmit = canInvoke && !validationError;
 
-  const providerLabel =
-    cloud === "aws"
-      ? "Lambda function"
-      : cloud === "azure"
-        ? "Azure Function"
-        : cloud === "oci"
-          ? "OCI function"
-          : "Google Cloud Function";
+  const providerLabel = PROVIDER_FUNCTION_LABELS[cloud];
 
   const invokeMutation = useMutation({
     mutationFn: () =>
@@ -93,8 +93,7 @@ const clearPayload = () => {
         <div className="empty compact">
           <h2>Select a serverless function</h2>
           <p>
-            Select a Lambda function, Azure Function, Google Cloud Function, or OCI function to
-            invoke it from Cloud Explorer.
+            Select {providerLabel.article} {providerLabel.name} to invoke it from Cloud Explorer.
           </p>
         </div>
       </section>
@@ -108,7 +107,7 @@ const clearPayload = () => {
           <p className="eyebrow">Serverless Actions</p>
           <h2>
             <Zap size={15} />
-            Invoke {providerLabel}
+            Invoke {providerLabel.name}
           </h2>
           <p className="muted compact-text">
             Send a JSON event payload to the selected serverless function.

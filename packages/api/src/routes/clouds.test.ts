@@ -1360,6 +1360,20 @@ describe('service descriptors', () => {
         }
     })
 
+    test('an unavailable service is explained with the name its own cloud uses', async () => {
+        const azure = await (await appWithRoutes([mockAdapter('aws')]).request('/api/clouds/azure/services')).json()
+        const gcp = await (await appWithRoutes([mockAdapter('aws')]).request('/api/clouds/gcp/services')).json()
+        const find = (body: Array<{service: string; displayName: string; reason?: string}>, service: string) =>
+            body.find((d) => d.service === service)
+
+        expect(find(azure, 'sagemaker')).toMatchObject({
+            displayName: 'Machine Learning',
+            reason: 'No AZURE adapter is registered for Machine Learning yet.',
+        })
+        expect(find(gcp, 'sagemaker')?.reason).toBe('No GCP adapter is registered for Vertex AI yet.')
+        expect(find(azure, 'xray')?.reason).not.toContain('X-Ray')
+    })
+
     test('availability follows adapter registration rather than a hardcoded list', async () => {
         const withK8s = await (await appWithRoutes([
             mockAdapter('gcp', {service: 'k8s'}),

@@ -108,11 +108,11 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Compute | Serverless | ✅ | ✅ | ✅ | ✅ |
 | Compute | Containers | ✅ | ✅ | ✅ | – |
 | Compute | Container Registry | ✅ | ✅ | – | – |
-| Compute | SageMaker AI | ✅ | – | – | – |
+| Compute | Machine Learning | ✅ | – | – | – |
 | Storage | Storage | ✅ | ✅ | ✅ | ✅ |
-| Storage | Table Storage | – | ✅ | – | – |
+| Storage | Storage Tables | – | ✅ | – | – |
 | Databases | Database | ✅ | ✅ | ✅ | ✅ |
-| Databases | Aurora DSQL | ✅ | – | – | – |
+| Databases | Distributed SQL | ✅ | – | – | – |
 | Databases | Cache | ✅ | ✅ | – | – |
 | Databases | NoSQL | ✅ | ✅ | ✅ | – |
 | Databases | Search | ✅ | – | – | – |
@@ -123,11 +123,11 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Networking | DNS | ✅ | – | – | – |
 | Integration | Messaging | ✅ | ✅ | ✅ | ✅ |
 | Integration | API Gateway | ✅ | 👁 | – | – |
-| Integration | SNS | ✅ | – | – | – |
-| Integration | Queue Storage | – | ✅ | – | – |
+| Integration | Notifications | ✅ | – | – | – |
+| Integration | Storage Queues | – | ✅ | – | – |
 | Integration | Streams | ✅ | ✅ | ✅ | ✅ |
 | Integration | Events | ✅ | ✅ | ✅ | – |
-| Integration | EventBridge V2 | ✅ | – | – | – |
+| Integration | Event Buses | ✅ | – | – | – |
 | Integration | Email | 👁 | – | – | – |
 | Integration | Scheduler | ✅ | – | ✅ | – |
 | Integration | Workflows | ✅ | – | – | – |
@@ -137,16 +137,16 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Provisioning | Organizations | – | – | – | 👁 |
 | Provisioning | Governance Rules | – | – | – | 👁 |
 | Security | Identity | ✅ | ✅ | ✅ | ✅ |
-| Security | Cognito | ✅ | – | 👁 | – |
-| Security | Secrets Manager | ✅ | ✅ | ✅ | ✅ |
+| Security | User Sign-in | ✅ | – | 👁 | – |
+| Security | Secrets | ✅ | ✅ | ✅ | ✅ |
 | Security | Key Management | ✅ | ✅ | 👁 | ✅ |
 | Security | Certificates | ✅ | ✅ | – | – |
 | Security | Payment Cryptography | ✅ | – | – | – |
-| Security | Parameter Store | ✅ | – | – | – |
+| Security | Parameters | ✅ | – | – | – |
 | Observability | Logs | ✅ | – | 👁 | – |
-| Observability | CloudWatch | ✅ | – | ✅ | – |
-| Observability | X-Ray | 👁 | – | – | – |
-| Observability | Work Requests | – | – | – | 👁 |
+| Observability | Monitoring | ✅ | – | ✅ | – |
+| Observability | Tracing | 👁 | – | – | – |
+| Observability | Operations | – | – | – | 👁 |
 
 ✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available
 
