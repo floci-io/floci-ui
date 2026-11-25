@@ -3,7 +3,7 @@ import {useMutation} from "@tanstack/react-query";
 import {Check, Copy, Download} from "lucide-react";
 import {exportPaymentCryptographyKey} from "@/api/cloudProxyClient";
 import {pairingsPublished, wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
-import {useCopyToClipboard} from "@/lib/useCopyToClipboard";
+import {COPY_REFUSED_MESSAGE, useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 import type {ServiceSchema} from "@/types/schema";
@@ -51,7 +51,7 @@ export function PaymentCryptographyExportSection({
   keyUnreadable,
 }: PaymentCryptographyExportSectionProps) {
   const [wrappingKey, setWrappingKey] = useState("");
-  const {copied, copyFailed, copy} = useCopyToClipboard();
+  const {copied, copyFailed, copy, reset: resetCopy} = useCopyToClipboard();
 
   const allowed = useMemo(
     () => (resource ? wrappingKeysFor(resource, resources, schema) : []),
@@ -108,6 +108,9 @@ export function PaymentCryptographyExportSection({
             // The material of the last export is not the material of this one, so
             // it goes rather than being left on the screen under another key.
             exportMut.reset();
+            // The copy state belongs to the material under the button, so it
+            // goes with it.
+            resetCopy();
           }}
         >
           <option value="">Choose a wrapping key</option>
@@ -130,7 +133,12 @@ export function PaymentCryptographyExportSection({
             !allowed.some((row) => row.id === wrappingKey) ||
             exportable !== true
           }
-          onClick={() => exportMut.mutate(resource)}
+          onClick={() => {
+            // A copy that was made of another material is not a copy of this
+            // one, so the state goes before the new material arrives.
+            resetCopy();
+            exportMut.mutate(resource);
+          }}
         >
           <Download size={12} />
           Export key
@@ -164,11 +172,14 @@ export function PaymentCryptographyExportSection({
           />
           <button className="button small" type="button" onClick={() => void copy(material)}>
             {copied ? <Check size={12} /> : <Copy size={12} />}
-            {copied ? "Copied" : "Copy material"}
+            Copy material
           </button>
+          <span className="muted compact-text" role="status">
+            {copied ? "Copied" : ""}
+          </span>
           {copyFailed && (
             <p className="form-error" role="alert">
-              The clipboard was not available, so nothing was copied.
+              {COPY_REFUSED_MESSAGE}
             </p>
           )}
         </>

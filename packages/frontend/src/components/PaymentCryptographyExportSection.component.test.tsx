@@ -196,6 +196,47 @@ describe("the material a payment key leaves under", () => {
     expect(options.length).toBe(1);
   });
 
+  it("keeps the name of the button and announces the outcome beside it", async () => {
+    const user = userEvent.setup();
+    renderSection(key, {resources: [wrapping]});
+
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
+    await user.click(screen.getByRole("button", {name: /Export key/i}));
+    await waitFor(() => expect(screen.getByLabelText("Exported key material")).toBeDefined());
+
+    await user.click(screen.getByRole("button", {name: /Copy material/i}));
+
+    // The name of the button never changes under the reader, and the outcome
+    // is announced beside it.
+    expect(screen.getByRole("button", {name: /Copy material/i})).toBeDefined();
+    expect(await screen.findByRole("status")).toHaveTextContent(/Copied/);
+  });
+
+  it("the copy state does not follow another material", async () => {
+    const user = userEvent.setup();
+    // The setup replaces the clipboard with a stub of its own, so the refusal
+    // is put in place after it.
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+    renderSection(key, {resources: [wrapping]});
+
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
+    await user.click(screen.getByRole("button", {name: /Export key/i}));
+    await waitFor(() => expect(screen.getByLabelText("Exported key material")).toBeDefined());
+    await user.click(screen.getByRole("button", {name: /Copy material/i}));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/clipboard was not available/i);
+
+    // Another export is made, so the refusal of the last material is not a
+    // refusal of this one.
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), "");
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
+    await user.click(screen.getByRole("button", {name: /Export key/i}));
+    await waitFor(() => expect(screen.getByLabelText("Exported key material")).toBeDefined());
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe("");
+  });
+
   it("says so when the clipboard refuses", async () => {
     const user = userEvent.setup();
     // The setup replaces the clipboard with a stub of its own, so the refusal
