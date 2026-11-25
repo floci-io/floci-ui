@@ -19,7 +19,7 @@ import {
 import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {isNotFound} from './paymentCryptographyErrors'
-import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
+import {deleteKeyPolicy, getKeyPolicy, isKeyArn, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
 import {addReplicationRegions, removeReplicationRegions} from './paymentCryptographyReplication'
 import {exportKeyTr31, importKeyTr31, keyArnOf} from './paymentCryptographyTransfer'
 import {
@@ -277,7 +277,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         const [tags, certificate, policy, aliases] = await Promise.all([
             this.getTags(arn),
             this.publicKeyCertificate(arn, key),
-            getKeyPolicy(this.client, arn),
+            this.readKeyPolicy(arn),
             this.aliasesOf(arn),
         ])
         const resource = toResource(key, tags, certificate, policy)
@@ -303,6 +303,25 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             return await this.listAliases(keyArn)
         } catch {
             return []
+        }
+    }
+
+    /**
+     * The policy of the key, or the reason it could not be read.
+     *
+     * <p>The policy is enrichment: a key whose policy cannot be read is still a
+     * key, so a refusal leaves the key on screen and says that the policy is
+     * unreadable rather than losing the key with it.
+     */
+    private async readKeyPolicy(keyArn: string): Promise<KeyPolicyLookup> {
+        try {
+            return await getKeyPolicy(this.client, keyArn)
+        } catch (error) {
+            return {
+                policy: null,
+                unavailable: true,
+                reason: error instanceof Error ? error.name : 'unknown',
+            }
         }
     }
 
@@ -397,16 +416,37 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (policy === undefined) {
             throw new ValidationError('the request must say what the policy is')
         }
-        // An empty policy is the console's way of saying that the policy is gone,
-        // so it removes the one the key holds rather than attaching nothing.
-        if (policy === null || (typeof policy === 'string' && policy.trim() === '')) {
-            await deleteKeyPolicy(this.client, identifier)
-            return
-        }
-        if (typeof policy !== 'string') {
+        if (policy !== null && typeof policy !== 'string') {
             throw new ValidationError('the policy of the request must be the policy document itself')
         }
-        await putKeyPolicy(this.client, identifier, policy)
+        // The policy is written against the ARN of the key, because the service's
+        // ResourceArn takes the ARN of the key: a key addressed by an alias or a
+        // short id would otherwise be refused by the service with an error that
+        // says nothing.
+        const keyArn = isKeyArn(identifier) ? identifier : await this.resolvedArnOf(identifier)
+        // An empty policy is the console's way of saying that the policy is gone,
+        // so it removes the one the key holds rather than attaching nothing.
+        if (policy === null || policy.trim() === '') {
+            await deleteKeyPolicy(this.client, keyArn)
+            return
+        }
+        await putKeyPolicy(this.client, keyArn, policy)
+    }
+
+    /**
+     * The ARN of the key, from an identifier that is not one.
+     *
+     * <p>The service accepts an alias name and a short key id as well, so an
+     * identifier that is not an ARN is resolved to the ARN the key has: the
+     * policy commands take the ARN alone.
+     */
+    private async resolvedArnOf(identifier: string): Promise<string> {
+        const key = await this.describe(identifier)
+        if (!key) throw new ValidationError(`the key ${identifier} is not there`)
+        if (!key.KeyArn) {
+            throw new ValidationError(`the key ${identifier} has no ARN, so its policy cannot be changed`)
+        }
+        return key.KeyArn
     }
 
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {

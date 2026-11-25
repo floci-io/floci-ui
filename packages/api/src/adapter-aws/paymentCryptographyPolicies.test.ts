@@ -7,7 +7,7 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
-import {getKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
+import {getKeyPolicy, putKeyPolicy, deleteKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
 import {ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
@@ -298,5 +298,50 @@ describe('the policy of a payment key', () => {
 
         expect(resource?.name).toBe(ARN)
         expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+    })
+
+    test('a key whose ARN is not known still leaves the key on screen and says so', async () => {
+        const {client} = stubClient((command) => {
+            // A runtime that answers a key without its ARN leaves the policy
+            // unreadable, but the key is still a key.
+            if (command instanceof GetKeyCommand) return {Key: {...key, KeyArn: undefined}}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get('key/abcd1234')
+
+        // The key is still on screen, and the policy is said to be unreadable.
+        expect(resource?.status).toBe('CREATE_COMPLETE')
+        expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+    })
+
+    test('the policy of a key asked for by a short id is written with its ARN', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: key}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The key was asked for by a short key id, which the service resolves to
+        // the key it names.
+        await adapter.setPolicy('key/abcd1234', {policy: POLICY})
+
+        // The policy is written against the ARN the key resolved to, because the
+        // service's ResourceArn takes the ARN of the key.
+        const put = sent.find((command) => command instanceof PutResourcePolicyCommand)
+        expect(put).toBeDefined()
+        expect((put as PutResourcePolicyCommand).input.ResourceArn).toBe(ARN)
+    })
+
+    test('a policy is not written against a value that is not an ARN', async () => {
+        const {client, sent} = stubClient(() => ({}))
+
+        // The service would refuse this with an InvalidArnException, so it is
+        // refused here with the reason the console can show.
+        await expect(putKeyPolicy(client, 'abcd1234', POLICY)).rejects.toBeInstanceOf(ValidationError)
+        await expect(deleteKeyPolicy(client, 'abcd1234')).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof PutResourcePolicyCommand)).toBe(false)
+        expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(false)
     })
 })

@@ -11,6 +11,31 @@ import {isNotFound} from './paymentCryptographyErrors'
 const KEY_ARN_PREFIX = 'arn:aws:payment-cryptography:'
 
 /**
+ * The ARN of a key, or the reason the value is not one.
+ *
+ * <p>The policy commands take the ARN of the key, so a value that is not one (an
+ * alias name, a short key id) is refused here rather than by the service, which
+ * answers with an InvalidArnException that says nothing the console can show.
+ */
+function requireKeyArn(keyArn: string, action: 'read' | 'changed'): string {
+    if (!keyArn.startsWith(KEY_ARN_PREFIX)) {
+        throw new ValidationError(`the policy of a key is ${action} by the ARN of the key, not by ${keyArn}`)
+    }
+    return keyArn
+}
+
+/**
+ * Whether the value is the ARN of a payment cryptography key.
+ *
+ * <p>The console names a key by its ARN, so the answer is usually yes, and the
+ * ARN a caller names another way (an alias name, a short key id) is resolved to
+ * the ARN the key has.
+ */
+export function isKeyArn(value: string): boolean {
+    return value.startsWith(KEY_ARN_PREFIX)
+}
+
+/**
  * The policy of a key, and whether the lookup of it failed.
  *
  * <p>A key that holds no policy is not the same as a key whose policy cannot be
@@ -40,9 +65,7 @@ export async function getKeyPolicy(
     // alias name or a short key id, so a caller that hands the identifier over
     // would be refused with an InvalidArnException and the policy of a readable
     // key would be published as unreadable.
-    if (!keyArn.startsWith(KEY_ARN_PREFIX)) {
-        throw new ValidationError(`the policy of a key is read by the ARN of the key, not by ${keyArn}`)
-    }
+    requireKeyArn(keyArn, 'read')
     try {
         const res = await client.send(new GetResourcePolicyCommand({ResourceArn: keyArn}))
         const policy = res.Policy ?? null
@@ -74,8 +97,11 @@ export async function putKeyPolicy(
     keyArn: string,
     policy: string,
 ): Promise<void> {
-    await serialized(keyArn, () =>
-        client.send(new PutResourcePolicyCommand({ResourceArn: keyArn, Policy: policy})),
+    // The service's ResourceArn takes a full key ARN, so a value that is not
+    // one is refused here rather than by the service.
+    const arn = requireKeyArn(keyArn, 'changed')
+    await serialized(arn, () =>
+        client.send(new PutResourcePolicyCommand({ResourceArn: arn, Policy: policy})),
     )
 }
 
@@ -90,9 +116,12 @@ export async function deleteKeyPolicy(
     client: PaymentCryptographyClient,
     keyArn: string,
 ): Promise<void> {
-    await serialized(keyArn, async () => {
+    // The service's ResourceArn takes a full key ARN, so a value that is not
+    // one is refused here rather than by the service.
+    const arn = requireKeyArn(keyArn, 'changed')
+    await serialized(arn, async () => {
         try {
-            await client.send(new DeleteResourcePolicyCommand({ResourceArn: keyArn}))
+            await client.send(new DeleteResourcePolicyCommand({ResourceArn: arn}))
         } catch (error) {
             if (isNotFound(error)) return
             throw error
@@ -116,6 +145,13 @@ const writesInFlight = new Map<string, Promise<unknown>>()
 async function serialized<T>(keyArn: string, write: () => Promise<T>): Promise<T> {
     const previous = writesInFlight.get(keyArn) ?? Promise.resolve()
     const current = previous.then(write, write)
-    writesInFlight.set(keyArn, current.catch(() => undefined))
+    const settled = current.catch(() => undefined)
+    writesInFlight.set(keyArn, settled)
+    // The entry goes once the chain for this key has drained, so the map does
+    // not grow for the lifetime of the process. Only the entry that is still
+    // the current one is dropped: a write that started later keeps its own.
+    void settled.then(() => {
+        if (writesInFlight.get(keyArn) === settled) writesInFlight.delete(keyArn)
+    })
     return current
 }
