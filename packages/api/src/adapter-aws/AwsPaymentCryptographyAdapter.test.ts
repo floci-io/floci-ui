@@ -701,4 +701,15 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(documented.get('setUsage')).not.toContain('The policy that lets another account use a key.')
         })
     })
+
+    describe('the rules the adapter keeps', () => {
+        test('the rule that says a resource is not there is the shared one', () => {
+            const source = readFileSync(new URL('./AwsPaymentCryptographyAdapter.ts', import.meta.url), 'utf8')
+
+            // The rule lives in one place, so the adapter and the policy helper
+            // cannot drift apart on what a missing resource is.
+            expect(source).not.toMatch(/function isNotFound/)
+            expect(source).toMatch(/from '\.\/paymentCryptographyErrors'/)
+        })
+    })
 })

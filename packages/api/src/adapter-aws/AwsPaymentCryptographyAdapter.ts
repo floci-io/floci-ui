@@ -18,6 +18,7 @@ import {
 } from '@aws-sdk/client-payment-cryptography'
 import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
+import {isNotFound} from './paymentCryptographyErrors'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -724,16 +725,4 @@ function oneOf<T extends readonly string[]>(
         throw new ValidationError(`${field} must be one of ${allowed.join(', ')}`)
     }
     return raw as T[number]
-}
-
-/**
- * Payment Cryptography answers a missing key with `ResourceNotFoundException` and
- * HTTP **400**, the way KMS does, so the name is the signal and the status is only
- * a fallback for the emulator.
- */
-function isNotFound(error: unknown): boolean {
-    if (typeof error !== 'object' || error === null) return false
-    if ((error as {name?: string}).name === 'ResourceNotFoundException') return true
-    const metadata = (error as {$metadata?: {httpStatusCode?: number}}).$metadata
-    return metadata?.httpStatusCode === 404
 }
