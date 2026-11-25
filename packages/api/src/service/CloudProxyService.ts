@@ -311,14 +311,7 @@ export class CloudProxyService {
         id: string,
         input: Record<string, unknown>,
     ): Promise<void> {
-        const adapter = this.requireAdapter(cloud, service)
-        const setter = adapter as {
-            setUsage?: (id: string, input: Record<string, unknown>) => Promise<void>
-        }
-        if (!setter.setUsage) {
-            throw new NotSupportedError(`${cloud}/${service} does not do this`)
-        }
-        await setter.setUsage(id, input)
+        await this.setKeySetting(cloud, service, 'setUsage', id, input, `${cloud}/${service} does not do this`)
     }
 
     /**
@@ -333,16 +326,41 @@ export class CloudProxyService {
         id: string,
         input: Record<string, unknown>,
     ): Promise<void> {
+        await this.setKeySetting(
+            cloud,
+            service,
+            'setPolicy',
+            id,
+            input,
+            `Setting a key policy is not supported for ${cloud}/${service}`,
+        )
+    }
+
+    /**
+     * A setting of a key, handed to the adapter that owns it.
+     *
+     * <p>Only the payment cryptography service has these settings, so the
+     * dispatch that reaches the adapter lives here once rather than in each of
+     * the settings, and the refusal each of them answers with is its own.
+     */
+    private async setKeySetting(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        method: 'setUsage' | 'setPolicy',
+        id: string,
+        input: Record<string, unknown>,
+        refusal: string,
+    ): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
         const setter = adapter as {
+            setUsage?: (id: string, input: Record<string, unknown>) => Promise<void>
             setPolicy?: (id: string, input: Record<string, unknown>) => Promise<void>
         }
-        if (!setter.setPolicy) {
-            // The refusal names the setting that was refused, the way the other
-            // refusals of the service do.
-            throw new NotSupportedError(`Setting a key policy is not supported for ${cloud}/${service}`)
+        const set = setter[method]
+        if (!set) {
+            throw new NotSupportedError(refusal)
         }
-        await setter.setPolicy(id, input)
+        await set.call(setter, id, input)
     }
 
     async encryptKms(cloud: CloudProvider, keyId: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {

@@ -91,4 +91,32 @@ describe('the settings of a payment key', () => {
             service.setPaymentCryptographyKeyPolicy('aws', 'paymentcryptography', 'key/abc', {}),
         ).rejects.toThrow('Setting a key policy is not supported for aws/paymentcryptography')
     })
+
+    test('the two settings are dispatched in one place', () => {
+        const source = readFileSync(new URL('./CloudProxyService.ts', import.meta.url), 'utf8')
+
+        // The adapter is cast to the shape that carries its own methods once,
+        // so the dispatch that reaches it is written once and the two settings
+        // cannot drift apart.
+        expect(source.match(/adapter as \{/g)?.length ?? 0).toBe(1)
+    })
+
+    test('each setting reaches the adapter method of its own', async () => {
+        const seen: string[] = []
+        const service = serviceWith([
+            paymentAdapter({
+                setUsage: async () => {
+                    seen.push('setUsage')
+                },
+                setPolicy: async () => {
+                    seen.push('setPolicy')
+                },
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        await service.setPaymentCryptographyKeyUsage('aws', 'paymentcryptography', 'key/abc', {enabled: 'true'})
+        await service.setPaymentCryptographyKeyPolicy('aws', 'paymentcryptography', 'key/abc', {policy: '{}'})
+
+        expect(seen).toEqual(['setUsage', 'setPolicy'])
+    })
 })
