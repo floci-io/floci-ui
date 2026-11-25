@@ -1899,6 +1899,37 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
     expect(values).not.toContain(paymentOnly.id);
   });
 
+  it("offers the wrapping keys even when the form names no other resource", async () => {
+    // The account's own list is the panel's data, not the create form's, so it
+    // does not hang on whether the schema declares a field that names another
+    // resource.
+    vi.mocked(getServiceSchema).mockResolvedValue({...exportSchema, fields: []});
+    vi.mocked(listCloudResources).mockResolvedValue([carried, wrapping]);
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(CARRIED_ARN));
+
+    const select = await screen.findByLabelText("Wrapping key");
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+
+    expect(values).toContain(wrapping.id);
+  });
+
   it("says so when the key itself could not be read", async () => {
     vi.mocked(listCloudResources).mockImplementation(async () => [
       {...carried, metadata: {...carried.metadata, exportable: false}},

@@ -197,7 +197,11 @@ export function DynamicResourceView({
       schemaQuery.isSuccess &&
       serviceAvailability === "available" &&
       cloudStatus?.runtime === "reachable" &&
-      namesAnotherResource(schemaQuery.data),
+      // The create form needs the account's own list when a field names
+      // another resource, and the payment cryptography panel needs it to offer
+      // the keys a key may leave under. The two are apart, so neither hangs on
+      // the other.
+      (namesAnotherResource(schemaQuery.data) || service === "paymentcryptography"),
   });
   // The choices of a field that names another resource come from a request of
   // their own, and a failed one leaves the field empty: an account with no keys
@@ -1176,6 +1180,8 @@ export function DynamicResourceView({
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
           resources={optionRowsQuery.data}
+          resourcesLoading={optionRowsQuery.isLoading}
+          resourcesError={optionRowsQuery.isError}
           schema={schema}
           runtimeReachable={canUseRuntime}
         />

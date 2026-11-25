@@ -16,6 +16,10 @@ interface PaymentCryptographyPanelProps extends PaymentCryptographyCertificateSe
    * be chosen from.
    */
   resources?: CloudResource[];
+  /** The list of the account's keys is still being read. */
+  resourcesLoading?: boolean;
+  /** The list of the account's keys could not be read. */
+  resourcesError?: boolean;
   /** The service's schema, which publishes the pairings the service allows. */
   schema?: ServiceSchema;
   runtimeReachable: boolean;
@@ -37,6 +41,8 @@ export function PaymentCryptographyPanel({
   resource,
   keyUnreadable,
   resources,
+  resourcesLoading,
+  resourcesError,
   schema,
   runtimeReachable,
 }: PaymentCryptographyPanelProps) {
@@ -60,6 +66,8 @@ export function PaymentCryptographyPanel({
         resource={resource}
         keyUnreadable={keyUnreadable}
         resources={resources}
+        resourcesLoading={resourcesLoading}
+        resourcesError={resourcesError}
         schema={schema}
         runtimeReachable={runtimeReachable}
       />

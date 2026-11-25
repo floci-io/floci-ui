@@ -56,14 +56,25 @@ const wrapping: CloudResource = {
   },
 };
 
-function renderSection(resource: CloudResource = key, resources: CloudResource[] = [wrapping]) {
+function renderSection(
+  resource: CloudResource = key,
+  state: {
+    /** The account's keys; null when they have not been read at all. */
+    resources?: CloudResource[] | null;
+    resourcesLoading?: boolean;
+    resourcesError?: boolean;
+  } = {},
+) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
+  const resources = state.resources === undefined ? [wrapping] : state.resources ?? undefined;
   render(
     <QueryClientProvider client={client}>
       <PaymentCryptographyExportSection
         cloud="aws"
         resource={resource}
         resources={resources}
+        resourcesLoading={state.resourcesLoading}
+        resourcesError={state.resourcesError}
         schema={schema}
         runtimeReachable={true}
       />
@@ -83,7 +94,7 @@ describe("the material a payment key leaves under", () => {
   });
 
   it("offers only the wrapping keys the matrix allows", async () => {
-    renderSection(key, [wrapping]);
+    renderSection(key, {resources: [wrapping]});
 
     const options = await screen.findAllByRole("option");
     // The wrapping key is an AES-256 one, and the key that leaves is an AES-256
@@ -92,7 +103,7 @@ describe("the material a payment key leaves under", () => {
   });
 
   it("does not offer the export for a key that is not exportable", async () => {
-    renderSection({...key, metadata: {...key.metadata, exportable: false}}, [wrapping]);
+    renderSection({...key, metadata: {...key.metadata, exportable: false}}, {resources: [wrapping]});
 
     expect(screen.getByText(/not exportable/)).toBeDefined();
     expect(screen.getByRole("button", {name: /Export key/i}).hasAttribute("disabled")).toBe(true);
@@ -106,7 +117,7 @@ describe("the material a payment key leaves under", () => {
       id: key.id,
       name: key.name,
     };
-    renderSection({...key, metadata: {...key.metadata, mayWrap: true}}, [itself]);
+    renderSection({...key, metadata: {...key.metadata, mayWrap: true}}, {resources: [itself]});
 
     const options = await screen.findAllByRole("option");
 
@@ -116,7 +127,7 @@ describe("the material a payment key leaves under", () => {
 
   it("leaves the material of one export off the screen when another key is chosen", async () => {
     const user = userEvent.setup();
-    renderSection(key, [wrapping]);
+    renderSection(key, {resources: [wrapping]});
 
     await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
     await user.click(screen.getByRole("button", {name: /Export key/i}));
@@ -134,10 +145,9 @@ describe("the material a payment key leaves under", () => {
     await waitFor(() => expect(screen.queryByLabelText("Exported key material")).toBeNull());
   });
 
-  it("does not fall over on an algorithm the prototype chain answers for", async () => {
-    // The algorithm comes from the service, so a name the prototype chain
+  it("does not fall over on an algorithm the prototype chain answers for", async () => {    // The algorithm comes from the service, so a name the prototype chain
     // answers for is not a row of the matrix, and no key may carry the one.
-    renderSection({...key, metadata: {...key.metadata, keyAlgorithm: "__proto__"}}, [wrapping]);
+    renderSection({...key, metadata: {...key.metadata, keyAlgorithm: "__proto__"}}, {resources: [wrapping]});
 
     const options = await screen.findAllByRole("option");
 
@@ -151,7 +161,7 @@ describe("the material a payment key leaves under", () => {
     // is put in place after it.
     const writeText = vi.fn().mockRejectedValue(new Error("denied"));
     Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
-    renderSection(key, [wrapping]);
+    renderSection(key, {resources: [wrapping]});
 
     await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
     await user.click(screen.getByRole("button", {name: /Export key/i}));
@@ -162,5 +172,29 @@ describe("the material a payment key leaves under", () => {
     // The clipboard is refused in some contexts, so a copy that did not happen
     // is said rather than left to look like a button that does nothing.
     expect(await screen.findByRole("alert")).toHaveTextContent(/clipboard was not available/i);
+  });
+
+  it("says the keys of the account have not been read yet", async () => {
+    renderSection(key, {resources: null});
+
+    // The list of the account's keys is still on its way, so the console
+    // cannot say that no key of the account may carry this one.
+    expect(screen.getByText(/have not been read yet/i)).toBeDefined();
+    expect(screen.queryByText(/No key of this account may carry this one/)).toBeNull();
+  });
+
+  it("says the keys of the account could not be read", async () => {
+    renderSection(key, {resources: null, resourcesError: true});
+
+    // The request failed, so the console says so rather than claiming that the
+    // account holds no key that may carry this one.
+    expect(screen.getByText(/could not be read/i)).toBeDefined();
+    expect(screen.queryByText(/No key of this account may carry this one/)).toBeNull();
+  });
+
+  it("says that no key of the account may carry this one when the list is empty", async () => {
+    renderSection(key, {resources: []});
+
+    expect(screen.getByText(/No key of this account may carry this one/)).toBeDefined();
   });
 });
