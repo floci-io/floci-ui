@@ -194,7 +194,7 @@ export function PaymentCryptographyReplicationSection({
               ))}
             </div>
           )}
-          <div className="input-row" style={{ padding: "8px 0", borderBottom: "none", background: "none" }}>
+          <div className="input-row inspector-input-row">
             <input
               className="input"
               aria-label="Region to replicate to"
