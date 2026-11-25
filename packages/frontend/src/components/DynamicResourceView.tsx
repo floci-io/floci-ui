@@ -35,11 +35,11 @@ import type {
 import type { CloudResource, StorageObject } from "@/types/resource";
 import type { FieldSchema, ServiceSchema } from "@/types/schema";
 import { dataExplorerPath } from "@/lib/dataExplorer";
-import { isPaymentKey } from "@/lib/paymentCryptography";
 import { useAccountId } from "@/lib/accountStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { activeListFilters, filterOptions, filterValueOf, listFiltersOf } from "@/lib/listFilters";
+import { isPaymentKey } from "@/lib/paymentCryptography";
 import { ModalOverlay } from "@/components/ModalOverlay";
 import {
   storageObjectsKey,
@@ -1174,11 +1174,8 @@ export function DynamicResourceView({
           cloud={cloud}
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
-<<<<<<< HEAD
-=======
           resources={optionRowsQuery.data}
           schema={schema}
->>>>>>> d83690d (fix(console): the panels are the branch's own, the shared surface is main's)
           runtimeReachable={canUseRuntime}
         />
       )}
@@ -1187,24 +1184,6 @@ export function DynamicResourceView({
           cloud={cloud}
           resource={activeSelected}
           runtimeReachable={canUseRuntime}
-        />
-      )}
-      {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
-        // The panels of a payment key are about the key that was read, and the
-        // table's row carries none of what they show, so the panel is handed the
-        // detail and never the row: it would speak about a key it has not read.
-        // A detail that was never read leaves what the panels show unknown, and
-        // they say so rather than staying silent. A later refetch that failed
-        // keeps the detail that was read, so the flag is scoped to a key that
-        // has never been read at all.
-        <PaymentCryptographyPanel
-          key={activeSelected.id}
-          cloud={cloud}
-          resource={inspectedDetail}
-          resources={optionRowsQuery.data}
-          schema={schema}
-          runtimeReachable={canUseRuntime}
-          keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
         />
       )}
       {service === "kms" && !(cloud === "oci" && inspectedResource?.metadata.keyUsage === "SIGN_VERIFY") && (

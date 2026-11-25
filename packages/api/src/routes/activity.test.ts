@@ -62,16 +62,13 @@ describe('describeRequest', () => {
         expect(describeRequest('POST', '/api/clouds/aws/services/secrets/resources/s/purge-deleted')).toMatchObject({operation: 'Purge deleted'})
         expect(describeRequest('POST', '/api/clouds/aws/services/storage/resources/b/object/copy')).toMatchObject({operation: 'Copy'})
         expect(describeRequest('POST', '/api/clouds/aws/services/nosql/resources/db/containers')).toMatchObject({operation: 'Create'})
-<<<<<<< HEAD
         // The usage of a payment key is an operation on the key, not a child
         // that is created.
         expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/usage')).toMatchObject({operation: 'Usage'})
-=======
         expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/usage')).toMatchObject({operation: 'Usage'})
         expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/policy')).toMatchObject({operation: 'Policy'})
         expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/replication')).toMatchObject({operation: 'Replication'})
         expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/export')).toMatchObject({operation: 'Export'})
->>>>>>> 9c9f90b (fix(activity): the payment cryptography routes are not creations)
         expect(describeRequest('DELETE', '/api/clouds/aws/services/email/inbox')).toMatchObject({operation: 'Clear'})
     })
 

@@ -20,7 +20,6 @@ import {
 import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {isNotFound} from './paymentCryptographyErrors'
-import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
 import {
     defaultReplicationRegions,

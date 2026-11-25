@@ -1142,14 +1142,14 @@ export function createCloudRoutes(
         })
     })
 
-    app.post('/:cloud/services/:service/resources/:id/replication', async (c) => {
+    app.patch('/:cloud/services/:service/resources/:id/tags', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
-            const input = await jsonBody<Record<string, unknown>>(c)
-            await svc(c).setPaymentCryptographyKeyReplication(cloud, serviceType, c.req.param('id'), input)
+            const tags = tagChanges(await jsonBody<Record<string, unknown>>(c))
+            await svc(c).updateTags(cloud, serviceType, c.req.param('id'), tags)
             return c.json({ok: true})
         })
     })
@@ -1166,53 +1166,39 @@ export function createCloudRoutes(
         })
     })
 
-    app.post('/:cloud/services/:service/resources/:id/usage', async (c) => {
+    app.post('/:cloud/services/:service/resources/:id/replication', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
             const input = await jsonBody<Record<string, unknown>>(c)
-            await svc(c).setPaymentCryptographyKeyUsage(cloud, serviceType, c.req.param('id'), input)
+            await svc(c).setPaymentCryptographyKeyReplication(cloud, serviceType, c.req.param('id'), input)
             return c.json({ok: true})
         })
     })
 
-    app.patch('/:cloud/services/:service/resources/:id/tags', async (c) => {
-        const cloud = c.req.param('cloud') as CloudProvider
-        const serviceType = c.req.param('service') as CloudServiceType
-        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
-
-        return withRuntime(c, async () => {
-            const tags = tagChanges(await jsonBody<Record<string, unknown>>(c))
-            await svc(c).updateTags(cloud, serviceType, c.req.param('id'), tags)
-            return c.json({ok: true})
-        })
-    })
-
-<<<<<<< HEAD
-    app.post('/:cloud/services/:service/resources/:id/usage', async (c) => {
-=======
     app.post('/:cloud/services/:service/resources/:id/export', async (c) => {
->>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
-<<<<<<< HEAD
-<<<<<<< HEAD
-            const input = await jsonBody<Record<string, unknown>>(c)
-            await svc(c).setPaymentCryptographyKeyUsage(cloud, serviceType, c.req.param('id'), input)
-            return c.json({ok: true})
-=======
-            const input = await c.req.json<{wrappingKeyArn: string}>()
-=======
             const input = await jsonBody<{wrappingKeyArn: string}>(c)
->>>>>>> dba61d0 (feat(paymentcryptography): the material a key leaves under)
             const material = await svc(c).exportPaymentCryptographyKey(cloud, serviceType, c.req.param('id'), input)
             return c.json(material, 200)
->>>>>>> 57a6f43 (feat(paymentcryptography): the panels a payment key has of its own)
+        })
+    })
+
+    app.post('/:cloud/services/:service/resources/:id/usage', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
+
+        return withRuntime(c, async () => {
+            const input = await jsonBody<Record<string, unknown>>(c)
+            await svc(c).setPaymentCryptographyKeyUsage(cloud, serviceType, c.req.param('id'), input)
+            return c.json({ok: true})
         })
     })
 

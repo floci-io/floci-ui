@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { InvalidateQueryFilters } from "@tanstack/react-query";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -478,7 +479,6 @@ describe("DynamicResourceView AWS compute", () => {
     ).toBeInTheDocument();
   });
 
-<<<<<<< HEAD
   it("refreshes the account the delete was made in", async () => {
     const user = userEvent.setup();
     const gate = deferred<void>();
@@ -487,24 +487,11 @@ describe("DynamicResourceView AWS compute", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const invalidated: unknown[][] = [];
     const original = queryClient.invalidateQueries.bind(queryClient);
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 8741201 (test(console): the delete test names the type it spies on)
     const spy = vi.spyOn(queryClient, "invalidateQueries");
     spy.mockImplementation(((filters: InvalidateQueryFilters) => {
       invalidated.push(filters.queryKey as unknown[]);
       return original(filters);
     }) as typeof queryClient.invalidateQueries);
-<<<<<<< HEAD
-=======
-    vi.spyOn(queryClient, "invalidateQueries").mockImplementation((filters, options) => {
-      invalidated.push((filters as {queryKey: unknown[]} | undefined)?.queryKey ?? []);
-      return original(filters, options);
-    });
->>>>>>> 590046f (fix(console): a delete refreshes the account it was made in)
-=======
->>>>>>> 8741201 (test(console): the delete test names the type it spies on)
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -537,8 +524,6 @@ describe("DynamicResourceView AWS compute", () => {
     });
   });
 
-=======
->>>>>>> 8ed603e (fix(console): the shared surface is main's, the panels are the branch's own)
   it("hides a late delete refusal from the page the user navigated to", async () => {
     const user = userEvent.setup();
     const gate = deferred<void>();
@@ -1595,8 +1580,6 @@ describe("DynamicResourceView a service whose kinds do not take the same actions
     await waitFor(() => expect(screen.queryByRole("button", {name: /Edit tags/})).toBeNull());
   });
 });
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 describe("DynamicResourceView the certificate of a payment key", () => {
   const ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc";
@@ -2670,7 +2653,3 @@ describe("DynamicResourceView the Regions a payment key is replicated to", () =>
     expect(await screen.findByText("us-east-2")).toBeInTheDocument();
   });
 });
-=======
->>>>>>> 2fb3a61 (fix(console): the shared surface is main's, the panels are the branch's own)
-=======
->>>>>>> d83690d (fix(console): the panels are the branch's own, the shared surface is main's)

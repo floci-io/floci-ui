@@ -26,20 +26,10 @@ const key: CloudResource = {
   metadata: {enabled: true},
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 9452c1c (fix(paymentcryptography): the usage panel speaks about the key it read)
 function renderSection(
   resource: CloudResource | undefined,
   options: {keyUnreadable?: boolean} = {},
 ) {
-<<<<<<< HEAD
-=======
-function renderSection(resource: CloudResource = key) {
->>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
-=======
->>>>>>> 9452c1c (fix(paymentcryptography): the usage panel speaks about the key it read)
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   const invalidated: unknown[][] = [];
   client.invalidateQueries = vi.fn(async (filters: unknown) => {
@@ -52,14 +42,7 @@ function renderSection(resource: CloudResource = key) {
       <PaymentCryptographyLifecycleSection
         cloud="aws"
         resource={resource}
-<<<<<<< HEAD
-<<<<<<< HEAD
         keyUnreadable={options.keyUnreadable}
-=======
->>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
-=======
-        keyUnreadable={options.keyUnreadable}
->>>>>>> 9452c1c (fix(paymentcryptography): the usage panel speaks about the key it read)
         runtimeReachable={true}
       />
     </QueryClientProvider>,
@@ -76,15 +59,7 @@ describe("the usage of a payment key", () => {
 
   it("disables a key that is in use", async () => {
     const user = userEvent.setup();
-<<<<<<< HEAD
-<<<<<<< HEAD
     renderSection(key);
-=======
-    renderSection();
->>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
-=======
-    renderSection(key);
->>>>>>> 9452c1c (fix(paymentcryptography): the usage panel speaks about the key it read)
 
     await user.click(screen.getByRole("button", {name: /Disable key/i}));
 
@@ -104,15 +79,7 @@ describe("the usage of a payment key", () => {
 
   it("refreshes the resource and the list of the account it saved in", async () => {
     const user = userEvent.setup();
-<<<<<<< HEAD
-<<<<<<< HEAD
     const {invalidated} = renderSection(key);
-=======
-    const {invalidated} = renderSection();
->>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
-=======
-    const {invalidated} = renderSection(key);
->>>>>>> 9452c1c (fix(paymentcryptography): the usage panel speaks about the key it read)
 
     await user.click(screen.getByRole("button", {name: /Disable key/i}));
 
@@ -132,10 +99,6 @@ describe("the usage of a payment key", () => {
       "paymentcryptography",
     ]);
   });
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 9452c1c (fix(paymentcryptography): the usage panel speaks about the key it read)
 
   it("says the usage is unknown when the service did not say whether the key may be used", () => {
     renderSection({...key, metadata: {}});
@@ -163,9 +126,4 @@ describe("the usage of a payment key", () => {
     expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
     expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
   });
-<<<<<<< HEAD
-=======
->>>>>>> 8f83f33 (feat(paymentcryptography): a key may be disabled and enabled again)
-=======
->>>>>>> 9452c1c (fix(paymentcryptography): the usage panel speaks about the key it read)
 });
