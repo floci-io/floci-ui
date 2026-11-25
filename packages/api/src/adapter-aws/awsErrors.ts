@@ -100,7 +100,7 @@ const VALIDATION_NAMES = new Set([
     'InvalidParameterException',
 ])
 
-const NOT_FOUND_NAMES = new Set([
+export const NOT_FOUND_NAMES: ReadonlySet<string> = new Set([
     'NoSuchBucket',
     'NoSuchKey',
     'NoSuchEntity',
@@ -139,8 +139,9 @@ const NOT_FOUND_NAMES = new Set([
     'InvalidAMIID.NotFound',
 ])
 
-const NOT_IMPLEMENTED_NAMES = new Set([
+export const NOT_IMPLEMENTED_NAMES: ReadonlySet<string> = new Set([
     'NotImplemented',
+    'NotImplementedException',
     'UnsupportedOperation',
     'UnsupportedOperationException',
     // A runtime that does not serve the operation at all answers 404 with this name.
