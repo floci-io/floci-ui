@@ -168,6 +168,28 @@ describe('AwsPaymentCryptographyAdapter', () => {
             })
         })
 
+        test('a key carries the names it was given', async () => {
+            const {client} = runtimeStub({
+                listAliases: {Aliases: [{AliasName: 'alias/card-cvk', KeyArn: ARN}]},
+            })
+
+            const rows = await new AwsPaymentCryptographyAdapter(client).list()
+            const keyRow = rows.find((row) => row.type === 'key')
+
+            // A key has no name of its own, so an alias is the name the
+            // operator knows it by.
+            expect(keyRow?.metadata.aliasNames).toEqual(['alias/card-cvk'])
+        })
+
+        test('a key no alias names carries no name', async () => {
+            const {client} = runtimeStub()
+
+            const rows = await new AwsPaymentCryptographyAdapter(client).list()
+            const keyRow = rows.find((row) => row.type === 'key')
+
+            expect(keyRow?.metadata.aliasNames).toBeUndefined()
+        })
+
         test('follows NextToken so a long account is not truncated', async () => {
             const pages = [
                 {Keys: [key], NextToken: 'page-2'},

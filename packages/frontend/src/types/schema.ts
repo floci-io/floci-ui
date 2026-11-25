@@ -114,6 +114,15 @@ export interface FieldSchema {
      * allows rather than the ones the console worked out for itself.
      */
     optionsState?: string
+    /**
+     * The member of a row's metadata that carries the name the operator knows
+     * the resource by.
+     *
+     * <p>A row's own name is not always what an operator would call it: a
+     * payment key is known by the alias that names it, and an ARN is not
+     * something an operator remembers.
+     */
+    optionsLabelFrom?: string
 }
 
 export type ColumnFormat = 'text' | 'datetime' | 'relative' | 'bytes' | 'boolean' | 'badge' | 'code' | 'list'

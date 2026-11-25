@@ -105,8 +105,40 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const kind = optionalKind(query.filters?.kind)
         const kinds = kind ? [kind] : [...PAYMENT_CRYPTOGRAPHY_KINDS]
-        const groups = await Promise.all(kinds.map((each) => this.listKind(each)))
-        return filterBySearch(groups.flat(), query.search)
+        // The aliases are read once. They are rows of the table, and they name
+        // the keys the table shows.
+        const aliases = await this.listAliases()
+        const groups = await Promise.all(kinds.map((each) => this.listKind(each, aliases)))
+        const resources = groups.flat()
+        if (kinds.includes('keys')) {
+            this.nameKeysByTheirAliases(resources, aliases)
+        }
+        return filterBySearch(resources, query.search)
+    }
+
+    /**
+     * The aliases that name each key.
+     *
+     * <p>An alias is a friendly name for a key, and it is the name the operator
+     * knows it by: a key has no name of its own, so an ARN is all the console
+     * could offer. The alias names the key and the key is what the service
+     * takes, so the key carries the names it was given and the console offers
+     * it under one of them.
+     */
+    private nameKeysByTheirAliases(resources: CloudResource[], aliases: Alias[]): void {
+        const byKey = new Map<string, string[]>()
+        for (const alias of aliases) {
+            const arn = alias.KeyArn
+            if (!arn) continue
+            const names = byKey.get(arn) ?? []
+            if (alias.AliasName) names.push(alias.AliasName)
+            byKey.set(arn, names)
+        }
+        for (const resource of resources) {
+            if (resource.type !== 'key') continue
+            const names = byKey.get(String(resource.metadata.arn))
+            if (names && names.length > 0) resource.metadata.aliasNames = names
+        }
     }
 
     async get(id: string): Promise<CloudResource | null> {
@@ -325,9 +357,9 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /** One kind of resource: the keys, or the aliases that name them. */
-    private async listKind(kind: PaymentCryptographyKind): Promise<CloudResource[]> {
+    private async listKind(kind: PaymentCryptographyKind, aliases: Alias[]): Promise<CloudResource[]> {
         if (kind === 'aliases') {
-            return (await this.listAliases()).map(toAliasResource)
+            return aliases.map(toAliasResource)
         }
 
         const arns = await this.listKeyArns()

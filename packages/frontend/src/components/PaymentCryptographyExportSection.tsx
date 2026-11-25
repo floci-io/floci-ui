@@ -2,6 +2,7 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import {useMutation} from "@tanstack/react-query";
 import {Check, Copy, Download} from "lucide-react";
 import {exportPaymentCryptographyKey} from "@/api/cloudProxyClient";
+import {aliasNamesOf} from "@/lib/paymentCryptography";
 import {pairingsPublished, wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
 import {COPY_REFUSED_MESSAGE, useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
@@ -140,6 +141,9 @@ export function PaymentCryptographyExportSection({
           <option value="">Choose a wrapping key</option>
           {allowed.map((row) => (
             <option key={row.id} value={row.id}>
+              {/* The name the operator knows the key by leads, because an ARN
+                  is not something an operator remembers. */}
+              {aliasNamesOf(row).length > 0 ? `${aliasNamesOf(row).join(", ")} · ` : ""}
               {row.metadata.keyUsage ? `${String(row.metadata.keyUsage)} · ` : ""}
               {row.metadata.keyAlgorithm ? `${String(row.metadata.keyAlgorithm)} · ` : ""}
               {row.name}

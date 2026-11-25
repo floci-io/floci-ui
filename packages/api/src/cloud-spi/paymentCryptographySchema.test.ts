@@ -16,6 +16,18 @@ import {wrappingAlgorithmsFor} from './paymentCryptographySchema'
 import type {PairingRule} from './types'
 
 describe('awsPaymentCryptographySchema', () => {
+    test('a field that names a key is offered under the name the key was given', () => {
+        const schema = awsPaymentCryptographySchema()
+
+        const wrapping = schema.fields.find(field => field.name === 'wrappingKeyArn')
+        const target = schema.fields.find(field => field.name === 'aliasTargetKey')
+
+        // A key has no name of its own, so an ARN is all the console could
+        // offer, and an ARN is not something an operator remembers.
+        expect(wrapping?.optionsLabelFrom).toEqual('aliasNames')
+        expect(target?.optionsLabelFrom).toEqual('aliasNames')
+    })
+
     test('offers the tag editor for a key and not for an alias', () => {
         const schema = awsPaymentCryptographySchema()
         const updateTags = schema.capabilities?.resourceActions?.find(capability => capability.name === 'updateTags')
