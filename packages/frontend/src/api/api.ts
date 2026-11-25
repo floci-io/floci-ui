@@ -344,15 +344,17 @@ export const endpointRegistry: EndpointRegistry = new Map([
     },
   ],
   [
-<<<<<<< HEAD
     apiEndpointKeys.clouds.resources.usage,
     {
       path: "/clouds/:cloud/services/:service/resources/:id/usage",
-=======
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
     apiEndpointKeys.clouds.resources.replication,
     {
       path: "/clouds/:cloud/services/:service/resources/:id/replication",
->>>>>>> f4d9ab2 (fix(paymentcryptography): the Regions that are gone go before the ones that come)
       method: "POST",
       telemetry: { service: "cloud-proxy" },
     },

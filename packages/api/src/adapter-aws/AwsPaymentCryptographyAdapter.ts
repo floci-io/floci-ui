@@ -17,13 +17,10 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
-<<<<<<< HEAD
-import {setKeyUsage} from './paymentCryptographyLifecycle'
-=======
 import {
     setReplicationRegions,
 } from './paymentCryptographyReplication'
->>>>>>> 73a94ac (feat(paymentcryptography): the Regions a key is replicated to)
+import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
