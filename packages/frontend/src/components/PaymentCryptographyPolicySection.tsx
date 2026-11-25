@@ -3,6 +3,7 @@ import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {ShieldCheck, Trash2} from "lucide-react";
 import {setPaymentCryptographyKeyPolicy} from "@/api/cloudProxyClient";
 import {getAccountId} from "@/lib/accountStore";
+import {publishedPolicy} from "@/lib/paymentCryptography";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
@@ -50,7 +51,11 @@ export function PaymentCryptographyPolicySection({
   runtimeReachable,
 }: PaymentCryptographyPolicySectionProps) {
   const queryClient = useQueryClient();
-  const held = typeof resource?.metadata.keyPolicy === "string" ? resource.metadata.keyPolicy : "";
+  // The policy the key holds is read through the rule the console keeps in
+  // one place, so the draft the editor opens with and the sentence the
+  // section picks cannot disagree about it.
+  const published = publishedPolicy(resource?.metadata);
+  const held = typeof published === "string" ? published : "";
   const state = policyState(resource, keyUnreadable);
   const [policy, setPolicy] = useState(held);
   const [editing, setEditing] = useState(false);
@@ -210,6 +215,7 @@ function policyState(
   const metadata = resource?.metadata;
   if (!metadata) return "not-read";
   if (metadata.keyPolicyUnavailable === true) return "unreadable";
-  if (!Object.prototype.hasOwnProperty.call(metadata, "keyPolicy")) return "not-read";
-  return typeof metadata.keyPolicy === "string" ? "held" : "none";
+  const published = publishedPolicy(metadata);
+  if (published === undefined) return "not-read";
+  return published === null ? "none" : "held";
 }

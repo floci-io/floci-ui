@@ -5,6 +5,7 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import {setPaymentCryptographyKeyPolicy} from "@/api/cloudProxyClient";
 import {PaymentCryptographyPolicySection} from "@/components/PaymentCryptographyPolicySection";
+import sectionSource from "@/components/PaymentCryptographyPolicySection.tsx?raw";
 import {DEFAULT_ACCOUNT_ID, setAccountId} from "@/lib/accountStore";
 import type {CloudResource} from "@/types/resource";
 
@@ -326,5 +327,21 @@ describe("the policy of a payment key", () => {
     await act(async () => {
       release?.();
     });
+  });
+
+  it("reads the policy through the rule the console keeps in one place", () => {
+    // The draft the editor opens with and the sentence the section picks read
+    // the policy through one rule, so a name inherited from the prototype
+    // cannot be the policy one of them holds and not the other's.
+    expect(sectionSource).not.toMatch(/metadata\.keyPolicy\b/);
+  });
+
+  it("does not take a policy the prototype names for the policy the key holds", () => {
+    const metadata = Object.create({keyPolicy: POLICY});
+    renderSection({...key, metadata});
+
+    // The API published no policy of its own, so the console knows of none.
+    expect(screen.getByText("The policy has not been read yet.")).toBeTruthy();
+    expect(screen.queryByRole("button", {name: /policy/i})).toBeNull();
   });
 });
