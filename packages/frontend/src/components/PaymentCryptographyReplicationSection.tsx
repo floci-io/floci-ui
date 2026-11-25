@@ -254,8 +254,10 @@ function UnknownReplication({reason}: {reason: string}) {
 /**
  * The Regions the key holds, as the detail answers them.
  *
- * <p>The detail carries them and the table's row carries none of them, so a key
- * that was not read has no Regions to say.
+ * <p>The API publishes the Regions with every key, the rows of the table
+ * included, so a row carries them too. A key that was not read is told apart by
+ * its detail being absent and not by the member being missing, so this comment
+ * is not relied on when the states are extended.
  */
 function reportedRegions(resource: CloudResource | undefined): string[] | undefined {
   const regions = resource?.metadata.replicationRegions;

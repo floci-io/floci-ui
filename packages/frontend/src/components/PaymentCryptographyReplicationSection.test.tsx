@@ -1,3 +1,5 @@
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
 import {render, screen, waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
@@ -291,6 +293,17 @@ describe("the replication of a payment key", () => {
     // request is in flight would be wiped without a word.
     await waitFor(() => expect(input).toBeDisabled());
     settle();
+  });
+
+  it("reads the Regions from the detail the API published with the key", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/components/PaymentCryptographyReplicationSection.tsx"),
+      "utf8",
+    );
+
+    // The API publishes the Regions with every key, the rows of the table
+    // included, so the comment does not claim that a row carries none of them.
+    expect(source).not.toContain("the table's row carries none of them");
   });
 
   it("says the Regions are unknown while the key has not been read", () => {
