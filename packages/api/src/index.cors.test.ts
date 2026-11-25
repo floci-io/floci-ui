@@ -201,9 +201,13 @@ describe('credentialed route CORS', () => {
             writes += 1
             return c.json({ok: true})
         })
+        routes.post('/:cloud/services/paymentcryptography/resources/:id/usage', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
         const app = createApiApp(routes)
 
-        for (const path of ['policy', 'replication']) {
+        for (const path of ['policy', 'replication', 'usage']) {
             const url = `http://localhost/api/clouds/aws/services/paymentcryptography/resources/key-1/${path}`
             const preflight = await app.fetch(new Request(url, {
                 method: 'OPTIONS',
@@ -218,6 +222,44 @@ describe('credentialed route CORS', () => {
             const trusted = await app.fetch(new Request(url, {method: 'POST', headers: {origin: TRUSTED_ORIGIN}}))
             expect(trusted.status).toBe(200)
         }
+        expect(writes).toBe(3)
+    })
+
+    test('refuses a cross-origin write that makes a key, because a key may be made by importing a block', async () => {
+        const routes = new Hono()
+        let writes = 0
+        routes.post('/:cloud/services/paymentcryptography/resources', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
+        routes.post('/:cloud/services/s3/resources', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
+        const app = createApiApp(routes)
+
+        const url = 'http://localhost/api/clouds/aws/services/paymentcryptography/resources'
+        const preflight = await app.fetch(new Request(url, {
+            method: 'OPTIONS',
+            headers: {origin: UNTRUSTED_ORIGIN, 'access-control-request-method': 'POST'},
+        }))
+        expect(preflight.headers.get('access-control-allow-origin')).toBeNull()
+
+        for (const origin of [UNTRUSTED_ORIGIN, 'null']) {
+            const response = await app.fetch(new Request(url, {method: 'POST', headers: {origin}}))
+            expect(response.status).toBe(403)
+        }
+        const trusted = await app.fetch(new Request(url, {method: 'POST', headers: {origin: TRUSTED_ORIGIN}}))
+        expect(trusted.status).toBe(200)
+
+        // The refusal is about a payment cryptography key: another service's
+        // create route is not a key and stays permissive.
+        const other = await app.fetch(new Request(
+            'http://localhost/api/clouds/aws/services/s3/resources',
+            {method: 'POST', headers: {origin: UNTRUSTED_ORIGIN}},
+        ))
+        expect(other.status).toBe(200)
+        expect(other.headers.get('access-control-allow-origin')).toBe('*')
         expect(writes).toBe(2)
     })
 })
