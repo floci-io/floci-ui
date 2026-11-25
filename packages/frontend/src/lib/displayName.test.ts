@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {displayNameOf, namesOf} from "@/lib/displayName";
+import {displayNameOf, namesLabel, namesOf} from "@/lib/displayName";
 import type {CloudResource} from "@/types/resource";
 
 const key: CloudResource = {
@@ -44,12 +44,23 @@ describe("the names a resource is known by", () => {
 });
 
 describe("the name a resource is known by", () => {
-  it("is the name it was given", () => {
-    expect(displayNameOf({...key, metadata: {names: ["alias/card-cvk"]}})).toBe("alias/card-cvk");
+  it("is the name it was given, with its own name beside it", () => {
+    // A key that an alias names and the alias itself are two resources, so the
+    // label of one does not read as the label of the other.
+    expect(displayNameOf({...key, metadata: {names: ["alias/card-cvk"]}})).toBe(
+      `alias/card-cvk · ${key.name}`,
+    );
   });
 
   it("is every name it was given", () => {
-    expect(displayNameOf({...key, metadata: {names: ["alias/a", "alias/b"]}})).toBe("alias/a, alias/b");
+    expect(displayNameOf({...key, metadata: {names: ["alias/a", "alias/b"]}})).toBe(
+      `alias/a, alias/b · ${key.name}`,
+    );
+  });
+
+  it("is the name it was given when that is its own name", () => {
+    const alias = {...key, name: "alias/card-cvk"};
+    expect(displayNameOf({...alias, metadata: {names: ["alias/card-cvk"]}})).toBe("alias/card-cvk");
   });
 
   it("is its own name when it was given none", () => {
@@ -58,5 +69,12 @@ describe("the name a resource is known by", () => {
 
   it("is its own id when it has no name either", () => {
     expect(displayNameOf({...key, name: ""})).toBe(key.id);
+  });
+});
+
+describe("the names of a resource as one label", () => {
+  it("joins them the same way everywhere", () => {
+    expect(namesLabel(["alias/a", "alias/b"])).toBe("alias/a, alias/b");
+    expect(namesLabel([])).toBe("");
   });
 });

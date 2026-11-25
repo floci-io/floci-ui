@@ -24,13 +24,29 @@ export function namesOf(resource: CloudResource | undefined): string[] {
 }
 
 /**
+ * The names of a resource, as one label.
+ *
+ * <p>The names are joined the same way everywhere they are shown, so a change
+ * to the way they are joined cannot show a resource under two different
+ * labels.
+ */
+export function namesLabel(names: string[]): string {
+  return names.join(", ");
+}
+
+/**
  * The name a resource is known by.
  *
  * <p>A resource that was given names is named by them, and a resource that was
- * given none is named by its own name.
+ * given none is named by its own name. A resource that was given names and has
+ * an identity of its own is named by both, so a key that an alias names and
+ * the alias itself are not shown under the same label.
  */
 export function displayNameOf(resource: CloudResource | undefined): string {
   const names = namesOf(resource);
-  if (names.length > 0) return names.join(", ");
-  return resource?.name || resource?.id || "";
+  const identity = resource?.name || resource?.id || "";
+  if (names.length === 0) return identity;
+  const label = namesLabel(names);
+  if (identity === label) return label;
+  return identity ? `${label} · ${identity}` : label;
 }
