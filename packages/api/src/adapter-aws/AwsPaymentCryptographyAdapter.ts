@@ -17,7 +17,7 @@ import {
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
 import {setKeyUsage} from './paymentCryptographyLifecycle'
-import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
+import {deleteKeyPolicy, getKeyPolicy, isKeyArn, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
 import {isNotFound} from './paymentCryptographyErrors'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
@@ -203,16 +203,37 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (policy === undefined) {
             throw new ValidationError('the request must say what the policy is')
         }
-        // An empty policy is the console's way of saying that the policy is gone,
-        // so it removes the one the key holds rather than attaching nothing.
-        if (policy === null || (typeof policy === 'string' && policy.trim() === '')) {
-            await deleteKeyPolicy(this.client, identifier)
-            return
-        }
-        if (typeof policy !== 'string') {
+        if (policy !== null && typeof policy !== 'string') {
             throw new ValidationError('the policy of the request must be the policy document itself')
         }
-        await putKeyPolicy(this.client, identifier, policy)
+        // The policy is written against the ARN of the key, because the service's
+        // ResourceArn takes the ARN of the key: a key addressed by an alias or a
+        // short id would otherwise be refused by the service with an error that
+        // says nothing.
+        const keyArn = isKeyArn(identifier) ? identifier : await this.resolvedArnOf(identifier)
+        // An empty policy is the console's way of saying that the policy is gone,
+        // so it removes the one the key holds rather than attaching nothing.
+        if (policy === null || policy.trim() === '') {
+            await deleteKeyPolicy(this.client, keyArn)
+            return
+        }
+        await putKeyPolicy(this.client, keyArn, policy)
+    }
+
+    /**
+     * The ARN of the key, from an identifier that is not one.
+     *
+     * <p>The service accepts an alias name and a short key id as well, so an
+     * identifier that is not an ARN is resolved to the ARN the key has: the
+     * policy commands take the ARN alone.
+     */
+    private async resolvedArnOf(identifier: string): Promise<string> {
+        const key = await this.describe(identifier)
+        if (!key) throw new ValidationError(`the key ${identifier} is not there`)
+        if (!key.KeyArn) {
+            throw new ValidationError(`the key ${identifier} has no ARN, so its policy cannot be changed`)
+        }
+        return key.KeyArn
     }
 
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {

@@ -8,7 +8,7 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
-import {getKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
+import {getKeyPolicy, putKeyPolicy, deleteKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
 import {ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
@@ -255,5 +255,34 @@ describe('the policy of a payment key', () => {
         // @ts-expect-error a lookup that failed carries no policy of its own.
         const impossible: KeyPolicyLookup = {policy: POLICY, unavailable: true}
         expect(impossible.policy).toBe(POLICY)
+    })
+
+    test('the policy of a key asked for by a short id is written with its ARN', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: key}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The key was asked for by a short key id, which the service resolves to
+        // the key it names.
+        await adapter.setPolicy('key/abcd1234', {policy: POLICY})
+
+        // The policy is written against the ARN the key resolved to, because the
+        // service's ResourceArn takes the ARN of the key.
+        const put = sent.find((command) => command instanceof PutResourcePolicyCommand)
+        expect(put).toBeDefined()
+        expect((put as PutResourcePolicyCommand).input.ResourceArn).toBe(ARN)
+    })
+
+    test('a policy is not written against a value that is not an ARN', async () => {
+        const {client, sent} = stubClient(() => ({}))
+
+        // The service would refuse this with an InvalidArnException, so it is
+        // refused here with the reason the console can show.
+        await expect(putKeyPolicy(client, 'abcd1234', POLICY)).rejects.toBeInstanceOf(ValidationError)
+        await expect(deleteKeyPolicy(client, 'abcd1234')).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof PutResourcePolicyCommand)).toBe(false)
+        expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(false)
     })
 })

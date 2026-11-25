@@ -4,7 +4,36 @@ import {
     PutResourcePolicyCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
+import {ValidationError} from '../cloud-spi/errors'
 import {isNotFound} from './paymentCryptographyErrors'
+
+/** The prefix the ARN of a payment cryptography key carries. */
+const KEY_ARN_PREFIX = 'arn:aws:payment-cryptography:'
+
+/**
+ * The ARN of a key, or the reason the value is not one.
+ *
+ * <p>The policy commands take the ARN of the key, so a value that is not one (an
+ * alias name, a short key id) is refused here rather than by the service, which
+ * answers with an InvalidArnException that says nothing the console can show.
+ */
+function requireKeyArn(keyArn: string): string {
+    if (!keyArn.startsWith(KEY_ARN_PREFIX)) {
+        throw new ValidationError(`the policy of a key is changed by the ARN of the key, not by ${keyArn}`)
+    }
+    return keyArn
+}
+
+/**
+ * Whether the value is the ARN of a payment cryptography key.
+ *
+ * <p>The console names a key by its ARN, so the answer is usually yes, and the
+ * ARN a caller names another way (an alias name, a short key id) is resolved to
+ * the ARN the key has.
+ */
+export function isKeyArn(value: string): boolean {
+    return value.startsWith(KEY_ARN_PREFIX)
+}
 
 /**
  * The policy of a key, and whether the lookup of it failed.
@@ -51,7 +80,10 @@ export async function putKeyPolicy(
     keyArn: string,
     policy: string,
 ): Promise<void> {
-    await client.send(new PutResourcePolicyCommand({ResourceArn: keyArn, Policy: policy}))
+    // The service's ResourceArn takes a full key ARN, so a value that is not
+    // one is refused here rather than by the service.
+    const arn = requireKeyArn(keyArn)
+    await client.send(new PutResourcePolicyCommand({ResourceArn: arn, Policy: policy}))
 }
 
 /**
@@ -65,8 +97,11 @@ export async function deleteKeyPolicy(
     client: PaymentCryptographyClient,
     keyArn: string,
 ): Promise<void> {
+    // The service's ResourceArn takes a full key ARN, so a value that is not
+    // one is refused here rather than by the service.
+    const arn = requireKeyArn(keyArn)
     try {
-        await client.send(new DeleteResourcePolicyCommand({ResourceArn: keyArn}))
+        await client.send(new DeleteResourcePolicyCommand({ResourceArn: arn}))
     } catch (error) {
         if (isNotFound(error)) return
         throw error
