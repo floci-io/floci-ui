@@ -302,6 +302,39 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(resource?.metadata.tags).toEqual([])
             expect(resource?.metadata.tagsUnavailable).toBe(true)
         })
+
+        test('publishes whether the key may wrap another one', async () => {
+            // The reference's own table of valid attributes lists NoRestrictions
+            // as a combination the wrapping usages may take, and a key with no
+            // restrictions may do anything at all.
+            const unrestricted = {
+                ...key,
+                KeyAttributes: {
+                    ...attributes,
+                    KeyModesOfUse: {NoRestrictions: true},
+                },
+            }
+            const {client} = runtimeStub({get: {Key: unrestricted}})
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            expect(resource?.metadata.mayWrap).toBe(true)
+        })
+
+        test('publishes that a key that may not wrap does not wrap', async () => {
+            const {client} = runtimeStub({
+                get: {
+                    Key: {
+                        ...key,
+                        KeyAttributes: {...attributes, KeyUsage: 'TR31_P0_PIN_ENCRYPTION_KEY'},
+                    },
+                },
+            })
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            expect(resource?.metadata.mayWrap).toBe(false)
+        })
     })
 
     describe('create', () => {

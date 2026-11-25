@@ -27,12 +27,20 @@ const schema: ServiceSchema = {
   ],
 };
 
+/**
+ * A key of the account.
+ *
+ * <p>Whether the key may wrap another one is the state the service published
+ * with it, so it is named here rather than worked out from the usage and the
+ * modes of use.
+ */
 const key = (
   id: string,
   algorithm: string,
   usage = "TR31_K0_KEY_ENCRYPTION_KEY",
   modes: Record<string, boolean> = {Wrap: true, Unwrap: true},
   enabled = true,
+  mayWrap = true,
 ): CloudResource => ({
   id,
   name: id,
@@ -42,7 +50,7 @@ const key = (
   region: "us-east-1",
   createdAt: null,
   status: "CREATE_COMPLETE",
-  metadata: {keyAlgorithm: algorithm, keyUsage: usage, keyModesOfUse: modes, enabled},
+  metadata: {keyAlgorithm: algorithm, keyUsage: usage, keyModesOfUse: modes, enabled, mayWrap},
 });
 
 const carried = (algorithm: string): CloudResource =>
@@ -79,23 +87,29 @@ describe("the wrapping keys a key may leave under", () => {
     expect(wrappingKeysFor(carried("TDES_3KEY"), rows, schema).map((r) => r.id)).toEqual(["kek-aes128"]);
   });
 
-  it("offers only a key that may wrap, and is enabled", () => {
+  it("offers only the keys the service says may wrap", () => {
     const rows = [
-      // The service lets a key that may encrypt wrap as well, so a key with
-      // neither Wrap nor Encrypt is the one that cannot.
-      key("neither", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Generate: true}),
-      key("wrong-usage", "AES_256", "TR31_P0_PIN_ENCRYPTION_KEY", {Wrap: true}),
-      key("disabled", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Wrap: true}, false),
+      // The service says this one does not wrap, whatever its usage and its
+      // modes of use say.
+      key("not-a-wrapping-key", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Wrap: true}, true, false),
       key("good", "AES_256"),
     ];
 
     expect(wrappingKeysFor(carried("AES_256"), rows, schema).map((r) => r.id)).toEqual(["good"]);
   });
 
-  it("lets a key that may encrypt wrap, the way the service does", () => {
-    const rows = [key("encrypts", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Encrypt: true, Decrypt: true})];
+  it("reads the state the service published rather than the modes of use", () => {
+    const rows = [
+      // A key whose modes of use are NoRestrictions: the reference's own table
+      // of valid attributes allows it, so the service says it may wrap.
+      key("unrestricted", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {NoRestrictions: true}),
+      // A key that may wrap, which the service says does not.
+      key("does-not-wrap", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Wrap: true}, true, false),
+    ];
 
-    expect(wrappingKeysFor(carried("AES_256"), rows, schema).map((r) => r.id)).toEqual(["encrypts"]);
+    expect(wrappingKeysFor(carried("AES_256"), rows, schema).map((r) => r.id)).toEqual([
+      "unrestricted",
+    ]);
   });
 
   it("offers nothing when the account holds no key that may carry the one", () => {

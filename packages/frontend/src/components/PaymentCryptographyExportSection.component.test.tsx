@@ -52,6 +52,9 @@ const wrapping: CloudResource = {
     keyAlgorithm: "AES_256",
     keyUsage: "TR31_K0_KEY_ENCRYPTION_KEY",
     keyModesOfUse: {Wrap: true, Unwrap: true},
+    // Whether the key may wrap another one is the state the service published
+    // with it.
+    mayWrap: true,
   },
 };
 

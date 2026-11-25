@@ -2,8 +2,11 @@ import {describe, expect, test} from 'bun:test'
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
+    isWrappingUsage,
     keyClassForAlgorithm,
+    mayWrapKey,
     mayWrapWith,
+    modesAllowWrapping,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
@@ -82,5 +85,42 @@ describe('the class of a payment key', () => {
         expect(new Set(Object.values(PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES))).toEqual(
             new Set(['unknown', 'no-public-half', 'signed', 'unsigned', 'unreadable']),
         )
+    })
+})
+
+describe('the keys that may carry another key', () => {
+    test('a key with no restrictions may wrap', () => {
+        // The reference's own table of valid attributes lists NoRestrictions as
+        // a combination the wrapping usages may take, and a key with no
+        // restrictions may do anything at all.
+        expect(modesAllowWrapping({NoRestrictions: true})).toBe(true)
+        expect(
+            mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {NoRestrictions: true}, true),
+        ).toBe(true)
+        expect(
+            mayWrapKey('TR31_K1_KEY_BLOCK_PROTECTION_KEY', {NoRestrictions: true}, true),
+        ).toBe(true)
+    })
+
+    test('a key that may wrap may wrap', () => {
+        expect(modesAllowWrapping({Wrap: true, Unwrap: true})).toBe(true)
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, true)).toBe(true)
+    })
+
+    test('a key that may not wrap does not wrap', () => {
+        // A key that may only encrypt may not wrap a block.
+        expect(modesAllowWrapping({Encrypt: true, Decrypt: true})).toBe(false)
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Encrypt: true}, true)).toBe(false)
+        // The usage says what the key is for, and a key with another one may not
+        // wrap a key.
+        expect(isWrappingUsage('TR31_P0_PIN_ENCRYPTION_KEY')).toBe(false)
+        expect(mayWrapKey('TR31_P0_PIN_ENCRYPTION_KEY', {Wrap: true}, true)).toBe(false)
+        // A disabled key does no work at all.
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, false)).toBe(false)
+    })
+
+    test('the modes of use that were not read are not a permission to wrap', () => {
+        expect(modesAllowWrapping(undefined)).toBe(false)
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', undefined, true)).toBe(false)
     })
 })

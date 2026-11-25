@@ -32,6 +32,7 @@ import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
+    mayWrapKey,
     mayWrapWith,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
@@ -670,6 +671,14 @@ function toResource(
             keyUsage: key.KeyAttributes?.KeyUsage,
             keyAlgorithm: key.KeyAttributes?.KeyAlgorithm,
             keyModesOfUse: key.KeyAttributes?.KeyModesOfUse,
+            // Whether the key may wrap another one is the service's to say, so it
+            // is published with the key rather than worked out by the console
+            // from the usage and the modes of use.
+            mayWrap: mayWrapKey(
+                key.KeyAttributes?.KeyUsage,
+                key.KeyAttributes?.KeyModesOfUse,
+                key.Enabled,
+            ),
             keyCheckValue: key.KeyCheckValue,
             keyCheckValueAlgorithm: key.KeyCheckValueAlgorithm,
             keyOrigin: key.KeyOrigin,

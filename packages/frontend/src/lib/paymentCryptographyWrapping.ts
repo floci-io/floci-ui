@@ -1,18 +1,14 @@
 /**
  * The keys that may carry a key that leaves the service.
  *
- * <p>Three rules, all of them the reference's: the wrapping key has to be a key
- * encryption key that may wrap, it has to be enabled, and it has to be at least as
- * strong as the key it carries. The last is the reference's own matrix, which the
- * service's schema publishes, so the panel and the adapter cannot disagree about
- * it.
+ * <p>The rule is the service's: it publishes which of its keys may wrap another
+ * one, and it publishes the matrix of what may carry what. The panel reads both
+ * of them, so it cannot disagree with the adapter about which key may carry
+ * which.
  */
 
 import type {CloudResource} from "@/types/resource";
 import type {PairingRule, ServiceSchema} from "@/types/schema";
-
-/** The usages a key may have when it wraps another key. */
-export const WRAPPING_USAGES = ["TR31_K0_KEY_ENCRYPTION_KEY", "TR31_K1_KEY_BLOCK_PROTECTION_KEY"];
 
 /**
  * The algorithms the service allows a key of this algorithm to be carried by.
@@ -42,6 +38,11 @@ export function allowedAlgorithms(
 
 /**
  * The keys that may carry the key being exported.
+ *
+ * <p>Whether a key may wrap another one is the service's to say, so the state
+ * it published with every key is what the console reads. A key with no
+ * restrictions may wrap, and the service says so, so the console does not
+ * narrow the service's own answer.
  */
 export function wrappingKeysFor(
   carried: CloudResource,
@@ -53,13 +54,9 @@ export function wrappingKeysFor(
 
   return (resources ?? []).filter((row) => {
     if (row.type !== "key") return false;
-    if (row.metadata.enabled === false) return false;
-    const usage = String(row.metadata.keyUsage ?? "");
-    if (!WRAPPING_USAGES.includes(usage)) return false;
-    const modes = row.metadata.keyModesOfUse as Record<string, boolean> | undefined;
-    // The service lets a key that may encrypt wrap as well, so a key with neither
-    // Wrap nor Encrypt is the one that cannot.
-    if (modes && !modes.Wrap && !modes.Encrypt) return false;
+    // A key may not carry itself, and the service refuses a key that does.
+    if (row.id === carried.id) return false;
+    if (row.metadata.mayWrap !== true) return false;
     const algorithm = String(row.metadata.keyAlgorithm ?? "");
     // A service that publishes no matrix says nothing about what may carry
     // what, so every pairing is allowed. A matrix that does not name the
