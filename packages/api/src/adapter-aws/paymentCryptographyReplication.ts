@@ -20,6 +20,10 @@ export async function setReplicationRegions(
     regions: string[],
     add: boolean,
 ): Promise<void> {
+    // The reference's own commands name the Regions they change, so a list
+    // that names no Region is not a request the service can act on. The helper
+    // is exported, so it does not leave the check to every caller.
+    if (regions.length === 0) return
     const command = add
         ? new AddKeyReplicationRegionsCommand({KeyIdentifier: keyArn, ReplicationRegions: regions})
         : new RemoveKeyReplicationRegionsCommand({KeyIdentifier: keyArn, ReplicationRegions: regions})
