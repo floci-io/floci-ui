@@ -74,7 +74,9 @@ export async function putKeyPolicy(
     keyArn: string,
     policy: string,
 ): Promise<void> {
-    await client.send(new PutResourcePolicyCommand({ResourceArn: keyArn, Policy: policy}))
+    await serialized(keyArn, () =>
+        client.send(new PutResourcePolicyCommand({ResourceArn: keyArn, Policy: policy})),
+    )
 }
 
 /**
@@ -88,10 +90,32 @@ export async function deleteKeyPolicy(
     client: PaymentCryptographyClient,
     keyArn: string,
 ): Promise<void> {
-    try {
-        await client.send(new DeleteResourcePolicyCommand({ResourceArn: keyArn}))
-    } catch (error) {
-        if (isNotFound(error)) return
-        throw error
-    }
+    await serialized(keyArn, async () => {
+        try {
+            await client.send(new DeleteResourcePolicyCommand({ResourceArn: keyArn}))
+        } catch (error) {
+            if (isNotFound(error)) return
+            throw error
+        }
+    })
+}
+
+/**
+ * The write in flight for each key, so a later one waits for the earlier one to
+ * land.
+ *
+ * <p>Both writers address the same key policy and nothing orders them against
+ * each other, so two overlapping requests for one key (two console tabs, or a
+ * retry that races a removal) could land in either order and the key would end
+ * up holding the older of the two. The service offers no version to write
+ * against, so the ordering comes from here.
+ */
+const writesInFlight = new Map<string, Promise<unknown>>()
+
+/** Runs a write after the write that is in flight for the same key has landed. */
+async function serialized<T>(keyArn: string, write: () => Promise<T>): Promise<T> {
+    const previous = writesInFlight.get(keyArn) ?? Promise.resolve()
+    const current = previous.then(write, write)
+    writesInFlight.set(keyArn, current.catch(() => undefined))
+    return current
 }

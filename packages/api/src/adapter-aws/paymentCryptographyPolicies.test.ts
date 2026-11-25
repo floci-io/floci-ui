@@ -257,6 +257,33 @@ describe('the policy of a payment key', () => {
         await expect(adapter.setPolicy(KEY_ID, {policy: ''})).rejects.toThrow('Access denied')
     })
 
+    test('two writes for one key are ordered', async () => {
+        const order: string[] = []
+        let release: (() => void) | undefined
+        const {client} = stubClient(async (command) => {
+            if (command instanceof PutResourcePolicyCommand) {
+                order.push('put:start')
+                await new Promise<void>((resolve) => {
+                    release = resolve
+                })
+                order.push('put:end')
+            }
+            if (command instanceof DeleteResourcePolicyCommand) order.push('delete')
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const first = adapter.setPolicy(KEY_ID, {policy: POLICY})
+        const second = adapter.setPolicy(KEY_ID, {policy: ''})
+        await Promise.resolve()
+        release?.()
+        await Promise.all([first, second])
+
+        // The service offers no version to write against, so the ordering comes
+        // from here: the removal waits for the write that is in flight.
+        expect(order).toEqual(['put:start', 'put:end', 'delete'])
+    })
+
     test('a policy that cannot be read leaves the key on screen and says so', async () => {
         const {client} = stubClient((command) => {
             if (command instanceof GetKeyCommand) return {Key: key}
