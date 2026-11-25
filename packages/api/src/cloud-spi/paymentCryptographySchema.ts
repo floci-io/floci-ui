@@ -297,13 +297,17 @@ export function modesAllowWrapping(modes: WrappingModes | undefined): boolean {
  * <p>This is the one rule the adapter holds to and the console reads, so the
  * two cannot disagree about which key may carry which: the state is published
  * with every key rather than worked out by the console from the modes of use.
+ *
+ * <p>All three states are read the same way: a state that was not read is not a
+ * permission. A key whose enabled state is not known is not a key that may
+ * wrap, the way a key whose modes of use were not read is not one either.
  */
 export function mayWrapKey(
     usage: string | undefined,
     modes: WrappingModes | undefined,
     enabled: boolean | undefined,
 ): boolean {
-    return enabled !== false && isWrappingUsage(usage) && modesAllowWrapping(modes)
+    return enabled === true && isWrappingUsage(usage) && modesAllowWrapping(modes)
 }
 
 /**

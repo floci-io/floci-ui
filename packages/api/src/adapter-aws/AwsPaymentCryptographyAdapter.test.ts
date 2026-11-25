@@ -672,6 +672,25 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
         })
 
+        test('refuses a wrapping key that does not say whether it is enabled', async () => {
+            // A state that was not read is not a permission, the same way the
+            // modes of use are read.
+            const unknown = {...key, KeyArn: OTHER_ARN, Enabled: undefined}
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) {
+                    const named = (command as GetKeyCommand).input.KeyIdentifier
+                    return {Key: named === OTHER_ARN ? unknown : key}
+                }
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toThrow(
+                /does not say whether it is enabled/,
+            )
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
         test('refuses a key that is asked to carry itself', async () => {
             // A key may not be its own wrapping key, and the service refuses a
             // key that carries itself.

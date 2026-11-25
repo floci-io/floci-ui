@@ -107,6 +107,9 @@ describe('awsPaymentCryptographySchema', () => {
         expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, false)).toBe(false)
         // A key whose attributes were not read is not a wrapping key either.
         expect(mayWrapKey(undefined, undefined, undefined)).toBe(false)
+        // A key whose enabled state was not read is not a wrapping key either:
+        // a state that is not read is not a permission.
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, undefined)).toBe(false)
     })
 
     test('the matrix says which key may carry which', () => {
