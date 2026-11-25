@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {useMutation} from "@tanstack/react-query";
 import {Check, Copy, Download} from "lucide-react";
 import {exportPaymentCryptographyKey} from "@/api/cloudProxyClient";
@@ -52,6 +52,19 @@ export function PaymentCryptographyExportSection({
 }: PaymentCryptographyExportSectionProps) {
   const [wrappingKey, setWrappingKey] = useState("");
   const {copied, copyFailed, copy, reset: resetCopy} = useCopyToClipboard();
+  const activeRequest = useRef<AbortController | null>(null);
+  const resourceId = resource?.id;
+
+  // The material of a key the reader has left is not wanted any more, so the
+  // request for it is cancelled when the section goes away or the key changes.
+  useEffect(() => {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    return () => {
+      activeRequest.current?.abort();
+      activeRequest.current = null;
+    };
+  }, [resourceId]);
 
   const allowed = useMemo(
     () => (resource ? wrappingKeysFor(resource, resources, schema) : []),
@@ -59,10 +72,24 @@ export function PaymentCryptographyExportSection({
   );
 
   const exportMut = useMutation({
-    mutationFn: (target: CloudResource) =>
-      exportPaymentCryptographyKey(cloud, target.service, target.id, {
-        wrappingKeyArn: wrappingKey,
-      }),
+    mutationFn: async (target: CloudResource) => {
+      activeRequest.current?.abort();
+      const controller = new AbortController();
+      activeRequest.current = controller;
+      try {
+        return await exportPaymentCryptographyKey(
+          cloud,
+          target.service,
+          target.id,
+          {wrappingKeyArn: wrappingKey},
+          controller.signal,
+        );
+      } catch (error) {
+        // The reader went away, so the refusal is not about them.
+        if (controller.signal.aborted) return null;
+        throw error;
+      }
+    },
   });
 
   const material = exportMut.data?.keyMaterial ?? "";

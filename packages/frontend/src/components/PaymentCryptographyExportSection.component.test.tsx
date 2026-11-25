@@ -91,6 +91,7 @@ function renderSection(
   return {
     /** The account's keys are read again, and hold a different list. */
     rerenderWithKeys: (resources: CloudResource[] | null) => rendered.rerender(view({resources})),
+    unmount: rendered.unmount,
   };
 }
 
@@ -235,6 +236,24 @@ describe("the material a payment key leaves under", () => {
 
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("status").textContent).toBe("");
+  });
+
+  it("the export request is cancelled when the section goes away", async () => {
+    const user = userEvent.setup();
+    const {unmount} = renderSection(key, {resources: [wrapping]});
+
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
+    await user.click(screen.getByRole("button", {name: /Export key/i}));
+
+    await waitFor(() => expect(exportKey).toHaveBeenCalled());
+    const signal = exportKey.mock.calls[0][4] as AbortSignal | undefined;
+    expect(signal).toBeDefined();
+    expect(signal?.aborted).toBe(false);
+
+    // The reader goes to another key, so the material of the key they left
+    // behind is not fetched any more.
+    unmount();
+    expect(signal?.aborted).toBe(true);
   });
 
   it("says so when the clipboard refuses", async () => {
