@@ -163,12 +163,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /**
-     * Deletion is scheduled, not immediate: the key is disabled and stays readable
-     * until the waiting period ends, which is the reference's own behaviour.
-     *
-     * <p>An alias is removed at once, which is the reference's own behaviour too.
-     */
-    /**
      * The material a key leaves under.
      *
      * <p>The wrapping key has to be one the reference allows: a key encryption key
@@ -243,6 +237,12 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         return toResource(key, {tags: []})
     }
 
+    /**
+     * Deletion is scheduled, not immediate: the key is disabled and stays readable
+     * until the waiting period ends, which is the reference's own behaviour.
+     *
+     * <p>An alias is removed at once, which is the reference's own behaviour too.
+     */
     async delete(id: string): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {

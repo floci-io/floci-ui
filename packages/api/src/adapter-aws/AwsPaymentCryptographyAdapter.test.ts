@@ -1,4 +1,5 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
 import {
     CreateAliasCommand,
     CreateKeyCommand,
@@ -784,6 +785,18 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
         expect(sent).toHaveLength(1)
         expect((sent[0] as ListKeysCommand).input).toEqual({MaxResults: 1})
+    })
+
+    test('each method keeps its own documentation', () => {
+        const source = readFileSync(new URL('./AwsPaymentCryptographyAdapter.ts', import.meta.url), 'utf8')
+        const deletion = source.indexOf('async delete(')
+
+        // The text about the deletion belongs to the deletion and to nothing
+        // else, so it is not the documentation of the method above it.
+        expect(source.match(/Deletion is scheduled, not immediate/g)).toHaveLength(1)
+        expect(source.slice(source.lastIndexOf('/**', deletion), deletion)).toContain(
+            'Deletion is scheduled, not immediate',
+        )
     })
 
     describe('aliases', () => {
