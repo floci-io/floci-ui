@@ -270,8 +270,41 @@ describe("the policy of a payment key", () => {
     });
   });
 
-  it("keeps the editor still while it saves", async () => {
-    let release: (() => void) | undefined;
+  it("drops the failure of a write that was abandoned", async () => {
+    setPolicy.mockRejectedValue(new Error("The policy grants public access."));
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Edit policy/i}));
+    fireEvent.change(screen.getByLabelText("Key policy"), {target: {value: "{}"}});
+    await user.click(screen.getByRole("button", {name: /Save policy/i}));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/public access/);
+
+    // The write was abandoned, so the failure of it goes with it.
+    await user.click(screen.getByRole("button", {name: /Cancel/i}));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+
+  it("drops the failure of a write that was superseded", async () => {
+    setPolicy.mockRejectedValueOnce(new Error("The policy grants public access."));
+    const user = userEvent.setup();
+    renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Edit policy/i}));
+    fireEvent.change(screen.getByLabelText("Key policy"), {target: {value: "{}"}});
+    await user.click(screen.getByRole("button", {name: /Save policy/i}));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/public access/);
+
+    // The editor is closed, and the policy is removed instead. The key now
+    // holds no policy, so the old failure is not the one on screen.
+    await user.click(screen.getByRole("button", {name: /Cancel/i}));
+    setPolicy.mockResolvedValue(undefined as never);
+    await user.click(screen.getByRole("button", {name: /Remove policy/i}));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+
+  it("keeps the editor still while it saves", async () => {    let release: (() => void) | undefined;
     setPolicy.mockImplementation(
       () =>
         new Promise<void>((resolve) => {

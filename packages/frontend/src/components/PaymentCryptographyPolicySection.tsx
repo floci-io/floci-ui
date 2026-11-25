@@ -3,6 +3,7 @@ import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {ShieldCheck, Trash2} from "lucide-react";
 import {setPaymentCryptographyKeyPolicy} from "@/api/cloudProxyClient";
 import {getAccountId} from "@/lib/accountStore";
+import {publishedPolicy} from "@/lib/paymentCryptography";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
@@ -50,7 +51,11 @@ export function PaymentCryptographyPolicySection({
   runtimeReachable,
 }: PaymentCryptographyPolicySectionProps) {
   const queryClient = useQueryClient();
-  const held = typeof resource?.metadata.keyPolicy === "string" ? resource.metadata.keyPolicy : "";
+  // The policy the key holds is read through the rule the console keeps in
+  // one place, so the draft the editor opens with and the sentence the
+  // section picks cannot disagree about it.
+  const published = publishedPolicy(resource?.metadata);
+  const held = typeof published === "string" ? published : "";
   const state = policyState(resource, keyUnreadable);
   const [policy, setPolicy] = useState(held);
   const [editing, setEditing] = useState(false);
@@ -60,7 +65,10 @@ export function PaymentCryptographyPolicySection({
     setEditing(false);
   }, [held, resource?.id]);
 
-  const save = useMutation({
+  // One write carries the policy it writes, and the empty policy is the
+  // removal, so the two settings of a key share one error, one in-flight flag
+  // and one set of refreshes.
+  const write = useMutation({
     mutationFn: (variables: {policy: string; target: CloudResource}) =>
       setPaymentCryptographyKeyPolicy(cloud, variables.target.service, variables.target.id, {
         policy: variables.policy,
@@ -70,33 +78,20 @@ export function PaymentCryptographyPolicySection({
     onMutate: () => ({accountId: getAccountId()}),
     onSuccess: (_result, variables, context) => {
       setEditing(false);
+      // The account the request was made in is the one that is refreshed, and
+      // the context that carries it may be absent.
+      const accountId = context?.accountId ?? getAccountId();
       void queryClient.invalidateQueries({
         queryKey: [
           "cloud-resource",
-          context.accountId,
+          accountId,
           cloud,
           variables.target.service,
           variables.target.id,
         ],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", context.accountId, cloud, variables.target.service],
-      });
-    },
-  });
-
-  const remove = useMutation({
-    mutationFn: (target: CloudResource) =>
-      setPaymentCryptographyKeyPolicy(cloud, target.service, target.id, { policy: "" }),
-    // Captured when the request is made, for the same reason as the save.
-    onMutate: () => ({accountId: getAccountId()}),
-    onSuccess: (_result, target, context) => {
-      setEditing(false);
-      void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", context.accountId, cloud, target.service, target.id],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", context.accountId, cloud, target.service],
+        queryKey: ["cloud-resources", accountId, cloud, variables.target.service],
       });
     },
   });
@@ -104,7 +99,8 @@ export function PaymentCryptographyPolicySection({
   // A write that is in flight holds the controls still: a second write would
   // land after it and win, and the policy the key holds would be whichever
   // landed last.
-  const writing = save.isPending || remove.isPending;
+  const writing = write.isPending;
+  const error = write.error;
 
   return (
     <section className="inspector-section">
@@ -118,7 +114,7 @@ export function PaymentCryptographyPolicySection({
             aria-label="Key policy"
             // The editor closes when the save succeeds, so an edit made during
             // the request would be lost without a word.
-            disabled={save.isPending}
+            disabled={writing}
             onChange={(event) => setPolicy(event.target.value)}
           />
           <button
@@ -127,7 +123,7 @@ export function PaymentCryptographyPolicySection({
             disabled={writing || policy.trim() === ""}
             onClick={() => {
               if (!resource) return;
-              save.mutate({policy, target: resource});
+              write.mutate({policy, target: resource});
             }}
           >
             Save policy
@@ -137,12 +133,14 @@ export function PaymentCryptographyPolicySection({
             type="button"
             // The editor closes when the save succeeds, so a cancel during the
             // request would throw away the draft that was sent.
-            disabled={save.isPending}
+            disabled={writing}
             onClick={() => {
               // The draft is gone: the policy the key holds is what the editor
-              // shows the next time it is opened.
+              // shows the next time it is opened. The refusal of the write that
+              // was abandoned goes with it.
               setPolicy(held);
               setEditing(false);
+              write.reset();
             }}
           >
             Cancel
@@ -169,7 +167,7 @@ export function PaymentCryptographyPolicySection({
               disabled={!runtimeReachable || writing}
               onClick={() => {
                 if (!resource) return;
-                remove.mutate(resource);
+                write.mutate({policy: "", target: resource});
               }}
             >
               <Trash2 size={12} />
@@ -178,11 +176,9 @@ export function PaymentCryptographyPolicySection({
           )}
         </>
       )}
-      {(save.error instanceof Error || remove.error instanceof Error) && (
+      {error instanceof Error && (
         <p className="form-error" role="alert">
-          {(save.error ?? remove.error) instanceof Error
-            ? ((save.error ?? remove.error) as Error).message
-            : ""}
+          {error.message}
         </p>
       )}
     </section>
@@ -204,6 +200,7 @@ function policyState(
   const metadata = resource?.metadata;
   if (!metadata) return "not-read";
   if (metadata.keyPolicyUnavailable === true) return "unreadable";
-  if (!Object.prototype.hasOwnProperty.call(metadata, "keyPolicy")) return "not-read";
-  return typeof metadata.keyPolicy === "string" ? "held" : "none";
+  const published = publishedPolicy(metadata);
+  if (published === undefined) return "not-read";
+  return published === null ? "none" : "held";
 }
