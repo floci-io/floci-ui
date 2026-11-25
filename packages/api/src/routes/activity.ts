@@ -40,14 +40,16 @@ const ACTION_LABELS: Record<string, string> = {
 }
 
 /** POST actions that are operations on an existing resource, not a create. */
-const ACTION_VERBS = new Set([
+const NON_CREATE_ACTIONS = new Set([
     'start', 'stop', 'reboot', 'invoke', 'terminate',
     'encrypt', 'decrypt', 'sign', 'verify', 'rotate',
     'recover', 'purge', 'purge-deleted', 'cancel-deletion', 'empty',
     'attach', 'detach', 'associate', 'disassociate',
     'authorize', 'authorize-egress', 'revoke', 'revoke-egress',
     'modify-attribute', 'release', 'deregister',
-    // The payment cryptography routes: the key is changed, not created.
+    // The payment cryptography routes: they act on a key rather than making
+    // one. The usage changes the key's own state, the policy and the replica
+    // set change what the key allows, and an export takes the material away.
     'usage',
     'policy',
     'replication',
@@ -144,7 +146,7 @@ function operationFor(method: string, action: string | null, hasResourceId: bool
     if (action.startsWith('create')) return 'Create'
     const labeled = ACTION_LABELS[action]
     if (labeled) return labeled
-    if (ACTION_VERBS.has(action)) return humanize(action)
+    if (NON_CREATE_ACTIONS.has(action)) return humanize(action)
     // A trailing segment that is not a known verb is the plural child being
     // created: environments, triggers, nodegroups, snapshots, and friends.
     return 'Create'
