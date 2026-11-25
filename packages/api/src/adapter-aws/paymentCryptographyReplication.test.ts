@@ -170,6 +170,56 @@ describe('the replication of a payment key', () => {
         expect(sent.some((command) => command instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
     })
 
+    test('a Region named twice is named once', async () => {
+        const {client, sent} = runtimeStub({})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await adapter.setReplication(KEY_ID, {addReplicationRegions: ['us-east-2', 'us-east-2'], removeReplicationRegions: []})
+
+        // The same Region named twice is one Region, so the list the request
+        // carries holds it once.
+        const command = sent.find((each) => each instanceof AddKeyReplicationRegionsCommand)
+        expect((command as AddKeyReplicationRegionsCommand).input.ReplicationRegions).toEqual(['us-east-2'])
+    })
+
+    test('a Region named in both lists is refused, whichever side the key is in', async () => {
+        const {client, sent} = runtimeStub({'us-east-2': {}})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The Region the key holds would be taken away, and the Region it does
+        // not hold would be added, and which of the two happens depends on the
+        // state the key is in, so the request is refused rather than resolved.
+        await expect(
+            adapter.setReplication(KEY_ID, {
+                addReplicationRegions: ['us-east-2'],
+                removeReplicationRegions: ['us-east-2'],
+            }),
+        ).rejects.toBeInstanceOf(ValidationError)
+        await expect(
+            adapter.setReplication(KEY_ID, {
+                addReplicationRegions: ['eu-west-1'],
+                removeReplicationRegions: ['eu-west-1'],
+            }),
+        ).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((each) => each instanceof AddKeyReplicationRegionsCommand)).toBe(false)
+        expect(sent.some((each) => each instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
+    })
+
+    test('a name that names no Region is refused', async () => {
+        const {client, sent} = runtimeStub({})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The console's Region field is free text, so a blank name arrives.
+        await expect(
+            adapter.setReplication(KEY_ID, {addReplicationRegions: ['   '], removeReplicationRegions: []}),
+        ).rejects.toBeInstanceOf(ValidationError)
+        await expect(
+            adapter.setReplication(KEY_ID, {addReplicationRegions: [], removeReplicationRegions: ['']}),
+        ).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((each) => each instanceof AddKeyReplicationRegionsCommand)).toBe(false)
+        expect(sent.some((each) => each instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
+    })
+
     test('a member that is not a list of Regions is refused', async () => {
         const {client, sent} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)
