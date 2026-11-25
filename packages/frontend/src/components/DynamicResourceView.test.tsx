@@ -1856,6 +1856,11 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
     // The option is offered under the alias, and the value is still the key, so
     // the service is asked for exactly the key that was chosen.
     expect(options.some((text) => text.includes("alias/prosa-kek"))).toBe(true);
+    // The ARN is beside the alias, so an alias in a list of keys reads as the
+    // key it names and not as another kind of resource.
+    expect(options.some((text) => text.includes("alias/prosa-kek") && text.includes(named.name))).toBe(
+      true,
+    );
     const values = within(select)
       .getAllByRole("option")
       .map((option) => (option as HTMLOptionElement).value);

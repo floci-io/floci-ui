@@ -28,6 +28,21 @@ describe('awsPaymentCryptographySchema', () => {
         expect(target?.optionsLabelFrom).toEqual('aliasNames')
     })
 
+    test('every field that names a key says where the name comes from', () => {
+        const schema = awsPaymentCryptographySchema()
+
+        // A key has no name of its own, so a field that names a key offers an
+        // ARN unless the schema says where the name the operator knows it by
+        // comes from. A field that forgets says so here.
+        for (const field of schema.fields) {
+            if (field.optionsFrom !== 'key') continue
+            expect({
+                field: field.name,
+                labelFrom: field.optionsLabelFrom,
+            }).toEqual({field: field.name, labelFrom: 'aliasNames'})
+        }
+    })
+
     test('offers the tag editor for a key and not for an alias', () => {
         const schema = awsPaymentCryptographySchema()
         const updateTags = schema.capabilities?.resourceActions?.find(capability => capability.name === 'updateTags')

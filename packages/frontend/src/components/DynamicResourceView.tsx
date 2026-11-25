@@ -1430,13 +1430,28 @@ function optionLabel(field: FieldSchema, row: CloudResource): string {
     field.optionsLabelFrom && Object.prototype.hasOwnProperty.call(metadata, field.optionsLabelFrom)
       ? metadata[field.optionsLabelFrom]
       : undefined;
-  if (Array.isArray(named)) {
-    const names = named.filter((each): each is string => typeof each === 'string' && each !== '');
-    if (names.length > 0) return names.join(', ');
-  } else if (typeof named === 'string' && named !== '') {
-    return named;
+  const friendly = friendlyNames(named);
+  const identity = row.name || row.id;
+  if (friendly.length === 0) return identity;
+  // The name and the identity together, so a choice under a name that reads
+  // like another kind of resource is still the resource it is: an alias in a
+  // list of keys is the key that alias names, and the ARN beside it says so.
+  if (identity === friendly.join(', ')) return friendly.join(', ');
+  return `${friendly.join(', ')} · ${identity}`;
+}
+
+/**
+ * The names a row carries, as the API published them.
+ *
+ * <p>A row may carry one name or several, and a key that one alias names and a
+ * key that several name are both offered under every name they have.
+ */
+function friendlyNames(published: unknown): string[] {
+  if (Array.isArray(published)) {
+    return published.filter((each): each is string => typeof each === 'string' && each !== '');
   }
-  return row.name || row.id;
+  if (typeof published === 'string' && published !== '') return [published];
+  return [];
 }
 
 function errorMessage(error: unknown): string {
