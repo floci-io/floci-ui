@@ -291,6 +291,45 @@ describe('the payment cryptography routes', () => {
         expect(res.status).toBe(502)
     })
 
+    test('the material is not stored, and neither is the error about it', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => {
+                    throw new Error('the service said no')
+                },
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/def'}),
+            },
+        )
+
+        // The material a key leaves under is the most secret thing this API
+        // answers with, so neither it nor the error about it may be stored.
+        expect(res.headers.get('cache-control')).toBe('no-store')
+
+        const answered = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => material,
+            } as Partial<CloudServiceAdapter>),
+        ])
+        const ok = await answered.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/def'}),
+            },
+        )
+
+        expect(ok.headers.get('cache-control')).toBe('no-store')
+    })
+
     test('a service that is not the payment cryptography one is refused', async () => {
         // The routes are generic, so a service that happens to have a method of
         // the same name would be driven with a body shaped for a payment key.
