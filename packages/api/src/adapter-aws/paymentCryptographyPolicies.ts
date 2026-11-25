@@ -77,10 +77,21 @@ export async function putKeyPolicy(
     await client.send(new PutResourcePolicyCommand({ResourceArn: keyArn, Policy: policy}))
 }
 
-/** Removes the policy of a key. */
+/**
+ * Removes the policy of a key.
+ *
+ * <p>A key that holds no policy is a key whose policy is already gone, so the
+ * removal has happened and the removal does not fail, the way the read path
+ * takes a missing policy for none rather than for a policy it could not read.
+ */
 export async function deleteKeyPolicy(
     client: PaymentCryptographyClient,
     keyArn: string,
 ): Promise<void> {
-    await client.send(new DeleteResourcePolicyCommand({ResourceArn: keyArn}))
+    try {
+        await client.send(new DeleteResourcePolicyCommand({ResourceArn: keyArn}))
+    } catch (error) {
+        if (isNotFound(error)) return
+        throw error
+    }
 }

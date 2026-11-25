@@ -229,6 +229,34 @@ describe('the policy of a payment key', () => {
         expect(resource?.metadata.keyPolicy).toBe(POLICY)
     })
 
+    test('a key that holds no policy is a policy that is already gone', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof DeleteResourcePolicyCommand) {
+                throw Object.assign(new Error('not found'), {name: 'ResourceNotFoundException'})
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The policy is already gone, so the removal has happened: refusing it
+        // would fail the case the caller wanted anyway.
+        await adapter.setPolicy(KEY_ID, {policy: ''})
+
+        expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(true)
+    })
+
+    test('a refusal that is not a missing policy still fails the removal', async () => {
+        const {client} = stubClient((command) => {
+            if (command instanceof DeleteResourcePolicyCommand) {
+                throw Object.assign(new Error('Access denied'), {name: 'AccessDeniedException'})
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await expect(adapter.setPolicy(KEY_ID, {policy: ''})).rejects.toThrow('Access denied')
+    })
+
     test('a policy that cannot be read leaves the key on screen and says so', async () => {
         const {client} = stubClient((command) => {
             if (command instanceof GetKeyCommand) return {Key: key}
