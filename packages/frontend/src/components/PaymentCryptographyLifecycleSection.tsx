@@ -2,6 +2,7 @@ import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {Power, PowerOff} from "lucide-react";
 import {setPaymentCryptographyKeyUsage} from "@/api/cloudProxyClient";
 import {getAccountId} from "@/lib/accountStore";
+import {getRegion} from "@/lib/regionStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
@@ -58,9 +59,10 @@ function KeyUsage({
   runtimeReachable: boolean;
 }) {
   const queryClient = useQueryClient();
-  // Captured now: an account switch while the request is in flight must not
-  // refresh another account's resources.
+  // Captured now: an account or region switch while the request is in flight
+  // must not refresh another account's or region's resources.
   const accountId = getAccountId();
+  const region = getRegion();
   // The API publishes whether the key may be used. A key it said nothing about
   // is neither in use nor out of use, so the console does not work the state
   // out for itself.
@@ -78,10 +80,10 @@ function KeyUsage({
       setPaymentCryptographyKeyUsage(cloud, resource.service, resource.id, { enabled: next }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resource", accountId, cloud, resource.service, resource.id],
+        queryKey: ["cloud-resource", accountId, region, cloud, resource.service, resource.id],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, resource.service],
+        queryKey: ["cloud-resources", accountId, region, cloud, resource.service],
       });
     },
   });

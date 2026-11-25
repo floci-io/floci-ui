@@ -16,6 +16,7 @@ import type {CloudResource, StorageObject} from '@/types/resource'
 import type {CapabilitySchema, ObjectActionName} from '@/types/schema'
 import {formatBytes, objectIconKind, objectPreviewKind} from '@/lib/format'
 import {useAccountId} from '@/lib/accountStore'
+import {useRegion} from '@/lib/regionStore'
 import {storageObjectsKey, storageObjectWriteKey, storageTargetKey, type StorageTarget} from '@/lib/storageQueryKeys'
 import {ImagePreviewModal} from '@/components/ImagePreviewModal'
 import {ObjectThumbnail} from '@/components/ObjectThumbnail'
@@ -37,9 +38,10 @@ const WRITE_ACTIONS: ObjectActionName[] = ['upload', 'delete', 'createFolder', '
 export function StorageObjectBrowser({cloud, resource, capabilities = [], runtimeReachable = false, selectedObjectKey, onSelectObject, writesBlocked = false}: StorageObjectBrowserProps) {
     const qc = useQueryClient()
     const accountId = useAccountId()
+    const region = useRegion()
     // Captured into each mutation, so a write that settles after the account or
     // bucket changed still refreshes the listing it wrote to.
-    const target: StorageTarget | undefined = resource ? {accountId, cloud, bucketId: resource.id} : undefined
+    const target: StorageTarget | undefined = resource ? {accountId, region, cloud, bucketId: resource.id} : undefined
     // What is on screen now, read by settle callbacks: a write for another target
     // refreshes its own listing but leaves this view's selection and dialogs alone.
     const currentTargetKey = useRef('')
@@ -97,10 +99,10 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         setBulkDeleteError(null)
         setPreviewObject(null)
         onSelectObject(undefined)
-    }, [accountId, cloud, resource?.id, onSelectObject])
+    }, [accountId, region, cloud, resource?.id, onSelectObject])
 
     const query = useQuery({
-        queryKey: target ? storageObjectsKey(target, prefix) : ['storage-objects', accountId, cloud, undefined, prefix],
+        queryKey: target ? storageObjectsKey(target, prefix) : ['storage-objects', accountId, region, cloud, undefined, prefix],
         queryFn: ({signal}) => listStorageObjects(accountId, cloud, resource?.id ?? '', prefix, signal),
         enabled: !!resource,
     })

@@ -84,14 +84,14 @@ describe('StorageObjectBrowser storage cache', () => {
     test('keys the object listing by account, so same-name buckets do not share a cache', async () => {
         const {qc} = renderBrowser()
         await screen.findByText('a.txt')
-        expect(qc.getQueryData(['storage-objects', ACCOUNT_A, 'aws', 'logs', ''])).toEqual(listing('a.txt', 'b.txt'))
+        expect(qc.getQueryData(['storage-objects', ACCOUNT_A, null, 'aws', 'logs', ''])).toEqual(listing('a.txt', 'b.txt'))
 
         vi.mocked(listStorageObjects).mockResolvedValue(listing('other-account.txt'))
         act(() => setAccountId(ACCOUNT_B))
 
         await screen.findByText('other-account.txt')
-        expect(qc.getQueryData(['storage-objects', ACCOUNT_B, 'aws', 'logs', ''])).toEqual(listing('other-account.txt'))
-        expect(qc.getQueryData(['storage-objects', ACCOUNT_A, 'aws', 'logs', ''])).toEqual(listing('a.txt', 'b.txt'))
+        expect(qc.getQueryData(['storage-objects', ACCOUNT_B, null, 'aws', 'logs', ''])).toEqual(listing('other-account.txt'))
+        expect(qc.getQueryData(['storage-objects', ACCOUNT_A, null, 'aws', 'logs', ''])).toEqual(listing('a.txt', 'b.txt'))
     })
 
     test('resets local state when the account changes under the same bucket ID', async () => {
@@ -112,7 +112,7 @@ describe('StorageObjectBrowser storage cache', () => {
         await user.click(await screen.findByLabelText('Select a.txt'))
 
         vi.mocked(listStorageObjects).mockResolvedValue(listing('b.txt'))
-        await act(() => qc.invalidateQueries({queryKey: ['storage-objects', ACCOUNT_A, 'aws', 'logs']}))
+        await act(() => qc.invalidateQueries({queryKey: ['storage-objects', ACCOUNT_A, null, 'aws', 'logs']}))
 
         await waitFor(() => expect(screen.queryByText('1 object selected')).not.toBeInTheDocument())
     })
@@ -169,7 +169,7 @@ describe('StorageObjectBrowser storage cache', () => {
                 const copyButtons = within(dialog).getAllByRole('button', {name: 'Copy'})
                 await user.click(copyButtons[copyButtons.length - 1])
             },
-            extraKey: ['storage-objects', ACCOUNT_A, 'aws', 'archive'],
+            extraKey: ['storage-objects', ACCOUNT_A, null, 'aws', 'archive'],
         },
         {
             name: 'move (its source delete included)',
@@ -202,7 +202,7 @@ describe('StorageObjectBrowser storage cache', () => {
             act(() => setAccountId(ACCOUNT_B))
             await act(async () => gate.resolve())
 
-            await waitFor(() => expect(invalidatedStorageKeys(invalidate)).toContainEqual(['storage-objects', ACCOUNT_A, 'aws', 'logs']))
+            await waitFor(() => expect(invalidatedStorageKeys(invalidate)).toContainEqual(['storage-objects', ACCOUNT_A, null, 'aws', 'logs']))
             if (write.extraKey) expect(invalidatedStorageKeys(invalidate)).toContainEqual(write.extraKey)
             write.verify?.()
             expect(invalidatedStorageKeys(invalidate).some((key) => key[1] === ACCOUNT_B)).toBe(false)
@@ -249,7 +249,7 @@ describe('StorageObjectBrowser storage cache', () => {
         expect(await screen.findByText('Could not delete 1 of 2 selected. Access Denied')).toBeInTheDocument()
         expect(screen.getByText('1 object selected')).toBeInTheDocument()
         expect(screen.getByLabelText('Select b.txt')).toBeChecked()
-        expect(invalidatedStorageKeys(invalidate)).toContainEqual(['storage-objects', ACCOUNT_A, 'aws', 'logs'])
+        expect(invalidatedStorageKeys(invalidate)).toContainEqual(['storage-objects', ACCOUNT_A, null, 'aws', 'logs'])
     })
 
     // Each write starts under account A and settles after the user has started the

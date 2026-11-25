@@ -8,6 +8,7 @@ import {AzureSqlPanel} from '@/components/AzureSqlPanel'
 import {CosmosNoSqlPanel} from '@/components/CosmosNoSqlPanel'
 import {DynamoDbTableExplorer} from '@/components/DynamoDbTableExplorer'
 import {useAccountId} from '@/lib/accountStore'
+import {useRegion} from '@/lib/regionStore'
 import {dataExplorerKind} from '@/lib/dataExplorer'
 import type {CloudProvider} from '@/types/cloud'
 import {isCloudProvider} from '@/lib/cloudProvider'
@@ -15,21 +16,23 @@ import {isCloudProvider} from '@/lib/cloudProvider'
 export function DatabaseDataPage() {
     const {cloud, service, resourceId} = useParams()
     const accountId = useAccountId()
+    const region = useRegion()
     if (!isCloudProvider(cloud) || !service || !resourceId) {
         return <div className="content"><DataNotice title="Invalid data workspace" detail="Check the cloud, service, and resource in this link."/>
             <Link to="/console/aws">Console Home</Link></div>
     }
-    return <DatabaseDataWorkspace key={`${accountId}:${cloud}:${service}:${resourceId}`} cloud={cloud} service={service} resourceId={resourceId}/>
+    return <DatabaseDataWorkspace key={`${accountId}:${region ?? ''}:${cloud}:${service}:${resourceId}`} cloud={cloud} service={service} resourceId={resourceId}/>
 }
 
 function DatabaseDataWorkspace({cloud, service, resourceId}: {cloud: CloudProvider; service: string; resourceId: string}) {
     const accountId = useAccountId()
+    const region = useRegion()
     const [searchParams, setSearchParams] = useSearchParams()
     const servicesQuery = useCloudServicesQuery(cloud)
     const statusQuery = useCloudStatusQuery(cloud)
     const descriptor = servicesQuery.data?.find((item) => item.service === service)
     const resourceQuery = useQuery({
-        queryKey: ['cloud-data-resource', accountId, cloud, service, resourceId],
+        queryKey: ['cloud-data-resource', accountId, region, cloud, service, resourceId],
         queryFn: ({signal}) => getCloudResource(cloud, service, resourceId, signal),
         enabled: descriptor?.availability === 'available' && statusQuery.data?.runtime === 'reachable',
     })

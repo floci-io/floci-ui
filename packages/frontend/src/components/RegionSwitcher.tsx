@@ -2,26 +2,33 @@ import {useEffect, useRef, useState} from 'react'
 import {useQueryClient} from '@tanstack/react-query'
 import {Check, ChevronDown, Globe} from 'lucide-react'
 import {useCloudStatusQuery} from '@/api/queries/cloudQueries'
-import {isRegion, setRegion, useRegion, useRegionRecents} from '@/lib/regionStore'
+import {AWS_REGIONS, setRegion, useRegion, useRegionRecents} from '@/lib/regionStore'
+
+const REGION_NAMES = new Map(AWS_REGIONS.map((region) => [region.id, region.name]))
 
 /**
  * AWS region switcher, the region counterpart of the AccountSwitcher: one active
- * region, picked from recents or typed in, with "default" returning to the region
- * Floci started the console with. Reuses the account switcher's styles.
+ * region, picked from the standard AWS regions with recent ones on top, and
+ * "default" returning to the region Floci started the console with. Reuses the
+ * account switcher's styles.
  */
 export function RegionSwitcher() {
     const selected = useRegion()
     const recents = useRegionRecents()
     const queryClient = useQueryClient()
     // The API reports the region it served the status in: the selected one, or
-    // the console's default when none is selected.
+    // the console's default when none is selected. The default is remembered once
+    // seen, so returning to it doesn't show the region just left while the status
+    // is asked again.
     const status = useCloudStatusQuery('aws')
     const served = status.data?.region ?? null
-    const defaultRegion = selected === null ? served : null
-    const current = selected ?? served
+    const [knownDefault, setKnownDefault] = useState<string | null>(null)
+    useEffect(() => {
+        if (selected === null && !status.isFetching && served !== null) setKnownDefault(served)
+    }, [selected, status.isFetching, served])
+    const defaultRegion = knownDefault ?? (selected === null && !status.isFetching ? served : null)
+    const current = selected ?? defaultRegion
     const [open, setOpen] = useState(false)
-    const [draft, setDraft] = useState('')
-    const [error, setError] = useState<string | null>(null)
     const containerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -41,26 +48,30 @@ export function RegionSwitcher() {
     }, [open])
 
     function applyRegion(region: string | null) {
-        if (!setRegion(region)) {
-            setError('Use a region name such as eu-central-1.')
-            return
-        }
-        setDraft('')
-        setError(null)
+        if (!setRegion(region)) return
         setOpen(false)
-        // Resources are region-scoped and query keys do not carry the region, so
-        // drop everything cached for the previous region instead of showing it
-        // until the refetch lands.
-        void queryClient.resetQueries()
+        // As on an account switch: queries keyed by region refetch under their new
+        // key, and the few that carry neither account nor region are refreshed.
+        void queryClient.invalidateQueries()
     }
 
-    function submitDraft() {
-        const trimmed = draft.trim()
-        if (!isRegion(trimmed)) {
-            setError('Use a region name such as eu-central-1.')
-            return
-        }
-        applyRegion(trimmed)
+    function option(region: string, key: string) {
+        const name = REGION_NAMES.get(region)
+        return (
+            <button
+                key={key}
+                type="button"
+                className={`account-option${region === selected ? ' active' : ''}`}
+                role="option"
+                aria-selected={region === selected}
+                title={name}
+                onClick={() => applyRegion(region)}
+            >
+                <span className="account-option-id region-option-id">{region}</span>
+                {name && <span className="region-option-name">{name}</span>}
+                {region === selected && <Check size={13}/>}
+            </button>
+        )
     }
 
     return (
@@ -83,7 +94,7 @@ export function RegionSwitcher() {
             </button>
 
             {open && (
-                <div className="account-popover" role="listbox">
+                <div className="account-popover region-popover" role="listbox" aria-label="Regions">
                     <div className="account-popover-title">Switch region</div>
                     <div className="account-recents">
                         <button
@@ -97,42 +108,17 @@ export function RegionSwitcher() {
                             <span className="account-tag">default</span>
                             {selected === null && <Check size={13}/>}
                         </button>
-                        {recents.map((region) => (
-                            <button
-                                key={region}
-                                type="button"
-                                className={`account-option${region === selected ? ' active' : ''}`}
-                                role="option"
-                                aria-selected={region === selected}
-                                onClick={() => applyRegion(region)}
-                            >
-                                <span className="account-option-id">{region}</span>
-                                {region === selected && <Check size={13}/>}
-                            </button>
-                        ))}
+                        {recents.length > 0 && (
+                            <div role="group" aria-label="Recent regions">
+                                <div className="account-popover-title" aria-hidden="true">Recent</div>
+                                {recents.map((region) => option(region, `recent-${region}`))}
+                            </div>
+                        )}
+                        <div role="group" aria-label="All regions">
+                            <div className="account-popover-title" aria-hidden="true">All regions</div>
+                            {AWS_REGIONS.map((region) => option(region.id, region.id))}
+                        </div>
                     </div>
-                    <form
-                        className="account-entry"
-                        onSubmit={(event) => {
-                            event.preventDefault()
-                            submitDraft()
-                        }}
-                    >
-                        <input
-                            value={draft}
-                            maxLength={32}
-                            placeholder="e.g. eu-central-1"
-                            aria-label="New region"
-                            onChange={(event) => {
-                                setDraft(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
-                                setError(null)
-                            }}
-                        />
-                        <button type="submit" disabled={!isRegion(draft.trim())}>
-                            Switch
-                        </button>
-                    </form>
-                    {error && <div className="account-error">{error}</div>}
                 </div>
             )}
         </div>

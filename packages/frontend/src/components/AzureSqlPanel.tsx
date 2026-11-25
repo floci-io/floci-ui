@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Code2, Database, Play, Plug, RefreshCw, Table2, Unplug } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAccountId } from "@/lib/accountStore";
+import { useRegion } from "@/lib/regionStore";
 import {
   listSqlDatabases,
   listSqlTables,
@@ -39,6 +40,7 @@ export function AzureSqlPanel({
   runtimeReachable,
 }: AzureSqlPanelProps) {
   const accountId = useAccountId();
+  const region = useRegion();
   const serverId = resource?.id;
   const service = resource?.service ?? "database";
   // Aurora DSQL signs in as admin with an IAM token, which the API mints: there
@@ -67,7 +69,7 @@ export function AzureSqlPanel({
   const databaseExists = databases.some((database) => database.name === selectedDatabase);
 
   const tablesQuery = useQuery({
-    queryKey: ['sql-tables', accountId, cloud, serverId, engine, selectedDatabase, username],
+    queryKey: ['sql-tables', accountId, region, cloud, serverId, engine, selectedDatabase, username],
     queryFn: ({signal}) => listSqlTables(cloud, service, serverId ?? "", engine, selectedDatabase, credentials, signal),
     enabled: connected && databaseExists && runtimeReachable,
     gcTime: 0,

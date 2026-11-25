@@ -8,6 +8,7 @@ import {
   type StreamMessage,
 } from "@/api/cloudProxyClient";
 import {useAccountId} from "@/lib/accountStore";
+import {useRegion} from "@/lib/regionStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
@@ -36,6 +37,7 @@ function partitionCount(resource?: CloudResource): number {
 
 export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamMessagesPanelProps) {
   const accountId = useAccountId();
+  const region = useRegion();
   const [tab, setTab] = useState<StreamTab>("put");
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
@@ -79,7 +81,7 @@ export function StreamMessagesPanel({cloud, resource, runtimeReachable}: StreamM
       activeRequest.current?.abort();
       activeRequest.current = null;
     };
-  }, [accountId, cloud, resource?.id]);
+  }, [accountId, region, cloud, resource?.id]);
 
   const isStream = resource?.service === "streams" && resource.type === "stream";
   const canUseStream = Boolean(isStream && runtimeReachable);

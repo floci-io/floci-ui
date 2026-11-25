@@ -8,6 +8,7 @@ import {
   type QueueMessage,
 } from "@/api/cloudProxyClient";
 import {useAccountId} from "@/lib/accountStore";
+import {useRegion} from "@/lib/regionStore";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 
@@ -23,6 +24,7 @@ type MessagingTab = "send" | "receive" | "purge";
 export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessagesChanged}: SqsMessagingPanelProps) {
   const isOci = cloud === "oci";
   const accountId = useAccountId();
+  const region = useRegion();
   const [tab, setTab] = useState<MessagingTab>("send");
   const [body, setBody] = useState("");
   const [sendResult, setSendResult] = useState<{messageId: string} | null>(null);
@@ -68,7 +70,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
       activeRequest.current?.abort();
       activeRequest.current = null;
     };
-  }, [accountId, cloud, resource?.id]);
+  }, [accountId, region, cloud, resource?.id]);
 
   const isQueue = resource?.service === "messaging" && (resource.type === "queue" || resource.type === "fifo-queue");
   const canUseQueue = Boolean(isQueue && runtimeReachable);

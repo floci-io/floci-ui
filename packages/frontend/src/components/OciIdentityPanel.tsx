@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import {ArchiveRestore, Loader2} from "lucide-react";
 import {recoverIdentityResource} from "@/api/cloudProxyClient";
 import {useAccountId} from "@/lib/accountStore";
+import {useRegion} from "@/lib/regionStore";
 import type {CloudResource} from "@/types/resource";
 
 interface OciIdentityPanelProps {
@@ -14,6 +15,7 @@ interface OciIdentityPanelProps {
 /** Recover for a deleted OCI compartment; every other identity resource has nothing to offer here. */
 export function OciIdentityPanel({resource, runtimeReachable, onRecovered}: OciIdentityPanelProps) {
   const accountId = useAccountId();
+  const region = useRegion();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
@@ -27,7 +29,7 @@ export function OciIdentityPanel({resource, runtimeReachable, onRecovered}: OciI
       activeRequest.current?.abort();
       activeRequest.current = null;
     };
-  }, [accountId, resource?.id]);
+  }, [accountId, region, resource?.id]);
 
   if (!resource || resource.cloud !== "oci" || resource.service !== "identity") return null;
   if (resource.type !== "compartment" || resource.status !== "DELETED") return null;

@@ -148,7 +148,7 @@ test("a successful action refreshes the explorer of the account it ran in", asyn
   await act(async () => finishStop());
 
   await waitFor(() => expect(onChanged).toHaveBeenCalledWith(
-    { accountId: "111111111111", resourceId: "i-dev", removed: false },
+    { accountId: "111111111111", region: null, resourceId: "i-dev", removed: false },
   ));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });

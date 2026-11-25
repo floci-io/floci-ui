@@ -4,6 +4,7 @@ import { Pencil, Plus, X } from 'lucide-react'
 import { updateCloudResourceTags } from '@/api/cloudProxyClient'
 import { changesBetween, duplicateKey, type ResourceTag } from '@/lib/resourceTags'
 import { getAccountId } from '@/lib/accountStore'
+import { getRegion } from '@/lib/regionStore'
 import type { CloudProvider } from '@/types/cloud'
 import type { CloudResource } from '@/types/resource'
 
@@ -35,21 +36,23 @@ export function ResourceTagsEditor({ resource, cloud, tags, runtimeReachable }: 
     mutationFn: (changes: Record<string, string | null>) =>
       updateCloudResourceTags(cloud, resource.service, resource.id, changes),
     onMutate: () => ({
-      // Captured now: an account switch while the request is in flight must not
-      // refresh another account's resources.
+      // Captured now: an account or region switch while the request is in flight
+      // must not refresh another account's or region's resources.
       accountId: getAccountId(),
+      region: getRegion(),
     }),
     onSuccess: (_, __, context) => {
       const accountId = context?.accountId ?? getAccountId()
+      const region = context ? context.region : getRegion()
       setDraft(null)
       setError(null)
       // The inspector shows the resource's own query and the list shows the row, and
       // both carry the tags, so both are asked again.
       void queryClient.invalidateQueries({
-        queryKey: ['cloud-resource', accountId, cloud, resource.service, resource.id],
+        queryKey: ['cloud-resource', accountId, region, cloud, resource.service, resource.id],
       })
       void queryClient.invalidateQueries({
-        queryKey: ['cloud-resources', accountId, cloud, resource.service],
+        queryKey: ['cloud-resources', accountId, region, cloud, resource.service],
       })
     },
     onError: (failure) => setError(errorMessage(failure)),

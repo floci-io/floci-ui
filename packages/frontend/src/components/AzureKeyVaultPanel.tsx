@@ -10,6 +10,7 @@ import {
   rotateKmsResource,
 } from "@/api/cloudProxyClient";
 import {useAccountId} from "@/lib/accountStore";
+import {useRegion} from "@/lib/regionStore";
 import {formatDateTime} from "@/lib/format";
 import type {CloudResource} from "@/types/resource";
 
@@ -50,6 +51,7 @@ interface SecretVersion {
 
 export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: AzureKeyVaultPanelProps) {
   const accountId = useAccountId();
+  const region = useRegion();
   const [confirmPurge, setConfirmPurge] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export function AzureKeyVaultPanel({resource, runtimeReachable, onChanged}: Azur
       activeRequest.current?.abort();
       activeRequest.current = null;
     };
-  }, [accountId, resource?.id]);
+  }, [accountId, region, resource?.id]);
 
   if (!resource || resource.cloud !== "azure" || !(resource.service in KEY_VAULT_KINDS)) return null;
 

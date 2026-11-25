@@ -36,6 +36,7 @@ import type { CloudResource, StorageObject } from "@/types/resource";
 import type { FieldSchema, ServiceSchema } from "@/types/schema";
 import { dataExplorerPath } from "@/lib/dataExplorer";
 import { useAccountId } from "@/lib/accountStore";
+import { useRegion } from "@/lib/regionStore";
 import { CreateRdsInstanceForm } from "@/components/CreateRdsInstanceForm";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { activeListFilters, filterOptions, filterValueOf, listFiltersOf } from "@/lib/listFilters";
@@ -92,16 +93,18 @@ export function DynamicResourceView({
 }: DynamicResourceViewProps) {
   const qc = useQueryClient();
   const accountId = useAccountId();
+  const region = useRegion();
   const [search, setSearch] = useState("");
   const [chosenFilters, setChosenFilters] = useState<Record<string, string>>({});
   const [databaseTab, setDatabaseTab] = useState<"instances" | "snapshots">("instances");
   const [logsTab, setLogsTab] = useState<"groups" | "insights">("groups");
   const [selection, setSelection] = useState<
-    { accountId: string; resource: CloudResource } | undefined
+    { accountId: string; region: string | null; resource: CloudResource } | undefined
   >();
-  const selected = selection?.accountId === accountId ? selection.resource : undefined;
+  const selected =
+    selection?.accountId === accountId && selection.region === region ? selection.resource : undefined;
   const selectResource = (resource: CloudResource | undefined) => {
-    setSelection(resource ? { accountId, resource } : undefined);
+    setSelection(resource ? { accountId, region, resource } : undefined);
   };
   const [selectedObject, setSelectedObject] = useState<
     StorageObject | undefined
@@ -111,16 +114,16 @@ export function DynamicResourceView({
   const [isDeleteMulti, setIsDeleteMulti] = useState(false);
   const [selectedItems, setSelectedItems] = useState<CloudResource[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  // Kept with the account, cloud and service it was for, like the single-delete
-  // refusal below.
+  // Kept with the account, region, cloud and service it was for, like the
+  // single-delete refusal below.
   const [bulkDeleteError, setBulkDeleteError] = useState<
-    { accountId: string; cloud: CloudProvider; service: CloudServiceType; message: string } | null
+    { accountId: string; region: string | null; cloud: CloudProvider; service: CloudServiceType; message: string } | null
   >(null);
   // A refused single delete, kept with the account, cloud and service it was for:
   // the view is reused across services, so an account check alone would show the
   // banner on whichever page the user navigated to next.
   const [deleteError, setDeleteError] = useState<
-    { accountId: string; cloud: CloudProvider; service: CloudServiceType; resourceId: string; message: string } | null
+    { accountId: string; region: string | null; cloud: CloudProvider; service: CloudServiceType; resourceId: string; message: string } | null
   >(null);
   // The bucket the open Empty bucket dialog was opened for, captured at that moment.
   const [emptyConfirm, setEmptyConfirm] = useState<StorageTarget | null>(null);
@@ -169,11 +172,11 @@ export function DynamicResourceView({
 
   useEffect(() => {
     setChosenFilters({});
-  }, [accountId, cloud, service]);
+  }, [accountId, region, cloud, service]);
 
   const resourcesKey = useMemo(
-    () => ["cloud-resources", accountId, cloud, service, search, listFilters ?? {}],
-    [accountId, cloud, service, search, listFilters],
+    () => ["cloud-resources", accountId, region, cloud, service, search, listFilters ?? {}],
+    [accountId, region, cloud, service, search, listFilters],
   );
 
   const resourcesQuery = useQuery({
@@ -191,7 +194,7 @@ export function DynamicResourceView({
   const optionRowsQuery = useQuery({
     // Under the list's key, so every change that refreshes the table also
     // refreshes the choices: a key made or deleted is one or the other.
-    queryKey: ["cloud-resources", accountId, cloud, service, "options"],
+    queryKey: ["cloud-resources", accountId, region, cloud, service, "options"],
     queryFn: ({ signal }) => listCloudResources(cloud, service, undefined, signal),
     enabled:
       schemaQuery.isSuccess &&
@@ -212,7 +215,7 @@ export function DynamicResourceView({
       ? selected
       : undefined;
   const resourceDetailQuery = useQuery({
-    queryKey: ["cloud-resource", accountId, cloud, service, selectedForService?.id],
+    queryKey: ["cloud-resource", accountId, region, cloud, service, selectedForService?.id],
     queryFn: ({ signal }) =>
       getCloudResource(cloud, service, selectedForService!.id, signal),
     enabled:
@@ -223,7 +226,7 @@ export function DynamicResourceView({
   });
   const storageTarget: StorageTarget | undefined =
     service === "storage" && selectedForService
-      ? { accountId, cloud, bucketId: selectedForService.id }
+      ? { accountId, region, cloud, bucketId: selectedForService.id }
       : undefined;
   const storageTargetKey = storageTarget ? targetKey(storageTarget) : "";
   // Settlement callbacks compare against the target on screen now, not the one
@@ -242,10 +245,10 @@ export function DynamicResourceView({
       setEmptyConfirm(null);
       void qc.invalidateQueries({ queryKey: storageObjectsKey(target) });
       void qc.invalidateQueries({
-        queryKey: ["cloud-resource", target.accountId, target.cloud, "storage", target.bucketId],
+        queryKey: ["cloud-resource", target.accountId, target.region, target.cloud, "storage", target.bucketId],
       });
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", target.accountId, target.cloud, "storage"],
+        queryKey: ["cloud-resources", target.accountId, target.region, target.cloud, "storage"],
       });
     },
     onSuccess: (result, target) => {
@@ -253,7 +256,9 @@ export function DynamicResourceView({
       setSelectedObject(undefined);
       // A "not empty" refusal for this bucket no longer holds.
       setDeleteError((refusal) =>
-        refusal?.accountId === target.accountId && refusal.resourceId === target.bucketId ? null : refusal,
+        refusal?.accountId === target.accountId && refusal.region === target.region && refusal.resourceId === target.bucketId
+          ? null
+          : refusal,
       );
       setSuccessToast(
         `Emptied ${target.bucketId}: permanently deleted ${result.deleted} object version(s) and delete marker(s).`,
@@ -289,10 +294,10 @@ export function DynamicResourceView({
             : isOciIdentity
               ? (resource: CloudResource) => resource.type !== "region subscription"
               : emptyingKey !== undefined
-                ? (resource: CloudResource) => targetKey({ accountId, cloud, bucketId: resource.id }) !== emptyingKey
+                ? (resource: CloudResource) => targetKey({ accountId, region, cloud, bucketId: resource.id }) !== emptyingKey
                 : undefined;
   const sagemakerDashboardResourcesQuery = useQuery({
-    queryKey: ["sagemaker-dashboard-resources", accountId, cloud, service],
+    queryKey: ["sagemaker-dashboard-resources", accountId, region, cloud, service],
     queryFn: ({ signal }) => listCloudResources(cloud, service, "", signal),
     enabled:
       isAwsSageMaker &&
@@ -346,7 +351,7 @@ export function DynamicResourceView({
       selectResource(resource);
       setCreateOpen(false);
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, service],
+        queryKey: ["cloud-resources", accountId, region, cloud, service],
       });
     },
   });
@@ -358,12 +363,13 @@ export function DynamicResourceView({
       setDeleteError(null);
       // Captured now: navigation while the request is in flight must not
       // re-home the banner to the page the user landed on.
-      return { accountId, cloud, service };
+      return { accountId, region, cloud, service };
     },
     onError: (error, resource, context) => {
       if (!context) return;
       setDeleteError({
         accountId: context.accountId,
+        region: context.region,
         cloud: context.cloud,
         service: context.service,
         resourceId: resource.id,
@@ -373,28 +379,29 @@ export function DynamicResourceView({
     onSuccess: (_, resource, context) => {
       if (selected?.id === resource.id) selectResource(undefined);
       setSelectedItems((prev) => prev.filter((item) => item.id !== resource.id));
-      // The account the delete was made in, not the account the user is in by
-      // now: a switch while the request was in flight must not leave the
-      // account that was written to stale.
-      const deletedIn = context?.accountId ?? accountId;
+      // The account and region the delete was made in, not the ones the user is
+      // in by now: a switch while the request was in flight must not leave the
+      // account and region that were written to stale.
+      const deletedIn = context ?? { accountId, region };
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", deletedIn, cloud, service],
+        queryKey: ["cloud-resources", deletedIn.accountId, deletedIn.region, cloud, service],
       });
     },
   });
 
   const deleteMultipleMut = useMutation({
     mutationFn: async (items: CloudResource[]) => {
-      // Later waves start after the user may have switched account, so every
-      // request carries the account the deletion was confirmed in.
+      // Later waves start after the user may have switched account or region, so
+      // every request carries the account and region the deletion was confirmed in.
       const confirmedAccountId = accountId;
+      const confirmedRegion = region;
       const succeededIds = new Set<string>();
       const failedItems: { id: string; error: unknown }[] = [];
 
       for (const wave of deleteWaves(items)) {
         const results = await Promise.allSettled(
           wave.map(async (item) => {
-            await deleteCloudResource(cloud, service, item.id, undefined, confirmedAccountId);
+            await deleteCloudResource(cloud, service, item.id, undefined, confirmedAccountId, confirmedRegion);
             return item.id;
           }),
         );
@@ -411,10 +418,10 @@ export function DynamicResourceView({
     },
     onSettled: (_data, _error, _items, context) => {
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", context?.accountId ?? accountId, cloud, service],
+        queryKey: ["cloud-resources", context?.accountId ?? accountId, context ? context.region : region, cloud, service],
       });
     },
-    onMutate: () => ({ accountId, cloud, service }),
+    onMutate: () => ({ accountId, region, cloud, service }),
     onSuccess: ({ succeededIds, failedItems }, _items, context) => {
       setDeleteConfirm(false);
       setSelectedItems((prev) =>
@@ -433,6 +440,7 @@ export function DynamicResourceView({
             : "";
         setBulkDeleteError({
           accountId: context.accountId,
+          region: context.region,
           cloud: context.cloud,
           service: context.service,
           message: `Failed to delete ${failedItems.length} of ${
@@ -455,7 +463,7 @@ export function DynamicResourceView({
       selectResource(undefined);
       setClearConfirm(false);
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, service],
+        queryKey: ["cloud-resources", accountId, region, cloud, service],
       });
     },
   });
@@ -480,10 +488,10 @@ export function DynamicResourceView({
       selectResource(updatedResource);
       setSuccessToast(`Successfully updated ${updatedResource.name || updatedResource.id}`);
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", accountId, cloud, service],
+        queryKey: ["cloud-resources", accountId, region, cloud, service],
       });
       void qc.resetQueries({
-        queryKey: ["cloud-resource", accountId, cloud, service, updatedResource.id],
+        queryKey: ["cloud-resource", accountId, region, cloud, service, updatedResource.id],
         exact: true,
       });
     },
@@ -553,7 +561,7 @@ export function DynamicResourceView({
     setDatabaseTab("instances");
     setIsDeleteMulti(false);
     setSelectedItems([]);
-  }, [accountId, cloud, service]);
+  }, [accountId, region, cloud, service]);
 
   // A confirmation belongs to the bucket it was opened for. Once the selected
   // bucket, account or cloud changes it is stale, unless it is already running.
@@ -877,6 +885,7 @@ export function DynamicResourceView({
                           queryKey: [
                             "cloud-resource",
                             accountId,
+                            region,
                             cloud,
                             service,
                             selectedForService.id,
@@ -975,14 +984,14 @@ export function DynamicResourceView({
                     : "Unable to clear the inbox."}
                 </p>
               )}
-              {bulkDeleteError?.accountId === accountId &&
+              {bulkDeleteError?.accountId === accountId && bulkDeleteError.region === region &&
                 bulkDeleteError.cloud === cloud &&
                 bulkDeleteError.service === service && (
                 <p className="error-text compact-text" style={{ margin: "0 12px 10px", whiteSpace: "pre-line" }}>
                   {bulkDeleteError.message}
                 </p>
               )}
-              {deleteError?.accountId === accountId &&
+              {deleteError?.accountId === accountId && deleteError.region === region &&
                 deleteError.cloud === cloud &&
                 deleteError.service === service && (
                 <p className="error-text compact-text" style={{ margin: "0 12px 10px" }}>
@@ -1125,11 +1134,14 @@ export function DynamicResourceView({
           resource={activeSelected}
           runtimeReachable={runtimeReachable}
           onChanged={(change) => {
-            void qc.invalidateQueries({queryKey: ["cloud-resources", change.accountId, cloud, service]});
-            void qc.invalidateQueries({queryKey: ["cloud-resource", change.accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resources", change.accountId, change.region, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resource", change.accountId, change.region, cloud, service]});
             if (change.removed) {
               setSelection((current) =>
-                current?.accountId === change.accountId && current.resource.id === change.resourceId ? undefined : current,
+                current?.accountId === change.accountId && current.region === change.region &&
+                current.resource.id === change.resourceId
+                  ? undefined
+                  : current,
               );
             }
           }}
@@ -1140,9 +1152,9 @@ export function DynamicResourceView({
           resource={inspectedResource}
           capabilities={resourceCapabilities}
           onChanged={() => {
-            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, region, cloud, service]});
             if (activeSelected) {
-              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
+              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, region, cloud, service, activeSelected.id]});
             }
           }}
         />
@@ -1196,9 +1208,9 @@ export function DynamicResourceView({
           resource={inspectedResource}
           runtimeReachable={canUseRuntime}
           onRecovered={() => {
-            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, region, cloud, service]});
             if (activeSelected) {
-              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
+              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, region, cloud, service, activeSelected.id]});
             }
             selectResource(undefined);
           }}
@@ -1209,9 +1221,9 @@ export function DynamicResourceView({
           resource={inspectedResource}
           runtimeReachable={canUseRuntime}
           onChanged={() => {
-            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, region, cloud, service]});
             if (activeSelected) {
-              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
+              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, region, cloud, service, activeSelected.id]});
             }
           }}
         />
@@ -1221,9 +1233,9 @@ export function DynamicResourceView({
           resource={inspectedResource}
           runtimeReachable={canUseRuntime}
           onChanged={(change) => {
-            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, region, cloud, service]});
             if (activeSelected) {
-              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
+              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, region, cloud, service, activeSelected.id]});
             }
             if (change === "removed") selectResource(undefined);
           }}
@@ -1235,9 +1247,9 @@ export function DynamicResourceView({
           resource={activeSelected}
           runtimeReachable={canUseRuntime}
           onMessagesChanged={() => {
-            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, region, cloud, service]});
             if (activeSelected) {
-              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
+              void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, region, cloud, service, activeSelected.id]});
             }
           }}
         />

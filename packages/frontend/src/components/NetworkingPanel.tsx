@@ -58,6 +58,7 @@ import {
 import type {CloudProvider} from '@/types/cloud'
 import type {CloudResource} from '@/types/resource'
 import {useAccountId} from '@/lib/accountStore'
+import {useRegion} from '@/lib/regionStore'
 import {calculateSubnetCidrs, isSubnetLayoutWithinBlock, isValidCidr, isValidPort} from '@/lib/network'
 import {ModalOverlay} from './ModalOverlay'
 
@@ -1072,9 +1073,10 @@ function KpDetail({kp, onDelete}: {kp: Ec2KeyPair; onDelete: () => void}) {
 function VpcDetail({vpc, onDelete, deleteError}: {vpc: Ec2Vpc; onDelete: () => void; deleteError?: string}) {
     const qc = useQueryClient()
     const accountId = useAccountId()
+    const region = useRegion()
 
     const attrsQuery = useQuery({
-        queryKey: ['ec2', 'vpc-attrs', vpc.vpcId, accountId],
+        queryKey: ['ec2', 'vpc-attrs', vpc.vpcId, accountId, region],
         queryFn: ({signal}) => getEc2VpcAttributes(vpc.vpcId, signal),
     })
 
@@ -1521,6 +1523,7 @@ type ModalState =
 export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingPanelProps) {
     const qc = useQueryClient()
     const accountId = useAccountId()
+    const region = useRegion()
     const [selected, setSelected] = useState<Selection>(null)
     const [modal, setModal]       = useState<ModalState | null>(null)
 
@@ -1534,14 +1537,14 @@ export function NetworkingPanel({cloud, resource, runtimeReachable}: NetworkingP
 
     // ── Data queries ──────────────────────────────────────────────────────────
 
-    const sgsQ    = useQuery({queryKey: ['ec2', 'security-groups', accountId],   queryFn: ({signal}) => listEc2SecurityGroups(undefined, signal), enabled: cloud === 'aws' && !!runtimeReachable})
-    const kpsQ    = useQuery({queryKey: ['ec2', 'key-pairs', accountId],          queryFn: ({signal}) => listEc2KeyPairs(signal),                  enabled: cloud === 'aws' && !!runtimeReachable})
-    const vpcsQ   = useQuery({queryKey: ['ec2', 'vpcs', accountId],               queryFn: ({signal}) => listEc2Vpcs(signal),                      enabled: cloud === 'aws' && !!runtimeReachable})
-    const subnetsQ = useQuery({queryKey: ['ec2', 'subnets', accountId],           queryFn: ({signal}) => listEc2Subnets(undefined, signal),        enabled: cloud === 'aws' && !!runtimeReachable})
-    const igwsQ   = useQuery({queryKey: ['ec2', 'igws', accountId],               queryFn: ({signal}) => listEc2InternetGateways(signal),          enabled: cloud === 'aws' && !!runtimeReachable})
-    const rtbsQ   = useQuery({queryKey: ['ec2', 'route-tables', accountId],       queryFn: ({signal}) => listEc2RouteTables(undefined, signal),    enabled: cloud === 'aws' && !!runtimeReachable})
-    const eipsQ   = useQuery({queryKey: ['ec2', 'eips', accountId],               queryFn: ({signal}) => listEc2ElasticIps(signal),               enabled: cloud === 'aws' && !!runtimeReachable})
-    const instsQ  = useQuery({queryKey: ['ec2', 'instances', accountId],          queryFn: ({signal}) => listEc2Instances(signal),                 enabled: cloud === 'aws' && !!runtimeReachable})
+    const sgsQ    = useQuery({queryKey: ['ec2', 'security-groups', accountId, region],   queryFn: ({signal}) => listEc2SecurityGroups(undefined, signal), enabled: cloud === 'aws' && !!runtimeReachable})
+    const kpsQ    = useQuery({queryKey: ['ec2', 'key-pairs', accountId, region],          queryFn: ({signal}) => listEc2KeyPairs(signal),                  enabled: cloud === 'aws' && !!runtimeReachable})
+    const vpcsQ   = useQuery({queryKey: ['ec2', 'vpcs', accountId, region],               queryFn: ({signal}) => listEc2Vpcs(signal),                      enabled: cloud === 'aws' && !!runtimeReachable})
+    const subnetsQ = useQuery({queryKey: ['ec2', 'subnets', accountId, region],           queryFn: ({signal}) => listEc2Subnets(undefined, signal),        enabled: cloud === 'aws' && !!runtimeReachable})
+    const igwsQ   = useQuery({queryKey: ['ec2', 'igws', accountId, region],               queryFn: ({signal}) => listEc2InternetGateways(signal),          enabled: cloud === 'aws' && !!runtimeReachable})
+    const rtbsQ   = useQuery({queryKey: ['ec2', 'route-tables', accountId, region],       queryFn: ({signal}) => listEc2RouteTables(undefined, signal),    enabled: cloud === 'aws' && !!runtimeReachable})
+    const eipsQ   = useQuery({queryKey: ['ec2', 'eips', accountId, region],               queryFn: ({signal}) => listEc2ElasticIps(signal),               enabled: cloud === 'aws' && !!runtimeReachable})
+    const instsQ  = useQuery({queryKey: ['ec2', 'instances', accountId, region],          queryFn: ({signal}) => listEc2Instances(signal),                 enabled: cloud === 'aws' && !!runtimeReachable})
 
     // ── Delete mutations ──────────────────────────────────────────────────────
 

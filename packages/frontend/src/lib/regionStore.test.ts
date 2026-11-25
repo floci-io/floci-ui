@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, test} from 'vitest'
-import {getRegion, getRegionRecents, isRegion, setRegion} from './regionStore'
+import {AWS_REGIONS, getRegion, getRegionRecents, isKnownRegion, isRegion, setRegion} from './regionStore'
 
 describe('regionStore', () => {
     beforeEach(() => {
@@ -34,6 +34,20 @@ describe('regionStore', () => {
 
         for (const value of ['', 'eu-west', 'EU-WEST-1', 'eu-west-1a', 'x']) {
             expect(isRegion(value)).toBe(false)
+            expect(setRegion(value)).toBe(false)
+        }
+        expect(getRegion()).toBe('eu-west-1')
+    })
+
+    test('offers only the standard regions, and refuses a well-formed name outside them', () => {
+        expect(AWS_REGIONS).toHaveLength(36)
+        expect(AWS_REGIONS.slice(0, 4).map((region) => region.id)).toEqual(['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2'])
+        expect(AWS_REGIONS.find((region) => region.id === 'eu-central-1')?.name).toBe('Europe (Frankfurt)')
+
+        setRegion('eu-west-1')
+        for (const value of ['us-gov-west-1', 'cn-north-1', 'eu-west-9']) {
+            expect(isRegion(value)).toBe(true)
+            expect(isKnownRegion(value)).toBe(false)
             expect(setRegion(value)).toBe(false)
         }
         expect(getRegion()).toBe('eu-west-1')

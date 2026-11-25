@@ -122,7 +122,7 @@ describe("the tags editor", () => {
 
     await waitFor(() => expect(invalidated.length).toBe(2));
     const keys = invalidated.map(([filters]) => (filters as {queryKey: unknown[]}).queryKey);
-    expect(keys).toContainEqual(["cloud-resource", DEFAULT_ACCOUNT_ID, "aws", "storage", "bucket-1"]);
-    expect(keys).toContainEqual(["cloud-resources", DEFAULT_ACCOUNT_ID, "aws", "storage"]);
+    expect(keys).toContainEqual(["cloud-resource", DEFAULT_ACCOUNT_ID, null, "aws", "storage", "bucket-1"]);
+    expect(keys).toContainEqual(["cloud-resources", DEFAULT_ACCOUNT_ID, null, "aws", "storage"]);
   });
 });

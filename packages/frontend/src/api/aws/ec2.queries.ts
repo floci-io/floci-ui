@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAccountId } from "@/lib/accountStore";
+import { useRegion } from "@/lib/regionStore";
 import { ec2Client } from "./ec2.api";
 
 export const ec2QueryKeys = {
@@ -27,11 +28,11 @@ export const ec2QueryKeys = {
   vpcAttributes: (vpcId: string) => ["ec2", "vpc-attributes", vpcId] as const,
 };
 
-// Floci isolates resources per account, so every EC2 query is cached under the
-// active account. The account goes last: invalidating a key above still matches
-// every account's copy by prefix.
+// Floci isolates resources per account and region, so every EC2 query is cached
+// under the active account and region. They go last: invalidating a key above
+// still matches every account's and region's copy by prefix.
 function useAccountScoped<K extends readonly unknown[]>(key: K) {
-  return [...key, useAccountId()] as const;
+  return [...key, useAccountId(), useRegion()] as const;
 }
 
 export function useEc2InstancesQuery() {

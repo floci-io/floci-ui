@@ -1,5 +1,5 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {render, screen} from '@testing-library/react'
+import {render, screen, within} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
@@ -71,11 +71,20 @@ describe('SettingsPage', () => {
         await user.click(screen.getByRole('button', {name: 'Switch AWS region eu-central-1'}))
         expect(screen.getByRole('option', {name: /eu-central-1.*default/})).toHaveAttribute('aria-selected', 'true')
 
-        await user.type(screen.getByLabelText('New region'), 'us-west-2')
-        await user.click(screen.getByRole('button', {name: 'Switch'}))
+        // A defined list, with the AWS console's names, and no field to type a region into.
+        expect(screen.getByRole('option', {name: /eu-central-1.*Europe \(Frankfurt\)/})).toBeInTheDocument()
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('option', {name: /us-west-2.*US West \(Oregon\)/}))
 
         expect(getRegion()).toBe('us-west-2')
         expect(screen.getByRole('button', {name: 'Switch AWS region us-west-2'})).toBeInTheDocument()
+
+        // The region just picked comes back on top, under Recent, as well as in the full list.
+        await user.click(screen.getByRole('button', {name: 'Switch AWS region us-west-2'}))
+        expect(within(screen.getByRole('group', {name: 'Recent regions'})).getByRole('option', {name: /us-west-2/}))
+            .toHaveAttribute('aria-selected', 'true')
+        expect(within(screen.getByRole('group', {name: 'All regions'})).getAllByRole('option')).toHaveLength(36)
         setRegion(null)
     })
 

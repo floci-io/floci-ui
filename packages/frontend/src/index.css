@@ -767,6 +767,28 @@ pre,
     flex: 1;
 }
 
+/* Wide enough for most region names next to their codes. */
+.account-popover.region-popover {
+    width: 300px;
+}
+
+/* A region's code stays on one line; its name gives way, cut short, with the full name as the tooltip. */
+.account-option .region-option-id {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.region-option-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--text-2);
+}
+
 .account-tag {
     font-size: 11px;
     letter-spacing: 0.04em;

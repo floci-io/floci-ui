@@ -21,6 +21,7 @@ import {
 import type {CloudProvider} from '@/types/cloud'
 import type {AppConfigDeployment, CloudResource} from '@/types/resource'
 import {useAccountId} from '@/lib/accountStore'
+import {useRegion} from '@/lib/regionStore'
 
 const TERMINAL_DEPLOYMENT_STATES = new Set(['COMPLETE', 'ROLLED_BACK', 'STOPPED'])
 const PROFILE_TYPES = ['AWS.Freeform', 'AWS.AppConfig.FeatureFlags']
@@ -45,11 +46,13 @@ interface AppConfigPanelProps {
 
 export function AppConfigPanel({cloud, resource, runtimeReachable}: AppConfigPanelProps) {
     const accountId = useAccountId()
+    const region = useRegion()
 
     return (
         <AccountScopedAppConfigPanel
-            key={`${accountId}:${cloud}:${resource?.id ?? ''}`}
+            key={`${accountId}:${region ?? ''}:${cloud}:${resource?.id ?? ''}`}
             accountId={accountId}
+            region={region}
             cloud={cloud}
             resource={resource}
             runtimeReachable={runtimeReachable}
@@ -59,9 +62,10 @@ export function AppConfigPanel({cloud, resource, runtimeReachable}: AppConfigPan
 
 interface AccountScopedAppConfigPanelProps extends AppConfigPanelProps {
     accountId: string
+    region: string | null
 }
 
-function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachable}: AccountScopedAppConfigPanelProps) {
+function AccountScopedAppConfigPanel({accountId, region, cloud, resource, runtimeReachable}: AccountScopedAppConfigPanelProps) {
     const qc = useQueryClient()
     const applicationId = resource?.id
     const [selectedProfileId, setSelectedProfileId] = useState<string>()
@@ -88,16 +92,16 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
     const [activeDeployment, setActiveDeployment] = useState<AppConfigDeployment>()
 
     const environmentsKey = useMemo(
-        () => ['appconfig-environments', accountId, cloud, applicationId],
-        [accountId, cloud, applicationId],
+        () => ['appconfig-environments', accountId, region, cloud, applicationId],
+        [accountId, region, cloud, applicationId],
     )
     const profilesKey = useMemo(
-        () => ['appconfig-profiles', accountId, cloud, applicationId],
-        [accountId, cloud, applicationId],
+        () => ['appconfig-profiles', accountId, region, cloud, applicationId],
+        [accountId, region, cloud, applicationId],
     )
     const versionsKey = useMemo(
-        () => ['appconfig-versions', accountId, cloud, applicationId, selectedProfileId],
-        [accountId, cloud, applicationId, selectedProfileId],
+        () => ['appconfig-versions', accountId, region, cloud, applicationId, selectedProfileId],
+        [accountId, region, cloud, applicationId, selectedProfileId],
     )
 
     const environmentsQuery = useQuery({
@@ -116,17 +120,17 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
         enabled: Boolean(applicationId && selectedProfileId) && runtimeReachable,
     })
     const deployVersionsQuery = useQuery({
-        queryKey: ['appconfig-versions', accountId, cloud, applicationId, deployProfileId],
+        queryKey: ['appconfig-versions', accountId, region, cloud, applicationId, deployProfileId],
         queryFn: ({signal}) => listAppConfigHostedConfigurationVersions(cloud, applicationId ?? '', deployProfileId ?? '', signal),
         enabled: Boolean(applicationId && deployProfileId) && runtimeReachable,
     })
     const strategiesQuery = useQuery({
-        queryKey: ['appconfig-strategies', accountId, cloud],
+        queryKey: ['appconfig-strategies', accountId, region, cloud],
         queryFn: ({signal}) => listAppConfigDeploymentStrategies(cloud, signal),
         enabled: runtimeReachable,
     })
     const versionContentQuery = useQuery({
-        queryKey: ['appconfig-version-content', accountId, cloud, applicationId, selectedProfileId, selectedVersionNumber],
+        queryKey: ['appconfig-version-content', accountId, region, cloud, applicationId, selectedProfileId, selectedVersionNumber],
         queryFn: ({signal}) => getAppConfigHostedConfigurationVersion(cloud, applicationId ?? '', selectedProfileId ?? '', selectedVersionNumber ?? 0, signal),
         enabled: Boolean(applicationId && selectedProfileId && selectedVersionNumber) && runtimeReachable,
     })
@@ -139,12 +143,12 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
     )
     const baseVersionNumber = editBaseVersion ?? latestVersionNumber
     const baseContentQuery = useQuery({
-        queryKey: ['appconfig-version-content', accountId, cloud, applicationId, selectedProfileId, baseVersionNumber],
+        queryKey: ['appconfig-version-content', accountId, region, cloud, applicationId, selectedProfileId, baseVersionNumber],
         queryFn: ({signal}) => getAppConfigHostedConfigurationVersion(cloud, applicationId ?? '', selectedProfileId ?? '', baseVersionNumber ?? 0, signal),
         enabled: Boolean(applicationId && selectedProfileId && baseVersionNumber) && runtimeReachable,
     })
     const deploymentQuery = useQuery({
-        queryKey: ['appconfig-deployment', accountId, cloud, applicationId, activeDeployment?.environmentId, activeDeployment?.deploymentNumber],
+        queryKey: ['appconfig-deployment', accountId, region, cloud, applicationId, activeDeployment?.environmentId, activeDeployment?.deploymentNumber],
         queryFn: ({signal}) => getAppConfigDeployment(cloud, applicationId ?? '', activeDeployment?.environmentId ?? '', activeDeployment?.deploymentNumber ?? 0, signal),
         enabled: Boolean(applicationId && activeDeployment) && runtimeReachable,
         refetchInterval: (query) => (TERMINAL_DEPLOYMENT_STATES.has(query.state.data?.state ?? '') ? false : 2000),
@@ -209,7 +213,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
             setDeployProfileId(version.configurationProfileId)
             setDeployVersion(String(version.versionNumber))
             void qc.invalidateQueries({queryKey: versionsKey})
-            void qc.invalidateQueries({queryKey: ['appconfig-versions', accountId, cloud, applicationId, version.configurationProfileId]})
+            void qc.invalidateQueries({queryKey: ['appconfig-versions', accountId, region, cloud, applicationId, version.configurationProfileId]})
         },
     })
     const deleteVersionMut = useMutation({
@@ -233,7 +237,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
         onSuccess: () => {
             setStrategyName('')
             setStrategyBake('')
-            void qc.invalidateQueries({queryKey: ['appconfig-strategies', accountId, cloud]})
+            void qc.invalidateQueries({queryKey: ['appconfig-strategies', accountId, region, cloud]})
         },
     })
     const deleteStrategyMut = useMutation({
@@ -241,7 +245,7 @@ function AccountScopedAppConfigPanel({accountId, cloud, resource, runtimeReachab
         onSuccess: (_, strategyId) => {
             if (deployStrategyId === strategyId) setDeployStrategyId('')
             setConfirmStrategy(null)
-            void qc.invalidateQueries({queryKey: ['appconfig-strategies', accountId, cloud]})
+            void qc.invalidateQueries({queryKey: ['appconfig-strategies', accountId, region, cloud]})
         },
     })
     const startDeploymentMut = useMutation({
