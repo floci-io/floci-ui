@@ -1160,6 +1160,11 @@ export function createCloudRoutes(
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
+            // The material a key leaves under is the most secret thing this API
+            // answers with, so neither it nor the error about it may be stored.
+            // The header is set here rather than by the sensitive helper, which
+            // would hide the reason the wrapping key was refused.
+            c.header('cache-control', 'no-store')
             // The body is checked rather than cast, so a value that is not a
             // string never reaches the adapter as one.
             const body = await jsonBody<Record<string, unknown>>(c)

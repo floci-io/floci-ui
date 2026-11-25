@@ -201,4 +201,48 @@ describe('the payment cryptography routes', () => {
         // answered with an empty block and a success.
         expect(res.status).toBe(502)
     })
+
+    test('the material is not stored, and neither is the error about it', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => {
+                    throw new Error('the service said no')
+                },
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/def'}),
+            },
+        )
+
+        // The material a key leaves under is the most secret thing this API
+        // answers with, so neither it nor the error about it may be stored.
+        expect(res.headers.get('cache-control')).toBe('no-store')
+
+        const answered = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => ({
+                    keyMaterial: 'D0112K1AB00E0000',
+                    format: 'TR31_KEY_BLOCK',
+                    wrappingKeyArn: null,
+                    keyCheckValue: null,
+                }),
+            } as Partial<CloudServiceAdapter>),
+        ])
+        const ok = await answered.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/def'}),
+            },
+        )
+
+        expect(ok.headers.get('cache-control')).toBe('no-store')
+    })
 })
