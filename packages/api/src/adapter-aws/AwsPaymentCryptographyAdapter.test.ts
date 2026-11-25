@@ -207,7 +207,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             // A key has no name of its own, so an alias is the name the
             // operator knows it by.
-            expect(keyRow?.metadata.aliasNames).toEqual(['alias/card-cvk'])
+            expect(keyRow?.metadata.names).toEqual(['alias/card-cvk'])
         })
 
         test('a key no alias names carries no name', async () => {
@@ -216,7 +216,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const rows = await new AwsPaymentCryptographyAdapter(client).list()
             const keyRow = rows.find((row) => row.type === 'key')
 
-            expect(keyRow?.metadata.aliasNames).toBeUndefined()
+            expect(keyRow?.metadata.names).toBeUndefined()
         })
 
         test('the search finds a key by the name it was given', async () => {
@@ -241,7 +241,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             // The key is called the same thing in the list and in its detail, so
             // the two never disagree about what it is called.
-            expect(resource?.metadata.aliasNames).toEqual(['alias/card-cvk'])
+            expect(resource?.metadata.names).toEqual(['alias/card-cvk'])
         })
 
         test("a key whose names could not be read is still a key", async () => {
@@ -256,7 +256,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
             // A read that fails leaves the key standing, and the console says
             // what it does not know rather than losing the key with it.
             expect(resource?.id).toEqual(KEY_ID)
-            expect(resource?.metadata.aliasNames).toBeUndefined()
+            expect(resource?.metadata.names).toBeUndefined()
         })
 
         test('a list of keys whose names could not be read is still a list of keys', async () => {
@@ -271,7 +271,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
             // The aliases only name the keys here, so a read that fails leaves
             // the names unknown and the keys standing.
             expect(rows.map((row) => row.id)).toEqual([KEY_ID])
-            expect(rows[0].metadata.aliasNames).toBeUndefined()
+            expect(rows[0].metadata.names).toBeUndefined()
         })
 
         test('a list that holds aliases fails when the aliases cannot be read', async () => {

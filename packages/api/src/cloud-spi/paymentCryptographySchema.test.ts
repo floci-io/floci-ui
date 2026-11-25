@@ -24,24 +24,23 @@ describe('awsPaymentCryptographySchema', () => {
         const target = schema.fields.find(field => field.name === 'aliasTargetKey')
 
         // A key has no name of its own, so an ARN is all the console could
-        // offer, and an ARN is not something an operator remembers.
-        expect(wrapping?.optionsLabelFrom).toEqual('aliasNames')
-        expect(target?.optionsLabelFrom).toEqual('aliasNames')
+        // offer, and an ARN is not something an operator remembers. The console
+        // reads the names the API published beside the key, so a field does not
+        // have to say where they come from.
+        expect(wrapping?.optionsFrom).toEqual('key')
+        expect(target?.optionsFrom).toEqual('key')
     })
 
-    test('every field that names a key says where the name comes from', () => {
+    test('the table leads with the name the operator knows the key by', () => {
         const schema = awsPaymentCryptographySchema()
 
-        // A key has no name of its own, so a field that names a key offers an
-        // ARN unless the schema says where the name the operator knows it by
-        // comes from. A field that forgets says so here.
-        for (const field of schema.fields) {
-            if (field.optionsFrom !== 'key') continue
-            expect({
-                field: field.name,
-                labelFrom: field.optionsLabelFrom,
-            }).toEqual({field: field.name, labelFrom: 'aliasNames'})
-        }
+        const name = schema.columns.find(column => column.name === 'names')
+        const arn = schema.columns.find(column => column.name === 'arn')
+
+        // The name the operator knows the key by is what leads the table, and
+        // the identity is beside it.
+        expect(name?.path).toEqual('metadata.names')
+        expect(arn?.path).toEqual('metadata.arn')
     })
 
     test('offers the tag editor for a key and not for an alias', () => {

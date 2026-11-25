@@ -1893,8 +1893,6 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
         type: "select",
         required: false,
         optionsFrom: "key",
-        // The API publishes this: a key is known by the alias that names it.
-        optionsLabelFrom: "aliasNames",
       },
     ],
     filters: [],
@@ -1920,7 +1918,7 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
     // The alias that names it is what the operator knows it by.
     const named: CloudResource = {
       ...wrapping,
-      metadata: {...wrapping.metadata, aliasNames: ["alias/prosa-kek"]},
+      metadata: {...wrapping.metadata, names: ["alias/prosa-kek"]},
     };
     vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) =>
       search === undefined ? [carried, named] : [carried],

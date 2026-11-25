@@ -147,7 +147,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         for (const resource of resources) {
             if (resource.type !== 'key') continue
             const names = byKey.get(String(resource.metadata.arn))
-            if (names && names.length > 0) resource.metadata.aliasNames = names
+            if (names && names.length > 0) resource.metadata.names = names
         }
     }
 
@@ -284,7 +284,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // The key carries the names it was given here as well as in the list, so
         // the two never disagree about what a key is called.
         const names = aliases.map((alias) => alias.AliasName).filter((name): name is string => Boolean(name))
-        if (names.length > 0) resource.metadata.aliasNames = names
+        if (names.length > 0) resource.metadata.names = names
         return resource
     }
 
@@ -861,6 +861,8 @@ function toAliasResource(alias: Alias): CloudResource {
         status: null,
         metadata: {
             aliasName: name,
+            // An alias is named by the alias it is, which is its own name.
+            names: name ? [name] : [],
             targetKeyArn: alias.KeyArn ?? null,
             tags: [],
         },
@@ -957,7 +959,7 @@ function filterBySearch(resources: CloudResource[], search?: string): CloudResou
         if (resource.name.toLowerCase().includes(normalized) || usage.includes(normalized)) return true
         // A key is known by the name it was given, so the search finds it by
         // that name and not only by its ARN.
-        const names = resource.metadata.aliasNames
+        const names = resource.metadata.names
         if (!Array.isArray(names)) return false
         return names.some((each) => typeof each === 'string' && each.toLowerCase().includes(normalized))
     })
