@@ -27,7 +27,7 @@ import {
     enableDefaultReplicationRegions,
     setReplicationRegions,
 } from './paymentCryptographyReplication'
-import {exportKeyTr31, importKeyTr31, type ExportedKeyMaterial} from './paymentCryptographyTransfer'
+import {exportKeyTr31, importKeyTr31, keyArnOf, type ExportedKeyMaterial} from './paymentCryptographyTransfer'
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
@@ -131,7 +131,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         // The form names a resource, and the resource id carries its kind, so the
         // prefix is taken off before the runtime is asked about it.
-        const wrappingKeyArn = targetKeyArn(requiredString(input?.wrappingKeyArn, 'wrappingKeyArn'))
+        const wrappingKeyArn = targetKeyArn(input?.wrappingKeyArn, 'wrappingKeyArn')
 
         // The pairing is checked here as well as by the runtime, so a caller that
         // goes past the form is refused with the reference's own reason.
@@ -449,7 +449,9 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      * block and the wrapping key and not for the usage and the algorithm.
      */
     private async importKey(input: CreateResourceInput): Promise<CloudResource> {
-        const wrappingKeyArn = requiredString(input.values.wrappingKeyArn, 'wrappingKeyArn')
+        // The form names a resource, and the resource id carries its kind, so the
+        // prefix is taken off before the runtime is asked about it.
+        const wrappingKeyArn = targetKeyArn(input.values.wrappingKeyArn, 'wrappingKeyArn')
         const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
         const enabled = booleanValue(input.values.enabled, 'enabled', true)
 
@@ -464,7 +466,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     /** An alias points at a key, and the reference refuses one that points at none. */
     private async createAlias(input: CreateResourceInput): Promise<CloudResource> {
         const aliasName = requiredAliasName(input.values.aliasName)
-        const targetKey = targetKeyArn(input.values.aliasTargetKey)
+        const targetKey = targetKeyArn(input.values.aliasTargetKey, 'aliasTargetKey')
 
         const res = await this.client.send(new CreateAliasCommand({AliasName: aliasName, KeyArn: targetKey}))
         if (!res.Alias) throw new RuntimeError('Payment Cryptography did not return the alias it created')
@@ -781,11 +783,12 @@ function optionalKind(value: unknown): PaymentCryptographyKind | undefined {
  * <p>The form offers the keys the account holds, by the id the console knows them
  * by, and an ARN is accepted as well for a caller that has one. The reference names
  * a key that exists, so the alias never names one that is not there yet.
+ *
+ * <p>The field is named by the caller, so the refusal is about the field the
+ * caller asked for rather than about one this helper made up.
  */
-function targetKeyArn(value: unknown): string {
-    const raw = requiredString(value, 'aliasTargetKey')
-    const prefix = `${PAYMENT_CRYPTOGRAPHY_KIND_PREFIX.keys}/`
-    return raw.startsWith(prefix) ? raw.slice(prefix.length) : raw
+function targetKeyArn(value: unknown, field: string): string {
+    return keyArnOf(requiredString(value, field))
 }
 
 /**

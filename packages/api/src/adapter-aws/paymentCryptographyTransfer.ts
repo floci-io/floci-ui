@@ -3,6 +3,19 @@ import {
     ImportKeyCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
+import {PAYMENT_CRYPTOGRAPHY_KIND_PREFIX} from '../cloud-spi/paymentCryptographySchema'
+
+/**
+ * The ARN of a key, as the service takes it.
+ *
+ * <p>The console names a key by its resource id, which carries its kind, and the
+ * service wants the ARN alone, so the prefix is taken off here: this is the
+ * module that owns what the service accepts.
+ */
+export function keyArnOf(value: string): string {
+    const prefix = `${PAYMENT_CRYPTOGRAPHY_KIND_PREFIX.keys}/`
+    return value.startsWith(prefix) ? value.slice(prefix.length) : value
+}
 
 /** The material a key leaves under, and what the service says about it. */
 export interface ExportedKeyMaterial {
@@ -57,7 +70,14 @@ export async function importKeyTr31(
 ): Promise<string | null> {
     const res = await client.send(
         new ImportKeyCommand({
-            KeyMaterial: {Tr31KeyBlock: {WrappingKeyIdentifier: wrappingKeyArn, WrappedKeyBlock: wrappedKeyBlock}},
+            KeyMaterial: {
+                Tr31KeyBlock: {
+                    // The console names a key by its resource id, which carries
+                    // its kind, and the service wants the ARN alone.
+                    WrappingKeyIdentifier: keyArnOf(wrappingKeyArn),
+                    WrappedKeyBlock: wrappedKeyBlock,
+                },
+            },
             Enabled: enabled,
         }),
     )

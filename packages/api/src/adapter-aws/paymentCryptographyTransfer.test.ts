@@ -2,6 +2,7 @@ import {describe, expect, test} from 'bun:test'
 import {
     ExportKeyCommand,
     GetKeyCommand,
+    ImportKeyCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
@@ -72,6 +73,9 @@ function runtimeStub(wrapping: unknown = kek) {
         if (command instanceof ExportKeyCommand) {
             return {KeyId: ARN, WrappedKey: {KeyMaterial: 'D0112K1AB00E0000', WrappedKeyMaterialFormat: 'TR31_KEY_BLOCK'}}
         }
+        if (command instanceof ImportKeyCommand) {
+            return {Key: key}
+        }
         return {}
     })
 }
@@ -134,5 +138,28 @@ describe('the material a payment key leaves under', () => {
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
         await expect(adapter.exportKey(ALIAS_ID, {wrappingKeyArn: KEK_ARN})).rejects.toBeInstanceOf(ValidationError)
+    })
+})
+
+describe('the material a payment key comes in under', () => {
+    test('the wrapping key the form names is an ARN by the time it is sent', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The form's options are the resource ids, which carry their kind, and
+        // the runtime wants the ARN alone.
+        await adapter.create({
+            values: {
+                source: 'import',
+                wrappingKeyArn: `key/${KEK_ARN}`,
+                wrappedKeyBlock: 'D0112K1AB00E0000',
+            },
+        })
+
+        const command = sent.find((each) => each instanceof ImportKeyCommand)
+        expect(command).toBeDefined()
+        expect(
+            (command as ImportKeyCommand).input.KeyMaterial?.Tr31KeyBlock?.WrappingKeyIdentifier,
+        ).toBe(KEK_ARN)
     })
 })
