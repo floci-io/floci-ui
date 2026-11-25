@@ -17,7 +17,7 @@ import {
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
 import {setKeyUsage} from './paymentCryptographyLifecycle'
-import {exportKeyTr31, importKeyTr31, type ExportedKeyMaterial} from './paymentCryptographyTransfer'
+import {exportKeyTr31, importKeyTr31} from './paymentCryptographyTransfer'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -48,6 +48,7 @@ import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
+    ExportedKeyMaterial,
     ResourceQuery,
     ServiceSchema,
 } from '../cloud-spi/types'

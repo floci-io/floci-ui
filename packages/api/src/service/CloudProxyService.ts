@@ -20,6 +20,7 @@ import type {
     DeleteLambdaTriggerOptions,
     EmptyBucketOptions,
     EmptyBucketResult,
+    ExportedKeyMaterial,
     AppConfigConfigurationProfile,
     AppConfigDeployment,
     AppConfigDeploymentStrategy,
@@ -66,7 +67,7 @@ import type {
     KeyQuery,
     PageQuery,
 } from '../cloud-spi/childCollections'
-import {ConflictError, NotFoundError, NotSupportedError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, NotSupportedError, ValidationError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {SERVICE_CATALOG_ENTRIES, descriptionFor, displayNameFor, docsUrlFor, routeFor} from '../cloud-spi/serviceCatalog'
 import {toHttpError} from '../cloud-spi/errors'
@@ -312,13 +313,8 @@ export class CloudProxyService {
         input: Record<string, unknown>,
     ): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
-        const setter = adapter as {
-            setUsage?: (id: string, input: Record<string, unknown>) => Promise<void>
-        }
-        if (!setter.setUsage) {
-            throw new NotSupportedError(`${cloud}/${service} does not do this`)
-        }
-        await setter.setUsage(id, input)
+        const setter = this.optionalVerb(adapter, 'setUsage', `${cloud}/${service} does not do this`)
+        await setter(id, input)
     }
 
     /**
@@ -332,13 +328,14 @@ export class CloudProxyService {
         service: CloudServiceType,
         id: string,
         input: {wrappingKeyArn: string},
-    ): Promise<unknown> {
+    ): Promise<ExportedKeyMaterial> {
         const adapter = this.requireAdapter(cloud, service)
-        const exporter = adapter as {exportKey?: (id: string, input: {wrappingKeyArn: string}) => Promise<unknown>}
-        if (!exporter.exportKey) {
-            throw new NotSupportedError(`${cloud}/${service} does not export keys`)
-        }
-        return exporter.exportKey(id, input)
+        const exporter = this.optionalVerb(adapter, 'exportKey', `${cloud}/${service} does not export keys`)
+        // The body reaches the adapter as a checked string, so the contract the
+        // adapter holds to is the one this service states.
+        const wrappingKeyArn = typeof input?.wrappingKeyArn === 'string' ? input.wrappingKeyArn.trim() : ''
+        if (!wrappingKeyArn) throw new ValidationError('wrappingKeyArn is required')
+        return exporter(id, {wrappingKeyArn})
     }
 
     async encryptKms(cloud: CloudProvider, keyId: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {
@@ -839,6 +836,22 @@ export class CloudProxyService {
         const adapter = this.registry.get(cloud, service)
         if (!adapter) throw new NotSupportedError(`No adapter registered for ${cloud}/${service}`)
         return adapter
+    }
+
+    /**
+     * An optional verb of the adapter, looked up in one place.
+     *
+     * <p>The lookup and the refusal are here, so the verbs an adapter does not
+     * have say the same thing and are looked up the same way.
+     */
+    private optionalVerb<K extends 'setUsage' | 'exportKey'>(
+        adapter: CloudServiceAdapter,
+        name: K,
+        reason: string,
+    ): NonNullable<CloudServiceAdapter[K]> {
+        const verb = adapter[name] as ((...args: unknown[]) => unknown) | undefined
+        if (typeof verb !== 'function') throw new NotSupportedError(reason)
+        return verb.bind(adapter) as NonNullable<CloudServiceAdapter[K]>
     }
 }
 

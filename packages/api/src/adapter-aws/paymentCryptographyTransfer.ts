@@ -3,18 +3,9 @@ import {
     ImportKeyCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
+import type {ExportedKeyMaterial} from '../cloud-spi/types'
 
-/** The material a key leaves under, and what the service says about it. */
-export interface ExportedKeyMaterial {
-    /** The protected material, in the form the reference writes it in. */
-    keyMaterial: string
-    /** The form the material is in, as the reference names it. */
-    format: string | null
-    /** The key it protects, as the reference names it. */
-    wrappingKeyArn: string | null
-    /** The check value of the key that left. */
-    keyCheckValue: string | null
-}
+export type {ExportedKeyMaterial}
 
 /**
  * A key leaves under a TR-31 block the service wraps with a key the account holds.

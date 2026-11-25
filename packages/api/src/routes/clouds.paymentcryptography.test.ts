@@ -101,4 +101,50 @@ describe('the payment cryptography routes', () => {
             expect(res.status).toBe(400)
         }
     })
+
+    test('the export route passes the body to the adapter', async () => {
+        const seen: Array<{id: string; input: {wrappingKeyArn: string}}> = []
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async (id: string, input: {wrappingKeyArn: string}) => {
+                    seen.push({id, input})
+                    return {
+                        keyMaterial: 'D0112K1AB00E0000',
+                        format: 'TR31_KEY_BLOCK',
+                        wrappingKeyArn: null,
+                        keyCheckValue: null,
+                    }
+                },
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/def'}),
+            },
+        )
+
+        expect(res.status).toBe(200)
+        expect(seen[0]).toEqual({id: 'key/abc', input: {wrappingKeyArn: 'key/def'}})
+    })
+
+    test('a service that does not export keys says so', async () => {
+        const app = appWithRoutes([paymentAdapter()])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/def'}),
+            },
+        )
+
+        // The adapter does not do this, so the console is told so rather than
+        // being handed an answer from somewhere else.
+        expect(res.status).toBe(501)
+    })
 })

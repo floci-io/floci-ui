@@ -343,7 +343,8 @@ export async function invokeCloudResource(
 /** The material a payment cryptography key leaves under. */
 export interface ExportedPaymentCryptographyKey {
   keyMaterial: string;
-  format: string | null;
+  /** The form the material is in, as the reference names it. */
+  format: "KEY_CRYPTOGRAM" | "TR31_KEY_BLOCK" | "TR34_KEY_BLOCK" | null;
   wrappingKeyArn: string | null;
   keyCheckValue: string | null;
 }

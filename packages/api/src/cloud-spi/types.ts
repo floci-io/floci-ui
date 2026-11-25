@@ -604,6 +604,25 @@ export interface KmsEncryptResult {
     encryptionAlgorithm: KmsEncryptionAlgorithm
 }
 
+/**
+ * The forms the material a key leaves under is in, as the reference names them.
+ */
+export type ExportedKeyMaterialFormat = 'KEY_CRYPTOGRAM' | 'TR31_KEY_BLOCK' | 'TR34_KEY_BLOCK'
+
+/**
+ * The material a key leaves under, and what the service says about it.
+ */
+export interface ExportedKeyMaterial {
+    /** The protected material, in the form the reference writes it in. */
+    keyMaterial: string
+    /** The form the material is in, as the reference names it. */
+    format: ExportedKeyMaterialFormat | null
+    /** The key it is wrapped under, as the reference names it. */
+    wrappingKeyArn: string | null
+    /** The check value of the key that left. */
+    keyCheckValue: string | null
+}
+
 export interface KmsDecryptInput {
     ciphertextBlob: Uint8Array
     encryptionAlgorithm: KmsEncryptionAlgorithm
@@ -781,6 +800,19 @@ export interface CloudServiceAdapter {
      */
     health?(): Promise<void>
     copyObject?(srcResourceId: string, srcKey: string, destKey: string, destResourceId?: string): Promise<void>
+    /**
+     * Whether a key may be used, for the service whose keys carry a setting of
+     * their own.
+     */
+    setUsage?(id: string, input: Record<string, unknown>): Promise<void>
+    /**
+     * The material a key leaves under, wrapped by a key the account holds.
+     *
+     * <p>Declared here rather than reached through a cast, so the route that
+     * serves it and the adapter that answers it are checked against the same
+     * shape.
+     */
+    exportKey?(id: string, input: {wrappingKeyArn: string}): Promise<ExportedKeyMaterial>
     /**
      * Child collections. An adapter implements at most one: `documents` when the
      * resource holds collections that hold items, `items` when the resource is
