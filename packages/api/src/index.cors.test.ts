@@ -16,6 +16,8 @@ const AZURE_SECRET_PURGE_URL = 'http://localhost/api/clouds/azure/services/secre
 const AZURE_CERTIFICATE_RECOVER_URL = 'http://localhost/api/clouds/azure/services/certificates/resources/app-tls/recover'
 const AZURE_CERTIFICATE_PURGE_URL = 'http://localhost/api/clouds/azure/services/certificates/resources/app-tls/purge-deleted'
 const KMS_SCHEMA_URL = 'http://localhost/api/clouds/aws/services/kms/schema'
+const PAYMENT_CRYPTOGRAPHY_EXPORT_URL =
+    'http://localhost/api/clouds/aws/services/paymentcryptography/resources/key-1/export'
 const TRUSTED_ORIGIN = 'http://localhost:4500'
 const UNTRUSTED_ORIGIN = 'https://example.invalid'
 
@@ -160,6 +162,32 @@ describe('credentialed route CORS', () => {
 
         expect(schema.status).toBe(200)
         expect(schema.headers.get('access-control-allow-origin')).toBe('*')
+    })
+
+    test('does not serve the payment cryptography export to another origin', async () => {
+        // The route hands the key's material to the browser, so a page in the
+        // user's browser must not be able to read it back.
+        const preflight = await server.fetch(new Request(PAYMENT_CRYPTOGRAPHY_EXPORT_URL, {
+            method: 'OPTIONS',
+            headers: {origin: UNTRUSTED_ORIGIN, 'access-control-request-method': 'POST'},
+        }))
+        expect(preflight.headers.get('access-control-allow-origin')).toBeNull()
+
+        for (const origin of [UNTRUSTED_ORIGIN, 'null']) {
+            const response = await server.fetch(new Request(PAYMENT_CRYPTOGRAPHY_EXPORT_URL, {
+                method: 'POST',
+                headers: {origin, 'content-type': 'text/plain'},
+                body: JSON.stringify({wrappingKeyArn: 'key/arn:aws:payment-cryptography:us-east-1:000000000000:key/1'}),
+            }))
+            expect(response.headers.get('access-control-allow-origin')).toBeNull()
+        }
+
+        const trusted = await server.fetch(new Request(PAYMENT_CRYPTOGRAPHY_EXPORT_URL, {
+            method: 'POST',
+            headers: {origin: TRUSTED_ORIGIN, 'content-type': 'application/json'},
+            body: JSON.stringify({wrappingKeyArn: 'key/arn:aws:payment-cryptography:us-east-1:000000000000:key/1'}),
+        }))
+        expect(trusted.headers.get('access-control-allow-origin')).toBe(TRUSTED_ORIGIN)
     })
 })
 

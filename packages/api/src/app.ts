@@ -133,6 +133,9 @@ function isSensitiveCredentialRoute(path: string): boolean {
   return (
     path.startsWith("/api/secretsmanager") ||
     /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:encrypt|decrypt|sign|verify|rotate|cancel-deletion)$/.test(path) ||
+    // The payment cryptography export hands the key's material to the browser,
+    // so it is served the way the KMS crypto routes are.
+    /^\/api\/clouds\/[^/]+\/services\/paymentcryptography\/resources\/[^/]+\/export$/.test(path) ||
     isKeyMutationRoute(path)
   );
 }
