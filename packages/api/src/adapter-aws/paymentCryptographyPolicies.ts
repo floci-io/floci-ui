@@ -4,7 +4,11 @@ import {
     PutResourcePolicyCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
+import {ValidationError} from '../cloud-spi/errors'
 import {isNotFound} from './paymentCryptographyErrors'
+
+/** The prefix the ARN of a payment cryptography key carries. */
+const KEY_ARN_PREFIX = 'arn:aws:payment-cryptography:'
 
 /**
  * The policy of a key, and whether the lookup of it failed.
@@ -26,6 +30,14 @@ export async function getKeyPolicy(
     client: PaymentCryptographyClient,
     keyArn: string,
 ): Promise<KeyPolicyLookup> {
+    // The service's ResourceArn takes a full key ARN. The key behind this call
+    // is resolved by GetKeyCommand, whose KeyIdentifier accepts an ARN, an
+    // alias name or a short key id, so a caller that hands the identifier over
+    // would be refused with an InvalidArnException and the policy of a readable
+    // key would be published as unreadable.
+    if (!keyArn.startsWith(KEY_ARN_PREFIX)) {
+        throw new ValidationError(`the policy of a key is read by the ARN of the key, not by ${keyArn}`)
+    }
     try {
         const res = await client.send(new GetResourcePolicyCommand({ResourceArn: keyArn}))
         return {policy: res.Policy ?? null}

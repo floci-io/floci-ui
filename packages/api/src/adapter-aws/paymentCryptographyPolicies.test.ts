@@ -161,6 +161,40 @@ describe('the policy of a payment key', () => {
         expect(await getKeyPolicy(client, ARN)).toEqual({policy: null})
     })
 
+    test('the policy is read with the ARN of the key', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetResourcePolicyCommand) return {Policy: POLICY}
+            return {}
+        })
+
+        // The service takes an ARN, and a key may have been asked for by a short
+        // key id, so a reader that named the key by anything else would be
+        // refused with an InvalidArnException.
+        await expect(getKeyPolicy(client, 'abcd1234')).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof GetResourcePolicyCommand)).toBe(false)
+    })
+
+    test('the policy of a key asked for by a short id is read with its ARN', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: key}
+            if (command instanceof GetResourcePolicyCommand) return {Policy: POLICY}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The key was asked for by a short key id, which the service resolves to
+        // the key it names.
+        const resource = await adapter.get('key/abcd1234')
+
+        // The policy is read with the ARN the key resolved to, not with the
+        // identifier the request named.
+        const reads = sent
+            .filter((command) => command instanceof GetResourcePolicyCommand)
+            .map((command) => (command as GetResourcePolicyCommand).input.ResourceArn)
+        expect(reads).toEqual([ARN])
+        expect(resource?.metadata.keyPolicy).toBe(POLICY)
+    })
+
     test('a policy that cannot be read leaves the key on screen and says so', async () => {
         const {client} = stubClient((command) => {
             if (command instanceof GetKeyCommand) return {Key: key}
