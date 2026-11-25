@@ -535,6 +535,9 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                     'The key the block is wrapped under. It has to be a key encryption key that may wrap, and at ' +
                     'least as strong as the key it carries.',
                 optionsFrom: 'key',
+                // Only the keys the service says may wrap are offered, so the
+                // form does not offer a key the service refuses.
+                optionsState: 'mayWrap',
             },
             {
                 name: 'wrappedKeyBlock',

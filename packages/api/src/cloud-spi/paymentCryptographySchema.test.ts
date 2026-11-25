@@ -21,6 +21,16 @@ describe('awsPaymentCryptographySchema', () => {
         expect(target?.optionsFrom).toBe('key')
     })
 
+    test('the import form offers only the keys that may wrap', () => {
+        const schema = awsPaymentCryptographySchema()
+        const wrapping = schema.fields.find(field => field.name === 'wrappingKeyArn')
+
+        // The service refuses a key that may not wrap, so the form does not
+        // offer one.
+        expect(wrapping?.optionsFrom).toBe('key')
+        expect(wrapping?.optionsState).toBe('mayWrap')
+    })
+
     test('the matrix says which key may carry which', () => {
         expect(mayWrapWith('AES_256', 'AES_256')).toBe(true)
         expect(mayWrapWith('AES_256', 'AES_128')).toBe(false)

@@ -121,6 +121,15 @@ export interface FieldSchema {
      * resources the account holds now rather than a list baked into the schema.
      */
     optionsFrom?: string
+    /**
+     * The published state of a row that makes it an option of this field.
+     *
+     * <p>A field that names another resource of the same service offers every row
+     * of that kind by default. A field that may name only some of them says
+     * which state the service published, so the choices are the ones the service
+     * allows rather than the ones the console worked out for itself.
+     */
+    optionsState?: string
 }
 
 /** The power verbs a compute adapter may implement, reached through `/compute/resources/:id/<verb>`. */

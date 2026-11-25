@@ -1855,9 +1855,30 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
     metadata: {
       enabled: true,
       exportable: true,
+      mayWrap: true,
       keyAlgorithm: "AES_256",
       keyUsage: "TR31_K0_KEY_ENCRYPTION_KEY",
       keyModesOfUse: {Wrap: true, Unwrap: true},
+    },
+  };
+
+  /** A key of the account that the service does not say may wrap another one. */
+  const paymentOnly: CloudResource = {
+    id: "key/arn:aws:payment-cryptography:us-east-1:000000000000:key/payment",
+    name: "arn:aws:payment-cryptography:us-east-1:000000000000:key/payment",
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    status: "CREATE_COMPLETE",
+    metadata: {
+      enabled: true,
+      exportable: true,
+      mayWrap: false,
+      keyAlgorithm: "AES_256",
+      keyUsage: "TR31_D0_SYMMETRIC_DATA_ENCRYPTION_KEY",
+      keyModesOfUse: {Encrypt: true, Decrypt: true},
     },
   };
 
@@ -1924,6 +1945,52 @@ describe("DynamicResourceView the material a payment key leaves under", () => {
     // The account holds a key that may carry this one, so it is offered, even
     // though the table is showing one row.
     expect(values).toContain(wrapping.id);
+  });
+
+  it("offers only the keys the service says may wrap", async () => {
+    // The import form names the key the block is wrapped under, and the
+    // service refuses any other key, so the choices are the keys it says may
+    // wrap.
+    const importSchema: ServiceSchema = {
+      ...exportSchema,
+      actions: ["list", "create", "inspect"],
+      fields: [
+        {
+          name: "wrappingKeyArn",
+          label: "Wrapping Key",
+          type: "select",
+          required: false,
+          optionsFrom: "key",
+          optionsState: "mayWrap",
+        },
+      ],
+    };
+    vi.mocked(getServiceSchema).mockResolvedValue(importSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([carried, wrapping, paymentOnly]);
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole("button", {name: /^Create$/}));
+
+    const select = await screen.findByLabelText("Wrapping Key");
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+
+    expect(values).toContain(wrapping.id);
+    expect(values).not.toContain(paymentOnly.id);
   });
 
   it("says so when the key itself could not be read", async () => {
