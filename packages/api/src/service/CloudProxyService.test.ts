@@ -1,5 +1,9 @@
 import {describe, expect, test} from 'bun:test'
 import {readFileSync} from 'node:fs'
+import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
+import {CloudProxyService} from './CloudProxyService'
+import type {CloudProvider, CloudServiceAdapter} from '../cloud-spi/types'
+import type {RuntimeProbe} from './runtimeProbe'
 
 /**
  * The doc block that sits above each method of a file, by the method's name.
@@ -14,6 +18,48 @@ function documentedMethods(source: string): Map<string, string> {
         documented.set(match[2], match[1])
     }
     return documented
+}
+
+/** Runtime probes make real HTTP calls, so the tests hand the service idle ones. */
+function stubProbes(): Record<CloudProvider, RuntimeProbe> {
+    const reachable: RuntimeProbe = async () => {}
+    return {aws: reachable, azure: reachable, gcp: reachable, oci: reachable}
+}
+
+/** An adapter for the payment cryptography service, with the settings it is given. */
+function paymentAdapter(settings: Partial<CloudServiceAdapter> = {}): CloudServiceAdapter {
+    return {
+        cloud: 'aws',
+        service: 'paymentcryptography',
+        schema: () => ({
+            cloud: 'aws',
+            service: 'paymentcryptography',
+            displayName: 'Payment Cryptography',
+            fields: [],
+            actions: ['list', 'create', 'delete', 'inspect'],
+            filters: [],
+            columns: [],
+        }),
+        list: async () => [],
+        get: async () => null,
+        create: async () => ({
+            id: 'key/abc',
+            name: 'abc',
+            cloud: 'aws',
+            service: 'paymentcryptography',
+            type: 'key',
+            region: 'us-east-1',
+            createdAt: null,
+            metadata: {},
+        }),
+        delete: async () => {},
+        ...settings,
+    } as CloudServiceAdapter
+}
+
+/** The service that dispatches to the adapters it is given. */
+function serviceWith(adapters: CloudServiceAdapter[]): CloudProxyService {
+    return new CloudProxyService(new CloudAdapterRegistry(adapters), stubProbes())
 }
 
 describe('the doc blocks of the service', () => {
@@ -31,5 +77,18 @@ describe('the doc blocks of the service', () => {
         expect(documented.get('setPaymentCryptographyKeyUsage')).not.toContain(
             'The policy that lets another account use a key.',
         )
+    })
+})
+
+describe('the settings of a payment key', () => {
+    test('a refusal to set a policy names the setting that was refused', async () => {
+        const service = serviceWith([paymentAdapter()])
+
+        // The refusal says what was refused, the way the other refusals of the
+        // service do, so the caller is not left with a refusal that names
+        // nothing.
+        await expect(
+            service.setPaymentCryptographyKeyPolicy('aws', 'paymentcryptography', 'key/abc', {}),
+        ).rejects.toThrow('Setting a key policy is not supported for aws/paymentcryptography')
     })
 })

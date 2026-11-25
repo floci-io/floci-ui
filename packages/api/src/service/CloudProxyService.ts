@@ -338,7 +338,9 @@ export class CloudProxyService {
             setPolicy?: (id: string, input: Record<string, unknown>) => Promise<void>
         }
         if (!setter.setPolicy) {
-            throw new NotSupportedError(`${cloud}/${service} does not do this`)
+            // The refusal names the setting that was refused, the way the other
+            // refusals of the service do.
+            throw new NotSupportedError(`Setting a key policy is not supported for ${cloud}/${service}`)
         }
         await setter.setPolicy(id, input)
     }
