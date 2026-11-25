@@ -206,14 +206,16 @@ export function PaymentCryptographyPolicySection({
  * <p>The names are the API's own, so they are read as own properties: a name
  * inherited from the prototype is not a state the API published. A key that was
  * not read at all is not a key whose policy is none.
+ *
+ * <p>A key that was read is a key that was read, whatever else the caller says
+ * about it, so the key the console read is the one the state is taken from.
  */
 function policyState(
   resource: CloudResource | undefined,
   keyUnreadable?: boolean,
 ): PolicyState {
-  if (keyUnreadable) return "key-unreadable";
-  const metadata = resource?.metadata;
-  if (!metadata) return "not-read";
+  if (!resource) return keyUnreadable ? "key-unreadable" : "not-read";
+  const metadata = resource.metadata;
   if (metadata.keyPolicyUnavailable === true) return "unreadable";
   const published = publishedPolicy(metadata);
   if (published === undefined) return "not-read";

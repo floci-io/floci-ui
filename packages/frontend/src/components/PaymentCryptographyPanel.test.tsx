@@ -77,4 +77,20 @@ describe("the panels of a payment key", () => {
       screen.getByText(/The key could not be read, so its policy is unknown/),
     ).toBeDefined();
   });
+
+  it("speaks of the key it read, whatever the keyUnreadable says", () => {
+    renderPanel({
+      resource: {...key, metadata: {...key.metadata, keyPolicy: '{"Version":"2012-10-17"}'}},
+      keyUnreadable: true,
+      cloud: "aws",
+      runtimeReachable: true,
+    });
+
+    // The key was read, so the three sections speak of it: the certificate it
+    // has, the usage it is in and the policy it holds.
+    expect(screen.getByText(/signed into a certificate/)).toBeDefined();
+    expect(screen.getByText(/The key may be used/)).toBeDefined();
+    expect(screen.getByRole("button", {name: /Edit policy/i})).toBeDefined();
+    expect(screen.queryAllByText(/could not be read/)).toHaveLength(0);
+  });
 });

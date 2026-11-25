@@ -32,13 +32,7 @@ export function PaymentCryptographyCertificateSection({
   return (
     <section className="table-panel">
       <CertificateHeader
-        description={
-          keyUnreadable
-            ? "The key could not be read, so its certificate is unknown."
-            : certificate
-              ? "The public half of the key, signed into a certificate by the service."
-              : certificateReason(resource)
-        }
+        description={certificateDescription(resource, certificate, keyUnreadable)}
       />
       {certificate && (
         <CopyableValue
@@ -125,6 +119,27 @@ function CopyableValue({
       )}
     </>
   );
+}
+
+/**
+ * The sentence the section carries under its heading.
+ *
+ * <p>A key that was read is a key that was read, whatever else the caller says
+ * about it, so the key the console read is the one the sentence is taken from.
+ */
+function certificateDescription(
+  resource: CloudResource | undefined,
+  certificate: string,
+  keyUnreadable?: boolean,
+): string {
+  if (!resource) {
+    return keyUnreadable
+      ? "The key could not be read, so its certificate is unknown."
+      : certificateReason(resource);
+  }
+  return certificate
+    ? "The public half of the key, signed into a certificate by the service."
+    : certificateReason(resource);
 }
 
 /**

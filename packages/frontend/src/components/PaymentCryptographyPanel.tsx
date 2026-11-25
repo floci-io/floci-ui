@@ -33,10 +33,11 @@ export function PaymentCryptographyPanel({
 
   return (
     <>
-      {resource ? (
-        <PaymentCryptographyCertificateSection resource={resource} />
-      ) : keyUnreadable ? (
-        <PaymentCryptographyCertificateSection keyUnreadable />
+      {resource || keyUnreadable ? (
+        <PaymentCryptographyCertificateSection
+          resource={resource}
+          keyUnreadable={keyUnreadable}
+        />
       ) : null}
       <PaymentCryptographyLifecycleSection
         cloud={cloud}
