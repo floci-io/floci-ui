@@ -174,4 +174,26 @@ describe('the two halves of the exchange', () => {
         const command = sent.find((each) => each instanceof ImportKeyCommand) as ImportKeyCommand
         expect(command.input.Enabled).toBe(false)
     })
+
+    test('a block that was wrapped across lines is sent as one block', async () => {
+        const {client, sent} = stubClient(() => ({Key: {KeyArn: ARN}}))
+
+        // A block that came out of a tool or out of a textarea carries the line
+        // breaks it was wrapped at.
+        await importKeyTr31(client, KEK_ARN, 'D0112K1AB\n00E0000', true)
+
+        const command = sent.find((each) => each instanceof ImportKeyCommand) as ImportKeyCommand
+        expect(command.input.KeyMaterial?.Tr31KeyBlock?.WrappedKeyBlock).toBe('D0112K1AB00E0000')
+    })
+
+    test('a block that is not a block is refused', async () => {
+        const {client, sent} = stubClient(() => ({Key: {KeyArn: ARN}}))
+
+        // The reference writes the block as a version identifier and the block
+        // itself, so a slip of the keyboard is refused here rather than by the
+        // service.
+        await expect(importKeyTr31(client, KEK_ARN, 'not a block', true)).rejects.toBeInstanceOf(ValidationError)
+        await expect(importKeyTr31(client, KEK_ARN, 'D0112K1AB00E000', true)).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((each) => each instanceof ImportKeyCommand)).toBe(false)
+    })
 })

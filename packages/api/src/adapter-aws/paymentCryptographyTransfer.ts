@@ -3,10 +3,37 @@ import {
     ImportKeyCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
-import {RuntimeError} from '../cloud-spi/errors'
+import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import type {ExportedKeyMaterial} from '../cloud-spi/types'
 
 export type {ExportedKeyMaterial}
+
+/**
+ * The form a TR-31 block is written in: a version identifier and then the
+ * block itself, one character per byte.
+ *
+ * <p>The block is not hexadecimal throughout: its header carries the usage and
+ * the algorithm as the characters the reference names them with, so the block
+ * is written in digits and letters rather than in digits and A to F.
+ */
+const BLOCK_PATTERN = /^[0-9A-Fa-f]{2}[0-9A-Za-z]*$/
+
+/**
+ * The block a key comes in under, in the form the reference writes it in.
+ *
+ * <p>A block that came out of a tool or out of a textarea carries the line
+ * breaks it was wrapped at, and the reference has no room for them, so the
+ * whitespace is taken off here rather than refused there. What is left has to
+ * be a block, so a slip of the keyboard is refused as one.
+ */
+export function canonicalBlock(block: string): string {
+    const canonical = block.replace(/\s+/g, '')
+    if (!canonical) throw new ValidationError('the wrapped key block is empty')
+    if (!BLOCK_PATTERN.test(canonical) || canonical.length % 2 !== 0) {
+        throw new ValidationError('the wrapped key block must be the block the service wrote')
+    }
+    return canonical
+}
 
 /**
  * A key leaves under a TR-31 block the service wraps with a key the account holds.
@@ -54,7 +81,12 @@ export async function importKeyTr31(
 ): Promise<string | null> {
     const res = await client.send(
         new ImportKeyCommand({
-            KeyMaterial: {Tr31KeyBlock: {WrappingKeyIdentifier: wrappingKeyArn, WrappedKeyBlock: wrappedKeyBlock}},
+            KeyMaterial: {
+                Tr31KeyBlock: {
+                    WrappingKeyIdentifier: wrappingKeyArn,
+                    WrappedKeyBlock: canonicalBlock(wrappedKeyBlock),
+                },
+            },
             Enabled: enabled,
         }),
     )
