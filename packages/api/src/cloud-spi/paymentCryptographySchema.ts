@@ -550,6 +550,19 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 description: 'The TR-31 block the key comes in under, as the service wrote it.',
             },
             {
+                // The choice in the Key group belongs to a key the console makes,
+                // and a field hidden by another answer keeps its value, so an
+                // imported key is offered a choice of its own.
+                name: 'importEnabled',
+                label: 'Enabled',
+                type: 'select',
+                required: false,
+                group: 'Import',
+                visibleWhen: {field: 'source', equals: 'import'},
+                defaultValue: 'true',
+                options: ALLOWED_OPTIONS,
+            },
+            {
                 name: 'aliasName',
                 label: 'Alias Name',
                 type: 'text',

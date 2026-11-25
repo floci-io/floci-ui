@@ -38,6 +38,21 @@ describe('awsPaymentCryptographySchema', () => {
         expect(wrapping?.optionsState).toBe('mayWrap')
     })
 
+    test('the import form offers its own enabled choice', () => {
+        const schema = awsPaymentCryptographySchema()
+        const importEnabled = schema.fields.find(field => field.name === 'importEnabled')
+        const enabled = schema.fields.find(field => field.name === 'enabled')
+
+        expect(importEnabled?.group).toBe('Import')
+        expect(importEnabled?.visibleWhen).toEqual({field: 'source', equals: 'import'})
+        expect(importEnabled?.defaultValue).toBe('true')
+        // The choice in the Key group is not shown for an imported key, so the
+        // import path must not read it: a field hidden by another answer keeps
+        // its value, and a stale one would make the key disabled without the
+        // reader having chosen that.
+        expect(enabled?.visibleWhen).toEqual({field: 'source', equals: 'keys'})
+    })
+
     test('the rule of a wrapping key is one rule', () => {
         // A key encryption key that may wrap and is enabled may wrap; the ones
         // that do not hold are not.

@@ -222,7 +222,11 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // prefix is taken off before the runtime is asked about it.
         const wrappingKeyArn = targetKeyArn(requiredString(input.values?.wrappingKeyArn, 'wrappingKeyArn'))
         const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
-        const enabled = booleanValue(input.values.enabled, 'enabled', true)
+        // The choice the import group publishes, and not the one the key group
+        // publishes: a field hidden by another answer keeps its value, so the
+        // stale one would make the key disabled without the reader having
+        // chosen that.
+        const enabled = booleanValue(input.values.importEnabled, 'importEnabled', true)
 
         // The block is wrapped under a key of the account, so the key is held
         // to the same rules the export path holds it to.

@@ -722,6 +722,49 @@ describe('AwsPaymentCryptographyAdapter', () => {
             ).rejects.toBeInstanceOf(ValidationError)
             expect(sent.some((command) => command instanceof ImportKeyCommand)).toBe(false)
         })
+
+        test('an imported key reads the enabled choice of the import group', async () => {
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) return {Key: key}
+                return {Key: {KeyArn: ARN}}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await adapter.create({
+                values: {
+                    source: 'import',
+                    wrappingKeyArn: OTHER_KEY_ID,
+                    wrappedKeyBlock: 'D0112K1AB00E0000',
+                    importEnabled: 'false',
+                },
+            })
+
+            const command = sent.find((each) => each instanceof ImportKeyCommand) as ImportKeyCommand
+            expect(command.input.Enabled).toBe(false)
+        })
+
+        test('an imported key ignores the enabled choice of the key group', async () => {
+            // The choice of the key group is not shown for an imported key, and
+            // a field hidden by another answer keeps its value, so a stale one
+            // must not make the key disabled.
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) return {Key: key}
+                return {Key: {KeyArn: ARN}}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await adapter.create({
+                values: {
+                    source: 'import',
+                    wrappingKeyArn: OTHER_KEY_ID,
+                    wrappedKeyBlock: 'D0112K1AB00E0000',
+                    enabled: 'false',
+                },
+            })
+
+            const command = sent.find((each) => each instanceof ImportKeyCommand) as ImportKeyCommand
+            expect(command.input.Enabled).toBe(true)
+        })
     })
 
     test('the health check reads one page rather than every key in the account', async () => {
