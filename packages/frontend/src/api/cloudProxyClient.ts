@@ -376,6 +376,11 @@ export async function exportPaymentCryptographyKey(
     requestOptions(cloud, service, { signal, body }),
     { cloud, service, id },
   );
+  // The answer is checked here, so an export that produced nothing is a
+  // message the panel knows how to show rather than a silent success.
+  if (!res.data?.keyMaterial) {
+    throw new Error("The service returned no key material.");
+  }
   return res.data;
 }
 

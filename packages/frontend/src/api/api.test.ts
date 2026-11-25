@@ -97,6 +97,12 @@ describe('shared request interceptors', () => {
     })
 
     test('the export of a payment key is a registered endpoint', async () => {
+        fetchMock.mockResolvedValueOnce(
+            new Response(JSON.stringify({keyMaterial: 'D0112K1AB00E0000'}), {
+                status: 200,
+                headers: {'content-type': 'application/json'},
+            }),
+        );
         // An endpoint key that is not in the registry is refused by the client
         // before a request is made, so the export would never reach the API.
         await exportPaymentCryptographyKey('aws', 'paymentcryptography', 'key/abc', {
@@ -106,5 +112,15 @@ describe('shared request interceptors', () => {
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
         expect(url).toBe('/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export')
         expect(init.method).toBe('POST')
+    })
+
+    test('an export that produced no material is refused', async () => {
+        // The answer is checked here, so an export that produced nothing is a
+        // message the panel knows how to show rather than a silent success.
+        await expect(
+            exportPaymentCryptographyKey('aws', 'paymentcryptography', 'key/abc', {
+                wrappingKeyArn: 'key/def',
+            }),
+        ).rejects.toThrow(/no key material/i)
     })
 })
