@@ -164,8 +164,15 @@ export function PaymentCryptographyReplicationSection({
       ) : (
         <>
           <p className="muted compact-text">
-            The Regions the key is replicated to. A key must be exportable to be replicated.
+            The Regions the key is replicated to. A key must be exportable to be
+            replicated.
           </p>
+          {resource.metadata.exportable === false && (
+            <p className="muted compact-text">
+              This key is not exportable, so it is not replicated to another
+              Region. A key that has to be shared is made exportable.
+            </p>
+          )}
           {regions.length === 0 ? (
             <p className="muted compact-text">The key is replicated to no other Region.</p>
           ) : (
@@ -211,7 +218,11 @@ export function PaymentCryptographyReplicationSection({
                 !runtimeReachable ||
                 save.isPending ||
                 region.trim() === "" ||
-                regions.includes(region.trim())
+                regions.includes(region.trim()) ||
+                // The reference only lets an exportable key be replicated to
+                // another Region, so the control is closed for a key that is
+                // not exportable rather than the request being refused.
+                resource.metadata.exportable === false
               }
               onClick={() => change([...regions, region.trim()])}
             >

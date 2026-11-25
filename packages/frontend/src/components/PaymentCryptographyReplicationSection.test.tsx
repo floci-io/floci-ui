@@ -98,6 +98,22 @@ describe("the replication of a payment key", () => {
     expect(screen.getByLabelText("Region to replicate to")).toHaveValue("us-east-2");
   });
 
+  it("does not offer to replicate a key that may not leave", async () => {
+    const user = userEvent.setup();
+    renderSection({...key, metadata: {...key.metadata, exportable: false}});
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+
+    // The reference only lets an exportable key be replicated to another
+    // Region, and the export panel next to it applies the same rule to its own
+    // control.
+    expect(screen.getByRole("button", {name: /Replicate to/i})).toBeDisabled();
+
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    expect(setReplication).not.toHaveBeenCalled();
+    expect(screen.getByText(/not exportable/i)).toBeDefined();
+  });
+
   it("does not leave a change that failed on screen", async () => {
     const user = userEvent.setup();
     setReplication.mockRejectedValue(new Error("The Region is not one this key may be replicated to."));
