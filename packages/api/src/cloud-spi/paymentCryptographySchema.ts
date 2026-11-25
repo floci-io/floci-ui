@@ -392,12 +392,12 @@ export const PAYMENT_CRYPTOGRAPHY_KIND_PREFIX: Record<PaymentCryptographyKind, s
  */
 const paymentCryptographyColumns: TableColumnSchema[] = [
     {name: 'kind', label: 'Kind', path: 'type', format: 'badge'},
-    {name: 'name', label: 'Name', format: 'code'},
-    // A key has no name of its own, so the ARN is all the table could show.
-    // The alias is the friendly name for a key, and it is the name the operator
-    // knows it by, so the table shows it beside the ARN. A key no alias names
-    // shows nothing here rather than a dash that reads as a missing value.
-    {name: 'aliasNames', label: 'Alias', path: 'metadata.aliasNames', format: 'list', emptyText: '—'},
+    // The name the operator knows the resource by leads the table: a key has
+    // no name of its own, so the alias that names it is what the operator
+    // recognises, and an ARN is what they can neither remember nor read
+    // aloud. The identity is in the column beside it.
+    {name: 'names', label: 'Name', path: 'metadata.names', format: 'list', emptyText: '—'},
+    {name: 'arn', label: 'ARN', path: 'metadata.arn', format: 'code', emptyText: '—'},
     {name: 'keyClass', label: 'Key Type', path: 'metadata.keyClass', format: 'badge', emptyText: '—'},
     {name: 'keyUsage', label: 'Key Usage', path: 'metadata.keyUsage', emptyText: '—'},
     {name: 'keyAlgorithm', label: 'Key Algorithm', path: 'metadata.keyAlgorithm', emptyText: '—'},
@@ -547,11 +547,6 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 // Only the keys the service says may wrap are offered, so the
                 // form does not offer a key the service refuses.
                 optionsState: 'mayWrap',
-                // A key is known by the alias that names it, and an ARN is not
-                // something an operator remembers. The alias names the key and
-                // the key is what the service takes, so the option is offered
-                // under the name it was given.
-                optionsLabelFrom: 'aliasNames',
             },
             {
                 name: 'wrappedKeyBlock',
@@ -600,9 +595,6 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 requiredWhen: {field: 'source', equals: 'aliases'},
                 description: 'The key the alias points at. An alias names a key that exists.',
                 optionsFrom: 'key',
-                // The reference takes the key's ARN here and not an alias, so
-                // the choice is a key, offered under the name it was given.
-                optionsLabelFrom: 'aliasNames',
             },
         ],
         actions: ['list', 'create', 'delete', 'inspect'],

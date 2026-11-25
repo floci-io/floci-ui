@@ -16,6 +16,7 @@ import { DynamicFormRenderer } from "@/components/DynamicFormRenderer";
 import { ResourceInspector } from "@/components/ResourceInspector";
 import { ResourceTable } from "@/components/ResourceTable";
 import { StorageObjectBrowser } from "@/components/StorageObjectBrowser";
+import { displayNameOf, namesOf} from "@/lib/displayName";
 import { getPath } from "@/lib/resourcePath";
 import { deleteWaves } from "@/lib/deleteOrder";
 import {
@@ -371,7 +372,7 @@ export function DynamicResourceView({
         cloud: context.cloud,
         service: context.service,
         resourceId: resource.id,
-        message: `Could not delete ${resource.name || resource.id}: ${errorMessage(error)}`,
+        message: `Could not delete ${displayNameOf(resource)}: ${errorMessage(error)}`,
       });
     },
     onSuccess: (_, resource, context) => {
@@ -482,7 +483,7 @@ export function DynamicResourceView({
       setEditingResource(null);
       setUpdateError(null);
       selectResource(updatedResource);
-      setSuccessToast(`Successfully updated ${updatedResource.name || updatedResource.id}`);
+      setSuccessToast(`Successfully updated ${displayNameOf(updatedResource)}`);
       void qc.invalidateQueries({
         queryKey: ["cloud-resources", accountId, cloud, service],
       });
@@ -1285,7 +1286,7 @@ export function DynamicResourceView({
               }}
             >
               <h2 style={{ margin: 0 }}>
-                Edit {schema.displayName}: {editingResource.name || editingResource.id}
+                Edit {schema.displayName}: {displayNameOf(editingResource)}
               </h2>
               <button
                 className="icon-btn"
@@ -1411,7 +1412,7 @@ function optionsFromRows(field: FieldSchema, rows: CloudResource[] | undefined):
   const options = (rows ?? [])
     .filter((row) => row.type === field.optionsFrom)
     .filter((row) => !field.optionsState || row.metadata[field.optionsState] === true)
-    .map((row) => ({ label: optionLabel(field, row), value: row.id }));
+    .map((row) => ({ label: optionLabel(row), value: row.id }));
   return { ...field, options };
 }
 
@@ -1423,14 +1424,8 @@ function optionsFromRows(field: FieldSchema, rows: CloudResource[] | undefined):
  * names it, and an ARN is not something an operator remembers, so the option
  * is offered under the alias when the row has one.
  */
-function optionLabel(field: FieldSchema, row: CloudResource): string {
-  const metadata = row.metadata ?? {};
-  // A name inherited from the prototype is not a state the API published.
-  const named =
-    field.optionsLabelFrom && Object.prototype.hasOwnProperty.call(metadata, field.optionsLabelFrom)
-      ? metadata[field.optionsLabelFrom]
-      : undefined;
-  const friendly = friendlyNames(named);
+function optionLabel(row: CloudResource): string {
+  const friendly = namesOf(row);
   const identity = row.name || row.id;
   if (friendly.length === 0) return identity;
   // The name and the identity together, so a choice under a name that reads
@@ -1438,20 +1433,6 @@ function optionLabel(field: FieldSchema, row: CloudResource): string {
   // list of keys is the key that alias names, and the ARN beside it says so.
   if (identity === friendly.join(', ')) return friendly.join(', ');
   return `${friendly.join(', ')} · ${identity}`;
-}
-
-/**
- * The names a row carries, as the API published them.
- *
- * <p>A row may carry one name or several, and a key that one alias names and a
- * key that several name are both offered under every name they have.
- */
-function friendlyNames(published: unknown): string[] {
-  if (Array.isArray(published)) {
-    return published.filter((each): each is string => typeof each === 'string' && each !== '');
-  }
-  if (typeof published === 'string' && published !== '') return [published];
-  return [];
 }
 
 function errorMessage(error: unknown): string {
