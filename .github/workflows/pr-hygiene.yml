@@ -41,7 +41,14 @@ jobs:
           fetch-depth: 0
 
       - name: Commits are signed and verified
-        if: ${{ !cancelled() }}
+        # release-please's release PR is exempt: it commits through the REST API
+        # with the maintainer's PAT, and GitHub does not sign those commits, so
+        # the release commit is always unverified. It is recognised the same way
+        # as in the template check below: by its branch
+        # (release-please--branches--main, optionally with a
+        # --components--<name> suffix), and only when that branch lives in this
+        # repository, so a fork or a contributor branch cannot claim it.
+        if: ${{ !cancelled() && !(github.event.pull_request.head.repo.full_name == github.repository && (github.head_ref == 'release-please--branches--main' || startsWith(github.head_ref, 'release-please--branches--main--components--'))) }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
