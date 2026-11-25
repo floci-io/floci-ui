@@ -37,6 +37,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
   const [receiveError, setReceiveError] = useState<string | null>(null);
   const [receiving, setReceiving] = useState(false);
   const [deletingHandle, setDeletingHandle] = useState<string | null>(null);
+  const [confirmingHandle, setConfirmingHandle] = useState<string | null>(null);
   const [purgeConfirming, setPurgeConfirming] = useState(false);
   const [purgeError, setPurgeError] = useState<string | null>(null);
   const [purging, setPurging] = useState(false);
@@ -128,6 +129,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
       setReceiveError(error instanceof Error ? error.message : "Failed to delete the message.");
     } finally {
       setDeletingHandle(null);
+      setConfirmingHandle(null);
     }
   };
 
@@ -346,19 +348,37 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
                   <p className="metric-label">
                     <code>{message.messageId}</code>
                   </p>
-                  <button
-                    className="button"
-                    type="button"
-                    disabled={deletingHandle === message.receiptHandle}
-                    onClick={() => void removeMessage(message.receiptHandle)}
-                  >
-                    {deletingHandle === message.receiptHandle ? (
-                      <Loader2 size={13} className="spin" />
-                    ) : (
+                  {confirmingHandle === message.receiptHandle ? (
+                    <div className="table-confirm-actions">
+                      <span>Delete this message?</span>
+                      <button
+                        className="button danger compact"
+                        type="button"
+                        disabled={deletingHandle === message.receiptHandle}
+                        onClick={() => void removeMessage(message.receiptHandle)}
+                      >
+                        {deletingHandle === message.receiptHandle && <Loader2 size={13} className="spin" />}
+                        Confirm
+                      </button>
+                      <button
+                        className="button compact"
+                        type="button"
+                        disabled={deletingHandle === message.receiptHandle}
+                        onClick={() => setConfirmingHandle(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="button"
+                      type="button"
+                      onClick={() => setConfirmingHandle(message.receiptHandle)}
+                    >
                       <Trash2 size={13} />
-                    )}
-                    Delete
-                  </button>
+                      Delete
+                    </button>
+                  )}
                 </div>
                 <pre className="invoke-result success">{message.body}</pre>
                 {message.messageAttributes && Object.keys(message.messageAttributes).length > 0 && (

@@ -147,6 +147,7 @@ export function ResourceTable({
                             className="table-confirm-actions"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            <span>Delete {resource.name || resource.id}?</span>
                             <button
                               className="button danger compact"
                               type="button"
@@ -159,7 +160,7 @@ export function ResourceTable({
                               Confirm
                             </button>
                             <button
-                              className="button success compact"
+                              className="button compact"
                               type="button"
                               disabled={deletingId === resource.id}
                               onClick={(e) => {
