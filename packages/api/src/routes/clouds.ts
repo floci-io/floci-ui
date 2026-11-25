@@ -16,7 +16,7 @@ import type {
 } from '../cloud-spi/types'
 import {COMPUTE_POWER_ACTIONS} from '../cloud-spi/types'
 import {clampLimit, parseKeyQuery, type PageQuery} from '../cloud-spi/childCollections'
-import {CloudError, NotFoundError, toHttpError, ValidationError} from '../cloud-spi/errors'
+import {CloudError, NotFoundError, RuntimeError, toHttpError, ValidationError} from '../cloud-spi/errors'
 import {isServiceType} from '../cloud-spi/serviceCatalog'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
 import type {ApiBindings} from '../app'
@@ -1160,8 +1160,22 @@ export function createCloudRoutes(
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
         return withRuntime(c, async () => {
-            const input = await jsonBody<{wrappingKeyArn: string}>(c)
-            const material = await svc(c).exportPaymentCryptographyKey(cloud, serviceType, c.req.param('id'), input)
+            // The body is checked rather than cast, so a value that is not a
+            // string never reaches the adapter as one.
+            const body = await jsonBody<Record<string, unknown>>(c)
+            const wrappingKeyArn = typeof body.wrappingKeyArn === 'string' ? body.wrappingKeyArn.trim() : ''
+            if (!wrappingKeyArn) throw new ValidationError('wrappingKeyArn must be a non-empty string')
+            const material = await svc(c).exportPaymentCryptographyKey(
+                cloud,
+                serviceType,
+                c.req.param('id'),
+                {wrappingKeyArn},
+            )
+            // An export that produced no material is not an export, so it is
+            // not answered with an empty block and a success.
+            if (!material?.keyMaterial) {
+                throw new RuntimeError('Payment Cryptography did not return the key material it exported')
+            }
             return c.json(material, 200)
         })
     })

@@ -147,4 +147,58 @@ describe('the payment cryptography routes', () => {
         // being handed an answer from somewhere else.
         expect(res.status).toBe(501)
     })
+
+    test('a body that does not name a wrapping key is refused', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => ({
+                    keyMaterial: 'D0112K1AB00E0000',
+                    format: 'TR31_KEY_BLOCK',
+                    wrappingKeyArn: null,
+                    keyCheckValue: null,
+                }),
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        for (const body of ['{}', '{"wrappingKeyArn": 42}', '{"wrappingKeyArn": null}', '{"wrappingKeyArn": "  "}']) {
+            const res = await app.request(
+                '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+                {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body,
+                },
+            )
+
+            // The body is checked rather than cast, so a value that is not a
+            // string never reaches the adapter as one.
+            expect(res.status).toBe(400)
+        }
+    })
+
+    test('an export that produced no material says so', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => ({
+                    keyMaterial: '',
+                    format: null,
+                    wrappingKeyArn: null,
+                    keyCheckValue: null,
+                }),
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/def'}),
+            },
+        )
+
+        // An export that produced nothing is not an export, so it is not
+        // answered with an empty block and a success.
+        expect(res.status).toBe(502)
+    })
 })
