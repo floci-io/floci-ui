@@ -2,10 +2,12 @@ import {describe, expect, test} from 'bun:test'
 import {
     ExportKeyCommand,
     GetKeyCommand,
+    ImportKeyCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
-import {ValidationError} from '../cloud-spi/errors'
+import {exportKeyTr31, importKeyTr31} from './paymentCryptographyTransfer'
+import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
 
@@ -134,5 +136,42 @@ describe('the material a payment key leaves under', () => {
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
         await expect(adapter.exportKey(ALIAS_ID, {wrappingKeyArn: KEK_ARN})).rejects.toBeInstanceOf(ValidationError)
+    })
+})
+
+describe('the two halves of the exchange', () => {
+    test('an export the service answered with no material is refused', async () => {
+        const {client} = stubClient(() => ({}))
+
+        // An export that produced nothing is not an export, so it is not
+        // answered with an empty block.
+        await expect(exportKeyTr31(client, ARN, KEK_ARN)).rejects.toBeInstanceOf(RuntimeError)
+    })
+
+    test('an export whose material is empty is refused', async () => {
+        const {client} = stubClient(() => ({WrappedKey: {KeyMaterial: ''}}))
+
+        await expect(exportKeyTr31(client, ARN, KEK_ARN)).rejects.toBeInstanceOf(RuntimeError)
+    })
+
+    test('an import sends the block under the wrapping key', async () => {
+        const {client, sent} = stubClient(() => ({Key: {KeyArn: ARN}}))
+
+        const arn = await importKeyTr31(client, KEK_ARN, 'D0112K1AB00E0000', true)
+
+        const command = sent.find((each) => each instanceof ImportKeyCommand) as ImportKeyCommand
+        expect(command.input.KeyMaterial?.Tr31KeyBlock?.WrappingKeyIdentifier).toBe(KEK_ARN)
+        expect(command.input.KeyMaterial?.Tr31KeyBlock?.WrappedKeyBlock).toBe('D0112K1AB00E0000')
+        expect(command.input.Enabled).toBe(true)
+        expect(arn).toBe(ARN)
+    })
+
+    test('an import of a key that stays disabled says so', async () => {
+        const {client, sent} = stubClient(() => ({Key: {KeyArn: ARN}}))
+
+        await importKeyTr31(client, KEK_ARN, 'D0112K1AB00E0000', false)
+
+        const command = sent.find((each) => each instanceof ImportKeyCommand) as ImportKeyCommand
+        expect(command.input.Enabled).toBe(false)
     })
 })

@@ -580,6 +580,19 @@ describe('AwsPaymentCryptographyAdapter', () => {
             await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: KEY_ID})).rejects.toThrow(/itself/)
             expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
         })
+
+        test('an export the service answered with no material is refused', async () => {
+            // Every other answer of the service is checked, so an export that
+            // produced nothing is refused too rather than reported as a success.
+            const {client} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) return {Key: key}
+                if (command instanceof ExportKeyCommand) return {}
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toBeInstanceOf(RuntimeError)
+        })
     })
 
     describe('the state of a key', () => {

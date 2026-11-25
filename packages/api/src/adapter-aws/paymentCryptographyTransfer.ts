@@ -3,6 +3,7 @@ import {
     ImportKeyCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
+import {RuntimeError} from '../cloud-spi/errors'
 import type {ExportedKeyMaterial} from '../cloud-spi/types'
 
 export type {ExportedKeyMaterial}
@@ -10,9 +11,9 @@ export type {ExportedKeyMaterial}
 /**
  * A key leaves under a TR-31 block the service wraps with a key the account holds.
  *
- * <p>The wrapping key has to be a key encryption key that may wrap, and at least as
- * strong as the key it carries: the reference refuses a weaker one, and its table
- * says which pairs hold.
+ * <p>The caller is the one that has to make sure of the wrapping key: it has to
+ * be a key encryption key that may wrap, and at least as strong as the key it
+ * carries. The service refuses a weaker one, so that refusal comes from there.
  */
 export async function exportKeyTr31(
     client: PaymentCryptographyClient,
@@ -26,11 +27,16 @@ export async function exportKeyTr31(
         }),
     )
     const wrapped = res.WrappedKey
+    // The service answered without the material, so the export produced
+    // nothing: an empty block would look like an export that worked.
+    if (!wrapped?.KeyMaterial) {
+        throw new RuntimeError('Payment Cryptography did not return the material the key left under')
+    }
     return {
-        keyMaterial: wrapped?.KeyMaterial ?? '',
-        format: wrapped?.WrappedKeyMaterialFormat ?? null,
-        wrappingKeyArn: wrapped?.WrappingKeyArn ?? null,
-        keyCheckValue: wrapped?.KeyCheckValue ?? null,
+        keyMaterial: wrapped.KeyMaterial,
+        format: wrapped.WrappedKeyMaterialFormat ?? null,
+        wrappingKeyArn: wrapped.WrappingKeyArn ?? null,
+        keyCheckValue: wrapped.KeyCheckValue ?? null,
     }
 }
 
