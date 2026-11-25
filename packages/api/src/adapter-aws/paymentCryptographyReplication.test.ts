@@ -57,6 +57,32 @@ function runtimeStub(replication: Record<string, unknown> = {'us-east-2': {}}) {
 }
 
 describe('the replication of a payment key', () => {
+    test('a request that names only the Regions to add is not refused', async () => {
+        const {client, sent} = runtimeStub({})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // A list that is not there is a list of no Regions: the request says
+        // which Region to add and says nothing about the ones that go.
+        await adapter.setReplication(KEY_ID, {addReplicationRegions: ['us-east-2']})
+
+        const command = sent.find((each) => each instanceof AddKeyReplicationRegionsCommand)
+        expect(command).toBeDefined()
+        expect((command as AddKeyReplicationRegionsCommand).input.ReplicationRegions).toEqual(['us-east-2'])
+        expect(sent.some((each) => each instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
+    })
+
+    test('the Regions are changed with the ARN of the key', async () => {
+        const {client, sent} = runtimeStub({})
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The commands take the ARN of the key, and a key asked for by a short
+        // id is resolved to the ARN it has.
+        await adapter.setReplication('key/abcd1234', {addReplicationRegions: ['us-east-2']})
+
+        const command = sent.find((each) => each instanceof AddKeyReplicationRegionsCommand)
+        expect((command as AddKeyReplicationRegionsCommand).input.KeyIdentifier).toBe(ARN)
+    })
+
     test('a Region the key is not in yet is added', async () => {
         const {client, sent} = runtimeStub({})
         const adapter = new AwsPaymentCryptographyAdapter(client)

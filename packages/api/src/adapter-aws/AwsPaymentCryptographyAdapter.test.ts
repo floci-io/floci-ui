@@ -680,6 +680,63 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(exported.keyCheckValue).toBe('404D63')
         })
 
+        test('refuses a key that may not leave', async () => {
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, Exportable: false}},
+                wrapping: {Key: {...key, KeyArn: OTHER_ARN}},
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            // A key that was made not exportable does not leave the service,
+            // and the reason is given here rather than by the service.
+            await expect(
+                adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_ARN}),
+            ).rejects.toThrow(/not exportable/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
+        test('the export is made with the ARN the keys resolved to', async () => {
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) {
+                    // The key asked for by a short id is the key the service
+                    // resolves it to, and the wrapping key is another one.
+                    const named = (command as GetKeyCommand).input.KeyIdentifier
+                    if (named === OTHER_ARN) return {Key: {...key, KeyArn: OTHER_ARN, Exportable: true}}
+                    return {Key: {...key, Exportable: true}}
+                }
+                if (command instanceof ExportKeyCommand) {
+                    return {WrappedKey: {KeyMaterial: 'WRAPPED-BLOCK', WrappingKeyArn: OTHER_ARN, WrappedKeyMaterialFormat: 'TR31_BLOCK', KeyCheckValue: '404D63'}}
+                }
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await adapter.exportKey('key/abcd1234', {wrappingKeyArn: OTHER_ARN})
+
+            const request = sent.find((command) => command instanceof ExportKeyCommand) as ExportKeyCommand
+            expect(request.input.ExportKeyIdentifier).toBe(ARN)
+        })
+
+        test('a key that is named two ways may not carry itself', async () => {
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) {
+                    // Both names are the same key, so the key that is asked for
+                    // by a short id and the key that is named by its ARN are one.
+                    return {Key: {...key, Exportable: true}}
+                }
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            // The key was asked for by a short id and the wrapping key is the
+            // same key named by its ARN, so the two are compared by the ARN they
+            // resolved to.
+            await expect(
+                adapter.exportKey('key/abcd1234', {wrappingKeyArn: 'key/abcd1234'}),
+            ).rejects.toThrow(/may not carry itself/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
         test("imports a key from a TR-31 block", async () => {
             const {client, sent} = runtimeStub()
             const adapter = new AwsPaymentCryptographyAdapter(client)
@@ -809,6 +866,32 @@ describe('AwsPaymentCryptographyAdapter', () => {
                 aliasName: ALIAS_NAME,
                 targetKeyArn: ARN,
             })
+        })
+
+        test('the names of a key are the aliases that name it', async () => {
+            const {client} = runtimeStub({listAliases: {Aliases: [alias]}})
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            const resource = await adapter.get(KEY_ID)
+
+            expect(resource?.metadata.names).toEqual([ALIAS_NAME])
+        })
+
+        test('the names that could not be read are said so', async () => {
+            const {client} = runtimeStub({
+                listAliases: () => {
+                    throw Object.assign(new Error('Access denied'), {name: 'AccessDeniedException'})
+                },
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            // A key whose aliases could not be read is not a key that has none,
+            // and it is still a key.
+            const resource = await adapter.get(KEY_ID)
+
+            expect(resource?.metadata.names).toBeUndefined()
+            expect(resource?.metadata.namesUnavailable).toBe(true)
+            expect(resource?.status).toBe('CREATE_COMPLETE')
         })
 
         test('the kind facet narrows the list to one kind', async () => {
