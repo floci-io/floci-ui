@@ -178,11 +178,18 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (kind === 'aliases') {
             throw new ValidationError('an alias has no settings of its own; the key it names does')
         }
+        // A request that says nothing at all is a fault of the caller, and it
+        // is refused rather than read as a request to change nothing.
+        if (!input || typeof input !== 'object') {
+            throw new ValidationError('the request must say which Regions to add or remove')
+        }
         // The reference's own commands add and remove one Region at a time, so
         // the request says which Region to add and which to remove rather than a
-        // set the service has to diff.
-        const added = regionList(input?.addReplicationRegions, 'addReplicationRegions')
-        const removed = regionList(input?.removeReplicationRegions, 'removeReplicationRegions')
+        // set the service has to diff. A list that is not there is a list of no
+        // Regions: a request that adds a Region and says nothing about the ones
+        // that go says the ones that go are none.
+        const added = regionList(input.addReplicationRegions, 'addReplicationRegions')
+        const removed = regionList(input.removeReplicationRegions, 'removeReplicationRegions')
         // A Region named in both lists says two things about the same Region,
         // and the request is refused rather than resolved, because which of the
         // two would happen depends on the state the key is in.
@@ -214,8 +221,11 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // The Regions that are gone go first: a key that replicates to as many
         // Regions as it may would be refused a fifth one, so a Region that is
         // replaced would fail to be replaced.
-        await removeReplicationRegions(this.client, identifier, toRemove)
-        await addReplicationRegions(this.client, identifier, toAdd)
+        // The commands take the ARN of the key, and the key was just read, so
+        // the ARN it resolved to is what they are addressed by.
+        const keyArn = key?.KeyArn ?? identifier
+        await removeReplicationRegions(this.client, keyArn, toRemove)
+        await addReplicationRegions(this.client, keyArn, toAdd)
     }
 
     /** The key as it answers, which is where the rules of its replication are read from. */
@@ -732,7 +742,16 @@ function requiredString(value: unknown, field: string): string {
  * the console's Region field is free text, and the same Region named twice is
  * one Region, so the list holds it once.
  */
+/**
+ * The Regions a request names, or none when it names none.
+ *
+ * <p>A list that is not there is a list of no Regions: a request that adds a
+ * Region and says nothing about the ones that go says the ones that go are
+ * none. A list that is there and is not a list of Region names is a fault of
+ * the caller and is refused.
+ */
 function regionList(value: unknown, field: string): string[] {
+    if (value === undefined || value === null) return []
     if (!Array.isArray(value) || value.some((region) => typeof region !== 'string')) {
         throw new ValidationError(`the ${field} of the request must be a list of Region names`)
     }
