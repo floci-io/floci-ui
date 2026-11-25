@@ -470,6 +470,16 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(sent).toHaveLength(0)
         })
 
+        test('refuses a source the service does not name', async () => {
+            const {client, sent} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.create({values: {source: 'imported'}})).rejects.toBeInstanceOf(ValidationError)
+            // The message names the sources, so an imported key is one of them.
+            await expect(adapter.create({values: {source: 'imported'}})).rejects.toThrow(/keys, aliases, import/)
+            expect(sent).toHaveLength(0)
+        })
+
         test('fails loudly when the service returns no key', async () => {
             const {client} = runtimeStub({create: {}})
 

@@ -31,6 +31,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_KIND_PREFIX,
     PAYMENT_CRYPTOGRAPHY_KINDS,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
+    PAYMENT_CRYPTOGRAPHY_SOURCES,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
     PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES,
     isWrappingUsage,
@@ -129,11 +130,13 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
-        if (input.values.source === 'import') {
+        // The source is validated once against the sources the service names,
+        // and the branch is taken on the validated value.
+        const source = oneOf(input.values.source, PAYMENT_CRYPTOGRAPHY_SOURCES, 'source', 'keys')
+        if (source === 'import') {
             return this.importKey(input)
         }
-        const kind = oneOf(input.values.source, PAYMENT_CRYPTOGRAPHY_KINDS, 'source', 'keys')
-        if (kind === 'aliases') {
+        if (source === 'aliases') {
             return this.createAlias(input)
         }
 

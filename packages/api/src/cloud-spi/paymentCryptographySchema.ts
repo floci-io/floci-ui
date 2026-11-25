@@ -375,6 +375,19 @@ export const PAYMENT_CRYPTOGRAPHY_SOURCES = ['keys', 'aliases', 'import'] as con
 
 export type PaymentCryptographySource = (typeof PAYMENT_CRYPTOGRAPHY_SOURCES)[number]
 
+/**
+ * What the form calls each source, and what the button says when it is the one
+ * picked.
+ */
+const PAYMENT_CRYPTOGRAPHY_SOURCE_LABELS: Record<
+    PaymentCryptographySource,
+    {label: string; submitLabel: string}
+> = {
+    keys: {label: 'A new key', submitLabel: 'Create key'},
+    aliases: {label: 'An alias', submitLabel: 'Create alias'},
+    import: {label: 'An imported key', submitLabel: 'Import key'},
+}
+
 /** The prefix a kind's resource ids carry, as the explorer holds several kinds in one table. */
 export const PAYMENT_CRYPTOGRAPHY_KIND_PREFIX: Record<PaymentCryptographyKind, string> = {
     keys: 'key',
@@ -468,11 +481,10 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 group: 'Required',
                 description: 'A key, an alias name that points at one, or a key that comes in under a TR-31 block.',
                 defaultValue: 'keys',
-                options: [
-                    {label: 'A new key', value: 'keys', submitLabel: 'Create key'},
-                    {label: 'An alias', value: 'aliases', submitLabel: 'Create alias'},
-                    {label: 'An imported key', value: 'import', submitLabel: 'Import key'},
-                ],
+                options: PAYMENT_CRYPTOGRAPHY_SOURCES.map((value) => ({
+                    value,
+                    ...PAYMENT_CRYPTOGRAPHY_SOURCE_LABELS[value],
+                })),
             },
             {
                 name: 'keyUsage',

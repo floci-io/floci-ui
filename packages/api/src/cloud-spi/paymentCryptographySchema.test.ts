@@ -7,6 +7,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
+    PAYMENT_CRYPTOGRAPHY_SOURCES,
 } from './paymentCryptographySchema'
 import {mayWrapWith} from './paymentCryptographySchema'
 import {mayWrapKey} from './paymentCryptographySchema'
@@ -51,6 +52,16 @@ describe('awsPaymentCryptographySchema', () => {
         // its value, and a stale one would make the key disabled without the
         // reader having chosen that.
         expect(enabled?.visibleWhen).toEqual({field: 'source', equals: 'keys'})
+    })
+
+    test('the form offers the sources the service names', () => {
+        const schema = awsPaymentCryptographySchema()
+        const source = schema.fields.find(field => field.name === 'source')
+
+        // The options come from the one list of the sources, so the form and
+        // the adapter cannot disagree about what may be made.
+        expect(source?.options?.map(option => option.value)).toEqual([...PAYMENT_CRYPTOGRAPHY_SOURCES])
+        expect(source?.defaultValue).toBe('keys')
     })
 
     test('the rule of a wrapping key is one rule', () => {
