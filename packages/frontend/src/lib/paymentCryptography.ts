@@ -22,7 +22,10 @@ export function isPaymentKey(resource: CloudResource | undefined): resource is C
  * than working out which alias names which key.
  */
 export function aliasNamesOf(resource: CloudResource | undefined): string[] {
-  const names = resource?.metadata.aliasNames;
+  const metadata = resource?.metadata;
+  // A name inherited from the prototype is not a state the API published.
+  if (!metadata || !Object.prototype.hasOwnProperty.call(metadata, "aliasNames")) return [];
+  const names = metadata.aliasNames;
   if (!Array.isArray(names)) return [];
   return names.filter((each): each is string => typeof each === "string" && each !== "");
 }
