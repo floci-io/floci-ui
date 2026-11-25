@@ -34,18 +34,18 @@ function renderSection(resource: CloudResource | undefined, keyUnreadable?: bool
     return {status: "success", statusText: "", data: undefined, error: null} as never;
   }) as typeof client.invalidateQueries;
 
-  const element = () => (
+  const element = (current: CloudResource | undefined = resource) => (
     <QueryClientProvider client={client}>
       <PaymentCryptographyReplicationSection
         cloud="aws"
-        resource={resource}
+        resource={current}
         keyUnreadable={keyUnreadable}
         runtimeReachable={true}
       />
     </QueryClientProvider>
   );
   const view = render(element());
-  return {invalidated, rerender: () => view.rerender(element())};
+  return {invalidated, rerender: (next?: CloudResource) => view.rerender(element(next))};
 }
 
 describe("the replication of a payment key", () => {
@@ -80,6 +80,61 @@ describe("the replication of a payment key", () => {
       addReplicationRegions: [],
       removeReplicationRegions: ["us-east-2"],
     });
+  });
+
+  it("does not leave a change that failed on screen", async () => {
+    const user = userEvent.setup();
+    setReplication.mockRejectedValue(new Error("The Region is not one this key may be replicated to."));
+    renderSection(key);
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("alert")).toBeDefined();
+
+    // The change did not happen, so the panel shows the Regions the key holds
+    // and not the Region the user asked for.
+    await waitFor(() => expect(screen.queryByText("us-west-2")).toBeNull());
+    expect(screen.getByText("us-east-2")).toBeDefined();
+  });
+
+  it("does not send a Region that failed again", async () => {
+    const user = userEvent.setup();
+    setReplication.mockRejectedValue(new Error("The Region is not one this key may be replicated to."));
+    renderSection(key);
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-east-3");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(2));
+    // The Region that failed is not in the request: the key never held it.
+    expect(setReplication.mock.calls[1][3]).toEqual({
+      addReplicationRegions: ["us-east-3"],
+      removeReplicationRegions: [],
+    });
+  });
+
+  it("shows a Region another client added", async () => {
+    const user = userEvent.setup();
+    const {rerender} = renderSection(key);
+
+    await user.type(screen.getByLabelText("Region to replicate to"), "us-west-2");
+    await user.click(screen.getByRole("button", {name: /Replicate to/i}));
+    await waitFor(() => expect(setReplication).toHaveBeenCalledTimes(1));
+
+    // The key is read again, and it holds a Region another client added. The
+    // draft does not hide it.
+    rerender({
+      ...key,
+      metadata: {...key.metadata, replicationRegions: ["us-east-2", "us-west-2", "eu-west-1"]},
+    });
+
+    await waitFor(() => expect(screen.getByText("eu-west-1")).toBeDefined());
   });
 
   it("never takes away a Region the draft never had", async () => {
