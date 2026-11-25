@@ -244,4 +244,43 @@ describe('the payment cryptography routes', () => {
             expect(res.status).toBe(400)
         }
     })
+
+    test('a service that is not the payment cryptography one is refused', async () => {
+        // The routes are generic, so a service that happens to have a method of
+        // the same name would be driven with a body shaped for a payment key.
+        let writes = 0
+        const app = appWithRoutes([
+            {
+                ...paymentAdapter(),
+                service: 'kms',
+                setUsage: async () => {
+                    writes += 1
+                },
+                setPolicy: async () => {
+                    writes += 1
+                },
+                setReplication: async () => {
+                    writes += 1
+                },
+                exportKey: async () => {
+                    writes += 1
+                    return material
+                },
+            } as CloudServiceAdapter,
+        ])
+
+        for (const path of ['usage', 'policy', 'replication', 'export']) {
+            const res = await app.request(
+                `/api/clouds/aws/services/kms/resources/key%2Fabc/${path}`,
+                {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({enabled: 'true', policy: '{}', wrappingKeyArn: 'key/abc'}),
+                },
+            )
+
+            expect(res.status).toBe(501)
+        }
+        expect(writes).toBe(0)
+    })
 })

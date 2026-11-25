@@ -305,7 +305,7 @@ export class CloudProxyService {
         input: Record<string, unknown>,
     ): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
-        if (!adapter.setUsage) {
+        if (adapter.service !== 'paymentcryptography' || !adapter.setUsage) {
             throw new NotSupportedError(`${cloud}/${service} does not change whether a key may be used`)
         }
         await adapter.setUsage(id, input)
@@ -324,7 +324,7 @@ export class CloudProxyService {
         input: Record<string, unknown>,
     ): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
-        if (!adapter.setReplication) {
+        if (adapter.service !== 'paymentcryptography' || !adapter.setReplication) {
             throw new NotSupportedError(`${cloud}/${service} does not replicate a key to other Regions`)
         }
         await adapter.setReplication(id, input)
@@ -343,7 +343,7 @@ export class CloudProxyService {
         input: Record<string, unknown>,
     ): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
-        if (!adapter.setPolicy) {
+        if (adapter.service !== 'paymentcryptography' || !adapter.setPolicy) {
             throw new NotSupportedError(`${cloud}/${service} does not set key policies`)
         }
         await adapter.setPolicy(id, input)
@@ -362,7 +362,7 @@ export class CloudProxyService {
         input: {wrappingKeyArn: string},
     ): Promise<ExportedKeyMaterial> {
         const adapter = this.requireAdapter(cloud, service)
-        if (!adapter.exportKey) {
+        if (adapter.service !== 'paymentcryptography' || !adapter.exportKey) {
             throw new NotSupportedError(`${cloud}/${service} does not export keys`)
         }
         // The body reaches the adapter as a checked string, so the contract the
