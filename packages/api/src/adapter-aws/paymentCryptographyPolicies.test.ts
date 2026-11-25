@@ -8,7 +8,7 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
-import {getKeyPolicy} from './paymentCryptographyPolicies'
+import {getKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
 import {ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
@@ -233,5 +233,27 @@ describe('the policy of a payment key', () => {
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
         await expect(adapter.setPolicy(KEY_ID, {policy: ''})).rejects.toThrow('Access denied')
+    })
+
+    test('a lookup that failed carries no policy', async () => {
+        const {client} = stubClient(() => {
+            throw Object.assign(new Error('throttled'), {name: 'ThrottlingException'})
+        })
+
+        const lookup = await getKeyPolicy(client, ARN)
+
+        expect(lookup).toEqual({policy: null, unavailable: true})
+    })
+
+    test('a lookup that failed cannot carry a policy', () => {
+        const failed: KeyPolicyLookup = {policy: null, unavailable: true}
+        const read: KeyPolicyLookup = {policy: POLICY}
+
+        expect(failed.policy).toBeNull()
+        expect(read.policy).toBe(POLICY)
+
+        // @ts-expect-error a lookup that failed carries no policy of its own.
+        const impossible: KeyPolicyLookup = {policy: POLICY, unavailable: true}
+        expect(impossible.policy).toBe(POLICY)
     })
 })

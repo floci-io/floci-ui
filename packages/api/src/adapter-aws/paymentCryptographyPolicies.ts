@@ -10,9 +10,13 @@ import {isNotFound} from './paymentCryptographyErrors'
  * The policy of a key, and whether the lookup of it failed.
  *
  * <p>A key that holds no policy is not the same as a key whose policy cannot be
- * read, so the two are told apart here rather than by the caller.
+ * read, so the two are told apart here rather than by the caller. A lookup that
+ * failed carries no policy: the two cannot happen at once, so the type says so
+ * and a policy that was read cannot be dropped by a caller that answers both.
  */
-export type KeyPolicyLookup = {policy: string | null; unavailable?: true}
+export type KeyPolicyLookup =
+    | {policy: string | null; unavailable?: false}
+    | {policy: null; unavailable: true}
 
 /**
  * The resource-based policy of a key, which is what lets another account use it.

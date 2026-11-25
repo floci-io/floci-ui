@@ -560,12 +560,14 @@ function toResource(
  *
  * <p>The policy is published only where it was read: a row of the table carries
  * none, because it never read one. A read that failed is said so, so it cannot
- * pass for a key that holds none.
+ * pass for a key that holds none. A policy that was read is published, even
+ * where the lookup says it failed: the policy is what the key holds.
  */
 function policyMetadata(policyLookup: KeyPolicyLookup | undefined): Record<string, unknown> {
     if (!policyLookup) return {}
+    if (policyLookup.policy !== null) return {keyPolicy: policyLookup.policy}
     if (policyLookup.unavailable) return {keyPolicyUnavailable: true}
-    return {keyPolicy: policyLookup.policy}
+    return {keyPolicy: null}
 }
 
 /**
