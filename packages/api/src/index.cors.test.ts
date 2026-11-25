@@ -189,6 +189,37 @@ describe('credentialed route CORS', () => {
         }))
         expect(trusted.headers.get('access-control-allow-origin')).toBe(TRUSTED_ORIGIN)
     })
+
+    test('refuses a cross-origin write that changes who may use the key', async () => {
+        const routes = new Hono()
+        let writes = 0
+        routes.post('/:cloud/services/paymentcryptography/resources/:id/policy', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
+        routes.post('/:cloud/services/paymentcryptography/resources/:id/replication', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
+        const app = createApiApp(routes)
+
+        for (const path of ['policy', 'replication']) {
+            const url = `http://localhost/api/clouds/aws/services/paymentcryptography/resources/key-1/${path}`
+            const preflight = await app.fetch(new Request(url, {
+                method: 'OPTIONS',
+                headers: {origin: UNTRUSTED_ORIGIN, 'access-control-request-method': 'POST'},
+            }))
+            expect(preflight.headers.get('access-control-allow-origin')).toBeNull()
+
+            for (const origin of [UNTRUSTED_ORIGIN, 'null']) {
+                const response = await app.fetch(new Request(url, {method: 'POST', headers: {origin}}))
+                expect(response.status).toBe(403)
+            }
+            const trusted = await app.fetch(new Request(url, {method: 'POST', headers: {origin: TRUSTED_ORIGIN}}))
+            expect(trusted.status).toBe(200)
+        }
+        expect(writes).toBe(2)
+    })
 })
 
 describe('production server wiring', () => {

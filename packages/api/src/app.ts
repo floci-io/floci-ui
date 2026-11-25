@@ -143,6 +143,9 @@ function isSensitiveCredentialRoute(path: string): boolean {
 function isKeyMutationRoute(path: string): boolean {
   return (
     /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:rotate|cancel-deletion|recover|purge-deleted)$/.test(path) ||
-    /^\/api\/clouds\/[^/]+\/services\/(?:secrets|certificates)\/resources\/[^/]+\/(?:recover|purge-deleted)$/.test(path)
+    /^\/api\/clouds\/[^/]+\/services\/(?:secrets|certificates)\/resources\/[^/]+\/(?:recover|purge-deleted)$/.test(path) ||
+    // A policy says who may use the key and the replication says where it
+    // lives, so both are refused when they come from another origin.
+    /^\/api\/clouds\/[^/]+\/services\/paymentcryptography\/resources\/[^/]+\/(?:policy|replication)$/.test(path)
   );
 }
