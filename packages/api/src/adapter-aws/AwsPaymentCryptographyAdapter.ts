@@ -27,7 +27,7 @@ import {
     enableDefaultReplicationRegions,
     setReplicationRegions,
 } from './paymentCryptographyReplication'
-import {exportKeyTr31, importKeyTr31, keyArnOf, type ExportedKeyMaterial} from './paymentCryptographyTransfer'
+import {exportKeyTr31, importKeyTr31, keyArnOf} from './paymentCryptographyTransfer'
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
@@ -58,6 +58,7 @@ import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
+    ExportedKeyMaterial,
     ResourceQuery,
     ServiceSchema,
 } from '../cloud-spi/types'

@@ -4,6 +4,9 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {PAYMENT_CRYPTOGRAPHY_KIND_PREFIX} from '../cloud-spi/paymentCryptographySchema'
+import type {ExportedKeyMaterial} from '../cloud-spi/types'
+
+export type {ExportedKeyMaterial}
 
 /**
  * The ARN of a key, as the service takes it.
@@ -15,18 +18,6 @@ import {PAYMENT_CRYPTOGRAPHY_KIND_PREFIX} from '../cloud-spi/paymentCryptography
 export function keyArnOf(value: string): string {
     const prefix = `${PAYMENT_CRYPTOGRAPHY_KIND_PREFIX.keys}/`
     return value.startsWith(prefix) ? value.slice(prefix.length) : value
-}
-
-/** The material a key leaves under, and what the service says about it. */
-export interface ExportedKeyMaterial {
-    /** The protected material, in the form the reference writes it in. */
-    keyMaterial: string
-    /** The form the material is in, as the reference names it. */
-    format: string | null
-    /** The key it protects, as the reference names it. */
-    wrappingKeyArn: string | null
-    /** The check value of the key that left. */
-    keyCheckValue: string | null
 }
 
 /**

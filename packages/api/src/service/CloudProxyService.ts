@@ -20,6 +20,7 @@ import type {
     DeleteLambdaTriggerOptions,
     EmptyBucketOptions,
     EmptyBucketResult,
+    ExportedKeyMaterial,
     AppConfigConfigurationProfile,
     AppConfigDeployment,
     AppConfigDeploymentStrategy,
@@ -66,7 +67,7 @@ import type {
     KeyQuery,
     PageQuery,
 } from '../cloud-spi/childCollections'
-import {ConflictError, NotFoundError, NotSupportedError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, NotSupportedError, ValidationError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {SERVICE_CATALOG_ENTRIES, descriptionFor, displayNameFor, docsUrlFor, routeFor} from '../cloud-spi/serviceCatalog'
 import {toHttpError} from '../cloud-spi/errors'
@@ -289,6 +290,14 @@ export class CloudProxyService {
      * <p>Only the payment cryptography service has this, so the adapter's own
      * method answers it.
      */
+    /**
+     * Whether a key may be used.
+     *
+     * <p>Only the payment cryptography service has this, so the adapter that was
+     * found has to be the one: the route is generic, and a service that happens
+     * to have a method of the same name would otherwise be driven with a body
+     * shaped for a payment key.
+     */
     async setPaymentCryptographyKeyUsage(
         cloud: CloudProvider,
         service: CloudServiceType,
@@ -296,13 +305,10 @@ export class CloudProxyService {
         input: Record<string, unknown>,
     ): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
-        const setter = adapter as {
-            setUsage?: (id: string, input: Record<string, unknown>) => Promise<void>
+        if (!adapter.setUsage) {
+            throw new NotSupportedError(`${cloud}/${service} does not change whether a key may be used`)
         }
-        if (!setter.setUsage) {
-            throw new NotSupportedError(`${cloud}/${service} does not do this`)
-        }
-        await setter.setUsage(id, input)
+        await adapter.setUsage(id, input)
     }
 
     /**
@@ -318,13 +324,10 @@ export class CloudProxyService {
         input: Record<string, unknown>,
     ): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
-        const setter = adapter as {
-            setReplication?: (id: string, input: Record<string, unknown>) => Promise<void>
+        if (!adapter.setReplication) {
+            throw new NotSupportedError(`${cloud}/${service} does not replicate a key to other Regions`)
         }
-        if (!setter.setReplication) {
-            throw new NotSupportedError(`${cloud}/${service} does not do this`)
-        }
-        await setter.setReplication(id, input)
+        await adapter.setReplication(id, input)
     }
 
     /**
@@ -340,13 +343,10 @@ export class CloudProxyService {
         input: Record<string, unknown>,
     ): Promise<void> {
         const adapter = this.requireAdapter(cloud, service)
-        const setter = adapter as {
-            setPolicy?: (id: string, input: Record<string, unknown>) => Promise<void>
+        if (!adapter.setPolicy) {
+            throw new NotSupportedError(`${cloud}/${service} does not set key policies`)
         }
-        if (!setter.setPolicy) {
-            throw new NotSupportedError(`${cloud}/${service} does not do this`)
-        }
-        await setter.setPolicy(id, input)
+        await adapter.setPolicy(id, input)
     }
 
     /**
@@ -360,13 +360,16 @@ export class CloudProxyService {
         service: CloudServiceType,
         id: string,
         input: {wrappingKeyArn: string},
-    ): Promise<unknown> {
+    ): Promise<ExportedKeyMaterial> {
         const adapter = this.requireAdapter(cloud, service)
-        const exporter = adapter as {exportKey?: (id: string, input: {wrappingKeyArn: string}) => Promise<unknown>}
-        if (!exporter.exportKey) {
+        if (!adapter.exportKey) {
             throw new NotSupportedError(`${cloud}/${service} does not export keys`)
         }
-        return exporter.exportKey(id, input)
+        // The body reaches the adapter as a checked string, so the contract the
+        // adapter holds to is the one this service states.
+        const wrappingKeyArn = typeof input?.wrappingKeyArn === 'string' ? input.wrappingKeyArn.trim() : ''
+        if (!wrappingKeyArn) throw new ValidationError('wrappingKeyArn is required')
+        return adapter.exportKey(id, {wrappingKeyArn})
     }
 
     async deleteResource(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<void> {

@@ -640,6 +640,28 @@ export interface KmsDecryptResult {
     encryptionAlgorithm: KmsEncryptionAlgorithm
 }
 
+/**
+ * The forms the material a key leaves under is in, as the reference names them.
+ */
+export type ExportedKeyMaterialFormat = 'KEY_CRYPTOGRAM' | 'TR31_KEY_BLOCK' | 'TR34_KEY_BLOCK'
+
+/**
+ * The material a key leaves under, and what the service says about it.
+ *
+ * <p>Declared here rather than in the adapter, so the route that serves it and
+ * the console that reads it are checked against the same shape.
+ */
+export interface ExportedKeyMaterial {
+    /** The protected material, in the form the reference writes it in. */
+    keyMaterial: string
+    /** The form the material is in, as the reference names it. */
+    format: ExportedKeyMaterialFormat | null
+    /** The key it is wrapped under, as the reference names it. */
+    wrappingKeyArn: string | null
+    /** The check value of the key that left. */
+    keyCheckValue: string | null
+}
+
 export type KmsSigningAlgorithm =
     | 'SHA_256_RSA_PKCS1_V1_5'
     | 'SHA_384_RSA_PKCS1_V1_5'
@@ -799,6 +821,27 @@ export interface CloudServiceAdapter {
     stop?(id: string, force?: boolean): Promise<void>
     reboot?(id: string): Promise<void>
     updateTags?(id: string, tags: Record<string, string | null>): Promise<void>
+    /**
+     * Whether a key may be used, for the service whose keys carry a setting of
+     * their own.
+     */
+    setUsage?(id: string, input: Record<string, unknown>): Promise<void>
+    /**
+     * The Regions a key is replicated to.
+     */
+    setReplication?(id: string, input: Record<string, unknown>): Promise<void>
+    /**
+     * The policy that lets another account use a key.
+     */
+    setPolicy?(id: string, input: Record<string, unknown>): Promise<void>
+    /**
+     * The material a key leaves under, wrapped by a key the account holds.
+     *
+     * <p>Declared here rather than reached through a cast, so the route that
+     * serves it and the adapter that answers it are checked against the same
+     * shape.
+     */
+    exportKey?(id: string, input: {wrappingKeyArn: string}): Promise<ExportedKeyMaterial>
     /**
      * Cheap liveness check. Defaults to `list()`, which is a valid probe for
      * every current adapter; override where listing is expensive.

@@ -3,7 +3,7 @@ import {Hono} from 'hono'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {createCloudRoutes} from './clouds'
 import {CloudProxyService} from '../service/CloudProxyService'
-import type {CloudServiceAdapter} from '../cloud-spi/types'
+import type {CloudServiceAdapter, ExportedKeyMaterial} from '../cloud-spi/types'
 import type {CloudProvider} from '../cloud-spi/types'
 import type {RuntimeProbe} from '../service/runtimeProbe'
 
@@ -15,6 +15,14 @@ import type {RuntimeProbe} from '../service/runtimeProbe'
 function stubProbes(): Record<CloudProvider, RuntimeProbe> {
     const reachable: RuntimeProbe = async () => {}
     return {aws: reachable, azure: reachable, gcp: reachable, oci: reachable}
+}
+
+/** The material a key leaves under, as the service answers it. */
+const material: ExportedKeyMaterial = {
+    keyMaterial: 'D0112K1AB00E0000',
+    format: 'TR31_KEY_BLOCK',
+    wrappingKeyArn: null,
+    keyCheckValue: null,
 }
 
 /** An adapter for the payment cryptography service that records what it was asked. */
@@ -196,7 +204,7 @@ describe('the payment cryptography routes', () => {
             paymentAdapter({
                 exportKey: async (_id: string, input: {wrappingKeyArn: string}) => {
                     seen.push(input)
-                    return {keyMaterial: 'D0112K1AB00E0000'}
+                    return material
                 },
             } as Partial<CloudServiceAdapter>),
         ])
@@ -219,7 +227,7 @@ describe('the payment cryptography routes', () => {
     test('a body that is not an object is refused by the export route', async () => {
         const app = appWithRoutes([
             paymentAdapter({
-                exportKey: async () => ({keyMaterial: 'D0112K1AB00E0000'}),
+                exportKey: async () => material,
             } as Partial<CloudServiceAdapter>),
         ])
 
