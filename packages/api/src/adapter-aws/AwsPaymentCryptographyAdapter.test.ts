@@ -1,4 +1,6 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
+import {join} from 'node:path'
 import {
     AddKeyReplicationRegionsCommand,
     CreateAliasCommand,
@@ -237,6 +239,16 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect((await adapter.list({search: '4a1b2c3d'})).map((row) => row.id)).toEqual([KEY_ID])
             expect(await adapter.list({search: 'nothing'})).toEqual([])
         })
+    })
+
+    test('the command a key is read with has one name in the file', () => {
+        const source = readFileSync(join(import.meta.dir, 'AwsPaymentCryptographyAdapter.ts'), 'utf8')
+
+        // The file already imports GetKeyCommand for the detail it reads, so
+        // the same command under a second name is one command with two names,
+        // and a reader has to know which one a line means.
+        expect(source).not.toMatch(/GetKeyCommand as /)
+        expect(source).toMatch(/new GetKeyCommand\(\{KeyIdentifier: id\}\)/)
     })
 
     describe('get', () => {

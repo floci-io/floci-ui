@@ -1,7 +1,6 @@
 import {
     CreateAliasCommand,
     CreateKeyCommand,
-    GetKeyCommand as ReadKey,
     DeleteAliasCommand,
     DeleteKeyCommand,
     GetAliasCommand,
@@ -185,16 +184,20 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // and the request is refused rather than resolved, because which of the
         // two would happen depends on the state the key is in.
         refuseAmbiguousRegions(added, removed)
-        const key = await this.readKey(identifier)
+        // The key is read with the same command the detail is read with, so a
+        // key that is not there is refused with the reason the rest of the
+        // adapter refuses it with.
+        const key = await this.describe(identifier)
+        if (!key) throw new ValidationError(`the key ${identifier} is not there`)
         // A replica is read-only: the reference says a Replica Region key cannot
         // be configured to replicate to other Regions, so the API refuses what
         // it cannot do rather than sending a request the service would refuse.
-        if (key?.MultiRegionKeyType === 'REPLICA') {
+        if (key.MultiRegionKeyType === 'REPLICA') {
             throw new ValidationError(
                 'a replica is read-only, so the Regions it is replicated to are those of its primary',
             )
         }
-        const primary = key?.PrimaryRegion ?? null
+        const primary = key.PrimaryRegion ?? null
         if (primary && (added.includes(primary) || removed.includes(primary))) {
             // The Region the primary is in is not a replica, and the reference
             // refuses it. It is refused here too, before anything is changed:
@@ -204,7 +207,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
                 `the key is the primary in ${primary}, so it is not replicated to it`,
             )
         }
-        const current = key ? replicationRegionsOf(key) : []
+        const current = replicationRegionsOf(key)
         // A Region the key already holds is not added again, and one it does not
         // hold is not taken away.
         const toAdd = added.filter((region) => !current.includes(region))
@@ -214,12 +217,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // replaced would fail to be replaced.
         await removeReplicationRegions(this.client, identifier, toRemove)
         await addReplicationRegions(this.client, identifier, toAdd)
-    }
-
-    /** The key as it answers, which is where the rules of its replication are read from. */
-    private async readKey(keyArn: string): Promise<Key | undefined> {
-        const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
-        return res.Key
     }
 
     /** The Regions the account replicates a new key to by default. */

@@ -221,6 +221,26 @@ describe('the replication of a payment key', () => {
         expect(sent.some((each) => each instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
     })
 
+    test('a key that is not there is refused with the reason the adapter refuses it with', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) {
+                throw Object.assign(new Error('The key was not found.'), {
+                    name: 'ResourceNotFoundException',
+                    $metadata: {httpStatusCode: 400},
+                })
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The raw AWS refusal would have reached the console as an error about
+        // the runtime rather than as the key that is not there.
+        await expect(
+            adapter.setReplication(KEY_ID, {addReplicationRegions: ['us-east-2'], removeReplicationRegions: []}),
+        ).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof AddKeyReplicationRegionsCommand)).toBe(false)
+    })
+
     test('a member that is not a list of Regions is refused', async () => {
         const {client, sent} = runtimeStub()
         const adapter = new AwsPaymentCryptographyAdapter(client)
