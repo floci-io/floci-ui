@@ -5,11 +5,7 @@ import {describe, expect, it} from "vitest";
 import {PaymentCryptographyPanel} from "@/components/PaymentCryptographyPanel";
 import type {CloudResource} from "@/types/resource";
 
-<<<<<<< HEAD
-/** The usage section asks the query client, so the panel needs one. */
-=======
-/** The export section asks the query client, so the panel needs one. */
->>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
+/** The usage and the export sections ask the query client, so the panel needs one. */
 function renderPanel(props: React.ComponentProps<typeof PaymentCryptographyPanel>) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   return render(
@@ -42,6 +38,14 @@ describe("the panels of a payment key", () => {
     expect(screen.getByLabelText("Public key certificate")).toBeDefined();
   });
 
+  it("shows the usage and the material the key leaves under as well", () => {
+    renderPanel({resource: key, cloud: "aws", runtimeReachable: true});
+
+    expect(screen.getByLabelText("Public key certificate")).toBeDefined();
+    expect(screen.getByText("Usage")).toBeDefined();
+    expect(screen.getAllByText(/Export/).length).toBeGreaterThan(0);
+  });
+
   it("shows nothing for a resource that is not a payment key", () => {
     renderPanel({resource: {...key, type: "alias"}, cloud: "aws", runtimeReachable: true});
 
@@ -55,11 +59,8 @@ describe("the panels of a payment key", () => {
     // The certificate is part of the key's detail, and the detail has not been
     // read, so the panel says nothing of it.
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
-<<<<<<< HEAD
     // The usage says what it does not know.
     expect(screen.getByText(/has not been read yet/)).toBeDefined();
-=======
->>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
   });
 
   it("says so when the key could not be read", () => {

@@ -16,11 +16,8 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
-<<<<<<< HEAD
 import {setKeyUsage} from './paymentCryptographyLifecycle'
-=======
 import {exportKeyTr31, importKeyTr31, type ExportedKeyMaterial} from './paymentCryptographyTransfer'
->>>>>>> 4b52260 (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,

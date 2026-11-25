@@ -2,25 +2,9 @@ import {
   PaymentCryptographyCertificateSection,
   type PaymentCryptographyCertificateSectionProps,
 } from "@/components/PaymentCryptographyCertificateSection";
-<<<<<<< HEAD
+import {PaymentCryptographyExportSection} from "@/components/PaymentCryptographyExportSection";
 import {PaymentCryptographyLifecycleSection} from "@/components/PaymentCryptographyLifecycleSection";
 import {isPaymentKey} from "@/lib/paymentCryptography";
-import type {CloudProvider} from "@/types/cloud";
-
-<<<<<<< HEAD
-interface PaymentCryptographyPanelProps extends PaymentCryptographyCertificateSectionProps {
-  cloud: CloudProvider;
-  runtimeReachable: boolean;
-}
-=======
-/** The panel shows what the section shows, so it holds the section's contract. */
-type PaymentCryptographyPanelProps = PaymentCryptographyCertificateSectionProps;
-=======
-import {lazyPanel} from "@/lib/lazyPanel";
-=======
-import {PaymentCryptographyExportSection} from "@/components/PaymentCryptographyExportSection";
-import {isPaymentKey} from "@/lib/paymentCryptography";
->>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 import type {ServiceSchema} from "@/types/schema";
@@ -36,43 +20,28 @@ interface PaymentCryptographyPanelProps extends PaymentCryptographyCertificateSe
   schema?: ServiceSchema;
   runtimeReachable: boolean;
 }
-<<<<<<< HEAD
->>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
->>>>>>> 4b52260 (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
-=======
->>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
 
 /**
  * The panels a payment key has of its own.
  *
-<<<<<<< HEAD
-<<<<<<< HEAD
- * <p>Everything else a key shows comes from the schema, but two things are not:
- * the certificate of a key's public half, and whether the key may be used.
-=======
- * <p>Everything else a key shows comes from the schema, but two things are not:
- * the certificate of a key's public half, and the material the key leaves under.
->>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
+ * <p>Everything else a key shows comes from the schema, but three things are
+ * not: the certificate of a key's public half, whether the key may be used, and
+ * the material it leaves under.
  *
  * <p>The panel holds the key the console read, never the row of the table: a row
- * carries neither, so a panel handed one would speak about a key it has not
- * read.
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
- * <p>Everything else a key shows comes from the schema, but the certificate of a
- * key's public half does not, so it has a section of its own.
->>>>>>> 4b52260 (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
+ * carries none of these, so a panel handed one would speak about a key it has
+ * not read.
  */
 export function PaymentCryptographyPanel({
   cloud,
   resource,
   keyUnreadable,
+  resources,
+  schema,
   runtimeReachable,
 }: PaymentCryptographyPanelProps) {
   if (resource && !isPaymentKey(resource)) return null;
 
-<<<<<<< HEAD
   return (
     <>
       {resource ? (
@@ -84,52 +53,8 @@ export function PaymentCryptographyPanel({
         cloud={cloud}
         resource={resource}
         keyUnreadable={keyUnreadable}
-=======
-  return <PaymentCryptographyCertificateSection resource={resource} />;
-=======
- * <p>Everything else a key shows comes from the schema, but the material a key
- * leaves under does not, so it has a section of its own.
-=======
->>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
- */
-export function PaymentCryptographyPanel({
-  cloud,
-  resource,
-  keyUnreadable,
-  resources,
-  schema,
-  runtimeReachable,
-}: PaymentCryptographyPanelProps) {
-<<<<<<< HEAD
-  const isKey = resource?.service === "paymentcryptography" && resource.type === "key";
-  if (!isKey || !resource) {
-    // Nothing was read at all, so the key is unknown: the section says so.
-    return keyUnreadable ? (
-      <PaymentCryptographyExportSection
-        cloud={cloud}
-<<<<<<< HEAD
-        resource={resource}
-        resources={resources}
-        schema={schema}
->>>>>>> 4b52260 (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
-=======
->>>>>>> 75509f0 (fix(paymentcryptography): the panel speaks about the key it has read)
         runtimeReachable={runtimeReachable}
-        keyUnreadable
       />
-    ) : null;
-  }
-=======
-  if (resource && !isPaymentKey(resource)) return null;
->>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
-
-  return (
-    <>
-      {resource ? (
-        <PaymentCryptographyCertificateSection resource={resource} />
-      ) : keyUnreadable ? (
-        <PaymentCryptographyCertificateSection keyUnreadable />
-      ) : null}
       <PaymentCryptographyExportSection
         cloud={cloud}
         resource={resource}
@@ -140,11 +65,4 @@ export function PaymentCryptographyPanel({
       />
     </>
   );
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e403b6c (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
->>>>>>> 4b52260 (feat(paymentcryptography): the material a key leaves under, and the key it comes back in under)
-=======
->>>>>>> da37332 (fix(paymentcryptography): the panel holds the certificate and the export)
 }
