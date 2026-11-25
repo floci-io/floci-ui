@@ -9,6 +9,7 @@ import {
     GetKeyCommand,
     ListAliasesCommand,
     GetPublicKeyCertificateCommand,
+    ImportKeyCommand,
     ListKeysCommand,
     ListTagsForResourceCommand,
     type PaymentCryptographyClient,
@@ -661,6 +662,65 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
             const [row] = await adapter.list()
             expect(row?.metadata.mayWrap).toBe(true)
+        })
+    })
+
+    describe('importKey', () => {
+        test('refuses an import under a wrapping key that may not wrap a key', async () => {
+            // The import path wraps a block under a key of the account too, so
+            // it refuses the same keys the export path refuses.
+            const paymentKey = {
+                ...key,
+                KeyArn: OTHER_ARN,
+                KeyAttributes: {...attributes, KeyUsage: 'TR31_D0_SYMMETRIC_DATA_ENCRYPTION_KEY'},
+            }
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) {
+                    const named = (command as GetKeyCommand).input.KeyIdentifier
+                    return {Key: named === OTHER_ARN ? paymentKey : key}
+                }
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.create({
+                    values: {
+                        source: 'import',
+                        wrappingKeyArn: OTHER_KEY_ID,
+                        wrappedKeyBlock: 'D0112K1AB00E0000',
+                    },
+                }),
+            ).rejects.toBeInstanceOf(ValidationError)
+            await expect(
+                adapter.create({
+                    values: {
+                        source: 'import',
+                        wrappingKeyArn: OTHER_KEY_ID,
+                        wrappedKeyBlock: 'D0112K1AB00E0000',
+                    },
+                }),
+            ).rejects.toThrow(/may not wrap/)
+            expect(sent.some((command) => command instanceof ImportKeyCommand)).toBe(false)
+        })
+
+        test('refuses an import under a wrapping key that is not there', async () => {
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) return {Key: undefined}
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.create({
+                    values: {
+                        source: 'import',
+                        wrappingKeyArn: OTHER_KEY_ID,
+                        wrappedKeyBlock: 'D0112K1AB00E0000',
+                    },
+                }),
+            ).rejects.toBeInstanceOf(ValidationError)
+            expect(sent.some((command) => command instanceof ImportKeyCommand)).toBe(false)
         })
     })
 
