@@ -1,8 +1,8 @@
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {useMutation} from "@tanstack/react-query";
 import {Copy, Download} from "lucide-react";
 import {exportPaymentCryptographyKey} from "@/api/cloudProxyClient";
-import {namesOf} from "@/lib/displayName";
+import {namesLabel, namesOf} from "@/lib/displayName";
 import {pairingsPublished, wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
 import {COPY_REFUSED_MESSAGE, useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
@@ -52,7 +52,20 @@ export function PaymentCryptographyExportSection({
   keyUnreadable,
 }: PaymentCryptographyExportSectionProps) {
   const [wrappingKey, setWrappingKey] = useState("");
-  const {copied, copyFailed, copy} = useCopyToClipboard();
+  const {copied, copyFailed, copy, reset: resetCopy} = useCopyToClipboard();
+  const activeRequest = useRef<AbortController | null>(null);
+  const resourceId = resource?.id;
+
+  // The material of a key the reader has left is not wanted any more, so the
+  // request for it is cancelled when the section goes away or the key changes.
+  useEffect(() => {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    return () => {
+      activeRequest.current?.abort();
+      activeRequest.current = null;
+    };
+  }, [resourceId]);
 
   const allowed = useMemo(
     () => (resource ? wrappingKeysFor(resource, resources, schema) : []),
@@ -60,10 +73,27 @@ export function PaymentCryptographyExportSection({
   );
 
   const exportMut = useMutation({
-    mutationFn: (target: CloudResource) =>
-      exportPaymentCryptographyKey(cloud, target.service, target.id, {
-        wrappingKeyArn: wrappingKey,
-      }),
+    // The material is the most secret thing this console holds, so it does not
+    // stay in the mutation cache once the section that shows it is gone.
+    gcTime: 0,
+    mutationFn: async (target: CloudResource) => {
+      activeRequest.current?.abort();
+      const controller = new AbortController();
+      activeRequest.current = controller;
+      try {
+        return await exportPaymentCryptographyKey(
+          cloud,
+          target.service,
+          target.id,
+          { wrappingKeyArn: wrappingKey },
+          controller.signal,
+        );
+      } catch (error) {
+        // The reader went away, so the refusal is not about them.
+        if (controller.signal.aborted) return null;
+        throw error;
+      }
+    },
   });
 
   const material = exportMut.data?.keyMaterial ?? "";
@@ -111,6 +141,9 @@ export function PaymentCryptographyExportSection({
             // The material of the last export is not the material of this one, so
             // it goes rather than being left on the screen under another key.
             exportMut.reset();
+            // The copy that was made was of that material, so its outcome is
+            // not claimed for this one.
+            resetCopy();
           }}
         >
           <option value="">Choose a wrapping key</option>
@@ -118,7 +151,7 @@ export function PaymentCryptographyExportSection({
             <option key={row.id} value={row.id}>
               {/* The name the operator knows the key by leads, because an ARN
                   is not something an operator remembers. */}
-              {namesOf(row).length > 0 ? `${namesOf(row).join(", ")} · ` : ""}
+              {namesOf(row).length > 0 ? `${namesLabel(namesOf(row))} · ` : ""}
               {row.metadata.keyUsage ? `${String(row.metadata.keyUsage)} · ` : ""}
               {row.metadata.keyAlgorithm ? `${String(row.metadata.keyAlgorithm)} · ` : ""}
               {row.name}
@@ -151,7 +184,7 @@ export function PaymentCryptographyExportSection({
           {candidatesSentence(resources, resourcesLoading, resourcesError, schema)}
         </p>
       )}
-      {exportMut.isSuccess && !material && (
+      {exportMut.isSuccess && !material && exportMut.data !== null && (
         <p className="muted compact-text">
           The service answered the export without any material, so there is nothing to copy.
         </p>

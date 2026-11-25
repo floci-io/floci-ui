@@ -16,7 +16,7 @@ import { DynamicFormRenderer } from "@/components/DynamicFormRenderer";
 import { ResourceInspector } from "@/components/ResourceInspector";
 import { ResourceTable } from "@/components/ResourceTable";
 import { StorageObjectBrowser } from "@/components/StorageObjectBrowser";
-import { displayNameOf, namesOf} from "@/lib/displayName";
+import { displayNameOf, namesLabel, namesOf} from "@/lib/displayName";
 import { getPath } from "@/lib/resourcePath";
 import { deleteWaves } from "@/lib/deleteOrder";
 import {
@@ -1430,8 +1430,9 @@ function optionLabel(row: CloudResource): string {
   // The name and the identity together, so a choice under a name that reads
   // like another kind of resource is still the resource it is: an alias in a
   // list of keys is the key that alias names, and the ARN beside it says so.
-  if (identity === friendly.join(', ')) return friendly.join(', ');
-  return `${friendly.join(', ')} · ${identity}`;
+  const label = namesLabel(friendly);
+  if (identity === label) return label;
+  return `${label} · ${identity}`;
 }
 
 function errorMessage(error: unknown): string {

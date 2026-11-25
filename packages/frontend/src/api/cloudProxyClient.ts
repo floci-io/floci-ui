@@ -54,6 +54,12 @@ const LOGS_QUERY_TIMEOUT_MS = 20_000;
 const INVOKE_TIMEOUT_MS = 120_000;
 /** The API stops emptying after 120s and keeps the connection for 150s, so wait past both. */
 const EMPTY_BUCKET_TIMEOUT_MS = 180_000;
+/**
+ * The API changes the Regions of a key with one command per Region, and each
+ * of them may be retried, so a request naming several of them takes several
+ * round trips.
+ */
+const REPLICATION_TIMEOUT_MS = 60_000;
 
 export async function listClouds(
   signal?: AbortSignal,
@@ -258,7 +264,7 @@ export async function setPaymentCryptographyKeyReplication(
 ): Promise<void> {
   await apiClient.call<void, { addReplicationRegions: string[]; removeReplicationRegions: string[] }>(
     apiEndpointKeys.clouds.resources.replication,
-    requestOptions(cloud, service, { signal, body }),
+    requestOptions(cloud, service, { signal, body, timeout: REPLICATION_TIMEOUT_MS }),
     { cloud, service, id },
   );
 }
