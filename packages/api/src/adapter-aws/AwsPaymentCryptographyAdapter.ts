@@ -181,6 +181,10 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // set the service has to diff.
         const added = regionList(input?.addReplicationRegions, 'addReplicationRegions')
         const removed = regionList(input?.removeReplicationRegions, 'removeReplicationRegions')
+        // A Region named in both lists says two things about the same Region,
+        // and the request is refused rather than resolved, because which of the
+        // two would happen depends on the state the key is in.
+        refuseAmbiguousRegions(added, removed)
         const key = await this.readKey(identifier)
         // A replica is read-only: the reference says a Replica Region key cannot
         // be configured to replicate to other Regions, so the API refuses what
@@ -911,11 +915,37 @@ function replicationRegionsOf(key: Key): string[] {
     return Object.keys(status).filter((region) => region !== key.PrimaryRegion)
 }
 
+/**
+ * A list of Region names, which is what a request about replication has to name.
+ *
+ * <p>A member that is not a list of names is a fault of the caller, not a quiet
+ * "nothing to change". A name that names no Region is refused as well, because
+ * the console's Region field is free text, and the same Region named twice is
+ * one Region, so the list holds it once.
+ */
 function regionList(value: unknown, field: string): string[] {
     if (!Array.isArray(value) || value.some((region) => typeof region !== 'string')) {
         throw new ValidationError(`the ${field} of the request must be a list of Region names`)
     }
-    return value as string[]
+    const names = value.map((region) => region.trim())
+    if (names.some((region) => region === '')) {
+        throw new ValidationError(`the ${field} of the request must not hold a blank Region name`)
+    }
+    return [...new Set(names)]
+}
+
+/**
+ * A Region named in both lists is ambiguous.
+ *
+ * <p>Which of the two would win depends on the state the key happens to be in,
+ * so the request is refused rather than resolved.
+ */
+function refuseAmbiguousRegions(added: string[], removed: string[]): void {
+    const ambiguous = added.filter((region) => removed.includes(region))
+    if (ambiguous.length === 0) return
+    throw new ValidationError(
+        `the request names ${ambiguous.length > 1 ? 'the Regions' : 'the Region'} ${ambiguous.join(', ')} both to add and to remove`,
+    )
 }
 
 function optionalString(value: unknown, field: string): string | undefined {
