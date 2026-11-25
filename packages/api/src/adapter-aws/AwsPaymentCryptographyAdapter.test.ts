@@ -1,4 +1,5 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
 import {
     CreateAliasCommand,
     CreateKeyCommand,
@@ -30,6 +31,21 @@ function stubClient(handler: (command: object) => SendResult | Promise<SendResul
         },
     } as unknown as PaymentCryptographyClient
     return {client, sent}
+}
+
+/**
+ * The doc block that sits above each method of a file, by the method's name.
+ *
+ * <p>A block that documents nothing is a block stacked on another one, so the
+ * map says where the blocks of the file really are.
+ */
+function documentedMethods(source: string): Map<string, string> {
+    const documented = new Map<string, string>()
+    const pattern = /((?:\/\*\*[\s\S]*?\*\/\s*)+)(?:public |private |protected )?(?:async )?([A-Za-z_]\w*)\s*\(/g
+    for (const match of source.matchAll(pattern)) {
+        documented.set(match[2], match[1])
+    }
+    return documented
 }
 
 const ARN = 'arn:aws:payment-cryptography:us-east-1:000000000000:key/4a1b2c3d4e5f60718293a4b5c6d7e8f9'
@@ -670,6 +686,19 @@ describe('AwsPaymentCryptographyAdapter', () => {
             await new AwsPaymentCryptographyAdapter(client).updateTags(KEY_ID, {})
 
             expect(sent).toHaveLength(0)
+        })
+    })
+
+    describe('the doc blocks of the adapter', () => {
+        test('every block sits above the method it documents', () => {
+            const source = readFileSync(new URL('./AwsPaymentCryptographyAdapter.ts', import.meta.url), 'utf8')
+            const documented = documentedMethods(source)
+
+            // The policy's block sits above setPolicy and the usage's above
+            // setUsage: a block stacked on another one documents neither.
+            expect(documented.get('setPolicy')).toContain('The policy that lets another account use a key.')
+            expect(documented.get('setUsage')).toContain('Whether a key may be used.')
+            expect(documented.get('setUsage')).not.toContain('The policy that lets another account use a key.')
         })
     })
 })

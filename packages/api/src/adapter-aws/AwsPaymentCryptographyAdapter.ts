@@ -165,12 +165,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /**
-     * The policy that lets another account use a key.
-     *
-     * <p>The route is the only way in, so this is what decides what the operation
-     * does.
-     */
-    /**
      * Whether a key may be used.
      *
      * <p>The route is the only way in, so this is what decides what the operation
@@ -188,6 +182,12 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         await setKeyUsage(this.client, identifier, enabled === true || enabled === 'true')
     }
 
+    /**
+     * The policy that lets another account use a key.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
     async setPolicy(id: string, input: Record<string, unknown>): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {

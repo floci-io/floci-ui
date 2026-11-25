@@ -300,12 +300,6 @@ export class CloudProxyService {
     }
 
     /**
-     * The policy that lets another account use a key.
-     *
-     * <p>Only the payment cryptography service has this, so the adapter's own
-     * method answers it.
-     */
-    /**
      * Whether a key may be used.
      *
      * <p>Only the payment cryptography service has this, so the adapter's own
@@ -327,6 +321,12 @@ export class CloudProxyService {
         await setter.setUsage(id, input)
     }
 
+    /**
+     * The policy that lets another account use a key.
+     *
+     * <p>Only the payment cryptography service has this, so the adapter's own
+     * method answers it.
+     */
     async setPaymentCryptographyKeyPolicy(
         cloud: CloudProvider,
         service: CloudServiceType,
