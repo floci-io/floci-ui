@@ -85,6 +85,7 @@ function runtimeStub(overrides: Record<string, SendResult | (() => never)> = {})
             // from the one that leaves.
             const named = (command as GetKeyCommand).input.KeyIdentifier
             if (named === key.KeyArn) return respond('get', {Key: key})
+            if (overrides.wrapping) return respond('wrapping', {Key: key})
             return {
                 Key: {
                     ...key,
@@ -551,7 +552,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
     describe("a key's material", () => {
         test("refuses a wrapping key that is too weak to carry the key", async () => {
             const {client, sent} = runtimeStub({
-                get: {Key: {...key, KeyAttributes: {...attributes, KeyAlgorithm: 'AES_256'}}},
+                get: {Key: {...key, Exportable: true, KeyAttributes: {...attributes, KeyAlgorithm: 'AES_256'}}},
             })
             const adapter = new AwsPaymentCryptographyAdapter(client)
 
@@ -562,13 +563,16 @@ describe('AwsPaymentCryptographyAdapter', () => {
         })
 
         test("exports a key under a TR-31 block", async () => {
-            const {client, sent} = runtimeStub()
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, Exportable: true}},
+                wrapping: {Key: {...key, KeyArn: OTHER_ARN}},
+            })
             const adapter = new AwsPaymentCryptographyAdapter(client)
 
-            const exported = await adapter.exportKey(KEY_ID, {wrappingKeyArn: ARN})
+            const exported = await adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_ARN})
 
             const request = sent.find((command) => command instanceof ExportKeyCommand) as ExportKeyCommand
-            expect(request.input.KeyMaterial).toEqual({Tr31KeyBlock: {WrappingKeyIdentifier: ARN}})
+            expect(request.input.KeyMaterial).toEqual({Tr31KeyBlock: {WrappingKeyIdentifier: OTHER_ARN}})
             expect(exported.keyMaterial).toBe('WRAPPED-BLOCK')
             expect(exported.keyCheckValue).toBe('404D63')
         })
@@ -586,6 +590,93 @@ describe('AwsPaymentCryptographyAdapter', () => {
                 Tr31KeyBlock: {WrappingKeyIdentifier: ARN, WrappedKeyBlock: 'WRAPPED-BLOCK'},
             })
             expect(created.id).toBe(KEY_ID)
+        })
+    })
+
+    describe('the key a block is wrapped under', () => {
+        const WRAPPING_ARN = 'arn:aws:payment-cryptography:us-east-1:000000000000:key/11111111111111111111111111111111'
+
+        test('refuses a wrapping key whose usage may not wrap a key', async () => {
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, Exportable: true}},
+                wrapping: {
+                    Key: {
+                        ...key,
+                        KeyArn: WRAPPING_ARN,
+                        KeyAttributes: {...attributes, KeyUsage: 'TR31_P0_PIN_ENCRYPTION_KEY'},
+                    },
+                },
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            // The reference names the wrapping key by its usage: a key encryption
+            // key or a key block protection key.
+            await expect(
+                adapter.exportKey(KEY_ID, {wrappingKeyArn: WRAPPING_ARN}),
+            ).rejects.toThrow(/may not wrap a key/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
+        test('refuses a wrapping key that is not allowed to wrap', async () => {
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, Exportable: true}},
+                wrapping: {
+                    Key: {
+                        ...key,
+                        KeyArn: WRAPPING_ARN,
+                        KeyAttributes: {...attributes, KeyModesOfUse: {Encrypt: true, Decrypt: true}},
+                    },
+                },
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.exportKey(KEY_ID, {wrappingKeyArn: WRAPPING_ARN}),
+            ).rejects.toThrow(/not allowed to wrap/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
+        test('refuses a wrapping key that is not enabled', async () => {
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, Exportable: true}},
+                wrapping: {Key: {...key, KeyArn: WRAPPING_ARN, Enabled: false}},
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.exportKey(KEY_ID, {wrappingKeyArn: WRAPPING_ARN}),
+            ).rejects.toThrow(/not enabled/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
+        test('refuses a key that may not carry itself', async () => {
+            const {client, sent} = runtimeStub({get: {Key: {...key, Exportable: true}}})
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.exportKey(KEY_ID, {wrappingKeyArn: KEY_ID}),
+            ).rejects.toThrow(/may not carry itself/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
+        test('the import path holds the wrapping key to the same rules', async () => {
+            const {client, sent} = runtimeStub({
+                wrapping: {
+                    Key: {
+                        ...key,
+                        KeyArn: WRAPPING_ARN,
+                        KeyAttributes: {...attributes, KeyUsage: 'TR31_P0_PIN_ENCRYPTION_KEY'},
+                    },
+                },
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.create({
+                    values: {source: 'import', wrappingKeyArn: WRAPPING_ARN, wrappedKeyBlock: 'WRAPPED-BLOCK'},
+                }),
+            ).rejects.toThrow(/may not wrap a key/)
+            expect(sent.some((command) => command instanceof ImportKeyCommand)).toBe(false)
         })
     })
 

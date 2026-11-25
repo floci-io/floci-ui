@@ -43,6 +43,9 @@ import {
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
     PAYMENT_CRYPTOGRAPHY_SOURCES,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
+    PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES,
+    isWrappingUsage,
+    modesAllowWrapping,
     wrappingAlgorithmsFor,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
@@ -133,13 +136,16 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // The form names a resource, and the resource id carries its kind, so the
         // prefix is taken off before the runtime is asked about it.
         const wrappingKeyArn = targetKeyArn(input?.wrappingKeyArn, 'wrappingKeyArn')
+        // A key may not carry itself, and the service refuses a key that does.
+        if (wrappingKeyArn === identifier) {
+            throw new ValidationError(`the key ${identifier} may not carry itself`)
+        }
 
         // The pairing is checked here as well as by the runtime, so a caller that
         // goes past the form is refused with the reference's own reason.
         const carried = await this.describe(identifier)
         if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
-        const wrapping = await this.describe(wrappingKeyArn)
-        if (!wrapping) throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not there`)
+        const wrapping = await this.requireWrappingKey(wrappingKeyArn)
 
         const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
         const wrappingAlgorithm = String(wrapping.KeyAttributes?.KeyAlgorithm ?? '')
@@ -456,12 +462,50 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
         const enabled = booleanValue(input.values.enabled, 'enabled', true)
 
+        // The block is wrapped under a key of the account, so the key is held
+        // to the same rules the export path holds it to.
+        await this.requireWrappingKey(wrappingKeyArn)
+
         const arn = await importKeyTr31(this.client, wrappingKeyArn, wrappedKeyBlock, enabled)
         if (!arn) throw new RuntimeError('Payment Cryptography did not return the key it imported')
 
         const key = await this.describe(arn)
         if (!key) throw new RuntimeError('Payment Cryptography did not return the key it imported')
         return toResource(key, {tags: []})
+    }
+
+    /**
+     * The key a block is wrapped under, held to the rules the reference holds
+     * it to.
+     *
+     * <p>The export and the import path both wrap a block under a key of the
+     * account, so both refuse the same keys: a key that is not there, a key
+     * whose usage may not wrap a key, a key that is not allowed to wrap and a
+     * disabled key.
+     */
+    private async requireWrappingKey(wrappingKeyArn: string): Promise<Key> {
+        const wrapping = await this.describe(wrappingKeyArn)
+        if (!wrapping) throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not there`)
+
+        // The reference names the wrapping key by its usage: a key encryption key
+        // or a key block protection key. A key with any other usage may not wrap
+        // a key, so it is refused here rather than by the service.
+        const usage = String(wrapping.KeyAttributes?.KeyUsage ?? '')
+        if (!isWrappingUsage(usage)) {
+            throw new ValidationError(
+                `the wrapping key ${wrappingKeyArn} has the usage ${usage || 'of an unknown usage'}, ` +
+                `which may not wrap a key: a wrapping key has to be one of ${PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES.join(', ')}`,
+            )
+        }
+        // A key that is allowed to encrypt may not wrap a block, and a disabled
+        // key does no work at all.
+        if (!modesAllowWrapping(wrapping.KeyAttributes?.KeyModesOfUse)) {
+            throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not allowed to wrap a key`)
+        }
+        if (wrapping.Enabled === false) {
+            throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not enabled`)
+        }
+        return wrapping
     }
 
     /** An alias points at a key, and the reference refuses one that points at none. */
