@@ -33,6 +33,9 @@ import {
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
     PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES,
+    isWrappingUsage,
+    mayWrapKey,
+    modesAllowWrapping,
     wrappingAlgorithmsFor,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
@@ -187,11 +190,19 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // or a key block protection key. A key with any other usage may not wrap
         // a key, so it is refused here rather than by the service.
         const wrappingUsage = String(wrapping.KeyAttributes?.KeyUsage ?? '')
-        if (!PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES.includes(wrappingUsage)) {
+        if (!isWrappingUsage(wrappingUsage)) {
             throw new ValidationError(
                 `the wrapping key ${wrappingKeyArn} has the usage ${wrappingUsage || 'of an unknown usage'}, ` +
                 `which may not wrap a key: a wrapping key has to be one of ${PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES.join(', ')}`,
             )
+        }
+        // A key that is allowed to encrypt may not wrap a block, and a disabled
+        // key does no work at all.
+        if (!modesAllowWrapping(wrapping.KeyAttributes?.KeyModesOfUse)) {
+            throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not allowed to wrap a key`)
+        }
+        if (wrapping.Enabled === false) {
+            throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not enabled`)
         }
 
         const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
@@ -562,6 +573,14 @@ function toResource(
             keyUsage: key.KeyAttributes?.KeyUsage,
             keyAlgorithm: key.KeyAttributes?.KeyAlgorithm,
             keyModesOfUse: key.KeyAttributes?.KeyModesOfUse,
+            // Whether the key may wrap another one is the service's to say, so it
+            // is published with the key rather than worked out by the console
+            // from the usage and the modes of use.
+            mayWrap: mayWrapKey(
+                key.KeyAttributes?.KeyUsage,
+                key.KeyAttributes?.KeyModesOfUse,
+                key.Enabled,
+            ),
             keyCheckValue: key.KeyCheckValue,
             keyCheckValueAlgorithm: key.KeyCheckValueAlgorithm,
             keyOrigin: key.KeyOrigin,

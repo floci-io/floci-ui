@@ -271,7 +271,53 @@ export const PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS: Record<string, string[]> 
 export const PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES = [
     'TR31_K0_KEY_ENCRYPTION_KEY',
     'TR31_K1_KEY_BLOCK_PROTECTION_KEY',
-]
+] as const
+
+/**
+ * The modes of use a key is allowed, as the service sends them.
+ *
+ * <p>Only the two that say whether the key may wrap are of interest here, but
+ * the whole set is named so the service's own answer may be handed over as it
+ * is.
+ */
+export type WrappingModes = Partial<Record<PaymentCryptographyModeOfUse, boolean>>
+
+/**
+ * Whether a key of this usage may wrap another key.
+ *
+ * <p>The usage says what the key is for, and the reference names the wrapping
+ * key by its usage: a key encryption key or a key block protection key.
+ */
+export function isWrappingUsage(usage: string | undefined): boolean {
+    if (usage === undefined) return false
+    return (PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES as readonly string[]).includes(usage)
+}
+
+/**
+ * Whether the modes of use allow a key to wrap a block.
+ *
+ * <p>A key that may wrap may do it, and a key with no restrictions may do
+ * anything at all. A key that may only encrypt may not wrap.
+ */
+export function modesAllowWrapping(modes: WrappingModes | undefined): boolean {
+    if (!modes) return false
+    return modes.Wrap === true || modes.NoRestrictions === true
+}
+
+/**
+ * Whether a key may wrap another key.
+ *
+ * <p>This is the one rule the adapter holds to and the console reads, so the
+ * two cannot disagree about which key may carry which: the state is published
+ * with every key rather than worked out by the console from the modes of use.
+ */
+export function mayWrapKey(
+    usage: string | undefined,
+    modes: WrappingModes | undefined,
+    enabled: boolean | undefined,
+): boolean {
+    return enabled !== false && isWrappingUsage(usage) && modesAllowWrapping(modes)
+}
 
 /**
  * The wrapping keys a key of one algorithm may leave under.
@@ -489,6 +535,9 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                     'The key the block is wrapped under. It has to be a key encryption key that may wrap, and at ' +
                     'least as strong as the key it carries.',
                 optionsFrom: 'key',
+                // Only the keys the service says may wrap are offered, so the
+                // form does not offer a key the service refuses.
+                optionsState: 'mayWrap',
             },
             {
                 name: 'wrappedKeyBlock',

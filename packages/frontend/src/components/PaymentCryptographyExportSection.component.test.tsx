@@ -49,6 +49,7 @@ const wrapping: CloudResource = {
   metadata: {
     enabled: true,
     exportable: true,
+    mayWrap: true,
     keyAlgorithm: "AES_256",
     keyUsage: "TR31_K0_KEY_ENCRYPTION_KEY",
     keyModesOfUse: {Wrap: true, Unwrap: true},

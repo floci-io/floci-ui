@@ -9,6 +9,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_KEY_USAGES,
 } from './paymentCryptographySchema'
 import {mayWrapWith} from './paymentCryptographySchema'
+import {mayWrapKey} from './paymentCryptographySchema'
 
 describe('awsPaymentCryptographySchema', () => {
     test('offers the tag editor for a key and not for an alias', () => {
@@ -25,6 +26,32 @@ describe('awsPaymentCryptographySchema', () => {
         const target = schema.fields.find(field => field.name === 'aliasTargetKey')
 
         expect(target?.optionsFrom).toBe('key')
+    })
+
+    test('the import form offers only the keys the service says may wrap', () => {
+        const schema = awsPaymentCryptographySchema()
+        const wrapping = schema.fields.find(field => field.name === 'wrappingKeyArn')
+
+        expect(wrapping?.optionsFrom).toBe('key')
+        // The state is the one the service publishes with every key, so the
+        // choices are the keys the service accepts.
+        expect(wrapping?.optionsState).toBe('mayWrap')
+    })
+
+    test('the rule of a wrapping key is one rule', () => {
+        // A key encryption key that may wrap and is enabled may wrap; the ones
+        // that do not hold are not.
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, true)).toBe(true)
+        expect(mayWrapKey('TR31_K1_KEY_BLOCK_PROTECTION_KEY', {Wrap: true}, true)).toBe(true)
+        // A key with no restrictions may do anything at all.
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {NoRestrictions: true}, true)).toBe(true)
+        // A usage that is not a wrapping one, a mode of use that does not allow
+        // wrapping and a disabled key are each a reason.
+        expect(mayWrapKey('TR31_D0_SYMMETRIC_DATA_ENCRYPTION_KEY', {Wrap: true}, true)).toBe(false)
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Encrypt: true}, true)).toBe(false)
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, false)).toBe(false)
+        // A key whose attributes were not read is not a wrapping key either.
+        expect(mayWrapKey(undefined, undefined, undefined)).toBe(false)
     })
 
     test('the matrix says which key may carry which', () => {

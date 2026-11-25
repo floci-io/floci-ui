@@ -1396,12 +1396,15 @@ function namesAnotherResource(schema: ServiceSchema | undefined): boolean {
  * The options of a field that names another resource of the same service.
  *
  * <p>The rows of the list are the resources the account holds now, so a field that
- * names one of them offers them rather than a list baked into the schema.
+ * names one of them offers them rather than a list baked into the schema. A field
+ * that may name only some of them says which state the service published, so the
+ * choices are the ones the service allows.
  */
 function optionsFromRows(field: FieldSchema, rows: CloudResource[] | undefined): FieldSchema {
   if (!field.optionsFrom) return field;
   const options = (rows ?? [])
     .filter((row) => row.type === field.optionsFrom)
+    .filter((row) => !field.optionsState || row.metadata[field.optionsState] === true)
     .map((row) => ({ label: row.name || row.id, value: row.id }));
   return { ...field, options };
 }

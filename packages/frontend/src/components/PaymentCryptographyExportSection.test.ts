@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {allowedAlgorithms, wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
+import {allowedAlgorithms, pairingsPublished, wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
 import type {CloudResource} from "@/types/resource";
 import type {ServiceSchema} from "@/types/schema";
 
@@ -27,12 +27,20 @@ const schema: ServiceSchema = {
   ],
 };
 
+/**
+ * A key of the account.
+ *
+ * <p>Whether the key may wrap another one is the state the service published
+ * with it, so it is named here rather than worked out from the usage and the
+ * modes of use.
+ */
 const key = (
   id: string,
   algorithm: string,
   usage = "TR31_K0_KEY_ENCRYPTION_KEY",
   modes: Record<string, boolean> = {Wrap: true, Unwrap: true},
   enabled = true,
+  mayWrap = true,
 ): CloudResource => ({
   id,
   name: id,
@@ -42,7 +50,7 @@ const key = (
   region: "us-east-1",
   createdAt: null,
   status: "CREATE_COMPLETE",
-  metadata: {keyAlgorithm: algorithm, keyUsage: usage, keyModesOfUse: modes, enabled},
+  metadata: {keyAlgorithm: algorithm, keyUsage: usage, keyModesOfUse: modes, enabled, mayWrap},
 });
 
 const carried = (algorithm: string): CloudResource =>
@@ -79,21 +87,24 @@ describe("the wrapping keys a key may leave under", () => {
     expect(wrappingKeysFor(carried("TDES_3KEY"), rows, schema).map((r) => r.id)).toEqual(["kek-aes128"]);
   });
 
-  it("offers only a key that may wrap, and is enabled", () => {
+  it("offers only the keys the service says may wrap", () => {
     const rows = [
-      // The service lets a key that may encrypt wrap as well, so a key with
-      // neither Wrap nor Encrypt is the one that cannot.
-      key("neither", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Generate: true}),
-      key("wrong-usage", "AES_256", "TR31_P0_PIN_ENCRYPTION_KEY", {Wrap: true}),
-      key("disabled", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Wrap: true}, false),
+      // The service says this one does not wrap, whatever its usage and its
+      // modes of use say.
+      key("not-a-wrapping-key", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Wrap: true}, true, false),
       key("good", "AES_256"),
     ];
 
     expect(wrappingKeysFor(carried("AES_256"), rows, schema).map((r) => r.id)).toEqual(["good"]);
   });
 
-  it("lets a key that may encrypt wrap, the way the service does", () => {
-    const rows = [key("encrypts", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Encrypt: true, Decrypt: true})];
+  it("reads the state the service published rather than the modes of use", () => {
+    const rows = [
+      // A key that may only encrypt, which the service says may wrap.
+      key("encrypts", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Encrypt: true, Decrypt: true}),
+      // A key that may wrap, which the service says does not.
+      key("does-not-wrap", "AES_256", "TR31_K0_KEY_ENCRYPTION_KEY", {Wrap: true}, true, false),
+    ];
 
     expect(wrappingKeysFor(carried("AES_256"), rows, schema).map((r) => r.id)).toEqual(["encrypts"]);
   });
@@ -113,14 +124,15 @@ describe("the wrapping keys a key may leave under", () => {
     expect(wrappingKeysFor(carried("ECC_NIST_P256"), rows, schema)).toEqual([]);
   });
 
-  it("allows every pairing when the service publishes no matrix", () => {
+  it("offers no key when the service publishes no matrix", () => {
     const rows = [key("kek-aes256", "AES_256")];
 
     // A service that publishes no matrix says nothing about what may carry
-    // what, so every pairing is allowed.
-    expect(wrappingKeysFor(carried("AES_256"), rows, undefined).map((r) => r.id)).toEqual([
-      "kek-aes256",
-    ]);
+    // what, and the adapter refuses a weaker key either way, so the console
+    // offers nothing rather than a key the service will refuse.
+    expect(wrappingKeysFor(carried("AES_256"), rows, undefined)).toEqual([]);
+    expect(pairingsPublished(schema)).toBe(true);
+    expect(pairingsPublished(undefined)).toBe(false);
   });
 
   it("reads the matrix the schema publishes", () => {
@@ -140,5 +152,17 @@ describe("the wrapping keys a key may leave under", () => {
       expect(allowedAlgorithms(schema, name)).toEqual([]);
       expect(wrappingKeysFor(carried(name), [key("kek-aes256", "AES_256")], schema)).toEqual([]);
     }
+  });
+
+  it("reads a malformed matrix as an empty one", () => {
+    // The schema arrives over the network and is not checked before it is read,
+    // so a malformed one leaves the list empty rather than crashing.
+    const malformed = {
+      ...schema,
+      pairings: [{discriminator: "keyAlgorithm", allowed: undefined}],
+    } as unknown as ServiceSchema;
+
+    expect(allowedAlgorithms(malformed, "AES_256")).toEqual([]);
+    expect(wrappingKeysFor(carried("AES_256"), [key("kek-aes256", "AES_256")], malformed)).toEqual([]);
   });
 });

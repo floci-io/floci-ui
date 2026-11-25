@@ -1,26 +1,22 @@
 /**
  * The keys that may carry a key that leaves the service.
  *
- * <p>Three rules, all of them the reference's: the wrapping key has to be a key
- * encryption key that may wrap, it has to be enabled, and it has to be at least as
- * strong as the key it carries. The last is the reference's own matrix, which the
- * service's schema publishes, so the panel and the adapter cannot disagree about
- * it.
+ * <p>The rule is the service's: it publishes which of its keys may wrap another
+ * one, and it publishes the matrix of what may carry what. The panel reads both
+ * of them, so it cannot disagree with the adapter about which key may carry
+ * which.
  */
 
 import type {CloudResource} from "@/types/resource";
 import type {PairingRule, ServiceSchema} from "@/types/schema";
 
-/** The usages a key may have when it wraps another key. */
-export const WRAPPING_USAGES = ["TR31_K0_KEY_ENCRYPTION_KEY", "TR31_K1_KEY_BLOCK_PROTECTION_KEY"];
-
 /**
  * The algorithms the service allows a key of this algorithm to be carried by.
  *
- * <p>The schema publishes the matrix, and a service that publishes none allows
- * every pairing. A matrix that is there but does not name an algorithm says
- * that no key of that algorithm may be carried at all, which is not the same
- * as a matrix that is not there.
+ * <p>The schema publishes the matrix, and a service that publishes none says
+ * nothing about what may carry what. A matrix that is there but does not name
+ * an algorithm says that no key of that algorithm may be carried at all, which
+ * is not the same as a matrix that is not there.
  *
  * @returns the algorithms the matrix names, an empty list when the matrix does
  * not name the algorithm, and nothing at all when the service publishes no
@@ -34,14 +30,38 @@ export function allowedAlgorithms(
     (each) => each.discriminator === "keyAlgorithm",
   );
   if (!rule) return undefined;
+  // The schema arrives over the network and is not checked before it is read, so
+  // a malformed one leaves the list empty rather than crashing the inspector.
+  const allowed = rule.allowed;
+  if (!allowed || typeof allowed !== "object") return [];
   // The algorithm comes from the service, so a name the prototype chain answers
   // for is not a row of the matrix.
-  if (!Object.prototype.hasOwnProperty.call(rule.allowed, carriedAlgorithm)) return [];
-  return rule.allowed[carriedAlgorithm];
+  if (!Object.prototype.hasOwnProperty.call(allowed, carriedAlgorithm)) return [];
+  const row = allowed[carriedAlgorithm];
+  return Array.isArray(row) ? row : [];
+}
+
+/**
+ * Whether the service has published which keys may carry which.
+ *
+ * <p>A service that publishes no matrix says nothing about what may carry
+ * what, which is not the same as a service that published one and named no key
+ * that may carry this one.
+ */
+export function pairingsPublished(schema: ServiceSchema | undefined): boolean {
+  return Boolean(
+    schema?.pairings?.some((each: PairingRule) => each.discriminator === "keyAlgorithm"),
+  );
 }
 
 /**
  * The keys that may carry the key being exported.
+ *
+ * <p>Whether a key may wrap another one is the service's to say, so the state
+ * it published with every key is what the console reads. A service that
+ * publishes no matrix says nothing about what may carry what, and the adapter
+ * refuses a weaker key either way, so the console offers nothing rather than a
+ * key the service will refuse.
  */
 export function wrappingKeysFor(
   carried: CloudResource,
@@ -50,21 +70,12 @@ export function wrappingKeysFor(
 ): CloudResource[] {
   const carriedAlgorithm = String(carried.metadata.keyAlgorithm ?? "");
   const allowed = allowedAlgorithms(schema, carriedAlgorithm);
+  if (allowed === undefined) return [];
 
   return (resources ?? []).filter((row) => {
     if (row.type !== "key") return false;
-    if (row.metadata.enabled === false) return false;
-    const usage = String(row.metadata.keyUsage ?? "");
-    if (!WRAPPING_USAGES.includes(usage)) return false;
-    const modes = row.metadata.keyModesOfUse as Record<string, boolean> | undefined;
-    // The service lets a key that may encrypt wrap as well, so a key with neither
-    // Wrap nor Encrypt is the one that cannot.
-    if (modes && !modes.Wrap && !modes.Encrypt) return false;
+    if (row.metadata.mayWrap !== true) return false;
     const algorithm = String(row.metadata.keyAlgorithm ?? "");
-    // A service that publishes no matrix says nothing about what may carry
-    // what, so every pairing is allowed. A matrix that does not name the
-    // carried algorithm says that no key may carry it.
-    if (allowed === undefined) return true;
     return allowed.includes(algorithm);
   });
 }

@@ -524,6 +524,102 @@ describe('AwsPaymentCryptographyAdapter', () => {
             await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toThrow(/may not wrap/)
             expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
         })
+
+        test('refuses a wrapping key whose modes do not let it wrap', async () => {
+            // The usage is a wrapping one, but the key is only allowed to
+            // encrypt, so it may not wrap a block.
+            const encryptOnly = {
+                ...key,
+                KeyArn: OTHER_ARN,
+                KeyAttributes: {
+                    ...attributes,
+                    KeyModesOfUse: {Encrypt: true, Decrypt: true, Wrap: false, Unwrap: false},
+                },
+            }
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) {
+                    const named = (command as GetKeyCommand).input.KeyIdentifier
+                    return {Key: named === OTHER_ARN ? encryptOnly : key}
+                }
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toBeInstanceOf(ValidationError)
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toThrow(/not allowed to wrap/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
+        test('refuses a wrapping key that is disabled', async () => {
+            // A disabled key does no work, so it may not wrap a key.
+            const disabled = {...key, KeyArn: OTHER_ARN, Enabled: false}
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) {
+                    const named = (command as GetKeyCommand).input.KeyIdentifier
+                    return {Key: named === OTHER_ARN ? disabled : key}
+                }
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toBeInstanceOf(ValidationError)
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toThrow(/not enabled/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+    })
+
+    describe('the state of a key', () => {
+        test('publishes whether the key may wrap another one', async () => {
+            const {client} = runtimeStub()
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            // The key is a key encryption key that may wrap and is enabled, so it
+            // may carry another key.
+            const [row] = await adapter.list()
+            expect(row?.metadata.mayWrap).toBe(true)
+        })
+
+        test('publishes that a payment key does not wrap another one', async () => {
+            const paymentKey = {
+                ...key,
+                KeyAttributes: {...attributes, KeyUsage: 'TR31_D0_SYMMETRIC_DATA_ENCRYPTION_KEY'},
+            }
+            const {client} = runtimeStub({get: {Key: paymentKey}})
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            const [row] = await adapter.list()
+            expect(row?.metadata.mayWrap).toBe(false)
+        })
+
+        test('publishes that a key without the wrap mode does not wrap another one', async () => {
+            const encryptOnly = {
+                ...key,
+                KeyAttributes: {
+                    ...attributes,
+                    KeyModesOfUse: {Encrypt: true, Decrypt: true, Wrap: false, Unwrap: false},
+                },
+            }
+            const {client} = runtimeStub({get: {Key: encryptOnly}})
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            const [row] = await adapter.list()
+            expect(row?.metadata.mayWrap).toBe(false)
+        })
+
+        test('publishes that a key with no restrictions may wrap another one', async () => {
+            const unrestricted = {
+                ...key,
+                KeyAttributes: {
+                    ...attributes,
+                    KeyModesOfUse: {Encrypt: false, Decrypt: false, Wrap: false, Unwrap: false, NoRestrictions: true},
+                },
+            }
+            const {client} = runtimeStub({get: {Key: unrestricted}})
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            const [row] = await adapter.list()
+            expect(row?.metadata.mayWrap).toBe(true)
+        })
     })
 
     test('the health check reads one page rather than every key in the account', async () => {
