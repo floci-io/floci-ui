@@ -2613,3 +2613,146 @@ describe('empty bucket route', () => {
         expect(requested).toEqual(['eu-central-1', 'us-west-2', undefined])
     })
 })
+
+describe('payment cryptography key routes', () => {
+    const KEY_URL = '/api/clouds/aws/services/paymentcryptography/resources/key-1'
+    const json = {'content-type': 'application/json'}
+
+    function paymentCryptographyAdapter(overrides: Partial<CloudServiceAdapter>): CloudServiceAdapter {
+        return mockAdapter('aws', {service: 'paymentcryptography', ...overrides})
+    }
+
+    test('the policy route hands the policy to the adapter', async () => {
+        let written: unknown
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            setPolicy: async (_id: string, input: Record<string, unknown>) => {
+                written = input
+            },
+        })])
+
+        const res = await app.request(`${KEY_URL}/policy`, {
+            method: 'POST',
+            headers: json,
+            body: JSON.stringify({policy: '{"Version":"2012-10-17"}'}),
+        })
+
+        expect(res.status).toBe(200)
+        expect(written).toEqual({policy: '{"Version":"2012-10-17"}'})
+    })
+
+    test('a refusal of the policy is answered with its reason', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            setPolicy: async () => {
+                throw new ValidationError('the request must say what the policy is')
+            },
+        })])
+
+        const res = await app.request(`${KEY_URL}/policy`, {
+            method: 'POST',
+            headers: json,
+            body: JSON.stringify({}),
+        })
+
+        expect(res.status).toBe(400)
+        expect((await res.json()).message).toContain('must say what the policy is')
+    })
+
+    test('the replication route hands the Regions to the adapter', async () => {
+        let written: unknown
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            setReplication: async (_id: string, input: Record<string, unknown>) => {
+                written = input
+            },
+        })])
+
+        const res = await app.request(`${KEY_URL}/replication`, {
+            method: 'POST',
+            headers: json,
+            body: JSON.stringify({addReplicationRegions: ['us-east-2'], removeReplicationRegions: []}),
+        })
+
+        expect(res.status).toBe(200)
+        expect(written).toEqual({addReplicationRegions: ['us-east-2'], removeReplicationRegions: []})
+    })
+
+    test('the export route refuses a request that names no wrapping key', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            exportKey: async () => ({
+                keyMaterial: 'WRAPPED-BLOCK',
+                format: 'TR31_KEY_BLOCK',
+                wrappingKeyArn: null,
+                keyCheckValue: null,
+            }),
+        })])
+
+        for (const body of [{}, {wrappingKeyArn: 42}, {wrappingKeyArn: '   '}]) {
+            const res = await app.request(`${KEY_URL}/export`, {
+                method: 'POST',
+                headers: json,
+                body: JSON.stringify(body),
+            })
+
+            expect(res.status).toBe(400)
+        }
+    })
+
+    test('the export route answers with the material and does not store it', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            exportKey: async () => ({
+                keyMaterial: 'WRAPPED-BLOCK',
+                format: 'TR31_KEY_BLOCK',
+                wrappingKeyArn: null,
+                keyCheckValue: null,
+            }),
+        })])
+
+        const res = await app.request(`${KEY_URL}/export`, {
+            method: 'POST',
+            headers: json,
+            body: JSON.stringify({wrappingKeyArn: 'key/wrapping'}),
+        })
+
+        expect(res.status).toBe(200)
+        expect(res.headers.get('cache-control')).toBe('no-store')
+        expect((await res.json()).keyMaterial).toBe('WRAPPED-BLOCK')
+    })
+
+    test('the export route does not store the error about it either', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            exportKey: async () => {
+                throw new RuntimeError('Payment Cryptography did not return the key material it exported')
+            },
+        })])
+
+        const res = await app.request(`${KEY_URL}/export`, {
+            method: 'POST',
+            headers: json,
+            body: JSON.stringify({wrappingKeyArn: 'key/wrapping'}),
+        })
+
+        expect(res.status).toBe(502)
+        expect(res.headers.get('cache-control')).toBe('no-store')
+    })
+
+    test('the export route masks the text of the service', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            exportKey: async () => {
+                throw Object.assign(new Error('the account 111122223333 said no'), {
+                    name: 'ValidationException',
+                    $metadata: {httpStatusCode: 400},
+                })
+            },
+        })])
+
+        const res = await app.request(`${KEY_URL}/export`, {
+            method: 'POST',
+            headers: json,
+            body: JSON.stringify({wrappingKeyArn: 'key/wrapping'}),
+        })
+
+        expect(res.status).toBe(400)
+        const body = await res.json()
+        // The words of the service are not the console's to show.
+        expect(JSON.stringify(body)).not.toContain('111122223333')
+    })
+})
