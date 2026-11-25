@@ -168,27 +168,38 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         ])
         const resource = toResource(key, tags, certificate)
         // The key carries the names it was given here as well as in the list, so
-        // the two never disagree about what a key is called.
-        const names = aliases.map((alias) => alias.AliasName).filter((name): name is string => Boolean(name))
+        // the two never disagree about what a key is called. The names are the
+        // aliases that name this key, so the ones that name another key are
+        // left out: the list path tells an alias from its key by the ARN, and
+        // the detail path does the same.
+        const names = aliases.aliases
+            .filter((alias) => alias.KeyArn === arn)
+            .map((alias) => alias.AliasName)
+            .filter((name): name is string => Boolean(name))
         if (names.length > 0) resource.metadata.names = names
+        // The names that could not be read are said so, so a key whose aliases
+        // could not be read is not read as a key that has none.
+        if (aliases.unavailable) resource.metadata.namesUnavailable = true
         return resource
     }
 
     /**
-     * The aliases that name one key.
+     * The aliases that name one key, or the reason they could not be read.
      *
      * <p>The service lists the aliases of a key when it is asked for them, so
      * the key's own detail can say what it is called.
      *
      * <p>A read that fails leaves the names unknown and the key standing: a key
      * whose names could not be read is still a key, and the console says what
-     * it does not know rather than losing the key with it.
+     * it does not know rather than losing the key with it. The marker is
+     * published so a key whose aliases could not be read is not read as a key
+     * that has none.
      */
-    private async aliasesOf(keyArn: string): Promise<Alias[]> {
+    private async aliasesOf(keyArn: string): Promise<{aliases: Alias[]; unavailable: boolean}> {
         try {
-            return await this.listAliases(keyArn)
+            return {aliases: await this.listAliases(keyArn), unavailable: false}
         } catch {
-            return []
+            return {aliases: [], unavailable: true}
         }
     }
 
@@ -250,10 +261,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // The form names a resource, and the resource id carries its kind, so the
         // prefix is taken off before the runtime is asked about it.
         const wrappingKeyArn = targetKeyArn(input?.wrappingKeyArn, 'wrappingKeyArn')
-        // A key may not carry itself, and the service refuses a key that does.
-        if (wrappingKeyArn === identifier) {
-            throw new ValidationError(`the key ${identifier} may not carry itself`)
-        }
 
         const carried = await this.describe(identifier)
         if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
@@ -263,6 +270,17 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             throw new ValidationError(`the key ${identifier} is not exportable, so its material does not leave`)
         }
         const wrapping = await this.requireWrappingKey(wrappingKeyArn)
+        // The service takes an ARN, and a key may have been asked for by an alias
+        // or a short id, so the two keys are addressed by the ARN they resolved
+        // to rather than by the identifier the request named.
+        const carriedArn = carried.KeyArn ?? identifier
+        const wrappingArn = wrapping.KeyArn ?? wrappingKeyArn
+        // A key may not carry itself, and the service refuses a key that does.
+        // The two are compared by the ARN they resolved to, so a key that is
+        // named two ways is caught as well.
+        if (carriedArn === wrappingArn) {
+            throw new ValidationError(`the key ${identifier} may not carry itself`)
+        }
 
         const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
         const wrappingAlgorithm = String(wrapping.KeyAttributes?.KeyAlgorithm ?? '')
@@ -277,7 +295,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             )
         }
 
-        return exportKeyTr31(this.client, identifier, wrappingKeyArn)
+        return exportKeyTr31(this.client, carriedArn, wrappingArn)
     }
 
     /**

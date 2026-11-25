@@ -691,6 +691,44 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
         })
 
+        test('the export is made with the ARN the keys resolved to', async () => {
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) {
+                    // The key asked for by a short id is the key the service
+                    // resolves it to, and the wrapping key is another one.
+                    const named = (command as GetKeyCommand).input.KeyIdentifier
+                    return {Key: named === OTHER_ARN ? {...key, KeyArn: OTHER_ARN} : key}
+                }
+                if (command instanceof ExportKeyCommand) {
+                    return {WrappedKey: {KeyMaterial: 'WRAPPED-BLOCK', WrappingKeyArn: OTHER_ARN, WrappedKeyMaterialFormat: 'TR31_KEY_BLOCK', KeyCheckValue: '404D63'}}
+                }
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await adapter.exportKey('key/abcd1234', {wrappingKeyArn: OTHER_KEY_ID})
+
+            const request = sent.find((command) => command instanceof ExportKeyCommand) as ExportKeyCommand
+            expect(request.input.ExportKeyIdentifier).toBe(ARN)
+        })
+
+        test('a key that is named two ways may not carry itself', async () => {
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) {
+                    // Both names are the same key, so the key that is asked for
+                    // by a short id and the key that is named by its ARN are one.
+                    return {Key: key}
+                }
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(
+                adapter.exportKey('key/abcd1234', {wrappingKeyArn: 'key/abcd1234'}),
+            ).rejects.toThrow(/may not carry itself/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
+
         test('refuses a key that is asked to carry itself', async () => {
             // A key may not be its own wrapping key, and the service refuses a
             // key that carries itself.
@@ -709,7 +747,11 @@ describe('AwsPaymentCryptographyAdapter', () => {
             // Every other answer of the service is checked, so an export that
             // produced nothing is refused too rather than reported as a success.
             const {client} = stubClient((command) => {
-                if (command instanceof GetKeyCommand) return {Key: key}
+                if (command instanceof GetKeyCommand) {
+                    // The wrapping key is another key than the one that leaves.
+                    const named = (command as GetKeyCommand).input.KeyIdentifier
+                    return {Key: named === OTHER_ARN ? {...key, KeyArn: OTHER_ARN} : key}
+                }
                 if (command instanceof ExportKeyCommand) return {}
                 return {}
             })

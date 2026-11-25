@@ -1159,12 +1159,7 @@ export function createCloudRoutes(
         const serviceType = c.req.param('service') as CloudServiceType
         if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
 
-        return withRuntime(c, async () => {
-            // The material a key leaves under is the most secret thing this API
-            // answers with, so neither it nor the error about it may be stored.
-            // The header is set here rather than by the sensitive helper, which
-            // would hide the reason the wrapping key was refused.
-            c.header('cache-control', 'no-store')
+        return withPaymentCryptographyRuntime(c, async () => {
             // The body is checked rather than cast, so a value that is not a
             // string never reaches the adapter as one.
             const body = await jsonBody<Record<string, unknown>>(c)
@@ -1431,6 +1426,34 @@ async function withSensitiveRuntime(c: Context, handler: () => Promise<Response>
         const {status, body} = toHttpError(err, mapAwsSdkError)
         if (err instanceof KmsRequestValidationError) return c.json(body, status)
         const message = body.code === 'invalid_request' ? 'KMS rejected the request' : body.error
+        return c.json({error: message, code: body.code, message}, status)
+    }
+}
+
+/**
+ * The route that hands out the material a key leaves under.
+ *
+ * <p>The material is the most secret thing this API answers with, so the words
+ * of the service are not answered with it: a refusal of the API is the
+ * console's to show, and the text of the service is masked, the way the KMS
+ * crypto routes mask it.
+ *
+ * <p>The refusal of the adapter is a CloudError of this API, so it is told
+ * apart from the failure of the service, which is not one and whose text may
+ * name the account, the key or the request.
+ */
+async function withPaymentCryptographyRuntime(
+    c: Context,
+    handler: () => Promise<Response>,
+): Promise<Response> {
+    c.header('cache-control', 'no-store')
+    try {
+        return await handler()
+    } catch (err) {
+        const {status, body} = toHttpError(err, mapAwsSdkError)
+        if (err instanceof CloudError) return c.json(body, status)
+        const message =
+            body.code === 'invalid_request' ? 'Payment Cryptography rejected the request' : body.error
         return c.json({error: message, code: body.code, message}, status)
     }
 }

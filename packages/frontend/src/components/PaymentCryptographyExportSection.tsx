@@ -73,6 +73,9 @@ export function PaymentCryptographyExportSection({
   );
 
   const exportMut = useMutation({
+    // The material is the most secret thing this console holds, so it does not
+    // stay in the mutation cache once the section that shows it is gone.
+    gcTime: 0,
     mutationFn: async (target: CloudResource) => {
       activeRequest.current?.abort();
       const controller = new AbortController();
