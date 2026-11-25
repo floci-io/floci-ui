@@ -188,6 +188,11 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
 
         const carried = await this.describe(identifier)
         if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
+        // A key that may not leave does not leave, and the service refuses it,
+        // so the reason is given here rather than there.
+        if (carried.Exportable === false) {
+            throw new ValidationError(`the key ${identifier} is not exportable, so its material does not leave`)
+        }
         const wrapping = await this.describe(wrappingKeyArn)
         if (!wrapping) throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not there`)
 

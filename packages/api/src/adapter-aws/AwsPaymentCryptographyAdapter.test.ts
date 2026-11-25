@@ -59,7 +59,9 @@ const key = {
     KeyCheckValue: '3F2A1B',
     KeyCheckValueAlgorithm: 'CMAC',
     Enabled: true,
-    Exportable: false,
+    // A key that may leave, so the export tests are about the wrapping key
+    // rather than about the key that leaves.
+    Exportable: true,
     KeyState: 'CREATE_COMPLETE',
     KeyOrigin: 'AWS_PAYMENT_CRYPTOGRAPHY',
     CreateTimestamp: new Date('2026-11-04T09:15:00.000Z'),
@@ -160,7 +162,7 @@ describe('AwsPaymentCryptographyAdapter', () => {
                 keyAlgorithm: 'AES_256',
                 keyCheckValue: '3F2A1B',
                 enabled: true,
-                exportable: false,
+                exportable: true,
             })
         })
 
@@ -592,6 +594,19 @@ describe('AwsPaymentCryptographyAdapter', () => {
             const adapter = new AwsPaymentCryptographyAdapter(client)
 
             await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toBeInstanceOf(RuntimeError)
+        })
+
+        test('refuses a key that may not leave', async () => {
+            // A key that is not exportable does not leave, and the service
+            // refuses it, so the reason is given here rather than there.
+            const {client, sent} = runtimeStub({
+                get: {Key: {...key, Exportable: false}},
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toBeInstanceOf(ValidationError)
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toThrow(/not exportable/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
         })
     })
 
