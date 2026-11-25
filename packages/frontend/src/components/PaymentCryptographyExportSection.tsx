@@ -82,6 +82,12 @@ export function PaymentCryptographyExportSection({
   }
   if (!resource) return null;
 
+  // The API publishes whether the key may leave. A key it said nothing about is
+  // neither able to leave nor unable to, so the console does not work the state
+  // out for itself.
+  const exportable =
+    typeof resource.metadata.exportable === "boolean" ? resource.metadata.exportable : null;
+
   return (
     <section className="inspector-section">
       <p className="metric-label">Export</p>
@@ -119,8 +125,10 @@ export function PaymentCryptographyExportSection({
           disabled={
             !runtimeReachable ||
             exportMut.isPending ||
-            wrappingKey === "" ||
-            resource.metadata.exportable === false
+            // The chosen key has to be one of the keys the service still
+            // offers, or the request asks it to wrap under a key it refuses.
+            !allowed.some((row) => row.id === wrappingKey) ||
+            exportable !== true
           }
           onClick={() => exportMut.mutate(resource)}
         >
@@ -128,10 +136,16 @@ export function PaymentCryptographyExportSection({
           Export key
         </button>
       </div>
-      {resource.metadata.exportable === false && (
+      {exportable === false && (
         <p className="muted compact-text">
           This key is not exportable, so its material does not leave. A key that
-          has to be shared is made exportable.
+          has to be shared is made exportable when it is made.
+        </p>
+      )}
+      {exportable === null && (
+        <p className="muted compact-text">
+          The service did not say whether the key may leave, so the export is not
+          offered.
         </p>
       )}
       {allowed.length === 0 && (

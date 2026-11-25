@@ -66,20 +66,32 @@ function renderSection(
   } = {},
 ) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
-  const resources = state.resources === undefined ? [wrapping] : state.resources ?? undefined;
-  render(
-    <QueryClientProvider client={client}>
-      <PaymentCryptographyExportSection
-        cloud="aws"
-        resource={resource}
-        resources={resources}
-        resourcesLoading={state.resourcesLoading}
-        resourcesError={state.resourcesError}
-        schema={schema}
-        runtimeReachable={true}
-      />
-    </QueryClientProvider>,
-  );
+  const view = (next: {resources?: CloudResource[] | null} = {}) => {
+    const resources =
+      next.resources === undefined
+        ? state.resources === undefined
+          ? [wrapping]
+          : state.resources ?? undefined
+        : next.resources ?? undefined;
+    return (
+      <QueryClientProvider client={client}>
+        <PaymentCryptographyExportSection
+          cloud="aws"
+          resource={resource}
+          resources={resources}
+          resourcesLoading={state.resourcesLoading}
+          resourcesError={state.resourcesError}
+          schema={schema}
+          runtimeReachable={true}
+        />
+      </QueryClientProvider>
+    );
+  };
+  const rendered = render(view());
+  return {
+    /** The account's keys are read again, and hold a different list. */
+    rerenderWithKeys: (resources: CloudResource[] | null) => rendered.rerender(view({resources})),
+  };
 }
 
 describe("the material a payment key leaves under", () => {
@@ -106,6 +118,35 @@ describe("the material a payment key leaves under", () => {
     renderSection({...key, metadata: {...key.metadata, exportable: false}}, {resources: [wrapping]});
 
     expect(screen.getByText(/not exportable/)).toBeDefined();
+    expect(screen.getByRole("button", {name: /Export key/i}).hasAttribute("disabled")).toBe(true);
+    // Exportability is fixed when the key is made, so the advice says so
+    // rather than sending the reader looking for a control that is not there.
+    expect(screen.getByText(/made exportable when it is made/)).toBeDefined();
+  });
+
+  it("does not offer the export when the service did not say whether the key may leave", async () => {
+    const user = userEvent.setup();
+    renderSection({...key, metadata: {...key.metadata, exportable: undefined}}, {resources: [wrapping]});
+
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
+
+    // The service said nothing, so the console does not work the state out for
+    // itself, and the export is not offered.
+    expect(screen.getByRole("button", {name: /Export key/i}).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("does not offer the export when the chosen key is no longer offered", async () => {
+    const user = userEvent.setup();
+    const {rerenderWithKeys} = renderSection(key, {resources: [wrapping]});
+
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
+    expect(screen.getByRole("button", {name: /Export key/i}).hasAttribute("disabled")).toBe(false);
+
+    // The account's keys are read again and the chosen key is no longer among
+    // them, so the control has no option for it any more and the export must
+    // not ask the service to wrap under a key it will refuse.
+    rerenderWithKeys([]);
+
     expect(screen.getByRole("button", {name: /Export key/i}).hasAttribute("disabled")).toBe(true);
   });
 
