@@ -121,10 +121,7 @@ export function PaymentCryptographyExportSection({
       <p className="muted compact-text">
         The key leaves under a TR-31 block the service wraps with a key of this account.
       </p>
-      <div
-        className="input-row"
-        style={{ padding: "8px 0", borderBottom: "none", background: "none" }}
-      >
+      <div className="input-row inspector-input-row">
         <select
           className="input"
           aria-label="Wrapping key"

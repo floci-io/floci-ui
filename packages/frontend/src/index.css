@@ -2888,6 +2888,14 @@ pre,
     padding: 12px 16px;
 }
 
+/* A row of the inspector that is not a row of a table: the frame of the table
+   is not the frame of the inspector. */
+.inspector-input-row {
+    padding: 8px 0;
+    border-bottom: none;
+    background: none;
+}
+
 .inspector-section-header {
     display: flex;
     align-items: center;

@@ -1,3 +1,5 @@
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
 import {render, screen, waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
@@ -254,6 +256,20 @@ describe("the material a payment key leaves under", () => {
     // behind is not fetched any more.
     unmount();
     expect(signal?.aborted).toBe(true);
+  });
+
+  it("the layout of the row is in the stylesheet", async () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/components/PaymentCryptographyExportSection.tsx"),
+      "utf8",
+    );
+    const stylesheet = readFileSync(resolve(process.cwd(), "src/index.css"), "utf8");
+
+    // The rule that overrides the frame of the table belongs beside the other
+    // rules rather than in the markup.
+    expect(source).not.toContain("style={{");
+    expect(source).toContain("inspector-input-row");
+    expect(stylesheet).toContain(".inspector-input-row");
   });
 
   it("says so when the clipboard refuses", async () => {
