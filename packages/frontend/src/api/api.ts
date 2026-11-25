@@ -530,14 +530,6 @@ export const endpointRegistry: EndpointRegistry = new Map([
     },
   ],
   [
-    apiEndpointKeys.clouds.resources.usage,
-    {
-      path: "/clouds/:cloud/services/:service/resources/:id/usage",
-      method: "POST",
-      telemetry: { service: "cloud-proxy" },
-    },
-  ],
-  [
     apiEndpointKeys.clouds.resources.replication,
     {
       path: "/clouds/:cloud/services/:service/resources/:id/replication",
