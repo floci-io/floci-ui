@@ -327,12 +327,13 @@ export class CloudProxyService {
         cloud: CloudProvider,
         service: CloudServiceType,
         id: string,
-        input: {wrappingKeyArn: string},
+        input: {wrappingKeyArn?: unknown},
     ): Promise<ExportedKeyMaterial> {
         const adapter = this.requireAdapter(cloud, service)
         const exporter = this.optionalVerb(adapter, 'exportKey', `${cloud}/${service} does not export keys`)
-        // The body reaches the adapter as a checked string, so the contract the
-        // adapter holds to is the one this service states.
+        // The body is what the caller sent, which is not checked before it
+        // reaches here, so the value is checked here: the adapter is handed the
+        // string the contract says it is handed.
         const wrappingKeyArn = typeof input?.wrappingKeyArn === 'string' ? input.wrappingKeyArn.trim() : ''
         if (!wrappingKeyArn) throw new ValidationError('wrappingKeyArn is required')
         return exporter(id, {wrappingKeyArn})

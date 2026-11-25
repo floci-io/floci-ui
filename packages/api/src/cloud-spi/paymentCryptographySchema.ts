@@ -247,7 +247,7 @@ export const PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS = {
     AES_128: ['AES_128', 'AES_192', 'AES_256'],
     AES_192: ['AES_192', 'AES_256'],
     AES_256: ['AES_256'],
-} satisfies Readonly<Partial<Record<PaymentCryptographyKeyAlgorithm, readonly string[]>>>
+} satisfies Readonly<Partial<Record<PaymentCryptographyKeyAlgorithm, readonly PaymentCryptographyKeyAlgorithm[]>>>
 
 /**
  * The usages a key may have when it wraps another key.
@@ -281,6 +281,21 @@ export function isWrappingUsage(usage: string | undefined): boolean {
 }
 
 /**
+ * The matrix as it is published: a frozen copy of it.
+ *
+ * <p>The matrix is the very table the schema publishes, and a caller that
+ * changed it would change what every other caller believes, so the copy is
+ * frozen.
+ */
+function frozenWrappingAlgorithms(): Readonly<Partial<Record<PaymentCryptographyKeyAlgorithm, readonly PaymentCryptographyKeyAlgorithm[]>>> {
+    const frozen: Record<string, readonly PaymentCryptographyKeyAlgorithm[]> = {}
+    for (const [algorithm, allowed] of Object.entries(PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS)) {
+        frozen[algorithm] = Object.freeze([...allowed])
+    }
+    return Object.freeze(frozen)
+}
+
+/**
  * Whether the modes of use allow a key to wrap a block.
  *
  * <p>A key that may wrap may do it, and a key with no restrictions may do
@@ -289,6 +304,21 @@ export function isWrappingUsage(usage: string | undefined): boolean {
 export function modesAllowWrapping(modes: WrappingModes | undefined): boolean {
     if (!modes) return false
     return modes.Wrap === true || modes.NoRestrictions === true
+}
+
+/**
+ * Whether the modes of use allow a key to unwrap a block.
+ *
+ * <p>A key that may unwrap may do it, and a key with no restrictions may do
+ * anything at all. A key that may only encrypt may not unwrap.
+ *
+ * <p>This is the other half of the rule above: a key that leaves under a block
+ * wraps it, and a key that a block comes in under unwraps it, so the two are
+ * read apart.
+ */
+export function modesAllowUnwrapping(modes: WrappingModes | undefined): boolean {
+    if (!modes) return false
+    return modes.Unwrap === true || modes.NoRestrictions === true
 }
 
 /**
@@ -308,6 +338,20 @@ export function mayWrapKey(
     enabled: boolean | undefined,
 ): boolean {
     return enabled === true && isWrappingUsage(usage) && modesAllowWrapping(modes)
+}
+
+/**
+ * Whether a key may unwrap a block that comes in under it.
+ *
+ * <p>This is the other half of the rule above, and it is read the same way: a
+ * state that was not read is not a permission.
+ */
+export function mayUnwrapKey(
+    usage: string | undefined,
+    modes: WrappingModes | undefined,
+    enabled: boolean | undefined,
+): boolean {
+    return enabled === true && isWrappingUsage(usage) && modesAllowUnwrapping(modes)
 }
 
 /**
@@ -548,9 +592,11 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                     'The key the block is wrapped under. It has to be a key encryption key that may wrap, and at ' +
                     'least as strong as the key it carries.',
                 optionsFrom: 'key',
-                // Only the keys the service says may wrap are offered, so the
-                // form does not offer a key the service refuses.
-                optionsState: 'mayWrap',
+                // Only the keys the service says may unwrap are offered, so the
+                // form does not offer a key the service refuses: a block comes
+                // in under a key that unwraps it, where a block leaves under a
+                // key that wraps it.
+                optionsState: 'mayUnwrap',
             },
             {
                 name: 'wrappedKeyBlock',
@@ -610,7 +656,9 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
         pairings: [
             {
                 discriminator: 'keyAlgorithm',
-                allowed: PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS,
+                // A frozen copy: the published rule may not be changed by a
+                // caller that holds it, the way the matrix is not.
+                allowed: frozenWrappingAlgorithms(),
             },
         ],
         notice:

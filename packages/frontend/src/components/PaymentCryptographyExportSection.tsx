@@ -58,9 +58,13 @@ export function PaymentCryptographyExportSection({
 
   // The material of a key the reader has left is not wanted any more, so the
   // request for it is cancelled when the section goes away or the key changes.
+  // The choice of the wrapping key goes with it: it was a choice for the key
+  // that is left behind, and the key that is on screen may not be carried by
+  // it.
   useEffect(() => {
     activeRequest.current?.abort();
     activeRequest.current = null;
+    setWrappingKey("");
     return () => {
       activeRequest.current?.abort();
       activeRequest.current = null;
@@ -76,16 +80,19 @@ export function PaymentCryptographyExportSection({
     // The material is the most secret thing this console holds, so it does not
     // stay in the mutation cache once the section that shows it is gone.
     gcTime: 0,
-    mutationFn: async (target: CloudResource) => {
+    // The key that leaves and the key it leaves under are both named by the
+    // request, so the request carries the wrapping key that is on screen and
+    // not the one the last render closed over.
+    mutationFn: async (target: {resource: CloudResource; wrappingKey: string}) => {
       activeRequest.current?.abort();
       const controller = new AbortController();
       activeRequest.current = controller;
       try {
         return await exportPaymentCryptographyKey(
           cloud,
-          target.service,
-          target.id,
-          {wrappingKeyArn: wrappingKey},
+          target.resource.service,
+          target.resource.id,
+          {wrappingKeyArn: target.wrappingKey},
           controller.signal,
         );
       } catch (error) {
@@ -96,7 +103,10 @@ export function PaymentCryptographyExportSection({
     },
   });
 
-  const material = exportMut.data?.keyMaterial ?? "";
+  // The material belongs to the key it was read from, so it is shown only
+  // while that key is the one on the screen.
+  const material =
+    exportMut.variables?.resource.id === resourceId ? (exportMut.data?.keyMaterial ?? "") : "";
 
   if (keyUnreadable) {
     // The key was not read, so nothing is known of the material it leaves
@@ -168,7 +178,7 @@ export function PaymentCryptographyExportSection({
             // A copy that was made of another material is not a copy of this
             // one, so the state goes before the new material arrives.
             resetCopy();
-            exportMut.mutate(resource);
+            exportMut.mutate({resource, wrappingKey});
           }}
         >
           <Download size={12} />

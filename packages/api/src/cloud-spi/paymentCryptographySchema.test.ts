@@ -11,7 +11,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_SOURCES,
 } from './paymentCryptographySchema'
 import {mayWrapWith} from './paymentCryptographySchema'
-import {mayWrapKey} from './paymentCryptographySchema'
+import {mayUnwrapKey, mayWrapKey} from './paymentCryptographySchema'
 import {wrappingAlgorithmsFor} from './paymentCryptographySchema'
 import type {PairingRule} from './types'
 
@@ -58,14 +58,15 @@ describe('awsPaymentCryptographySchema', () => {
         expect(target?.optionsFrom).toBe('key')
     })
 
-    test('the import form offers only the keys the service says may wrap', () => {
+    test('the import form offers only the keys the service says may unwrap', () => {
         const schema = awsPaymentCryptographySchema()
         const wrapping = schema.fields.find(field => field.name === 'wrappingKeyArn')
 
         expect(wrapping?.optionsFrom).toBe('key')
         // The state is the one the service publishes with every key, so the
-        // choices are the keys the service accepts.
-        expect(wrapping?.optionsState).toBe('mayWrap')
+        // choices are the keys the service accepts. A block comes in under a
+        // key that unwraps it, where a block leaves under a key that wraps it.
+        expect(wrapping?.optionsState).toBe('mayUnwrap')
     })
 
     test('the import form offers its own enabled choice', () => {
@@ -110,6 +111,22 @@ describe('awsPaymentCryptographySchema', () => {
         // A key whose enabled state was not read is not a wrapping key either:
         // a state that is not read is not a permission.
         expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, undefined)).toBe(false)
+    })
+
+    test('the rule of an unwrapping key is the other half of it', () => {
+        // A block comes in under a key that unwraps it, where a block leaves
+        // under a key that wraps it, so the two are read apart.
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Unwrap: true}, true)).toBe(true)
+        expect(mayUnwrapKey('TR31_K1_KEY_BLOCK_PROTECTION_KEY', {Unwrap: true}, true)).toBe(true)
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {NoRestrictions: true}, true)).toBe(true)
+        // A key that may only wrap does not unwrap a block that comes in.
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, true)).toBe(false)
+        // A usage that is not a wrapping one and a disabled key are each a
+        // reason.
+        expect(mayUnwrapKey('TR31_D0_SYMMETRIC_DATA_ENCRYPTION_KEY', {Unwrap: true}, true)).toBe(false)
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Unwrap: true}, false)).toBe(false)
+        // A key whose enabled state was not read is not one either.
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Unwrap: true}, undefined)).toBe(false)
     })
 
     test('the matrix says which key may carry which', () => {
