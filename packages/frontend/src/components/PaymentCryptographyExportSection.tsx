@@ -1,9 +1,9 @@
 import {useMemo, useState} from "react";
 import {useMutation} from "@tanstack/react-query";
-import {Check, Copy, Download} from "lucide-react";
+import {Copy, Download} from "lucide-react";
 import {exportPaymentCryptographyKey} from "@/api/cloudProxyClient";
 import {pairingsPublished, wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
-import {useCopyToClipboard} from "@/lib/useCopyToClipboard";
+import {COPY_REFUSED_MESSAGE, useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
 import type {ServiceSchema} from "@/types/schema";
@@ -150,6 +150,11 @@ export function PaymentCryptographyExportSection({
           {candidatesSentence(resources, resourcesLoading, resourcesError, schema)}
         </p>
       )}
+      {exportMut.isSuccess && !material && (
+        <p className="muted compact-text">
+          The service answered the export without any material, so there is nothing to copy.
+        </p>
+      )}
       {material && (
         <>
           <textarea
@@ -160,12 +165,15 @@ export function PaymentCryptographyExportSection({
             aria-label="Exported key material"
           />
           <button className="button small" type="button" onClick={() => void copy(material)}>
-            {copied ? <Check size={12} /> : <Copy size={12} />}
-            {copied ? "Copied" : "Copy material"}
+            <Copy size={12} />
+            Copy material
           </button>
+          <span className="muted compact-text" role="status">
+            {copied ? "Copied" : ""}
+          </span>
           {copyFailed && (
             <p className="form-error" role="alert">
-              The clipboard was not available, so nothing was copied.
+              {COPY_REFUSED_MESSAGE}
             </p>
           )}
         </>

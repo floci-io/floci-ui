@@ -171,6 +171,43 @@ describe("the material a payment key leaves under", () => {
     expect(screen.getByText(/has not been read yet/i)).toBeDefined();
   });
 
+  it("keeps the name of the copy button and announces the outcome", async () => {
+    const user = userEvent.setup();
+    renderSection(key, [wrapping]);
+
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
+    await user.click(screen.getByRole("button", {name: /Export key/i}));
+    await waitFor(() => expect(screen.getByLabelText("Exported key material")).toBeDefined());
+
+    const button = screen.getByRole("button", {name: /Copy material/i});
+
+    await user.click(button);
+
+    // The name of the button never changes under the reader, and the outcome
+    // is announced beside it.
+    expect(button).toHaveTextContent(/Copy material/);
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Copied"));
+  });
+
+  it("says so when the export carried no material", async () => {
+    exportKey.mockResolvedValue({
+      keyMaterial: "",
+      format: null,
+      wrappingKeyArn: null,
+      keyCheckValue: null,
+    } as never);
+    const user = userEvent.setup();
+    renderSection(key, [wrapping]);
+
+    await user.selectOptions(screen.getByLabelText("Wrapping key"), wrapping.id);
+    await user.click(screen.getByRole("button", {name: /Export key/i}));
+
+    // The service answered, so the reader is told that there is nothing to
+    // copy rather than being left with neither the material nor an error.
+    expect(await screen.findByText(/without any material/i)).toBeDefined();
+    expect(screen.queryByLabelText("Exported key material")).toBeNull();
+  });
+
   it("says so when the clipboard refuses", async () => {    const user = userEvent.setup();
     // The setup replaces the clipboard with a stub of its own, so the refusal
     // is put in place after it.
