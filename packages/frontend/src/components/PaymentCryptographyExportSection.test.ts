@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {allowedAlgorithms, wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
+import {allowedAlgorithms, pairingsPublished, wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
 import type {CloudResource} from "@/types/resource";
 import type {ServiceSchema} from "@/types/schema";
 
@@ -127,14 +127,15 @@ describe("the wrapping keys a key may leave under", () => {
     expect(wrappingKeysFor(carried("ECC_NIST_P256"), rows, schema)).toEqual([]);
   });
 
-  it("allows every pairing when the service publishes no matrix", () => {
+  it("offers no key when the service publishes no matrix", () => {
     const rows = [key("kek-aes256", "AES_256")];
 
     // A service that publishes no matrix says nothing about what may carry
-    // what, so every pairing is allowed.
-    expect(wrappingKeysFor(carried("AES_256"), rows, undefined).map((r) => r.id)).toEqual([
-      "kek-aes256",
-    ]);
+    // what, and the adapter refuses a weaker key either way, so the console
+    // offers nothing rather than a key the service will refuse.
+    expect(wrappingKeysFor(carried("AES_256"), rows, undefined)).toEqual([]);
+    expect(pairingsPublished(schema)).toBe(true);
+    expect(pairingsPublished(undefined)).toBe(false);
   });
 
   it("reads the matrix the schema publishes", () => {
@@ -154,5 +155,17 @@ describe("the wrapping keys a key may leave under", () => {
       expect(allowedAlgorithms(schema, name)).toEqual([]);
       expect(wrappingKeysFor(carried(name), [key("kek-aes256", "AES_256")], schema)).toEqual([]);
     }
+  });
+
+  it("reads a malformed matrix as an empty one", () => {
+    // The schema arrives over the network and is not checked before it is read,
+    // so a malformed one leaves the list empty rather than crashing.
+    const malformed = {
+      ...schema,
+      pairings: [{discriminator: "keyAlgorithm", allowed: undefined}],
+    } as unknown as ServiceSchema;
+
+    expect(allowedAlgorithms(malformed, "AES_256")).toEqual([]);
+    expect(wrappingKeysFor(carried("AES_256"), [key("kek-aes256", "AES_256")], malformed)).toEqual([]);
   });
 });

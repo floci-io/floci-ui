@@ -57,14 +57,34 @@ export interface FieldCondition {
 }
 
 /**
+ * The discriminators a service publishes a pairing rule under.
+ *
+ * <p>The console reads one value, so a rule under another one is not read at
+ * all and the console offers nothing rather than every pairing.
+ */
+export type PairingDiscriminator = 'keyAlgorithm'
+
+/**
  * A rule a service publishes about what may carry what, for a panel that has to
  * offer only the pairings the service allows.
+ *
+ * <p>Mirrors packages/api/src/cloud-spi/types.ts.
  */
 export interface PairingRule {
-  /** The metadata member that says what the resource is, such as its algorithm. */
-  discriminator: string;
-  /** What it may carry, by that member's value. */
-  allowed: Record<string, string[]>;
+    /**
+     * The metadata member that says what the resource is, such as its algorithm.
+     * The consumer reads that member, so a rename on this side is a mistake the
+     * compiler catches where the rule is published.
+     */
+    discriminator: PairingDiscriminator
+    /**
+     * The pairings, keyed by the discriminator value of the resource that is
+     * carried: `allowed[X]` holds the discriminator values of the resources that
+     * may carry a resource whose discriminator value is `X`. A value the map
+     * does not name may not be carried at all, which is not the same as a
+     * service that publishes no table at all.
+     */
+    allowed: Readonly<Partial<Record<string, readonly string[]>>>
 }
 
 export interface FieldSchema {
@@ -138,7 +158,10 @@ export interface ServiceSchema {
     /**
      * The pairings the service allows, for a panel that chooses one resource to
      * carry another.
+     *
+     * <p>At most one rule per discriminator: a consumer that asks for a
+     * discriminator takes the first rule that names it.
      */
-    pairings?: PairingRule[]
+    pairings?: readonly PairingRule[]
     notice?: string
 }

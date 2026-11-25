@@ -1,4 +1,6 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
+import {join} from 'node:path'
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
@@ -7,6 +9,7 @@ import {
     mayWrapKey,
     mayWrapWith,
     modesAllowWrapping,
+    wrappingAlgorithmsFor,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
@@ -46,6 +49,24 @@ describe('awsPaymentCryptographySchema', () => {
         for (const name of ['__proto__', 'constructor', 'toString']) {
             expect(mayWrapWith(name, 'AES_256')).toBe(false)
         }
+    })
+
+    test('the row handed out is a copy of the row of the matrix', () => {
+        const row = wrappingAlgorithmsFor('AES_256') as string[]
+        row.push('AES_128')
+
+        // The matrix is the very table the schema publishes to the console, so a
+        // caller that changed the row would change what every later caller
+        // believes.
+        expect(wrappingAlgorithmsFor('AES_256')).toEqual(['AES_256'])
+    })
+
+    test('the strength of a key is stated once', () => {
+        const source = readFileSync(join(import.meta.dir, 'paymentCryptographySchema.ts'), 'utf8')
+
+        // The matrix already says which key may carry which, so a second table
+        // of strengths is a second source of truth that can drift from it.
+        expect(source).not.toMatch(/PAYMENT_CRYPTOGRAPHY_KEY_STRENGTH/)
     })
 })
 
