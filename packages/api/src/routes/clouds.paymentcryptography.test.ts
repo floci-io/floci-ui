@@ -330,6 +330,88 @@ describe('the payment cryptography routes', () => {
         expect(ok.headers.get('cache-control')).toBe('no-store')
     })
 
+    test('the export route answers with the material the adapter returned', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => material,
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/def'}),
+            },
+        )
+
+        // The console reads these four members, so the shape the route answers
+        // with is pinned here.
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual(material)
+    })
+
+    test('the routes reach the service with the id the request named', async () => {
+        const seen: string[] = []
+        const app = appWithRoutes([
+            paymentAdapter({
+                setUsage: async (id: string) => {
+                    seen.push(id)
+                },
+                setPolicy: async (id: string) => {
+                    seen.push(id)
+                },
+                setReplication: async (id: string) => {
+                    seen.push(id)
+                },
+                exportKey: async (id: string) => {
+                    seen.push(id)
+                    return material
+                },
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        for (const path of ['usage', 'policy', 'replication', 'export']) {
+            await app.request(
+                `/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/${path}`,
+                {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({enabled: 'true', policy: '{}', wrappingKeyArn: 'key/def'}),
+                },
+            )
+        }
+
+        expect(seen).toEqual(['key/abc', 'key/abc', 'key/abc', 'key/abc'])
+    })
+
+    test('an unknown cloud or service is refused', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                setUsage: async () => {},
+                setPolicy: async () => {},
+                setReplication: async () => {},
+                exportKey: async () => material,
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        for (const path of ['usage', 'policy', 'replication', 'export']) {
+            for (const target of ['acme/services/paymentcryptography', 'aws/services/nosuchservice']) {
+                const res = await app.request(
+                    `/api/clouds/${target}/resources/key%2Fabc/${path}`,
+                    {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({enabled: 'true', policy: '{}', wrappingKeyArn: 'key/def'}),
+                    },
+                )
+
+                expect(res.status).toBe(404)
+            }
+        }
+    })
+
     test('a service that is not the payment cryptography one is refused', async () => {
         // The routes are generic, so a service that happens to have a method of
         // the same name would be driven with a body shaped for a payment key.
