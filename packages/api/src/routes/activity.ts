@@ -52,6 +52,7 @@ const ACTION_VERBS = new Set([
     'usage',
 =======
     // The payment cryptography routes: the key is changed, not created.
+    'usage',
     'export',
 >>>>>>> 50495c8 (fix(activity): exporting a key is not a creation)
 ])
