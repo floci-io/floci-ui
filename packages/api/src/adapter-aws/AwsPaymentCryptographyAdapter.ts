@@ -20,13 +20,7 @@ import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {isNotFound} from './paymentCryptographyErrors'
 import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
-import {
-    addReplicationRegions,
-    defaultReplicationRegions,
-    disableDefaultReplicationRegions,
-    enableDefaultReplicationRegions,
-    removeReplicationRegions,
-} from './paymentCryptographyReplication'
+import {addReplicationRegions, removeReplicationRegions} from './paymentCryptographyReplication'
 import {exportKeyTr31, importKeyTr31, keyArnOf} from './paymentCryptographyTransfer'
 import {
     algorithmsForUsage,
@@ -217,21 +211,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // replaced would fail to be replaced.
         await removeReplicationRegions(this.client, identifier, toRemove)
         await addReplicationRegions(this.client, identifier, toAdd)
-    }
-
-    /** The Regions the account replicates a new key to by default. */
-    async defaultReplicationRegions(): Promise<string[]> {
-        return defaultReplicationRegions(this.client)
-    }
-
-    /** Turns the account's default replication on for the Regions named. */
-    async enableDefaultReplicationRegions(regions: string[]): Promise<string[]> {
-        return enableDefaultReplicationRegions(this.client, regions)
-    }
-
-    /** Turns the account's default replication off for the Regions named. */
-    async disableDefaultReplicationRegions(regions: string[]): Promise<string[]> {
-        return disableDefaultReplicationRegions(this.client, regions)
     }
 
     async get(id: string): Promise<CloudResource | null> {

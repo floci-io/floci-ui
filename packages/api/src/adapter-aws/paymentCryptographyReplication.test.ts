@@ -1,4 +1,6 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
+import {join} from 'node:path'
 import {
     AddKeyReplicationRegionsCommand,
     GetKeyCommand,
@@ -316,5 +318,20 @@ describe('the helper that adds and the helper that removes', () => {
             ReplicationRegions: ['us-east-2'],
         })
         expect(sent.some((each) => each instanceof AddKeyReplicationRegionsCommand)).toBe(false)
+    })
+})
+
+describe('the default replication of the account', () => {
+    test('is not a surface the adapter keeps', () => {
+        const adapter = readFileSync(join(import.meta.dir, 'AwsPaymentCryptographyAdapter.ts'), 'utf8')
+        const helper = readFileSync(join(import.meta.dir, 'paymentCryptographyReplication.ts'), 'utf8')
+
+        // No route, service method or panel reaches the account's default
+        // replication, so the methods that wrap it are unreachable code that
+        // widens the adapter's surface.
+        expect(adapter).not.toMatch(/defaultReplicationRegions\(\)/)
+        expect(adapter).not.toMatch(/enableDefaultReplicationRegions/)
+        expect(adapter).not.toMatch(/disableDefaultReplicationRegions/)
+        expect(helper).not.toMatch(/DefaultKeyReplicationRegionsCommand/)
     })
 })

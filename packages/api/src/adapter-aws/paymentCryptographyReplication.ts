@@ -1,8 +1,5 @@
 import {
     AddKeyReplicationRegionsCommand,
-    DisableDefaultKeyReplicationRegionsCommand,
-    EnableDefaultKeyReplicationRegionsCommand,
-    GetDefaultKeyReplicationRegionsCommand,
     RemoveKeyReplicationRegionsCommand,
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
@@ -45,39 +42,4 @@ export async function removeReplicationRegions(
     await client.send(
         new RemoveKeyReplicationRegionsCommand({KeyIdentifier: keyArn, ReplicationRegions: regions}),
     )
-}
-
-/**
- * The Regions the account replicates a new key to by default.
- *
- * <p>The setting is the one of the Region the request is in, so each Region has
- * its own.
- */
-export async function defaultReplicationRegions(
-    client: PaymentCryptographyClient,
-): Promise<string[]> {
-    const res = await client.send(new GetDefaultKeyReplicationRegionsCommand({}))
-    return res.EnabledReplicationRegions ?? []
-}
-
-/** Turns the account's default replication on for the Regions named. */
-export async function enableDefaultReplicationRegions(
-    client: PaymentCryptographyClient,
-    regions: string[],
-): Promise<string[]> {
-    const res = await client.send(
-        new EnableDefaultKeyReplicationRegionsCommand({ReplicationRegions: regions}),
-    )
-    return res.EnabledReplicationRegions ?? []
-}
-
-/** Turns the account's default replication off for the Regions named. */
-export async function disableDefaultReplicationRegions(
-    client: PaymentCryptographyClient,
-    regions: string[],
-): Promise<string[]> {
-    const res = await client.send(
-        new DisableDefaultKeyReplicationRegionsCommand({ReplicationRegions: regions}),
-    )
-    return res.EnabledReplicationRegions ?? []
 }
