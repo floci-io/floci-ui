@@ -501,6 +501,29 @@ describe('AwsPaymentCryptographyAdapter', () => {
             await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toBeInstanceOf(ValidationError)
             expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
         })
+
+        test('refuses a wrapping key whose usage may not wrap a key', async () => {
+            // The algorithm is one the matrix allows, but the usage is a payment
+            // key's own, so the service refuses the export with a message of its
+            // own rather than with the reason the rule was broken.
+            const paymentKey = {
+                ...key,
+                KeyArn: OTHER_ARN,
+                KeyAttributes: {...attributes, KeyUsage: 'TR31_D0_SYMMETRIC_DATA_ENCRYPTION_KEY'},
+            }
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) {
+                    const named = (command as GetKeyCommand).input.KeyIdentifier
+                    return {Key: named === OTHER_ARN ? paymentKey : key}
+                }
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toBeInstanceOf(ValidationError)
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toThrow(/may not wrap/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
     })
 
     test('the health check reads one page rather than every key in the account', async () => {

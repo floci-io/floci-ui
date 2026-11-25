@@ -32,6 +32,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_KINDS,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
+    PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES,
     wrappingAlgorithmsFor,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
@@ -181,6 +182,17 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
         const wrapping = await this.describe(wrappingKeyArn)
         if (!wrapping) throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not there`)
+
+        // The reference names the wrapping key by its usage: a key encryption key
+        // or a key block protection key. A key with any other usage may not wrap
+        // a key, so it is refused here rather than by the service.
+        const wrappingUsage = String(wrapping.KeyAttributes?.KeyUsage ?? '')
+        if (!PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES.includes(wrappingUsage)) {
+            throw new ValidationError(
+                `the wrapping key ${wrappingKeyArn} has the usage ${wrappingUsage || 'of an unknown usage'}, ` +
+                `which may not wrap a key: a wrapping key has to be one of ${PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES.join(', ')}`,
+            )
+        }
 
         const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
         const wrappingAlgorithm = String(wrapping.KeyAttributes?.KeyAlgorithm ?? '')
