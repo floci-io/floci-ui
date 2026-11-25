@@ -4,6 +4,7 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {PAYMENT_CRYPTOGRAPHY_KIND_PREFIX} from '../cloud-spi/paymentCryptographySchema'
+import {RuntimeError} from '../cloud-spi/errors'
 import type {ExportedKeyMaterial} from '../cloud-spi/types'
 
 export type {ExportedKeyMaterial}
@@ -39,11 +40,16 @@ export async function exportKeyTr31(
         }),
     )
     const wrapped = res.WrappedKey
+    // The service answered without the material, so the export produced
+    // nothing: an empty block would look like an export that worked.
+    if (!wrapped?.KeyMaterial) {
+        throw new RuntimeError('Payment Cryptography did not return the material the key left under')
+    }
     return {
-        keyMaterial: wrapped?.KeyMaterial ?? '',
-        format: wrapped?.WrappedKeyMaterialFormat ?? null,
-        wrappingKeyArn: wrapped?.WrappingKeyArn ?? null,
-        keyCheckValue: wrapped?.KeyCheckValue ?? null,
+        keyMaterial: wrapped.KeyMaterial,
+        format: wrapped.WrappedKeyMaterialFormat ?? null,
+        wrappingKeyArn: wrapped.WrappingKeyArn ?? null,
+        keyCheckValue: wrapped.KeyCheckValue ?? null,
     }
 }
 

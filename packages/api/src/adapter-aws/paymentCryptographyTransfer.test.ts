@@ -6,7 +6,7 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
-import {ValidationError} from '../cloud-spi/errors'
+import {ValidationError, RuntimeError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
 
@@ -138,6 +138,27 @@ describe('the material a payment key leaves under', () => {
         const adapter = new AwsPaymentCryptographyAdapter(client)
 
         await expect(adapter.exportKey(ALIAS_ID, {wrappingKeyArn: KEK_ARN})).rejects.toBeInstanceOf(ValidationError)
+    })
+
+    test('an export the service answered without material is refused', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) {
+                const named = (command as GetKeyCommand).input.KeyIdentifier
+                if (named === KEK_ARN) return {Key: kek}
+                if (named === ARN) return {Key: key}
+                return {Key: undefined}
+            }
+            if (command instanceof ExportKeyCommand) return {WrappedKey: {KeyMaterial: ''}}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // An empty block would look like an export that worked, so the export
+        // that produced nothing is refused rather than answered.
+        await expect(
+            adapter.exportKey(KEY_ID, {wrappingKeyArn: KEK_ARN}),
+        ).rejects.toBeInstanceOf(RuntimeError)
+        expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(true)
     })
 })
 

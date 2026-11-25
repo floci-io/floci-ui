@@ -245,6 +245,52 @@ describe('the payment cryptography routes', () => {
         }
     })
 
+    test('a body that does not name a wrapping key is refused', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => material,
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        for (const body of ['{}', '{"wrappingKeyArn": 42}', '{"wrappingKeyArn": null}', '{"wrappingKeyArn": "  "}']) {
+            const res = await app.request(
+                '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+                {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body,
+                },
+            )
+
+            // The body is checked rather than cast, so a value that is not a
+            // string never reaches the adapter as one, and the refusal is the
+            // route's own.
+            expect(res.status).toBe(400)
+            expect((await res.json()).message).toBe('wrappingKeyArn must be a non-empty string')
+        }
+    })
+
+    test('an export that produced no material says so', async () => {
+        const app = appWithRoutes([
+            paymentAdapter({
+                exportKey: async () => ({...material, keyMaterial: ''}),
+            } as Partial<CloudServiceAdapter>),
+        ])
+
+        const res = await app.request(
+            '/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export',
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wrappingKeyArn: 'key/def'}),
+            },
+        )
+
+        // An export that produced nothing is not an export, so it is not
+        // answered with an empty block and a success.
+        expect(res.status).toBe(502)
+    })
+
     test('a service that is not the payment cryptography one is refused', async () => {
         // The routes are generic, so a service that happens to have a method of
         // the same name would be driven with a body shaped for a payment key.
