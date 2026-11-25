@@ -22,10 +22,11 @@ import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {isNotFound} from './paymentCryptographyErrors'
 import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
 import {
+    addReplicationRegions,
     defaultReplicationRegions,
     disableDefaultReplicationRegions,
     enableDefaultReplicationRegions,
-    setReplicationRegions,
+    removeReplicationRegions,
 } from './paymentCryptographyReplication'
 import {exportKeyTr31, importKeyTr31, keyArnOf} from './paymentCryptographyTransfer'
 import {
@@ -207,12 +208,8 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // The Regions that are gone go first: a key that replicates to as many
         // Regions as it may would be refused a fifth one, so a Region that is
         // replaced would fail to be replaced.
-        if (toRemove.length > 0) {
-            await setReplicationRegions(this.client, identifier, toRemove, false)
-        }
-        if (toAdd.length > 0) {
-            await setReplicationRegions(this.client, identifier, toAdd, true)
-        }
+        await removeReplicationRegions(this.client, identifier, toRemove)
+        await addReplicationRegions(this.client, identifier, toAdd)
     }
 
     /** The key as it answers, which is where the rules of its replication are read from. */

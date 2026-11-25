@@ -6,7 +6,7 @@ import {
     type PaymentCryptographyClient,
 } from '@aws-sdk/client-payment-cryptography'
 import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
-import {setReplicationRegions} from './paymentCryptographyReplication'
+import {addReplicationRegions, removeReplicationRegions} from './paymentCryptographyReplication'
 import {ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
@@ -212,9 +212,39 @@ describe('the helper that changes the Regions of a key', () => {
         // The reference's own commands name the Regions they change, so a list
         // that names no Region is not a request the service can act on. The
         // helper is exported, so it does not leave the check to every caller.
-        await setReplicationRegions(client, ARN, [], true)
-        await setReplicationRegions(client, ARN, [], false)
+        await addReplicationRegions(client, ARN, [])
+        await removeReplicationRegions(client, ARN, [])
 
         expect(sent).toHaveLength(0)
+    })
+})
+
+describe('the helper that adds and the helper that removes', () => {
+    test('the Regions it is given are the ones it adds', async () => {
+        const {client, sent} = stubClient(() => ({}))
+
+        await addReplicationRegions(client, ARN, ['us-east-2'])
+
+        // The helper does not diff for itself: the Regions it is given are the
+        // ones it adds, and the caller diffs them against the ones the key holds.
+        const command = sent.find((each) => each instanceof AddKeyReplicationRegionsCommand)
+        expect((command as AddKeyReplicationRegionsCommand).input).toEqual({
+            KeyIdentifier: ARN,
+            ReplicationRegions: ['us-east-2'],
+        })
+        expect(sent.some((each) => each instanceof RemoveKeyReplicationRegionsCommand)).toBe(false)
+    })
+
+    test('the Regions it is given are the ones it removes', async () => {
+        const {client, sent} = stubClient(() => ({}))
+
+        await removeReplicationRegions(client, ARN, ['us-east-2'])
+
+        const command = sent.find((each) => each instanceof RemoveKeyReplicationRegionsCommand)
+        expect((command as RemoveKeyReplicationRegionsCommand).input).toEqual({
+            KeyIdentifier: ARN,
+            ReplicationRegions: ['us-east-2'],
+        })
+        expect(sent.some((each) => each instanceof AddKeyReplicationRegionsCommand)).toBe(false)
     })
 })
