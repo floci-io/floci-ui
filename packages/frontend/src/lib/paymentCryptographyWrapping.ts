@@ -74,6 +74,8 @@ export function wrappingKeysFor(
 
   return (resources ?? []).filter((row) => {
     if (row.type !== "key") return false;
+    // A key may not carry itself, and the service refuses a key that does.
+    if (row.id === carried.id) return false;
     if (row.metadata.mayWrap !== true) return false;
     const algorithm = String(row.metadata.keyAlgorithm ?? "");
     return allowed.includes(algorithm);

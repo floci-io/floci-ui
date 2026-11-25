@@ -114,6 +114,15 @@ describe("the wrapping keys a key may leave under", () => {
     expect(wrappingKeysFor(carried("AES_256"), [key("weak", "TDES_2KEY")], schema)).toEqual([]);
   });
 
+  it("offers no key as its own wrapping key", () => {
+    // A key that is itself a key encryption key holds every key of the account,
+    // and it satisfies every rule for itself, but the service refuses a key
+    // that carries itself.
+    const itself = key("kek-aes256", "AES_256");
+
+    expect(wrappingKeysFor(itself, [itself], schema).map((r) => r.id)).toEqual([]);
+  });
+
   it("offers no key for a key the matrix does not name", () => {
     const rows = [key("kek-aes256", "AES_256")];
 

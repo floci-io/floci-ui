@@ -98,6 +98,22 @@ describe("the material a payment key leaves under", () => {
     expect(screen.getByRole("button", {name: /Export key/i}).hasAttribute("disabled")).toBe(true);
   });
 
+  it("does not offer a key as its own wrapping key", async () => {
+    // The key that leaves is a key encryption key itself, so it holds every
+    // rule for a wrapping key, but a key may not carry itself.
+    const itself: CloudResource = {
+      ...wrapping,
+      id: key.id,
+      name: key.name,
+    };
+    renderSection({...key, metadata: {...key.metadata, mayWrap: true}}, [itself]);
+
+    const options = await screen.findAllByRole("option");
+
+    // Only the choice that asks for a wrapping key.
+    expect(options.length).toBe(1);
+  });
+
   it("leaves the material of one export off the screen when another key is chosen", async () => {
     const user = userEvent.setup();
     renderSection(key, [wrapping]);

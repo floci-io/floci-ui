@@ -566,6 +566,20 @@ describe('AwsPaymentCryptographyAdapter', () => {
             await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: OTHER_KEY_ID})).rejects.toThrow(/not enabled/)
             expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
         })
+
+        test('refuses a key that is asked to carry itself', async () => {
+            // A key may not be its own wrapping key, and the service refuses a
+            // key that carries itself.
+            const {client, sent} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) return {Key: key}
+                return {}
+            })
+            const adapter = new AwsPaymentCryptographyAdapter(client)
+
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: KEY_ID})).rejects.toBeInstanceOf(ValidationError)
+            await expect(adapter.exportKey(KEY_ID, {wrappingKeyArn: KEY_ID})).rejects.toThrow(/itself/)
+            expect(sent.some((command) => command instanceof ExportKeyCommand)).toBe(false)
+        })
     })
 
     describe('the state of a key', () => {

@@ -180,6 +180,10 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // The form names a resource, and the resource id carries its kind, so the
         // prefix is taken off before the runtime is asked about it.
         const wrappingKeyArn = targetKeyArn(requiredString(input?.wrappingKeyArn, 'wrappingKeyArn'))
+        // A key may not carry itself, and the service refuses a key that does.
+        if (wrappingKeyArn === identifier) {
+            throw new ValidationError(`the key ${identifier} may not carry itself`)
+        }
 
         const carried = await this.describe(identifier)
         if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
