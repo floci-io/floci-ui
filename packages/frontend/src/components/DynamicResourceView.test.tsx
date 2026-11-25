@@ -923,7 +923,7 @@ describe("DynamicResourceView Empty bucket", () => {
     expect(order).toEqual(["start sales/orders", "end sales/orders", "start sales", "end sales"]);
   });
 
-  it("sends every wave of a bulk delete to the account it was confirmed in", async () => {
+  it("sends every wave of a bulk delete to the account and region it was confirmed in", async () => {
     const user = userEvent.setup();
     vi.mocked(listCloudResources).mockResolvedValue([storageBucket("sales"), storageBucket("sales/orders")]);
     const gate = deferred<void>();
@@ -937,12 +937,18 @@ describe("DynamicResourceView Empty bucket", () => {
     await user.click(screen.getByRole("button", { name: "Delete Selected (2)" }));
     await user.click(screen.getByRole("button", { name: "Confirm Delete (2)" }));
 
+    // Confirmed on the default region, then both account and region switch while the first wave runs.
     act(() => setAccountId(ACCOUNT_B));
+    act(() => setRegion("eu-west-1"));
     await act(async () => gate.resolve());
 
     await waitFor(() => expect(deleteCloudResource).toHaveBeenCalledTimes(2));
-    const accounts = vi.mocked(deleteCloudResource).mock.calls.map((call) => call[4]);
-    expect(accounts).toEqual([ACCOUNT_A, ACCOUNT_A]);
+    const scopes = vi.mocked(deleteCloudResource).mock.calls.map((call) => call[4]);
+    expect(scopes).toEqual([
+      { accountId: ACCOUNT_A, region: null },
+      { accountId: ACCOUNT_A, region: null },
+    ]);
+    act(() => setRegion(null));
   });
 
   it("does not show a bulk refusal that arrives after another account is selected", async () => {

@@ -1,6 +1,6 @@
 import { EndpointRegistry, HttpClient } from "./HttpClient";
 import { ACCOUNT_HEADER, getAccountId, isAccountId } from "@/lib/accountStore";
-import { REGION_HEADER, getRegion, isRegion } from "@/lib/regionStore";
+import { CONSOLE_DEFAULT_REGION, REGION_HEADER, getRegion, isRegion } from "@/lib/regionStore";
 
 export class AuthenticationRequiredError extends Error {
   constructor() {
@@ -1201,6 +1201,9 @@ export function createApiClient(
     const region = getRegion();
     if (explicitRegion === null) {
       if (region !== null) headers.set(REGION_HEADER, region);
+    } else if (explicitRegion === CONSOLE_DEFAULT_REGION) {
+      // Pinned to the console's default: the API serves that when no region is named.
+      headers.delete(REGION_HEADER);
     } else if (!isRegion(explicitRegion)) {
       throw new Error("Invalid region override");
     }

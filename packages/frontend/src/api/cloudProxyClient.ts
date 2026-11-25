@@ -43,7 +43,8 @@ import type {
 } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { ACCOUNT_HEADER, getAccountId } from "@/lib/accountStore";
-import { REGION_HEADER, getRegion } from "@/lib/regionStore";
+import { getRegion } from "@/lib/regionStore";
+import { type RequestScope, scopeHeaders } from "@/lib/requestScope";
 
 type CloudPathParams = Record<string, string>;
 
@@ -230,17 +231,13 @@ export async function deleteCloudResource(
   service: CloudServiceType,
   id: string,
   signal?: AbortSignal,
-  accountId?: string,
-  region?: string | null,
+  scope?: RequestScope,
 ): Promise<void> {
-  const headers: Record<string, string> = {};
-  if (accountId) headers[ACCOUNT_HEADER] = accountId;
-  if (region) headers[REGION_HEADER] = region;
   await apiClient.call<void>(
     apiEndpointKeys.clouds.resources.delete,
     requestOptions(cloud, service, {
       signal,
-      headers: accountId || region ? headers : undefined,
+      headers: scope ? scopeHeaders(scope) : undefined,
     }),
     { cloud, service, id },
   );

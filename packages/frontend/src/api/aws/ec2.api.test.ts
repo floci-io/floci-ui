@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setRegion } from "@/lib/regionStore";
 import {
+  authorizeEc2SecurityGroupIngress,
   createEc2SecurityGroup,
   createEc2Subnet,
   createEc2Vpc,
   createVpcWizard,
+  type IpPermissionInput,
   type VpcWizardInput,
 } from "./ec2.api";
 
@@ -47,6 +50,30 @@ describe("createEc2SecurityGroup", () => {
       expect(new Headers(init?.headers).get("content-type")).toBe("application/json");
     },
   );
+
+  it("creates the group and its rules in the account and region they were started in", async () => {
+    fetchMock.mockImplementation(async () =>
+      new Response(JSON.stringify({ groupId: "sg-created" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    setRegion("eu-central-1");
+    const scope = { accountId: "111111111111", region: null };
+    const permission: IpPermissionInput = { protocol: "tcp", fromPort: 80, toPort: 80, cidr: "0.0.0.0/0" };
+
+    await createEc2SecurityGroup("web", "web", undefined, scope);
+    await authorizeEc2SecurityGroupIngress("sg-created", permission, scope);
+    setRegion(null);
+
+    for (const [, init] of fetchMock.mock.calls) {
+      const headers = new Headers(init?.headers);
+      expect(headers.get("x-floci-account-id")).toBe("111111111111");
+      // Pinned to the console default, so the region selected since is not sent.
+      expect(headers.get("x-floci-region")).toBeNull();
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("EC2 networking create requests", () => {

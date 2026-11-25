@@ -8,6 +8,13 @@ import {useSyncExternalStore} from 'react'
 
 /** Request header the API reads to scope a request to an AWS region. */
 export const REGION_HEADER = 'x-floci-region'
+
+/**
+ * A region header value that pins a request to the console's default region: the
+ * interceptor removes the header instead of filling in the selected region, so a
+ * request confirmed on the default stays there after a switch. It never reaches the API.
+ */
+export const CONSOLE_DEFAULT_REGION = 'console-default'
 const REGION_KEY = 'floci.region'
 const RECENTS_KEY = 'floci.region.recents'
 const MAX_RECENTS = 8

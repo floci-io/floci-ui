@@ -401,7 +401,10 @@ export function DynamicResourceView({
       for (const wave of deleteWaves(items)) {
         const results = await Promise.allSettled(
           wave.map(async (item) => {
-            await deleteCloudResource(cloud, service, item.id, undefined, confirmedAccountId, confirmedRegion);
+            await deleteCloudResource(cloud, service, item.id, undefined, {
+              accountId: confirmedAccountId,
+              region: confirmedRegion,
+            });
             return item.id;
           }),
         );

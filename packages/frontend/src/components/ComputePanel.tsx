@@ -720,9 +720,11 @@ export function LaunchInstanceForm({
 
     const createSgMut = useMutation({
         mutationFn: async (vars: {name: string; desc: string; vpc: string; rules: InboundRule[]; accountId: string; region: string | null}) => {
-            const { groupId } = await createEc2SecurityGroup(vars.name, vars.desc || vars.name, vars.vpc || undefined)
+            // Every request of the operation runs in the account and region it was started in.
+            const scope = { accountId: vars.accountId, region: vars.region }
+            const { groupId } = await createEc2SecurityGroup(vars.name, vars.desc || vars.name, vars.vpc || undefined, scope)
             for (const rule of vars.rules) {
-                await authorizeEc2SecurityGroupIngress(groupId, parseRule(rule))
+                await authorizeEc2SecurityGroupIngress(groupId, parseRule(rule), scope)
             }
             return { groupId }
         },
