@@ -231,36 +231,23 @@ export type PaymentCryptographyCertificateState =
     (typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES)[keyof typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES]
 
 /**
- * The strength of a symmetric key, in bits, as the reference's matrix counts it.
- *
- * <p>The matrix is the reference's own, and a wrapping key has to be at least as
- * strong as the key it carries. The strength of a Triple DES key is the strength of
- * its key length, so a two-key key is weaker than a three-key one and may not carry
- * it.
- */
-export const PAYMENT_CRYPTOGRAPHY_KEY_STRENGTH: Record<string, number> = {
-    TDES_2KEY: 80,
-    TDES_3KEY: 112,
-    AES_128: 128,
-    AES_192: 192,
-    AES_256: 256,
-}
-
-/**
  * The wrapping keys each key may leave under, as the reference's matrix allows.
  *
  * <p>The matrix is a table of the key to protect against the wrapping key, and the
  * row of a key is what it may be carried by. The transports that are not a TR-31
  * block are not here, because a key that leaves under an RSA or an elliptic curve
  * key leaves as a cryptogram and not as a block.
+ *
+ * <p>The keys are the algorithms the reference names, so a mistyped one is a
+ * compile error here rather than a row that never matches.
  */
-export const PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS: Readonly<Record<string, readonly string[]>> = {
+export const PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS = {
     TDES_2KEY: ['TDES_2KEY', 'TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
     TDES_3KEY: ['TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
     AES_128: ['AES_128', 'AES_192', 'AES_256'],
     AES_192: ['AES_192', 'AES_256'],
     AES_256: ['AES_256'],
-}
+} satisfies Readonly<Partial<Record<PaymentCryptographyKeyAlgorithm, readonly string[]>>>
 
 /**
  * The usages a key may have when it wraps another key.
@@ -323,13 +310,18 @@ export function mayWrapKey(
  * The wrapping keys a key of one algorithm may leave under.
  *
  * <p>The matrix is a plain object and the algorithm comes from the service, so a
- * name the prototype chain answers for is not a row of the matrix.
+ * name the prototype chain answers for is not a row of the matrix. The row is
+ * copied, because the matrix is the very table the schema publishes and a
+ * caller that changed it would change what every other caller believes.
  */
 export function wrappingAlgorithmsFor(carriedAlgorithm: string): readonly string[] {
-    if (!Object.prototype.hasOwnProperty.call(PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS, carriedAlgorithm)) {
+    const matrix = PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS as Readonly<
+        Record<string, readonly string[] | undefined>
+    >
+    if (!Object.prototype.hasOwnProperty.call(matrix, carriedAlgorithm)) {
         return []
     }
-    return PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS[carriedAlgorithm]
+    return [...(matrix[carriedAlgorithm] ?? [])]
 }
 
 /**

@@ -12,6 +12,7 @@ import {
 } from './paymentCryptographySchema'
 import {mayWrapWith} from './paymentCryptographySchema'
 import {mayWrapKey} from './paymentCryptographySchema'
+import {wrappingAlgorithmsFor} from './paymentCryptographySchema'
 import type {PairingRule} from './types'
 
 describe('awsPaymentCryptographySchema', () => {
@@ -97,6 +98,25 @@ describe('awsPaymentCryptographySchema', () => {
         for (const name of ['__proto__', 'constructor', 'toString']) {
             expect(mayWrapWith(name, 'AES_256')).toBe(false)
         }
+    })
+
+    test('the row of the matrix is a copy of it', () => {
+        const row = wrappingAlgorithmsFor('AES_192') as string[]
+
+        // The matrix is the table the schema publishes, so a caller that
+        // changed the row it was given would change what every other caller
+        // believes.
+        row.push('TDES_2KEY')
+
+        expect(wrappingAlgorithmsFor('AES_192')).toEqual(['AES_192', 'AES_256'])
+    })
+
+    test('the strength of a key is not a table of its own', () => {
+        const source = readFileSync(new URL('./paymentCryptographySchema.ts', import.meta.url), 'utf8')
+
+        // The strength rule is the matrix, and a second table of strengths
+        // beside it is a second source of truth that can drift from it.
+        expect(source).not.toContain('PAYMENT_CRYPTOGRAPHY_KEY_STRENGTH')
     })
 
     test('the published matrix is a value and not a handle', () => {
