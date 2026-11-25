@@ -48,6 +48,7 @@ const ACTION_VERBS = new Set([
     'authorize', 'authorize-egress', 'revoke', 'revoke-egress',
     'modify-attribute', 'release', 'deregister',
     // The payment cryptography routes: the key is changed, not created.
+    'usage',
     'policy',
 ])
 

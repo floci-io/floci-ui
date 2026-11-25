@@ -55,10 +55,13 @@ export function PaymentCryptographyPolicySection({
   const [policy, setPolicy] = useState(held);
   const [editing, setEditing] = useState(false);
 
+  // The key's policy is the truth, but a draft the user is writing is theirs:
+  // a refresh that arrives while the editor is open does not take it.
   useEffect(() => {
+    if (editing) return;
     setPolicy(held);
     setEditing(false);
-  }, [held, resource?.id]);
+  }, [held, resource?.id, editing]);
 
   const save = useMutation({
     mutationFn: (variables: {policy: string; target: CloudResource}) =>
@@ -68,9 +71,11 @@ export function PaymentCryptographyPolicySection({
     // Captured when the request is made: an account switch while it is in
     // flight must not refresh another account's resources.
     onMutate: () => ({accountId: getAccountId()}),
-    onSuccess: (_result, variables, context) => {
-      setEditing(false);
-      void queryClient.invalidateQueries({
+    onSuccess: async (_result, variables, context) => {
+      // The write stays pending until the key has been read back, so the panel
+      // does not offer to write again over a policy it has not read, and a
+      // draft the user starts in that window is not lost when the read lands.
+      await queryClient.invalidateQueries({
         queryKey: [
           "cloud-resource",
           context.accountId,
@@ -79,9 +84,10 @@ export function PaymentCryptographyPolicySection({
           variables.target.id,
         ],
       });
-      void queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: ["cloud-resources", context.accountId, cloud, variables.target.service],
       });
+      setEditing(false);
     },
   });
 
@@ -124,7 +130,7 @@ export function PaymentCryptographyPolicySection({
           <button
             className="button small primary"
             type="button"
-            disabled={writing || policy.trim() === ""}
+            disabled={!runtimeReachable || writing || policy.trim() === ""}
             onClick={() => {
               if (!resource) return;
               save.mutate({policy, target: resource});

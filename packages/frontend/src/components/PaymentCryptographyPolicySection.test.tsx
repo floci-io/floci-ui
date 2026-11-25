@@ -41,7 +41,7 @@ const key: CloudResource = {
 
 function renderSection(
   resource: CloudResource | undefined,
-  options: {keyUnreadable?: boolean} = {},
+  options: {keyUnreadable?: boolean; runtimeReachable?: boolean} = {},
 ) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   const invalidated: unknown[][] = [];
@@ -50,13 +50,13 @@ function renderSection(
     return {status: "success", statusText: "", data: undefined, error: null} as never;
   }) as typeof client.invalidateQueries;
 
-  const view = (target: CloudResource | undefined) => (
+  const view = (target: CloudResource | undefined, reachable = options.runtimeReachable ?? true) => (
     <QueryClientProvider client={client}>
       <PaymentCryptographyPolicySection
         cloud="aws"
         resource={target}
         keyUnreadable={options.keyUnreadable}
-        runtimeReachable={true}
+        runtimeReachable={reachable}
       />
     </QueryClientProvider>
   );
@@ -66,7 +66,8 @@ function renderSection(
     invalidated,
     // The panel is rendered again by the view that holds it, so a section can
     // be painted twice, as an account switch paints it.
-    rerender: (target: CloudResource | undefined = resource) => rerender(view(target)),
+    rerender: (target: CloudResource | undefined = resource, reachable?: boolean) =>
+      rerender(view(target, reachable)),
   };
 }
 
@@ -268,6 +269,37 @@ describe("the policy of a payment key", () => {
     await act(async () => {
       release?.();
     });
+  });
+
+  it("keeps a policy the user is writing when the key is read again", async () => {
+    const user = userEvent.setup();
+    const {rerender} = renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Attach a policy|Edit policy/i}));
+    const editor = screen.getByLabelText("Key policy");
+    fireEvent.change(editor, {target: {value: '{"Version":"2012-10-17","Statement":[]}'}});
+
+    // The key is read again, and it holds another policy. The draft the user
+    // is writing is theirs, and a refresh does not take it.
+    rerender({...key, metadata: {...key.metadata, keyPolicy: '{"Version":"2012-10-17"}'}});
+
+    await waitFor(() => {
+      expect((screen.getByLabelText("Key policy") as HTMLTextAreaElement).value).toContain("Statement");
+    });
+  });
+
+  it("does not offer to save while the runtime is not reachable", async () => {
+    const user = userEvent.setup();
+    const {rerender} = renderSection(key);
+
+    await user.click(screen.getByRole("button", {name: /Attach a policy|Edit policy/i}));
+    expect(screen.getByRole("button", {name: "Save policy"})).toBeEnabled();
+
+    // The runtime goes away while the editor is open, so a save cannot
+    // succeed.
+    rerender(key, false);
+
+    expect(screen.getByRole("button", {name: "Save policy"})).toBeDisabled();
   });
 
   it("keeps the editor still while it saves", async () => {

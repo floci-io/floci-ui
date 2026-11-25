@@ -62,6 +62,7 @@ describe('describeRequest', () => {
         expect(describeRequest('POST', '/api/clouds/aws/services/secrets/resources/s/purge-deleted')).toMatchObject({operation: 'Purge deleted'})
         expect(describeRequest('POST', '/api/clouds/aws/services/storage/resources/b/object/copy')).toMatchObject({operation: 'Copy'})
         expect(describeRequest('POST', '/api/clouds/aws/services/nosql/resources/db/containers')).toMatchObject({operation: 'Create'})
+        expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/usage')).toMatchObject({operation: 'Usage'})
         expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/policy')).toMatchObject({operation: 'Policy'})
         expect(describeRequest('DELETE', '/api/clouds/aws/services/email/inbox')).toMatchObject({operation: 'Clear'})
     })
