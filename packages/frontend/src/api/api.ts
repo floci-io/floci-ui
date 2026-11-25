@@ -352,6 +352,14 @@ export const endpointRegistry: EndpointRegistry = new Map([
     },
   ],
   [
+    apiEndpointKeys.clouds.resources.exportKey,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/export",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
     apiEndpointKeys.clouds.resources.encrypt,
     {
       path: "/clouds/:cloud/services/kms/resources/:id/encrypt",

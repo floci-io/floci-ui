@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, describe, expect, test, vi} from 'vitest'
 import {apiEndpointKeys, createApiClient} from './api'
-import {copyStorageObject, deleteStorageObject, emptyStorageBucket, listStorageObjects, uploadStorageObject} from './cloudProxyClient'
+import {copyStorageObject, deleteStorageObject, emptyStorageBucket, exportPaymentCryptographyKey, listStorageObjects, uploadStorageObject} from './cloudProxyClient'
 import {ACCOUNT_HEADER, setAccountId} from '@/lib/accountStore'
 
 const ACTIVE = '111111111111'
@@ -94,5 +94,17 @@ describe('shared request interceptors', () => {
         expect(url).toBe('/api/clouds/aws/services/storage/resources/logs/empty')
         expect(init.method).toBe('POST')
         expect(sentHeaders().get(ACCOUNT_HEADER)).toBe(CONFIRMED)
+    })
+
+    test('the export of a payment key is a registered endpoint', async () => {
+        // An endpoint key that is not in the registry is refused by the client
+        // before a request is made, so the export would never reach the API.
+        await exportPaymentCryptographyKey('aws', 'paymentcryptography', 'key/abc', {
+            wrappingKeyArn: 'key/def',
+        })
+
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+        expect(url).toBe('/api/clouds/aws/services/paymentcryptography/resources/key%2Fabc/export')
+        expect(init.method).toBe('POST')
     })
 })
