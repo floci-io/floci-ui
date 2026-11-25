@@ -233,10 +233,10 @@ export async function setPaymentCryptographyKeyUsage(
   cloud: CloudProvider,
   service: CloudServiceType,
   id: string,
-  body: Record<string, unknown>,
+  body: { enabled: boolean },
   signal?: AbortSignal,
 ): Promise<void> {
-  await apiClient.call<unknown, Record<string, unknown>>(
+  await apiClient.call<void, { enabled: boolean }>(
     apiEndpointKeys.clouds.resources.usage,
     requestOptions(cloud, service, { signal, body }),
     { cloud, service, id },
@@ -246,16 +246,17 @@ export async function setPaymentCryptographyKeyUsage(
 /**
  * The Regions a payment cryptography key is replicated to.
  *
- * <p>The list is the whole one: a Region that is not on it is taken away.
+ * <p>The request names the Regions to add and the Regions to remove, so a
+ * Region that is not named keeps the place it holds.
  */
 export async function setPaymentCryptographyKeyReplication(
   cloud: CloudProvider,
   service: CloudServiceType,
   id: string,
-  body: Record<string, unknown>,
+  body: { addReplicationRegions: string[]; removeReplicationRegions: string[] },
   signal?: AbortSignal,
 ): Promise<void> {
-  await apiClient.call<unknown, Record<string, unknown>>(
+  await apiClient.call<void, { addReplicationRegions: string[]; removeReplicationRegions: string[] }>(
     apiEndpointKeys.clouds.resources.replication,
     requestOptions(cloud, service, { signal, body }),
     { cloud, service, id },
@@ -271,10 +272,10 @@ export async function setPaymentCryptographyKeyPolicy(
   cloud: CloudProvider,
   service: CloudServiceType,
   id: string,
-  body: Record<string, unknown>,
+  body: { policy: string },
   signal?: AbortSignal,
 ): Promise<void> {
-  await apiClient.call<unknown, Record<string, unknown>>(
+  await apiClient.call<void, { policy: string }>(
     apiEndpointKeys.clouds.resources.policy,
     requestOptions(cloud, service, { signal, body }),
     { cloud, service, id },
@@ -284,7 +285,8 @@ export async function setPaymentCryptographyKeyPolicy(
 /** The material a payment cryptography key leaves under. */
 export interface ExportedPaymentCryptographyKey {
   keyMaterial: string;
-  format: string | null;
+  /** The form the material is in, as the reference names it. */
+  format: "KEY_CRYPTOGRAM" | "TR31_KEY_BLOCK" | "TR34_KEY_BLOCK" | null;
   wrappingKeyArn: string | null;
   keyCheckValue: string | null;
 }
