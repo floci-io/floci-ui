@@ -641,6 +641,17 @@ export interface KmsDecryptResult {
 }
 
 /**
+ * The key the material a key leaves under is wrapped under.
+ *
+ * <p>Declared here rather than written out at every use, so the route that
+ * serves the export and the adapter that answers it are checked against the
+ * same shape.
+ */
+export interface ExportKeyInput {
+    wrappingKeyArn: string
+}
+
+/**
  * The forms the material a key leaves under is in, as the reference names them.
  */
 export type ExportedKeyMaterialFormat = 'KEY_CRYPTOGRAM' | 'TR31_KEY_BLOCK' | 'TR34_KEY_BLOCK'
@@ -841,7 +852,7 @@ export interface CloudServiceAdapter {
      * serves it and the adapter that answers it are checked against the same
      * shape.
      */
-    exportKey?(id: string, input: {wrappingKeyArn: string}): Promise<ExportedKeyMaterial>
+    exportKey?(id: string, input: ExportKeyInput): Promise<ExportedKeyMaterial>
     /**
      * Cheap liveness check. Defaults to `list()`, which is a valid probe for
      * every current adapter; override where listing is expensive.

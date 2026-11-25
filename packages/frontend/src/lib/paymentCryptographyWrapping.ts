@@ -26,8 +26,12 @@ export function allowedAlgorithms(
   schema: ServiceSchema | undefined,
   carriedAlgorithm: string,
 ): readonly string[] | undefined {
-  const rule: PairingRule | undefined = schema?.pairings?.find(
-    (each) => each.discriminator === "keyAlgorithm",
+  // The schema arrives over the network and is not checked before it is read,
+  // so the container and the entries are guarded the same way the matrix is.
+  const pairings = schema?.pairings;
+  if (!Array.isArray(pairings)) return undefined;
+  const rule: PairingRule | undefined = pairings.find(
+    (each) => Boolean(each) && each.discriminator === "keyAlgorithm",
   );
   if (!rule) return undefined;
   // The schema arrives over the network and is not checked before it is read, so
@@ -38,7 +42,9 @@ export function allowedAlgorithms(
   // for is not a row of the matrix.
   if (!Object.prototype.hasOwnProperty.call(allowed, carriedAlgorithm)) return [];
   const row = allowed[carriedAlgorithm];
-  return Array.isArray(row) ? row : [];
+  // The row is copied, so a caller that changes it does not change what every
+  // other caller of the schema believes.
+  return Array.isArray(row) ? [...row] : [];
 }
 
 /**
@@ -49,9 +55,12 @@ export function allowedAlgorithms(
  * that may carry this one.
  */
 export function pairingsPublished(schema: ServiceSchema | undefined): boolean {
-  return Boolean(
-    schema?.pairings?.some((each: PairingRule) => each.discriminator === "keyAlgorithm"),
-  );
+  // The two functions answer alike about a rule that is not usable: a matrix
+  // that was not published is not a matrix that was published and named no key.
+  const pairings = schema?.pairings;
+  if (!Array.isArray(pairings)) return false;
+  const rule = pairings.find((each) => Boolean(each) && each.discriminator === "keyAlgorithm");
+  return Boolean(rule?.allowed && typeof rule.allowed === "object");
 }
 
 /**

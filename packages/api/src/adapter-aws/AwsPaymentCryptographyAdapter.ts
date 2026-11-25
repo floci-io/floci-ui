@@ -26,6 +26,7 @@ import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
+    mayUnwrapKey,
     mayWrapKey,
     mayWrapWith,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
@@ -39,6 +40,7 @@ import {
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
     PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES,
     isWrappingUsage,
+    modesAllowUnwrapping,
     modesAllowWrapping,
     wrappingAlgorithmsFor,
     type ModeCombination,
@@ -598,7 +600,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
 
         // The block is wrapped under a key of the account, so the key is held
         // to the same rules the export path holds it to.
-        await this.requireWrappingKey(wrappingKeyArn)
+        await this.requireUnwrappingKey(wrappingKeyArn)
 
         const arn = await importKeyTr31(this.client, wrappingKeyArn, wrappedKeyBlock, enabled)
         if (!arn) throw new RuntimeError('Payment Cryptography did not return the key it imported')
@@ -618,6 +620,29 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      * disabled key.
      */
     private async requireWrappingKey(wrappingKeyArn: string): Promise<Key> {
+        return this.requireWrappingKeyOf(wrappingKeyArn, modesAllowWrapping, 'wrap')
+    }
+
+    /**
+     * The key a block comes in under, which unwraps it rather than wraps it.
+     *
+     * <p>The reference names the wrapping key by its usage and its modes of use,
+     * and the two differ between the two directions: a key that leaves under a
+     * block wraps it, and a key that a block comes in under unwraps it.
+     */
+    private async requireUnwrappingKey(wrappingKeyArn: string): Promise<Key> {
+        return this.requireWrappingKeyOf(wrappingKeyArn, modesAllowUnwrapping, 'unwrap')
+    }
+
+    /**
+     * The key a block is wrapped under, held to the rule of the direction it
+     * is used in.
+     */
+    private async requireWrappingKeyOf(
+        wrappingKeyArn: string,
+        allows: (modes: KeyModesOfUse | undefined) => boolean,
+        direction: 'wrap' | 'unwrap',
+    ): Promise<Key> {
         const wrapping = await this.describe(wrappingKeyArn)
         if (!wrapping) throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not there`)
 
@@ -635,8 +660,12 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // is not enabled does no work at all. A key whose enabled state was not
         // read is not a key that may wrap either: a state that is not read is
         // not a permission, the same way the modes of use are not one.
-        if (!modesAllowWrapping(wrapping.KeyAttributes?.KeyModesOfUse)) {
-            throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not allowed to wrap a key`)
+        if (!allows(wrapping.KeyAttributes?.KeyModesOfUse)) {
+            throw new ValidationError(
+                direction === 'wrap'
+                    ? `the wrapping key ${wrappingKeyArn} is not allowed to wrap a key`
+                    : `the wrapping key ${wrappingKeyArn} is not allowed to unwrap a key`,
+            )
         }
         if (wrapping.Enabled !== true) {
             throw new ValidationError(
@@ -859,6 +888,14 @@ function toResource(
             // is published with the key rather than worked out by the console
             // from the usage and the modes of use.
             mayWrap: mayWrapKey(
+                key.KeyAttributes?.KeyUsage,
+                key.KeyAttributes?.KeyModesOfUse,
+                key.Enabled,
+            ),
+            // Whether the key may unwrap a block that comes in under it is the
+            // other half of the same question, and it is published as well: a
+            // key that comes in under a block is unwrapped by it.
+            mayUnwrap: mayUnwrapKey(
                 key.KeyAttributes?.KeyUsage,
                 key.KeyAttributes?.KeyModesOfUse,
                 key.Enabled,
