@@ -8,26 +8,43 @@ import {
 } from '@aws-sdk/client-payment-cryptography'
 
 /**
- * The Regions a key is replicated to.
+ * The Regions a key is replicated to, added to the ones it holds.
  *
- * <p>A key is replicated to the Regions it names, and the Regions it no longer
- * names are taken away. A replica is read-only, so the Regions of a replica are
- * the ones its primary holds.
+ * <p>The Regions named are the ones to add: the caller diffs them against the
+ * ones the key holds, because the helper does not diff for itself.
  */
-export async function setReplicationRegions(
+export async function addReplicationRegions(
     client: PaymentCryptographyClient,
     keyArn: string,
     regions: string[],
-    add: boolean,
 ): Promise<void> {
     // The reference's own commands name the Regions they change, so a list
     // that names no Region is not a request the service can act on. The helper
     // is exported, so it does not leave the check to every caller.
     if (regions.length === 0) return
-    const command = add
-        ? new AddKeyReplicationRegionsCommand({KeyIdentifier: keyArn, ReplicationRegions: regions})
-        : new RemoveKeyReplicationRegionsCommand({KeyIdentifier: keyArn, ReplicationRegions: regions})
-    await client.send(command)
+    await client.send(
+        new AddKeyReplicationRegionsCommand({KeyIdentifier: keyArn, ReplicationRegions: regions}),
+    )
+}
+
+/**
+ * The Regions a key is replicated to, taken away from the ones it holds.
+ *
+ * <p>The Regions named are the ones to remove: the caller diffs them against
+ * the ones the key holds, because the helper does not diff for itself.
+ */
+export async function removeReplicationRegions(
+    client: PaymentCryptographyClient,
+    keyArn: string,
+    regions: string[],
+): Promise<void> {
+    // The reference's own commands name the Regions they change, so a list
+    // that names no Region is not a request the service can act on. The helper
+    // is exported, so it does not leave the check to every caller.
+    if (regions.length === 0) return
+    await client.send(
+        new RemoveKeyReplicationRegionsCommand({KeyIdentifier: keyArn, ReplicationRegions: regions}),
+    )
 }
 
 /**
