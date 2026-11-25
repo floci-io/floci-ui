@@ -16,19 +16,8 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 import {setKeyUsage} from './paymentCryptographyLifecycle'
-=======
-import {deleteKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
->>>>>>> 2696a26 (feat(paymentcryptography): the policy of a key)
-=======
-import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy} from './paymentCryptographyPolicies'
->>>>>>> 1c14678 (fix(paymentcryptography): the policy the key holds is read with the key)
-=======
 import {deleteKeyPolicy, getKeyPolicy, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
->>>>>>> 72f7f58 (fix(paymentcryptography): a policy that could not be read leaves the key on screen)
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -181,6 +170,24 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
      * <p>The route is the only way in, so this is what decides what the operation
      * does.
      */
+    /**
+     * Whether a key may be used.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
+    async setUsage(id: string, input: Record<string, unknown>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+        const enabled = input?.enabled
+        if (enabled !== 'true' && enabled !== 'false' && enabled !== true && enabled !== false) {
+            throw new ValidationError('the enabled member of the request must say whether the key may be used')
+        }
+        await setKeyUsage(this.client, identifier, enabled === true || enabled === 'true')
+    }
+
     async setPolicy(id: string, input: Record<string, unknown>): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {
@@ -205,36 +212,6 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         await putKeyPolicy(this.client, identifier, policy)
     }
 
-<<<<<<< HEAD
-    async delete(id: string): Promise<void> {
-        const {kind, identifier} = parseId(id)
-        if (kind === 'aliases') {
-            await this.client.send(new DeleteAliasCommand({AliasName: aliasNameOf(identifier)}))
-            return
-        }
-        await this.client.send(new DeleteKeyCommand({KeyIdentifier: identifier}))
-    }
-
-    /**
-     * Whether a key may be used.
-     *
-     * <p>The route is the only way in, so this is what decides what the operation
-     * does.
-     */
-    async setUsage(id: string, input: Record<string, unknown>): Promise<void> {
-        const {kind, identifier} = parseId(id)
-        if (kind === 'aliases') {
-            throw new ValidationError('an alias has no settings of its own; the key it names does')
-        }
-        const enabled = input?.enabled
-        if (enabled !== 'true' && enabled !== 'false' && enabled !== true && enabled !== false) {
-            throw new ValidationError('the enabled member of the request must say whether the key may be used')
-        }
-        await setKeyUsage(this.client, identifier, enabled === true || enabled === 'true')
-    }
-
-=======
->>>>>>> 1b15c73 (fix(paymentcryptography): a request that says nothing about the policy is refused)
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {
