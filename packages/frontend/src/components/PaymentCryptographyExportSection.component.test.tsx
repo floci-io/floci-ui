@@ -58,7 +58,11 @@ const wrapping: CloudResource = {
   },
 };
 
-function renderSection(resource: CloudResource = key, resources: CloudResource[] = [wrapping]) {
+function renderSection(
+  resource: CloudResource = key,
+  resources: CloudResource[] = [wrapping],
+  options: {loading?: boolean; error?: boolean} = {},
+) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   render(
     <QueryClientProvider client={client}>
@@ -66,6 +70,8 @@ function renderSection(resource: CloudResource = key, resources: CloudResource[]
         cloud="aws"
         resource={resource}
         resources={resources}
+        resourcesLoading={options.loading}
+        resourcesError={options.error}
         schema={schema}
         runtimeReachable={true}
       />
@@ -131,8 +137,41 @@ describe("the material a payment key leaves under", () => {
     expect(options.length).toBe(1);
   });
 
-  it("says so when the clipboard refuses", async () => {
-    const user = userEvent.setup();
+  it("says the keys of the account are not known yet while they are being read", () => {
+    // The list of the account's keys is not read yet, so the console has not
+    // read the account's keys at all and does not claim that it holds none
+    // that may carry this one.
+    renderSection(key, [], {loading: true});
+
+    expect(screen.getByText(/have not been read yet/i)).toBeDefined();
+    expect(screen.queryByText(/No key of this account may carry this one/i)).toBeNull();
+  });
+
+  it("says the keys of the account could not be read", () => {
+    renderSection(key, [], {error: true});
+
+    expect(screen.getByText(/could not be read/i)).toBeDefined();
+    expect(screen.queryByText(/No key of this account may carry this one/i)).toBeNull();
+  });
+
+  it("says the material is not known while the key has not been read", () => {
+    // The section does not disappear and come back once the detail arrives.
+    const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={client}>
+        <PaymentCryptographyExportSection
+          cloud="aws"
+          resources={[wrapping]}
+          schema={schema}
+          runtimeReachable={true}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText(/has not been read yet/i)).toBeDefined();
+  });
+
+  it("says so when the clipboard refuses", async () => {    const user = userEvent.setup();
     // The setup replaces the clipboard with a stub of its own, so the refusal
     // is put in place after it.
     const writeText = vi.fn().mockRejectedValue(new Error("denied"));

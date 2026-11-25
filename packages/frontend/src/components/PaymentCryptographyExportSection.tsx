@@ -2,7 +2,7 @@ import {useMemo, useState} from "react";
 import {useMutation} from "@tanstack/react-query";
 import {Check, Copy, Download} from "lucide-react";
 import {exportPaymentCryptographyKey} from "@/api/cloudProxyClient";
-import {wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
+import {pairingsPublished, wrappingKeysFor} from "@/lib/paymentCryptographyWrapping";
 import {useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
@@ -21,6 +21,10 @@ interface PaymentCryptographyExportSectionProps {
    * the table is showing it or not.
    */
   resources?: CloudResource[];
+  /** The list of the account's keys is still being read. */
+  resourcesLoading?: boolean;
+  /** The list of the account's keys could not be read. */
+  resourcesError?: boolean;
   /** The service's schema, which publishes the pairings the service allows. */
   schema?: ServiceSchema;
   runtimeReachable: boolean;
@@ -40,6 +44,8 @@ export function PaymentCryptographyExportSection({
   cloud,
   resource,
   resources,
+  resourcesLoading,
+  resourcesError,
   schema,
   runtimeReachable,
   keyUnreadable,
@@ -74,7 +80,18 @@ export function PaymentCryptographyExportSection({
       </section>
     );
   }
-  if (!resource) return null;
+  if (!resource) {
+    // The key has not been read yet, so the section says that rather than
+    // disappearing and coming back once the detail arrives.
+    return (
+      <section className="inspector-section">
+        <p className="metric-label">Export</p>
+        <p className="muted compact-text">
+          The key has not been read yet, so what it leaves under is not known yet.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="inspector-section">
@@ -130,8 +147,7 @@ export function PaymentCryptographyExportSection({
       )}
       {allowed.length === 0 && (
         <p className="muted compact-text">
-          No key of this account may carry this one: a wrapping key has to be a key
-          encryption key that may wrap, and at least as strong as the key it carries.
+          {candidatesSentence(resources, resourcesLoading, resourcesError, schema)}
         </p>
       )}
       {material && (
@@ -161,4 +177,30 @@ export function PaymentCryptographyExportSection({
       )}
     </section>
   );
+}
+
+/**
+ * What the console says about the keys that may carry this one.
+ *
+ * <p>The list of the account's keys is not read yet, is being read, and could not
+ * be read are three different states, and only the last of them is a statement
+ * about the account. The console says which one it is in rather than claiming
+ * that the account holds no key that may carry this one.
+ */
+function candidatesSentence(
+  resources: CloudResource[] | undefined,
+  loading: boolean | undefined,
+  failed: boolean | undefined,
+  schema: ServiceSchema | undefined,
+): string {
+  if (failed) {
+    return "The keys of this account could not be read, so it is not known which of them may carry this one.";
+  }
+  if (loading || resources === undefined) {
+    return "The keys of this account have not been read yet, so it is not known which of them may carry this one.";
+  }
+  if (!pairingsPublished(schema)) {
+    return "The service has not published which keys may carry this one, so the console cannot offer one.";
+  }
+  return "No key of this account may carry this one: a wrapping key has to be a key encryption key that may wrap, and at least as strong as the key it carries.";
 }
