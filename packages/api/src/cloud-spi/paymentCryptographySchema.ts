@@ -215,6 +215,10 @@ export type PaymentCryptographyKeyClass =
  * block are not here, because a key that leaves under an RSA or an elliptic curve
  * key leaves as a cryptogram and not as a block.
  *
+ * <p>The keyed-hash keys are not rows of it either: the reference's own table of
+ * what may be wrapped by what names the encryption keys alone, so a key whose
+ * algorithm is a hash is a key that leaves under no key at all.
+ *
  * <p>The keys are the algorithms the reference names, so a mistyped one is a
  * compile error here rather than a row that never matches.
  */

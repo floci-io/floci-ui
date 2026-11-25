@@ -61,6 +61,17 @@ describe('awsPaymentCryptographySchema', () => {
         expect(wrappingAlgorithmsFor('AES_256')).toEqual(['AES_256'])
     })
 
+    test('the keyed-hash keys are not rows of the matrix, and the table says why', () => {
+        // The reference's own table of what may be wrapped by what names the
+        // encryption keys alone, so a key whose algorithm is a hash leaves under
+        // no key at all.
+        expect(mayWrapWith('HMAC_SHA256', 'AES_256')).toBe(false)
+        expect(mayWrapWith('HMAC_SHA512', 'AES_256')).toBe(false)
+
+        const source = readFileSync(join(import.meta.dir, 'paymentCryptographySchema.ts'), 'utf8')
+        expect(source).toContain('keyed-hash')
+    })
+
     test('the strength of a key is stated once', () => {
         const source = readFileSync(join(import.meta.dir, 'paymentCryptographySchema.ts'), 'utf8')
 
