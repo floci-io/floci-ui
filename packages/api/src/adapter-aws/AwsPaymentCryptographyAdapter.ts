@@ -1,5 +1,4 @@
 import {
-    GetKeyCommand as ReadKey,
     CreateAliasCommand,
     CreateKeyCommand,
     DeleteAliasCommand,
@@ -221,7 +220,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
 
     /** The key as it answers, which is where the rules of its replication are read from. */
     private async readKey(keyArn: string): Promise<Key | undefined> {
-        const res = await this.client.send(new ReadKey({KeyIdentifier: keyArn}))
+        const res = await this.client.send(new GetKeyCommand({KeyIdentifier: keyArn}))
         return res.Key
     }
 
