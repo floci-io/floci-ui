@@ -45,6 +45,12 @@ export class AwsOpenSearchAdapter implements CloudServiceAdapter {
         )
     }
 
+    async count(query: ResourceQuery = {}): Promise<number> {
+        if (query.search) return (await this.list(query)).length
+        const {DomainNames: names = []} = await this.opensearch.send(new ListDomainNamesCommand({}))
+        return names.length
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         if (!id) return null
         const domain = await this.describe(id)

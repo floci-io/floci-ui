@@ -89,13 +89,7 @@ export class AwsDsqlAdapter implements CloudServiceAdapter {
     }
 
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
-        const identifiers: string[] = []
-        let nextToken: string | undefined
-        do {
-            const page = await this.dsql.send(new ListClustersCommand(nextToken ? {nextToken} : {}))
-            identifiers.push(...(page.clusters ?? []).flatMap((cluster) => cluster.identifier ? [cluster.identifier] : []))
-            nextToken = page.nextToken
-        } while (nextToken)
+        const identifiers = await this.listClusterIdentifiers()
 
         const resources: CloudResource[] = []
         for (let index = 0; index < identifiers.length; index += GET_BATCH_SIZE) {
@@ -104,6 +98,22 @@ export class AwsDsqlAdapter implements CloudServiceAdapter {
             resources.push(...clusters.filter((cluster): cluster is CloudResource => cluster !== null))
         }
         return filterBySearch(resources, query.search)
+    }
+
+    async count(query: ResourceQuery = {}): Promise<number> {
+        if (query.search) return (await this.list(query)).length
+        return (await this.listClusterIdentifiers()).length
+    }
+
+    private async listClusterIdentifiers(): Promise<string[]> {
+        const identifiers: string[] = []
+        let nextToken: string | undefined
+        do {
+            const page = await this.dsql.send(new ListClustersCommand(nextToken ? {nextToken} : {}))
+            identifiers.push(...(page.clusters ?? []).flatMap((cluster) => cluster.identifier ? [cluster.identifier] : []))
+            nextToken = page.nextToken
+        } while (nextToken)
+        return identifiers
     }
 
     async get(id: string): Promise<CloudResource | null> {

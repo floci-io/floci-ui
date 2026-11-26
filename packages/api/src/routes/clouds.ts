@@ -100,12 +100,17 @@ export function createCloudRoutes(
 
     // Resolve the account- and region-scoped service per request. An explicitly
     // injected service (used by tests) always wins and ignores both headers.
-    const svc = (c: Context): CloudProxyService =>
-        injectedService ??
-        accountService(
+    const scoped = new WeakMap<Context, CloudProxyService>()
+    const svc = (c: Context): CloudProxyService => {
+        const existing = scoped.get(c)
+        if (existing) return existing
+        const resolved = injectedService ?? accountService(
             c.req.header(ACCOUNT_HEADER) ?? c.req.query('account'),
             c.req.header(REGION_HEADER) ?? c.req.query('region'),
         )
+        scoped.set(c, resolved)
+        return resolved
+    }
 
     // A console an emulator started serves only that emulator's cloud; the
     // others have nothing behind them, so they are unknown here. The scope is
@@ -115,6 +120,24 @@ export function createCloudRoutes(
         const cloud = c.req.param('cloud')
         if (scope !== null && isCloudProvider(cloud) && cloud !== scope) throw new NotFoundError('Unknown cloud')
         await next()
+    })
+
+    const isCountNeutralMutation = (method: string, path: string): boolean => {
+        if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return true
+        // Count-neutral actions: they do not create/delete top-level resources.
+        return /\/(invoke|encrypt|decrypt|sign|verify|messages|stream-messages|query|objects\/|empty)$/.test(path)
+            || /\/(send|receive|purge)$/.test(path)
+    }
+
+    // Centralized safeguard: mutating cloud requests can affect resource counts.
+    // Count-neutral action endpoints are excluded to avoid unnecessary cache churn.
+    app.use('/:cloud/*', async (c, next) => {
+        await next()
+        if (c.res.status >= 400) return
+        const cloud = c.req.param('cloud')
+        if (!isCloudProvider(cloud)) return
+        if (isCountNeutralMutation(c.req.method, c.req.path)) return
+        svc(c).invalidateResourceCounts(cloud)
     })
 
     app.get('/', (c) => c.json(svc(c).clouds()))
@@ -131,6 +154,16 @@ export function createCloudRoutes(
         // Per-service detail is opt-in; the connection indicator polls this often.
         const includeServices = c.req.query('services') === 'all'
         return c.json(await svc(c).status(cloud, {includeServices}))
+    })
+
+    app.get('/:cloud/resource-counts', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        if (!isCloudProvider(cloud)) throw new NotFoundError('Unknown cloud')
+        const servicesParam = c.req.query('services')
+        const services = servicesParam
+            ? servicesParam.split(',').map((value) => value.trim()).filter(isServiceType)
+            : undefined
+        return c.json(await svc(c).resourceCounts(cloud, services?.length ? services : undefined))
     })
 
     app.get('/:cloud/services/:service/status', async (c) => {

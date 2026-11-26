@@ -7,6 +7,8 @@ export interface ConsoleServiceCard {
     description: string
     status: CloudAvailability
     count?: number
+    countError?: boolean
+    countErrorMessage?: string
     icon: ElementType
     route?: string
     meta: string
@@ -29,6 +31,11 @@ export interface ServiceGridProps {
     runtimeReachable: boolean
     onNavigate: (route: string) => void
     searchQuery?: string
+    resourcesLoading?: boolean
+    resourceCountProgress?: {loaded: number; total: number}
+    resourceCountErrorCount?: number
+    resourceCountFailedServices?: string[]
+    onRetryCounts?: () => void
 }
 
 export interface RuntimeFlowProps {

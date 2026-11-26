@@ -54,6 +54,11 @@ export class AwsSesAdapter implements CloudServiceAdapter {
         return filterBySearch(resources, query.search)
     }
 
+    async count(query: ResourceQuery = {}): Promise<number> {
+        if (query.search) return (await this.list(query)).length
+        return (await this.fetchInbox()).length
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         const messages = await this.fetchInbox(id)
         const message = messages.find((entry) => entry.Id === id)

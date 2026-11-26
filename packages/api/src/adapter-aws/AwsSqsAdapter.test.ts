@@ -692,4 +692,15 @@ describe('AwsSqsAdapter', () => {
         const {client} = stubSqs({missingQueue: true})
         await expect(new AwsSqsAdapter(client).purgeQueue('nope')).rejects.toBeInstanceOf(NotFoundError)
     })
+
+    test('count returns queue total without per-queue attributes, and falls back for search', async () => {
+        const {client, sent} = stubSqs({queues: [`${BASE}/a-queue`, `${BASE}/b-queue`]})
+        const adapter = new AwsSqsAdapter(client)
+
+        await expect(adapter.count()).resolves.toBe(2)
+        expect(sent.some((command) => command instanceof GetQueueAttributesCommand)).toBe(false)
+
+        await expect(adapter.count({search: 'a-queue'})).resolves.toBe(1)
+        expect(sent.some((command) => command instanceof GetQueueAttributesCommand)).toBe(true)
+    })
 })

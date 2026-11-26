@@ -66,6 +66,10 @@ export class AwsDynamoDbAdapter implements CloudServiceAdapter {
         return resources
     }
 
+    async count(query: ResourceQuery = {}): Promise<number> {
+        return filterNamesBySearch(await this.listTableNames(), query.search).length
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         try {
             return await this.describe(id)

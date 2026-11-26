@@ -1126,6 +1126,7 @@ export function DynamicResourceView({
           runtimeReachable={runtimeReachable}
           onChanged={(change) => {
             void qc.invalidateQueries({queryKey: ["cloud-resources", change.accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resource-counts", change.accountId, cloud]});
             void qc.invalidateQueries({queryKey: ["cloud-resource", change.accountId, cloud, service]});
             if (change.removed) {
               setSelection((current) =>
@@ -1141,6 +1142,7 @@ export function DynamicResourceView({
           capabilities={resourceCapabilities}
           onChanged={() => {
             void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resource-counts", accountId, cloud]});
             if (activeSelected) {
               void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
             }
@@ -1197,6 +1199,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
           onRecovered={() => {
             void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resource-counts", accountId, cloud]});
             if (activeSelected) {
               void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
             }
@@ -1210,6 +1213,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
           onChanged={() => {
             void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resource-counts", accountId, cloud]});
             if (activeSelected) {
               void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
             }
@@ -1222,6 +1226,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
           onChanged={(change) => {
             void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resource-counts", accountId, cloud]});
             if (activeSelected) {
               void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
             }
@@ -1236,6 +1241,7 @@ export function DynamicResourceView({
           runtimeReachable={canUseRuntime}
           onMessagesChanged={() => {
             void qc.invalidateQueries({queryKey: ["cloud-resources", accountId, cloud, service]});
+            void qc.invalidateQueries({queryKey: ["cloud-resource-counts", accountId, cloud]});
             if (activeSelected) {
               void qc.invalidateQueries({queryKey: ["cloud-resource", accountId, cloud, service, activeSelected.id]});
             }

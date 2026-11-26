@@ -235,4 +235,18 @@ describe('AwsSesAdapter', () => {
             actions: ['list', 'inspect'],
         })
     })
+
+    test('count returns inbox size and falls back to list for search', async () => {
+        let calls = 0
+        const adapter = new AwsSesAdapter('http://floci.test', async () => {
+            calls++
+            return jsonResponse({messages: [{Id: '1', Subject: 'Alpha'}, {Id: '2', Subject: 'Beta'}]})
+        })
+
+        await expect(adapter.count()).resolves.toBe(2)
+        expect(calls).toBe(1)
+
+        await expect(adapter.count({search: 'Alpha'})).resolves.toBe(1)
+        expect(calls).toBe(2)
+    })
 })

@@ -3,6 +3,7 @@ import type { ActivityPage, ActivityQuery } from "@/types/activity";
 import type {
   CloudDescriptor,
   CloudProvider,
+  CloudResourceCount,
   CloudServiceDescriptor,
   CloudServiceStatus,
   CloudServiceType,
@@ -122,6 +123,22 @@ export async function getCloudServiceStatus(
     apiEndpointKeys.clouds.serviceStatus,
     requestOptions(cloud, service, { signal }),
     { cloud, service },
+  );
+  return res.data;
+}
+
+export async function listCloudResourceCounts(
+  cloud: CloudProvider,
+  signal?: AbortSignal,
+  services?: CloudServiceType[],
+): Promise<CloudResourceCount[]> {
+  const res = await apiClient.call<CloudResourceCount[]>(
+    apiEndpointKeys.clouds.resourceCounts,
+    requestOptions(cloud, "cloud-proxy", {
+      signal,
+      params: services?.length ? { services: services.join(",") } : undefined,
+    }),
+    { cloud },
   );
   return res.data;
 }

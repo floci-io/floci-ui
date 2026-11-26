@@ -29,13 +29,18 @@ export function resourceDetailFor(
     status: CloudStatus | undefined,
     statusLoading: boolean,
     resourcesLoading: boolean,
-    resourcesError: boolean,
+    resourcesErrorCount: number,
 ): string {
     if (statusLoading) return 'Waiting for runtime status'
     if (status?.runtime === 'unavailable') return 'Blocked until runtime is reachable'
     if (status?.runtime === 'coming_soon') return 'No adapter registered yet'
+    if (resourcesLoading && resourcesErrorCount > 0) {
+        return `Loading normalized resources; ${resourcesErrorCount} service${resourcesErrorCount === 1 ? '' : 's'} failed`
+    }
     if (resourcesLoading) return 'Loading normalized resources'
-    if (resourcesError) return 'Resource load failed'
+    if (resourcesErrorCount > 0) {
+        return `Failed to load ${resourcesErrorCount} service${resourcesErrorCount === 1 ? '' : 's'}`
+    }
     return 'Normalized resources across available services'
 }
 

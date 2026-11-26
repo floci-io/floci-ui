@@ -2,10 +2,12 @@ import {useQuery} from '@tanstack/react-query'
 import {
     getCloudServiceStatus,
     getCloudStatus,
+    listCloudResourceCounts,
     listCloudResources,
     listCloudServices,
     listClouds,
 } from '@/api/cloudProxyClient'
+import {useAccountId} from '@/lib/accountStore'
 import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatus} from '@/types/cloud'
 
 /**
@@ -21,8 +23,10 @@ export const cloudQueryKeys = {
     status: (cloud: CloudProvider) => ['cloud-status', cloud] as const,
     serviceStatus: (cloud: CloudProvider, service: CloudServiceType) =>
         ['cloud-service-status', cloud, service] as const,
-    resources: (cloud: CloudProvider, service: CloudServiceType) =>
-        ['cloud-console-resources', cloud, service] as const,
+    resources: (accountId: string, cloud: CloudProvider, service: CloudServiceType) =>
+        ['cloud-resources', accountId, cloud, service] as const,
+    resourceCounts: (accountId: string, cloud: CloudProvider) =>
+        ['cloud-resource-counts', accountId, cloud] as const,
 }
 
 export function useCloudsQuery() {
@@ -75,10 +79,23 @@ export function useCloudConsoleResourcesQuery({
     services?: CloudServiceDescriptor[]
     status?: CloudStatus
 }) {
+    const accountId = useAccountId()
     return useQuery({
-        queryKey: cloudQueryKeys.resources(cloud, service),
+        queryKey: cloudQueryKeys.resources(accountId, cloud, service),
         queryFn: ({signal}) => listCloudResources(cloud, service, undefined, signal),
         enabled: hasAvailableService(services, service) && status?.runtime === 'reachable',
+    })
+}
+
+export function useCloudResourceCountsQuery(cloud: CloudProvider, enabled = true) {
+    const accountId = useAccountId()
+    return useQuery({
+        queryKey: cloudQueryKeys.resourceCounts(accountId, cloud),
+        queryFn: ({signal}) => listCloudResourceCounts(cloud, signal),
+        enabled,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
+        refetchOnWindowFocus: true,
     })
 }
 

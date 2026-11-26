@@ -77,6 +77,12 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
         return filterBySearch(resources, query.search)
     }
 
+    async count(query: ResourceQuery = {}): Promise<number> {
+        if (query.search) return (await this.list(query)).length
+        const res = await this.sqs.send(new ListQueuesCommand({}))
+        return (res.QueueUrls ?? []).length
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         const url = await this.queueUrl(id)
         if (!url) return null

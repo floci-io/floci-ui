@@ -1,12 +1,14 @@
 import {useMemo} from 'react'
-import {useQueries} from '@tanstack/react-query'
-import {listCloudResources} from '@/api/cloudProxyClient'
+import {useQueryClient} from '@tanstack/react-query'
+import {listCloudResourceCounts} from '@/api/cloudProxyClient'
 import {
     cloudQueryKeys,
+    useCloudResourceCountsQuery,
     useCloudServicesQuery,
     useCloudStatusQuery,
 } from '@/api/queries/cloudQueries'
 import {serviceIcon} from '@/components/serviceIcons'
+import {useAccountId} from '@/lib/accountStore'
 import {
     resourceDetailFor,
     runtimeClassFor,
@@ -21,60 +23,56 @@ import type {ConsoleServiceCard} from './types'
 /**
  * Console home is driven entirely by `GET /clouds/:cloud/services`.
  *
- * It previously hardcoded three resource queries, spliced in a Secrets Manager
- * card for AWS with a hardcoded "available", and appended two permanent
- * placeholder cards — so it could disagree with both the sidebar and the API.
+ * Services are shown only when they have at least one resource instance, so the
+ * home page reflects what the user is actually running. Availability still comes
+ * from the catalog/adapters, and counts come from the aggregate resource-counts
+ * endpoint to avoid N per-service list requests.
  */
 export function useCloudConsoleHomeData(cloud: CloudProvider) {
+    const accountId = useAccountId()
+    const queryClient = useQueryClient()
     const servicesQuery = useCloudServicesQuery(cloud)
     const statusQuery = useCloudStatusQuery(cloud)
     const status = statusQuery.data
     const services = useMemo(() => servicesQuery.data ?? [], [servicesQuery.data])
 
-    // Availability is derived from adapter registration, so an available service
-    // always has the generic list endpoint. Route shape only decides where the
-    // card links, not whether it can be counted -- a legacy absolute-route page
-    // (AWS Secrets Manager) is still counted through its adapter.
+    const runtimeReachable = status?.runtime === 'reachable'
+    const countsQuery = useCloudResourceCountsQuery(cloud, runtimeReachable)
     const countable = useMemo(
         () => services.filter((service) => service.availability === 'available'),
         [services],
     )
 
-    const runtimeReachable = status?.runtime === 'reachable'
-    const countQueries = useQueries({
-        queries: countable.map((service) => ({
-            queryKey: cloudQueryKeys.resources(cloud, service.service),
-            queryFn: ({signal}: {signal?: AbortSignal}) =>
-                listCloudResources(cloud, service.service, undefined, signal),
-            enabled: runtimeReachable,
-            staleTime: 30_000,
-        })),
-    })
-
     const countsByService = useMemo(() => {
-        const map = new Map<string, {count?: number; isLoading: boolean; isError: boolean}>()
-        countable.forEach((service, index) => {
-            const query = countQueries[index]
-            map.set(service.service, {
-                count: query?.data?.length,
-                isLoading: query?.isLoading ?? false,
-                isError: query?.isError ?? false,
+        const map = new Map<string, {count?: number; isLoading: boolean; isError: boolean; errorMessage?: string}>()
+        for (const service of countable) {
+            map.set(service.service, {isLoading: runtimeReachable && countsQuery.isLoading, isError: false})
+        }
+        for (const item of countsQuery.data ?? []) {
+            map.set(item.service, {
+                count: item.count,
+                isLoading: false,
+                isError: !!item.error,
+                errorMessage: item.error,
             })
-        })
+        }
         return map
-    }, [countable, countQueries])
+    }, [countable, countsQuery.data, countsQuery.isLoading, runtimeReachable])
 
     const serviceCards = useMemo<ConsoleServiceCard[]>(
         () =>
             services.map((service): ConsoleServiceCard => {
                 const counts = countsByService.get(service.service)
                 const isLegacyPage = service.route.startsWith('/')
+                const countUnknown = counts?.isError
                 return {
                     id: service.service,
                     label: service.displayName,
                     description: service.description ?? '',
                     status: service.availability,
                     count: counts?.count,
+                    countError: countUnknown,
+                    countErrorMessage: counts?.errorMessage,
                     icon: serviceIcon(service.iconKey),
                     route:
                         service.availability === 'available'
@@ -86,17 +84,46 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
                         service.availability === 'available'
                             ? isLegacyPage
                                 ? 'open service'
-                                : serviceMetaLabel(status, counts?.isLoading ?? false, 'resources')
+                                : countUnknown
+                                    ? 'count unavailable'
+                                    : serviceMetaLabel(status, counts?.isLoading ?? false, 'resources')
                             : 'coming soon',
                 }
             }),
         [cloud, countsByService, services, status],
     )
 
-    const resourcesLoading = countQueries.some((query) => query.isLoading)
-    const resourcesError = countQueries.some((query) => query.isError)
-    const resourceCount = countQueries.reduce((total, query) => total + (query.data?.length ?? 0), 0)
-    const activeServices = services.filter((service) => service.availability === 'available').length
+    const resourcesLoading = runtimeReachable && countsQuery.isLoading
+    const failedCountItems = (countsQuery.data ?? []).filter((item) => !!item.error)
+    const resourceCountErrorCount = failedCountItems.length + (countsQuery.isError ? countable.length : 0)
+    const resourceCount = (countsQuery.data ?? []).reduce((total, item) => total + (item.count ?? 0), 0)
+    const failedServiceNames = countsQuery.isError
+        ? countable.map((service) => service.displayName)
+        : failedCountItems.map((item) => services.find((service) => service.service === item.service)?.displayName ?? item.service)
+    const failedServiceTypes = countsQuery.isError
+        ? countable.map((service) => service.service)
+        : failedCountItems.map((item) => item.service)
+    const refetchFailedCounts = async () => {
+        if (failedServiceTypes.length === 0) {
+            await countsQuery.refetch()
+            return
+        }
+        const fresh = await listCloudResourceCounts(cloud, undefined, failedServiceTypes)
+        queryClient.setQueryData(cloudQueryKeys.resourceCounts(accountId, cloud), (current: unknown) => {
+            const items = Array.isArray(current) ? current as Array<{service: string}> : []
+            const merged = items.map((item) => fresh.find((next) => next.service === item.service) ?? item)
+            for (const next of fresh) {
+                if (!merged.some((item) => item.service === next.service)) merged.push(next)
+            }
+            return merged
+        })
+    }
+    const visibleServiceCards = useMemo(
+        () => serviceCards.filter((service) => service.status === 'available' && ((service.count ?? 0) > 0 || service.countError)),
+        [serviceCards],
+    )
+    const activeServices = visibleServiceCards.filter((service) => (service.count ?? 0) > 0).length
+    const settledCounts = countsQuery.isLoading ? 0 : countable.length
 
     return {
         status,
@@ -105,12 +132,25 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
         runtimeClass: runtimeClassFor(status, statusQuery.isLoading),
         runtimeDetail: status?.error ?? runtimeDetailFor(cloud, status),
         activeServices,
-        // Counted rather than asserted: the old copy claimed a fixed service list.
         activeServicesDetail: servicesQuery.isSuccess
-            ? `${activeServices} of ${services.length} services available`
+            ? runtimeReachable
+                ? resourcesLoading
+                    ? `Loading services with resources (${settledCounts}/${countable.length})`
+                    : `${activeServices} service${activeServices === 1 ? '' : 's'} with resources`
+                : 'Waiting for runtime'
             : 'Loading services',
         resourceCount,
-        resourceDetail: resourceDetailFor(status, statusQuery.isLoading, resourcesLoading, resourcesError),
-        serviceCards,
+        resourceDetail: resourceDetailFor(status, statusQuery.isLoading, resourcesLoading, countsQuery.isError ? countable.length : resourceCountErrorCount),
+        serviceCards: visibleServiceCards,
+        resourcesLoading,
+        resourceCountErrorCount: countsQuery.isError ? countable.length : resourceCountErrorCount,
+        resourceCountFailedServices: failedServiceNames,
+        resourceCountProgress: {
+            loaded: settledCounts,
+            total: countable.length,
+        },
+        countsUpdatedAt: countsQuery.dataUpdatedAt,
+        refetchCounts: countsQuery.refetch,
+        refetchFailedCounts,
     }
 }

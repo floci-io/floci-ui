@@ -77,6 +77,10 @@ export class AwsKmsAdapter implements CloudServiceAdapter {
         return filterBySearch(resources.filter((resource): resource is CloudResource => resource !== null), query.search)
     }
 
+    async count(): Promise<number> {
+        return (await this.listKeyIds()).length
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         return this.describe(id)
     }

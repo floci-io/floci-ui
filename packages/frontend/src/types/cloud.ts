@@ -90,3 +90,10 @@ export interface CloudServiceStatus {
     /** Mapped error code, so "not implemented" reads differently from "down". */
     errorCode: string | null
 }
+
+export interface CloudResourceCount {
+    cloud: CloudProvider
+    service: CloudServiceType
+    count?: number
+    error?: string
+}

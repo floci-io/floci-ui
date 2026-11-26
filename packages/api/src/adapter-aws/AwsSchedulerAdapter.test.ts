@@ -213,6 +213,25 @@ describe('AwsSchedulerAdapter', () => {
 
         await expect(adapter.health()).rejects.toBe(failure)
     })
+
+    test('count returns schedule total without loading details, and applies name search', async () => {
+        const commands: unknown[] = []
+        const adapter = createAdapter(async (command) => {
+            commands.push(command)
+            if (command instanceof ListSchedulesCommand) {
+                return {Schedules: [{Name: 'nightly', GroupName: 'default'}, {Name: 'hourly', GroupName: 'default'}]}
+            }
+            if (command instanceof GetScheduleCommand) {
+                return {Name: command.input.Name, GroupName: command.input.GroupName, State: 'ENABLED'}
+            }
+            return {}
+        })
+
+        await expect(adapter.count()).resolves.toBe(2)
+        expect(commands.some((command) => command instanceof GetScheduleCommand)).toBe(false)
+
+        await expect(adapter.count({search: 'night'})).resolves.toBe(1)
+    })
 })
 
 function createAdapter(handler: SendHandler = async () => ({Schedules: []})): AwsSchedulerAdapter {
