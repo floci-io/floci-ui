@@ -45,21 +45,23 @@ export function SettingsPage() {
                             onSelect={selectCloud}
                         />
                     </div>
-                    <div className="settings-row">
-                        <div className="settings-row-text">
-                            <span className="settings-label">Account</span>
-                            <span className="settings-description">Account used for scoped resources</span>
-                        </div>
-                        <AccountSwitcher/>
-                    </div>
                     {cloud === 'aws' && (
-                        <div className="settings-row">
-                            <div className="settings-row-text">
-                                <span className="settings-label">Region</span>
-                                <span className="settings-description">AWS region used for regional resources</span>
+                        <>
+                            <div className="settings-row">
+                                <div className="settings-row-text">
+                                    <span className="settings-label">Account</span>
+                                    <span className="settings-description">Account used for scoped resources</span>
+                                </div>
+                                <AccountSwitcher/>
                             </div>
-                            <RegionSwitcher/>
-                        </div>
+                            <div className="settings-row">
+                                <div className="settings-row-text">
+                                    <span className="settings-label">Region</span>
+                                    <span className="settings-description">AWS region used for regional resources</span>
+                                </div>
+                                <RegionSwitcher/>
+                            </div>
+                        </>
                     )}
                 </section>
                 <div className="settings-section">
