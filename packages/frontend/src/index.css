@@ -1256,9 +1256,17 @@ pre,
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    color: var(--accent, var(--text-1));
+    /* A 24px hit area (WCAG 2.5.8) without growing the subtitle line. */
+    min-height: 24px;
+    margin-block: -4px;
+    /* 5.8:1 on the dark page header, where the plain accent is 4.6:1. */
+    color: color-mix(in srgb, var(--accent) 85%, var(--text-bright));
     font-size: 12px;
     text-decoration: none;
+}
+
+[data-theme="light"] .service-docs-link {
+    color: var(--accent);
 }
 
 .service-docs-link:hover {
@@ -2850,6 +2858,14 @@ pre,
 
 .resource-table td {
     cursor: pointer;
+}
+
+.resource-select-button {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    text-align: left;
 }
 
 .table-actions {

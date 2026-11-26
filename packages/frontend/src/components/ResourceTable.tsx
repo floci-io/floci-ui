@@ -109,11 +109,26 @@ export function ResourceTable({
                     />
                   </td>
                 )}
-                {schema.columns.map((column) => (
-                  <td key={column.name} onClick={() => onSelect(resource)}>
-                    {renderColumnValue(getPath(resource, column.path ?? column.name), column)}
-                  </td>
-                ))}
+                {schema.columns.map((column, index) => {
+                  const value = renderColumnValue(getPath(resource, column.path ?? column.name), column);
+                  return (
+                    <td key={column.name} onClick={() => onSelect(resource)}>
+                      {index === 0 ? (
+                        <button
+                          type="button"
+                          className="resource-select-button"
+                          aria-current={selectedId === resource.id ? 'true' : undefined}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect(resource);
+                          }}
+                        >
+                          {value}
+                        </button>
+                      ) : value}
+                    </td>
+                  );
+                })}
                 {hasActions && (
                   <td className="table-actions">
                     <div className="table-actions-group">
