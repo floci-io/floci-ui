@@ -32,6 +32,12 @@ export function useCloudsQuery() {
     })
 }
 
+/** The cloud's name as the server spells it, or its id in capitals while that loads. */
+export function useCloudDisplayName(cloud: CloudProvider): string {
+    const {data} = useCloudsQuery()
+    return data?.find((item) => item.id === cloud)?.displayName ?? cloud.toUpperCase()
+}
+
 export function useCloudServicesQuery(cloud: CloudProvider) {
     return useQuery({
         queryKey: cloudQueryKeys.services(cloud),

@@ -3,7 +3,7 @@ import {Link, useParams, useSearchParams} from 'react-router-dom'
 import {useQuery} from '@tanstack/react-query'
 import {getCloudResource} from '@/api/cloudProxyClient'
 import {HttpError} from '@/api/HttpClient'
-import {useCloudServicesQuery, useCloudStatusQuery} from '@/api/queries/cloudQueries'
+import {useCloudDisplayName, useCloudServicesQuery, useCloudStatusQuery} from '@/api/queries/cloudQueries'
 import {AzureSqlPanel} from '@/components/AzureSqlPanel'
 import {CosmosNoSqlPanel} from '@/components/CosmosNoSqlPanel'
 import {DynamoDbTableExplorer} from '@/components/DynamoDbTableExplorer'
@@ -12,6 +12,7 @@ import {useRegion} from '@/lib/regionStore'
 import {dataExplorerKind} from '@/lib/dataExplorer'
 import type {CloudProvider} from '@/types/cloud'
 import {isCloudProvider} from '@/lib/cloudProvider'
+import {useDocumentTitle} from '@/lib/useDocumentTitle'
 
 export function DatabaseDataPage() {
     const {cloud, service, resourceId} = useParams()
@@ -39,6 +40,8 @@ function DatabaseDataWorkspace({cloud, service, resourceId}: {cloud: CloudProvid
     const resource = resourceQuery.data
     const kind = resource && dataExplorerKind(resource)
     const containerId = searchParams.get('container') || undefined
+    const cloudName = useCloudDisplayName(cloud)
+    useDocumentTitle(resource?.name ?? resourceId, descriptor?.displayName ?? service, cloudName)
 
     function retry() {
         void servicesQuery.refetch()

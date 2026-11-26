@@ -6,6 +6,7 @@ import {RegionSwitcher} from '@/components/RegionSwitcher'
 import {useCloudsQuery} from '@/api/queries/cloudQueries'
 import {useActiveCloud} from '@/lib/useActiveCloud'
 import {useTheme} from '@/lib/useTheme'
+import {useDocumentTitle} from '@/lib/useDocumentTitle'
 import type {CloudProvider} from '@/types/cloud'
 
 export function SettingsPage() {
@@ -15,6 +16,7 @@ export function SettingsPage() {
     const cloud = useActiveCloud()
     const cloudsQuery = useCloudsQuery()
     const {theme, setTheme} = useTheme()
+    useDocumentTitle('Settings')
 
     function selectCloud(nextCloud: CloudProvider) {
         navigate(fromCloudExplorer ? `/cloud-explorer/${nextCloud}/storage` : `/console/${nextCloud}`)

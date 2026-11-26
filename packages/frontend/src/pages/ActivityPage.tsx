@@ -6,6 +6,7 @@ import {useCloudServicesQuery} from '@/api/queries/cloudQueries'
 import {EmptyState} from '@/components/EmptyState'
 import {formatDateTime} from '@/lib/format'
 import {useActiveCloud} from '@/lib/useActiveCloud'
+import {useDocumentTitle} from '@/lib/useDocumentTitle'
 import type {ActivityQuery, ActivityStatus} from '@/types/activity'
 
 const CLOUD_OPTIONS = [
@@ -51,6 +52,7 @@ function FilterSelect({label, allLabel, value, options, onChange}: FilterSelectP
  * actions, and it polls so changes land without a manual refresh.
  */
 export function ActivityPage() {
+    useDocumentTitle('Activity')
     const [searchParams, setSearchParams] = useSearchParams()
     const urlSearch = (searchParams.get('search') ?? '').trim()
     const activeCloud = useActiveCloud()

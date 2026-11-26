@@ -4,11 +4,12 @@ import {Navigate, useParams} from 'react-router-dom'
 import {useQuery} from '@tanstack/react-query'
 import {Link} from 'react-router-dom'
 import {getServiceSchema} from '@/api/cloudProxyClient'
-import {useCloudServicesQuery, useCloudStatusQuery} from '@/api/queries/cloudQueries'
+import {useCloudDisplayName, useCloudServicesQuery, useCloudStatusQuery} from '@/api/queries/cloudQueries'
 import {DynamicResourceView} from '@/components/DynamicResourceView'
 import {EmptyState} from '@/components/EmptyState'
 import {normalizeCapabilities, withRuntimeState, withServiceAvailability} from '@/lib/capabilities'
 import {isCloudProvider} from '@/lib/cloudProvider'
+import {useDocumentTitle} from '@/lib/useDocumentTitle'
 import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatus} from '@/types/cloud'
 import type {ServiceSchema} from '@/types/schema'
 import { ModalOverlay } from '@/components/ModalOverlay'
@@ -32,6 +33,8 @@ export function CloudExplorerPage() {
         () => servicesQuery.data?.find((item) => item.service === service),
         [service, servicesQuery.data],
     )
+    const cloudName = useCloudDisplayName(cloud)
+    useDocumentTitle(selectedService?.displayName ?? service, cloudName)
 
     // Until the catalog resolves, availability is unknown — not "coming soon".
     // Treating it as unknown keeps a registered service from flashing the

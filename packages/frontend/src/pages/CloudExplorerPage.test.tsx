@@ -1,17 +1,19 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {render, screen} from '@testing-library/react'
+import {render, screen, waitFor} from '@testing-library/react'
 import {MemoryRouter, Route, Routes} from 'react-router-dom'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import type {CloudServiceDescriptor} from '@/types/cloud'
 import {CloudExplorerPage} from './CloudExplorerPage'
 
-const {listCloudServices} = vi.hoisted(() => ({
+const {listCloudServices, listClouds} = vi.hoisted(() => ({
     listCloudServices: vi.fn(),
+    listClouds: vi.fn(),
 }))
 
 vi.mock('@/api/cloudProxyClient', async (importOriginal) => ({
     ...await importOriginal<typeof import('@/api/cloudProxyClient')>(),
     listCloudServices,
+    listClouds,
 }))
 
 vi.mock('@/lib/useSidebar', () => ({
@@ -60,6 +62,7 @@ function renderExplorer(serviceSlug: string) {
 
 beforeEach(() => {
     listCloudServices.mockReset().mockResolvedValue(servicesWithDocs)
+    listClouds.mockReset().mockResolvedValue([])
 })
 
 describe('CloudExplorerPage documentation links', () => {
@@ -79,5 +82,25 @@ describe('CloudExplorerPage documentation links', () => {
         // Wait for the service description text to load instead of the heading
         await screen.findByText('Load balancing for AWS.')
         expect(screen.queryByRole('link', {name: /docs/i})).not.toBeInTheDocument()
+    })
+})
+
+describe('CloudExplorerPage document title', () => {
+    it('names the service and the cloud, falling back to the service key while the catalog loads', async () => {
+        listClouds.mockReturnValue(new Promise(() => {}))
+        let resolveServices: (services: CloudServiceDescriptor[]) => void = () => {}
+        listCloudServices.mockReturnValue(new Promise((resolve) => { resolveServices = resolve }))
+        renderExplorer('k8s')
+
+        expect(document.title).toBe('k8s · AWS · Floci UI')
+        resolveServices(servicesWithDocs)
+        await waitFor(() => expect(document.title).toBe('EKS · AWS · Floci UI'))
+    })
+
+    it('uses the cloud name the server gives', async () => {
+        listClouds.mockResolvedValue([{id: 'aws', displayName: 'Amazon Web Services', availability: 'available'}])
+        renderExplorer('k8s')
+
+        await waitFor(() => expect(document.title).toBe('EKS · Amazon Web Services · Floci UI'))
     })
 })

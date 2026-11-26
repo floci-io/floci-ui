@@ -8,6 +8,8 @@ import {
 import {useCloudConsoleHomeData} from '@/features/cloud-console/useCloudConsoleHomeData'
 import type {CloudProvider} from '@/types/cloud'
 import {isCloudProvider} from '@/lib/cloudProvider'
+import {useDocumentTitle} from '@/lib/useDocumentTitle'
+import {useCloudDisplayName} from '@/api/queries/cloudQueries'
 
 export function CloudConsoleHomePage() {
     const navigate = useNavigate()
@@ -17,6 +19,8 @@ export function CloudConsoleHomePage() {
     const routeCloud = normalizeCloud(params.cloud)
     const cloud = routeCloud ?? 'aws'
     const data = useCloudConsoleHomeData(cloud)
+    const cloudName = useCloudDisplayName(cloud)
+    useDocumentTitle('Console Home', cloudName)
 
     if (!routeCloud) return <Navigate to="/console/aws" replace/>
 
