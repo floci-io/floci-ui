@@ -235,6 +235,22 @@ describe('StorageObjectBrowser storage cache', () => {
         expect(onSelectObject).not.toHaveBeenCalled()
     })
 
+    test('the object delete confirm names the object and can be cancelled', async () => {
+        const user = userEvent.setup()
+        renderBrowser()
+        await screen.findByText('a.txt')
+
+        await user.click(screen.getByTitle('Delete a.txt'))
+        expect(screen.getByText('Delete a.txt?')).toBeInTheDocument()
+        const cancel = screen.getByRole('button', {name: 'Cancel'})
+        expect(cancel).not.toHaveClass('danger')
+        await user.click(cancel)
+
+        expect(deleteStorageObject).not.toHaveBeenCalled()
+        expect(screen.queryByText('Delete a.txt?')).not.toBeInTheDocument()
+        expect(screen.getByTitle('Delete a.txt')).toBeInTheDocument()
+    })
+
     test('a partly failed bulk delete refreshes, keeps only the keys that failed, and says so', async () => {
         const user = userEvent.setup()
         vi.mocked(deleteStorageObject).mockImplementation(async (_account, _cloud, _bucket, key) => {

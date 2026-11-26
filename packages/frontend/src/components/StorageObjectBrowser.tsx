@@ -473,12 +473,18 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                             </button>
                                         )}
                                         {canDelete && deleteConfirm === object.key ? (
-                                            <button className="button danger compact" disabled={deleteMut.isPending} onClick={() => {
-                                                if (target) deleteMut.mutate({object, target})
-                                                setDeleteConfirm(null)
-                                            }}>
-                                                Confirm
-                                            </button>
+                                            <div className="table-confirm-actions">
+                                                <span>Delete {object.name}?</span>
+                                                <button className="button danger compact" type="button" disabled={deleteMut.isPending} onClick={() => {
+                                                    if (target) deleteMut.mutate({object, target})
+                                                    setDeleteConfirm(null)
+                                                }}>
+                                                    Confirm
+                                                </button>
+                                                <button className="button compact" type="button" disabled={deleteMut.isPending} onClick={() => setDeleteConfirm(null)}>
+                                                    Cancel
+                                                </button>
+                                            </div>
                                         ) : (
                                             deleteCapability && (
                                                 <button className="icon-btn danger" disabled={!canDelete} title={deleteCapability.reason ?? `Delete ${object.name}`} onClick={() => setDeleteConfirm(object.key)}>
