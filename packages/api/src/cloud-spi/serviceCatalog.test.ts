@@ -11,6 +11,37 @@ import {
     isServiceType,
     routeFor,
 } from './serviceCatalog'
+import type {CloudProvider} from './types'
+
+const CLOUDS: CloudProvider[] = ['aws', 'azure', 'gcp', 'oci']
+
+/** Provider names and product names that belong to one provider only. */
+const PROVIDER_TERMS: Record<CloudProvider, string[]> = {
+    aws: [
+        'AWS', 'Amazon', 'SageMaker', 'Aurora', 'DSQL', 'SNS', 'SQS', 'EventBridge', 'Cognito', 'CloudWatch',
+        'X-Ray', 'Parameter Store', 'Secrets Manager', 'Lambda', 'DynamoDB', 'Kinesis', 'Step Functions',
+        'CloudFormation', 'Route 53', 'CloudFront', 'ElastiCache', 'OpenSearch', 'Athena', 'AppConfig',
+        'CodeBuild', 'ACM', 'ECR', 'ECS', 'EKS', 'IAM', 'user pools', 'FIFO',
+    ],
+    azure: [
+        'Azure', 'Microsoft', 'Key Vault', 'Entra', 'Event Grid', 'Event Hubs', 'Cosmos', 'ARM', 'Service Bus',
+        'API Management', 'Application Insights', 'AKS', 'Table Storage', 'Queue Storage',
+    ],
+    gcp: [
+        'Google', 'GCP', 'Vertex', 'Pub/Sub', 'BigQuery', 'Firestore', 'Spanner', 'Cloud Run', 'GKE', 'Eventarc',
+        'Identity Platform', 'Cloud Monitoring', 'Cloud Trace', 'Cloud Scheduler', 'Cloud Logging',
+    ],
+    oci: ['OCI', 'Oracle', 'tenancy', 'tenancies', 'Work Requests', 'OKE', 'Data Science'],
+}
+
+function escapeRegExp(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+}
+
+/** Whole-word matches only, so 'ARM' does not match 'alarms'. */
+function mentions(text: string, terms: string[]): string[] {
+    return terms.filter((term) => new RegExp(`(^|[^A-Za-z])${escapeRegExp(term)}([^A-Za-z]|$)`).test(text))
+}
 
 describe('SERVICE_CATALOG', () => {
     test('every entry carries the metadata the nav needs', () => {
@@ -165,6 +196,57 @@ describe('SERVICE_CATALOG', () => {
         expect(docsUrlFor(loadbalancing, 'aws')).toBe('https://floci.io/floci/services/elb/')
         expect(docsUrlFor(loadbalancing, 'azure')).toBeUndefined()
         expect(docsUrlFor(catalogEntry('workrequests')!, 'oci')).toBeUndefined()
+    })
+})
+
+describe('per-cloud catalog text', () => {
+    const allTerms = CLOUDS.flatMap((cloud) => PROVIDER_TERMS[cloud])
+
+    test('no shared fallback name or description names a provider or one provider\'s product', () => {
+        for (const entry of SERVICE_CATALOG_ENTRIES) {
+            expect({service: entry.service, leaks: mentions(entry.displayName, allTerms)}).toEqual({service: entry.service, leaks: []})
+            expect({service: entry.service, leaks: mentions(entry.description, allTerms)}).toEqual({service: entry.service, leaks: []})
+        }
+    })
+
+    test('no cloud resolves a name or description that belongs to another provider', () => {
+        for (const cloud of CLOUDS) {
+            const foreign = CLOUDS.filter((other) => other !== cloud).flatMap((other) => PROVIDER_TERMS[other])
+            for (const entry of SERVICE_CATALOG_ENTRIES) {
+                const text = `${displayNameFor(entry, cloud)} | ${descriptionFor(entry, cloud)}`
+                expect({cloud, service: entry.service, leaks: mentions(text, foreign)}).toEqual({cloud, service: entry.service, leaks: []})
+            }
+        }
+    })
+
+    test('each cloud resolves its own product name', () => {
+        const expected: Record<string, Record<CloudProvider, string>> = {
+            sagemaker: {aws: 'SageMaker AI', azure: 'Machine Learning', gcp: 'Vertex AI', oci: 'Data Science'},
+            dsql: {aws: 'Aurora DSQL', azure: 'Distributed SQL', gcp: 'Spanner', oci: 'Distributed SQL'},
+            sns: {aws: 'SNS', azure: 'Notifications', gcp: 'Notifications', oci: 'Notifications'},
+            eventsv2: {aws: 'EventBridge V2', azure: 'Event Buses', gcp: 'Event Buses', oci: 'Event Buses'},
+            cognito: {aws: 'Cognito', azure: 'User Sign-in', gcp: 'Identity Platform', oci: 'User Sign-in'},
+            cloudwatch: {aws: 'CloudWatch', azure: 'Azure Monitor', gcp: 'Cloud Monitoring', oci: 'Monitoring'},
+            xray: {aws: 'X-Ray', azure: 'Application Insights', gcp: 'Cloud Trace', oci: 'Tracing'},
+            parameters: {aws: 'Parameter Store', azure: 'Parameters', gcp: 'Parameters', oci: 'Parameters'},
+            table: {aws: 'Storage Tables', azure: 'Table Storage', gcp: 'Storage Tables', oci: 'Storage Tables'},
+            queue: {aws: 'Storage Queues', azure: 'Queue Storage', gcp: 'Storage Queues', oci: 'Storage Queues'},
+            workrequests: {aws: 'Operations', azure: 'Operations', gcp: 'Operations', oci: 'Work Requests'},
+        }
+        for (const [service, names] of Object.entries(expected)) {
+            for (const cloud of CLOUDS) {
+                expect({service, cloud, name: displayNameFor(catalogEntry(service)!, cloud)}).toEqual({service, cloud, name: names[cloud]})
+            }
+        }
+    })
+
+    test('keeps the Azure Storage wording on Azure only', () => {
+        expect(descriptionFor(catalogEntry('table')!, 'azure')).toBe('Manage Azure Storage tables.')
+        expect(descriptionFor(catalogEntry('queue')!, 'azure')).toBe('Create and inspect Azure Storage queues.')
+        for (const cloud of ['aws', 'gcp', 'oci'] as const) {
+            expect(descriptionFor(catalogEntry('table')!, cloud)).not.toContain('Azure')
+            expect(descriptionFor(catalogEntry('queue')!, cloud)).not.toContain('Azure')
+        }
     })
 })
 
