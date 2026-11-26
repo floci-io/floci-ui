@@ -6,17 +6,18 @@ name: Integration
 
 on:
   pull_request:
-    paths:
+    paths: &stack
       - 'packages/**'
       - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
       - 'docker-compose.yml'
+      - '.github/workflows/integration.yml'
+      - '!**/*.md'
   push:
     branches:
       - main
-    paths:
-      - 'packages/**'
-      - 'package.json'
-      - 'docker-compose.yml'
+    paths: *stack
 
 permissions:
   contents: read
@@ -29,6 +30,13 @@ jobs:
   # ── Compilation check ────────────────────────────────────────────────────
   build:
     name: Compile (type-check + build)
+    # The release-please PR only bumps versions and the CHANGELOG on top of
+    # main, which was already tested on push, and it is rebuilt after every
+    # merge to main. Only a branch in this repository gets the exemption.
+    if: >-
+      !(github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        startsWith(github.head_ref, 'release-please--branches--main'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
