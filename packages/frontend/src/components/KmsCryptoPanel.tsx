@@ -6,6 +6,7 @@ import {
   type KmsEncryptionAlgorithm,
 } from "@/api/cloudProxyClient";
 import {useAccountId} from "@/lib/accountStore";
+import {useRegion} from "@/lib/regionStore";
 import {COPY_REFUSED_MESSAGE, useCopyToClipboard} from "@/lib/useCopyToClipboard";
 import type {CloudProvider} from "@/types/cloud";
 import type {CloudResource} from "@/types/resource";
@@ -21,6 +22,7 @@ type CryptoResult = {label: string; value: string};
 
 export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPanelProps) {
   const accountId = useAccountId();
+  const region = useRegion();
   const keySpec = metadataString(resource, "keySpec");
   const keyUsage = metadataString(resource, "keyUsage");
   // Set by an adapter whose runtime cannot run crypto for this key, e.g. RSA on Floci-OCI.
@@ -55,7 +57,7 @@ export function KmsCryptoPanel({cloud, resource, runtimeReachable}: KmsCryptoPan
       activeRequest.current?.abort();
       activeRequest.current = null;
     };
-  }, [accountId, resource?.id, keySpec, resetCopy]);
+  }, [accountId, region, resource?.id, keySpec, resetCopy]);
 
   const isKmsKey = resource?.service === "kms" && resource.type === "key";
   const isSupportedKey = keyUsage === "ENCRYPT_DECRYPT" && keyEnabled && isEncryptKeySpec(keySpec) && !runtimeGap;

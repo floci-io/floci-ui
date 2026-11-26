@@ -1,4 +1,5 @@
 import { apiClient, apiEndpointKeys } from "@/api/api";
+import { type RequestScope, scopeHeaders } from "@/lib/requestScope";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -368,13 +369,14 @@ export async function createEc2SecurityGroup(
   name: string,
   description: string,
   vpcId?: string,
+  scope?: RequestScope,
 ): Promise<{ groupId: string }> {
   const res = await apiClient.call<
     { groupId: string },
     { name: string; description: string; vpcId?: string }
   >(
     apiEndpointKeys.aws.ec2.securityGroups.create,
-    { body: { name, description, vpcId } },
+    { body: { name, description, vpcId }, headers: scope ? scopeHeaders(scope) : undefined },
   );
   return res.data;
 }
@@ -386,10 +388,11 @@ export async function deleteEc2SecurityGroup(groupId: string): Promise<void> {
 export async function authorizeEc2SecurityGroupIngress(
   groupId: string,
   permission: IpPermissionInput,
+  scope?: RequestScope,
 ): Promise<void> {
   await apiClient.call(
     apiEndpointKeys.aws.ec2.securityGroups.authorize,
-    { body: permission },
+    { body: permission, headers: scope ? scopeHeaders(scope) : undefined },
     { groupId },
   );
 }

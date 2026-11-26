@@ -4,6 +4,7 @@ import {useMutation, useQueries, useQueryClient} from '@tanstack/react-query'
 import {listFlatItems, putFlatItem, queryFlatItems, queryFlatItemsByKey} from '@/api/cloudProxyClient'
 import {JsonRecordModal} from '@/components/JsonRecordModal'
 import {useAccountId} from '@/lib/accountStore'
+import {useRegion} from '@/lib/regionStore'
 import type {CloudProvider} from '@/types/cloud'
 import type {ChildItem, CloudResource, CollectionPage, KeyConditionOperator, KeyQuery} from '@/types/resource'
 
@@ -16,6 +17,7 @@ interface DynamoDbTableExplorerProps {
 interface TableExplorerProps {
     cloud: CloudProvider
     accountId: string
+    region: string | null
     resource: CloudResource
     runtimeReachable: boolean
 }
@@ -30,6 +32,7 @@ interface TableExplorerProps {
  */
 export function DynamoDbTableExplorer({cloud, resource, runtimeReachable}: DynamoDbTableExplorerProps) {
     const accountId = useAccountId()
+    const region = useRegion()
 
     if (!resource) {
         return (
@@ -46,9 +49,10 @@ export function DynamoDbTableExplorer({cloud, resource, runtimeReachable}: Dynam
     // cursor chain and statement instead of resetting each piece of state.
     return (
         <TableExplorer
-            key={`${accountId}:${cloud}:${resource.id}`}
+            key={`${accountId}:${region ?? ''}:${cloud}:${resource.id}`}
             cloud={cloud}
             accountId={accountId}
+            region={region}
             resource={resource}
             runtimeReachable={runtimeReachable}
         />
@@ -57,7 +61,7 @@ export function DynamoDbTableExplorer({cloud, resource, runtimeReachable}: Dynam
 
 type ReadMode = 'scan' | 'query'
 
-function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExplorerProps) {
+function TableExplorer({cloud, accountId, region, resource, runtimeReachable}: TableExplorerProps) {
     const tableName = resource.id
     const [mode, setMode] = useState<ReadMode>('scan')
     // Each run gets its own number, so running the same lookup again is a new
@@ -69,12 +73,12 @@ function TableExplorer({cloud, accountId, resource, runtimeReachable}: TableExpl
     const keyFields = useMemo(() => dynamoKeyFields(resource), [resource])
     const accessPaths = useMemo(() => dynamoAccessPaths(resource), [resource])
     const scanned = usePagedRecords(
-        ['nosql-items', accountId, cloud, tableName],
+        ['nosql-items', accountId, region, cloud, tableName],
         (cursor, signal) => listFlatItems(cloud, 'nosql', tableName, cursor, signal),
         runtimeReachable && mode === 'scan',
     )
     const queried = usePagedRecords(
-        ['nosql-key-query', accountId, cloud, tableName, keyQueryRun],
+        ['nosql-key-query', accountId, region, cloud, tableName, keyQueryRun],
         (cursor, signal) => queryFlatItemsByKey(cloud, 'nosql', tableName, keyQuery as KeyQuery, cursor, signal),
         runtimeReachable && Boolean(keyQuery),
     )

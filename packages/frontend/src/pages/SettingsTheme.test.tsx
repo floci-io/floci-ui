@@ -6,7 +6,10 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {useTheme} from '@/lib/useTheme'
 import {SettingsPage} from './SettingsPage'
 
-vi.mock('@/api/queries/cloudQueries', () => ({useCloudsQuery: () => ({data: []})}))
+vi.mock('@/api/queries/cloudQueries', () => ({
+    useCloudsQuery: () => ({data: []}),
+    useCloudStatusQuery: () => ({data: undefined}),
+}))
 
 function ResolvedTheme() {
     const {resolvedTheme} = useTheme()

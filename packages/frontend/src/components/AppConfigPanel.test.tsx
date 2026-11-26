@@ -87,8 +87,8 @@ describe('AppConfigPanel account isolation', () => {
         await waitFor(() => {
             expect(cloudProxyMocks.listAppConfigEnvironments).toHaveBeenCalledTimes(2)
         })
-        expect(queryClient.getQueryData(['appconfig-environments', DEFAULT_ACCOUNT_ID, 'aws', application.id])).toBeDefined()
-        expect(queryClient.getQueryData(['appconfig-environments', '111111111111', 'aws', application.id])).toBeDefined()
+        expect(queryClient.getQueryData(['appconfig-environments', DEFAULT_ACCOUNT_ID, null, 'aws', application.id])).toBeDefined()
+        expect(queryClient.getQueryData(['appconfig-environments', '111111111111', null, 'aws', application.id])).toBeDefined()
     })
 })
 

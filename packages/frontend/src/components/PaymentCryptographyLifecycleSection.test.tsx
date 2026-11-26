@@ -88,6 +88,7 @@ describe("the usage of a payment key", () => {
     expect(keys).toContainEqual([
       "cloud-resource",
       DEFAULT_ACCOUNT_ID,
+      null,
       "aws",
       "paymentcryptography",
       key.id,
@@ -95,6 +96,7 @@ describe("the usage of a payment key", () => {
     expect(keys).toContainEqual([
       "cloud-resources",
       DEFAULT_ACCOUNT_ID,
+      null,
       "aws",
       "paymentcryptography",
     ]);

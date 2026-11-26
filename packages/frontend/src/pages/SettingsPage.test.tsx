@@ -1,9 +1,10 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {render, screen} from '@testing-library/react'
+import {render, screen, within} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {DEFAULT_ACCOUNT_ID, setAccountId} from '@/lib/accountStore'
+import {getRegion, setRegion} from '@/lib/regionStore'
 import type {CloudDescriptor, CloudProvider} from '@/types/cloud'
 import {SettingsPage} from './SettingsPage'
 
@@ -18,6 +19,7 @@ const clouds = vi.hoisted(() => ({data: [] as CloudDescriptor[]}))
 
 vi.mock('@/api/queries/cloudQueries', () => ({
     useCloudsQuery: () => clouds,
+    useCloudStatusQuery: () => ({data: {region: 'eu-central-1'}}),
 }))
 
 function SelectedDestination() {
@@ -59,6 +61,37 @@ describe('SettingsPage', () => {
         await user.click(screen.getByRole('option', {name: 'Azure'}))
 
         expect(screen.getByText('Selected /console/azure')).toBeInTheDocument()
+    })
+
+    it('shows the AWS region switcher with the console default, and switches region', async () => {
+        const user = userEvent.setup()
+        setRegion(null)
+        renderSettings('/settings')
+
+        await user.click(screen.getByRole('button', {name: 'Switch AWS region eu-central-1'}))
+        expect(screen.getByRole('option', {name: /eu-central-1.*default/})).toHaveAttribute('aria-selected', 'true')
+
+        // A defined list, with the AWS console's names, and no field to type a region into.
+        expect(screen.getByRole('option', {name: /eu-central-1.*Europe \(Frankfurt\)/})).toBeInTheDocument()
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('option', {name: /us-west-2.*US West \(Oregon\)/}))
+
+        expect(getRegion()).toBe('us-west-2')
+        expect(screen.getByRole('button', {name: 'Switch AWS region us-west-2'})).toBeInTheDocument()
+
+        // The region just picked comes back on top, under Recent, as well as in the full list.
+        await user.click(screen.getByRole('button', {name: 'Switch AWS region us-west-2'}))
+        expect(within(screen.getByRole('group', {name: 'Recent regions'})).getByRole('option', {name: /us-west-2/}))
+            .toHaveAttribute('aria-selected', 'true')
+        expect(within(screen.getByRole('group', {name: 'All regions'})).getAllByRole('option')).toHaveLength(36)
+        setRegion(null)
+    })
+
+    it('shows no region switcher outside AWS', () => {
+        renderSettings({pathname: '/settings', state: {cloud: 'azure'}})
+
+        expect(screen.queryByRole('button', {name: /Switch AWS region/})).not.toBeInTheDocument()
     })
 
     it('sends a cloud switch from Cloud Explorer to the new cloud storage view', async () => {

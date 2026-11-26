@@ -42,6 +42,7 @@ import type { CloudProvider } from '@/types/cloud'
 import type { CloudResource } from '@/types/resource'
 import { TagEditor } from '@/features/ec2/TagEditor'
 import { useAccountId } from '@/lib/accountStore'
+import { useRegion } from '@/lib/regionStore'
 import { ModalOverlay } from './ModalOverlay'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ interface ComputePanelProps {
 
 export interface ComputeChange {
     accountId: string
+    region: string | null
     resourceId: string
     removed: boolean
 }
@@ -167,8 +169,9 @@ function CreateAmiModal({ instanceId, instanceName, onClose, onCreated }: {
 
 function ConsoleOutputModal({ instanceId, onClose }: { instanceId: string; onClose: () => void }) {
     const accountId = useAccountId()
+    const region = useRegion()
     const query = useQuery({
-        queryKey: ['ec2', 'console', instanceId, accountId],
+        queryKey: ['ec2', 'console', instanceId, accountId, region],
         queryFn: ({ signal }) => getEc2ConsoleOutput(instanceId, signal),
     })
 
@@ -288,28 +291,29 @@ function errorMessage(error: unknown): string {
 function InstancePanel({ instanceId, onChanged }: { instanceId: string; onChanged?: ComputePanelProps['onChanged'] }) {
     const qc = useQueryClient()
     const accountId = useAccountId()
+    const region = useRegion()
     const [tab, setTab] = useState<'details' | 'tags' | 'console'>('details')
     const [showAmiModal, setShowAmiModal] = useState(false)
     const [showConsoleModal, setShowConsoleModal] = useState(false)
     const [terminateStep, setTerminateStep] = useState<'idle' | 'confirm'>('idle')
 
     const query = useQuery({
-        queryKey: ['ec2', 'instance', instanceId, accountId],
+        queryKey: ['ec2', 'instance', instanceId, accountId, region],
         queryFn: ({ signal }) => describeEc2Instance(instanceId, signal),
     })
 
-    // The account rides along with the action, so a success refreshes the account it ran in.
+    // The account and region ride along with the action, so a success refreshes the ones it ran in.
     const actionMut = useMutation({
-        mutationFn: ({ action }: { action: InstanceAction; accountId: string }) =>
+        mutationFn: ({ action }: { action: InstanceAction; accountId: string; region: string | null }) =>
             INSTANCE_ACTIONS[action].run(instanceId),
-        onSuccess: (_data, { action, accountId: actionAccountId }) => {
+        onSuccess: (_data, { action, accountId: actionAccountId, region: actionRegion }) => {
             if (action === 'terminate') setTerminateStep('idle')
             void qc.invalidateQueries({ queryKey: ['ec2', 'instance', instanceId] })
             void qc.invalidateQueries({ queryKey: ['ec2', 'instances'] })
-            onChanged?.({ accountId: actionAccountId, resourceId: instanceId, removed: false })
+            onChanged?.({ accountId: actionAccountId, region: actionRegion, resourceId: instanceId, removed: false })
         },
     })
-    const runAction = (action: InstanceAction) => actionMut.mutate({ action, accountId })
+    const runAction = (action: InstanceAction) => actionMut.mutate({ action, accountId, region })
     const pendingAction = actionMut.isPending ? actionMut.variables.action : null
 
     if (query.isLoading) {
@@ -553,15 +557,16 @@ function InstancePanel({ instanceId, onChanged }: { instanceId: string; onChange
 function AmiPanel({ imageId, onChanged }: { imageId: string; onChanged?: ComputePanelProps['onChanged'] }) {
     const qc = useQueryClient()
     const accountId = useAccountId()
+    const region = useRegion()
     const [showDeregister, setShowDeregister] = useState(false)
 
     const deregisterMut = useMutation({
-        mutationFn: (_accountId: string) => deregisterEc2Ami(imageId),
-        onSuccess: (_data, deregisterAccountId) => {
+        mutationFn: (_scope: { accountId: string; region: string | null }) => deregisterEc2Ami(imageId),
+        onSuccess: (_data, scope) => {
             void qc.invalidateQueries({ queryKey: ['ec2', 'amis'] })
             void qc.invalidateQueries({ queryKey: ['ec2', 'instances'] })
             setShowDeregister(false)
-            onChanged?.({ accountId: deregisterAccountId, resourceId: imageId, removed: true })
+            onChanged?.({ accountId: scope.accountId, region: scope.region, resourceId: imageId, removed: true })
         },
     })
 
@@ -570,7 +575,7 @@ function AmiPanel({ imageId, onChanged }: { imageId: string; onChanged?: Compute
             {showDeregister && (
                 <DeregisterAmiConfirm
                     imageId={imageId}
-                    onConfirm={() => deregisterMut.mutate(accountId)}
+                    onConfirm={() => deregisterMut.mutate({ accountId, region })}
                     onCancel={() => {
                         // Only a settled failure is cleared; a running request keeps the dialog's buttons disabled.
                         if (deregisterMut.isError) deregisterMut.reset()
@@ -670,6 +675,7 @@ export function LaunchInstanceForm({
 }) {
     const qc = useQueryClient()
     const accountId = useAccountId()
+    const region = useRegion()
 
     // Instance fields
     const [name, setName] = useState('')
@@ -698,11 +704,11 @@ export function LaunchInstanceForm({
         setInboundRules((prev) => prev.map((r) => r.id === id ? { ...r, ...patch } : r))
     }
 
-    const amisQ = useQuery({ queryKey: ['ec2', 'amis', accountId],            queryFn: ({ signal }) => listEc2Amis(signal) })
-    const keysQ = useQuery({ queryKey: ['ec2', 'key-pairs', accountId],       queryFn: ({ signal }) => listEc2KeyPairs(signal) })
-    const vpcsQ = useQuery({ queryKey: ['ec2', 'vpcs', accountId],            queryFn: ({ signal }) => listEc2Vpcs(signal) })
-    const subsQ = useQuery({ queryKey: ['ec2', 'subnets', accountId],         queryFn: ({ signal }) => listEc2Subnets(undefined, signal) })
-    const sgsQ  = useQuery({ queryKey: ['ec2', 'security-groups', accountId], queryFn: ({ signal }) => listEc2SecurityGroups(undefined, signal) })
+    const amisQ = useQuery({ queryKey: ['ec2', 'amis', accountId, region],            queryFn: ({ signal }) => listEc2Amis(signal) })
+    const keysQ = useQuery({ queryKey: ['ec2', 'key-pairs', accountId, region],       queryFn: ({ signal }) => listEc2KeyPairs(signal) })
+    const vpcsQ = useQuery({ queryKey: ['ec2', 'vpcs', accountId, region],            queryFn: ({ signal }) => listEc2Vpcs(signal) })
+    const subsQ = useQuery({ queryKey: ['ec2', 'subnets', accountId, region],         queryFn: ({ signal }) => listEc2Subnets(undefined, signal) })
+    const sgsQ  = useQuery({ queryKey: ['ec2', 'security-groups', accountId, region], queryFn: ({ signal }) => listEc2SecurityGroups(undefined, signal) })
 
     const createMut = useMutation({
         mutationFn: (values: Record<string, unknown>) => createCloudResource(cloud, 'compute', values),
@@ -713,10 +719,12 @@ export function LaunchInstanceForm({
     })
 
     const createSgMut = useMutation({
-        mutationFn: async (vars: {name: string; desc: string; vpc: string; rules: InboundRule[]; accountId: string}) => {
-            const { groupId } = await createEc2SecurityGroup(vars.name, vars.desc || vars.name, vars.vpc || undefined)
+        mutationFn: async (vars: {name: string; desc: string; vpc: string; rules: InboundRule[]; accountId: string; region: string | null}) => {
+            // Every request of the operation runs in the account and region it was started in.
+            const scope = { accountId: vars.accountId, region: vars.region }
+            const { groupId } = await createEc2SecurityGroup(vars.name, vars.desc || vars.name, vars.vpc || undefined, scope)
             for (const rule of vars.rules) {
-                await authorizeEc2SecurityGroupIngress(groupId, parseRule(rule))
+                await authorizeEc2SecurityGroupIngress(groupId, parseRule(rule), scope)
             }
             return { groupId }
         },
@@ -724,7 +732,7 @@ export function LaunchInstanceForm({
             // Optimistically insert into cache — do NOT invalidate immediately;
             // invalidation races the AWS propagation window and overwrites
             // the entry with a server list that doesn't yet include the new SG.
-            qc.setQueryData(['ec2', 'security-groups', vars.accountId], (old: Ec2SecurityGroup[] | undefined) => [
+            qc.setQueryData(['ec2', 'security-groups', vars.accountId, vars.region], (old: Ec2SecurityGroup[] | undefined) => [
                 ...(old ?? []),
                 {
                     groupId,
@@ -956,7 +964,7 @@ export function LaunchInstanceForm({
                                 type="button"
                                 className="button primary small"
                                 disabled={!newSgName || createSgMut.isPending}
-                                onClick={() => createSgMut.mutate({name: newSgName, desc: newSgDesc, vpc: newSgVpc, rules: inboundRules, accountId})}
+                                onClick={() => createSgMut.mutate({name: newSgName, desc: newSgDesc, vpc: newSgVpc, rules: inboundRules, accountId, region})}
                             >
                                 <Plus size={12}/>
                                 {createSgMut.isPending ? 'Creating…' : 'Create SG'}

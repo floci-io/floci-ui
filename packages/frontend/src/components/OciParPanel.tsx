@@ -4,6 +4,7 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {deleteFlatItem, listFlatItems, putFlatItem} from '@/api/cloudProxyClient'
 import {EmptyState} from '@/components/EmptyState'
 import {useAccountId} from '@/lib/accountStore'
+import {useRegion} from '@/lib/regionStore'
 import type {ChildItem, CloudResource} from '@/types/resource'
 
 interface OciParPanelProps {
@@ -48,8 +49,9 @@ export function OciParPanel({resource, runtimeReachable}: OciParPanelProps) {
 
 function ParPanel({bucket, runtimeReachable}: {bucket: string; runtimeReachable: boolean}) {
     const accountId = useAccountId()
+    const region = useRegion()
     const qc = useQueryClient()
-    const queryKey = ['oci-pars', accountId, bucket]
+    const queryKey = ['oci-pars', accountId, region, bucket]
     const [name, setName] = useState('')
     const [accessType, setAccessType] = useState<AccessType>('AnyObjectRead')
     const [objectName, setObjectName] = useState('')

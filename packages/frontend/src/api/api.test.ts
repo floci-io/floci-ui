@@ -2,6 +2,8 @@ import {afterEach, beforeEach, describe, expect, test, vi} from 'vitest'
 import {apiEndpointKeys, createApiClient} from './api'
 import {copyStorageObject, deleteStorageObject, emptyStorageBucket, listStorageObjects, uploadStorageObject} from './cloudProxyClient'
 import {ACCOUNT_HEADER, setAccountId} from '@/lib/accountStore'
+import {REGION_HEADER, setRegion} from '@/lib/regionStore'
+import {scopeHeaders} from '@/lib/requestScope'
 
 const ACTIVE = '111111111111'
 const CONFIRMED = '222222222222'
@@ -47,6 +49,45 @@ describe('shared request interceptors', () => {
             expect(headers.get('authorization')).toBe('Bearer token-1')
         })
     }
+
+    test('sends no region header until a region is selected, then the selected one', async () => {
+        const client = createApiClient()
+        setRegion(null)
+
+        await client.call(apiEndpointKeys.clouds.list)
+        setRegion('eu-central-1')
+        await client.call(apiEndpointKeys.clouds.list)
+        setRegion(null)
+
+        expect(sentHeaders(0).get(REGION_HEADER)).toBeNull()
+        expect(sentHeaders(1).get(REGION_HEADER)).toBe('eu-central-1')
+    })
+
+    test('an explicit region header is kept, and a malformed one is refused before fetch', async () => {
+        const client = createApiClient()
+        setRegion('eu-central-1')
+
+        await client.call(apiEndpointKeys.clouds.list, {headers: {[REGION_HEADER]: 'us-west-2'}})
+        await expect(client.call(apiEndpointKeys.clouds.list, {headers: {[REGION_HEADER]: 'nope'}}))
+            .rejects.toThrow('Invalid region override')
+        setRegion(null)
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(sentHeaders().get(REGION_HEADER)).toBe('us-west-2')
+    })
+
+    test('a request pinned to the console default sends no region, whatever is selected', async () => {
+        const client = createApiClient()
+        setRegion('eu-central-1')
+
+        await client.call(apiEndpointKeys.clouds.list, {headers: scopeHeaders({accountId: CONFIRMED, region: null})})
+        await client.call(apiEndpointKeys.clouds.list, {headers: scopeHeaders({accountId: CONFIRMED, region: 'us-west-2'})})
+        setRegion(null)
+
+        expect(sentHeaders(0).get(REGION_HEADER)).toBeNull()
+        expect(sentHeaders(0).get(ACCOUNT_HEADER)).toBe(CONFIRMED)
+        expect(sentHeaders(1).get(REGION_HEADER)).toBe('us-west-2')
+    })
 
     test('a JSON body keeps its Content-Type through both interceptors', async () => {
         const client = createApiClient(() => 'token-1')

@@ -19,6 +19,7 @@ import {
 } from "@/api/cloudProxyClient";
 import { DynamicResourceView } from "@/components/DynamicResourceView";
 import { DEFAULT_ACCOUNT_ID, setAccountId } from "@/lib/accountStore";
+import { setRegion } from "@/lib/regionStore";
 import type { CloudStatus } from "@/types/cloud";
 import type { CloudResource } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
@@ -89,9 +90,55 @@ describe("DynamicResourceView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setAccountId(DEFAULT_ACCOUNT_ID);
+    setRegion(null);
     vi.mocked(getServiceSchema).mockResolvedValue(schema);
     vi.mocked(listCloudResources).mockResolvedValue([summary]);
     vi.mocked(getCloudResource).mockResolvedValue(detail);
+  });
+
+  it("keys the list by region next to the account, keeping each region's copy, and drops the inspected details", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="cognito"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("pool-a"));
+    expect(
+      await screen.findByText("arn:aws:cognito-idp:us-east-1:000000000000:userpool/pool-1"),
+    ).toBeInTheDocument();
+    const listKey = (region: string | null) =>
+      ["cloud-resources", DEFAULT_ACCOUNT_ID, region, "aws", "cognito", "", {}];
+    expect(queryClient.getQueryData(listKey(null))).toEqual([summary]);
+
+    vi.mocked(listCloudResources).mockResolvedValue([{ ...summary, id: "pool-eu", name: "pool-eu" }]);
+    act(() => {
+      setRegion("eu-west-1");
+    });
+
+    expect(await screen.findByText("pool-eu")).toBeInTheDocument();
+    expect(
+      screen.queryByText("arn:aws:cognito-idp:us-east-1:000000000000:userpool/pool-1"),
+    ).not.toBeInTheDocument();
+    expect(queryClient.getQueryData(listKey("eu-west-1"))).toEqual([
+      { ...summary, id: "pool-eu", name: "pool-eu" },
+    ]);
+    // The default region's copy is kept, so switching back shows it without a refetch first.
+    expect(queryClient.getQueryData(listKey(null))).toEqual([summary]);
+    act(() => {
+      setRegion(null);
+    });
   });
 
   it("loads resource details before inspecting a selected list row", async () => {
@@ -720,9 +767,9 @@ describe("DynamicResourceView Empty bucket", () => {
     expect(emptyStorageBucket).toHaveBeenCalledWith(ACCOUNT_A, "aws", "logs");
     expect(deleteCloudResource).not.toHaveBeenCalled();
     const keys = invalidatedKeys(invalidate);
-    expect(keys).toContainEqual(["storage-objects", ACCOUNT_A, "aws", "logs"]);
-    expect(keys).toContainEqual(["cloud-resource", ACCOUNT_A, "aws", "storage", "logs"]);
-    expect(keys).toContainEqual(["cloud-resources", ACCOUNT_A, "aws", "storage"]);
+    expect(keys).toContainEqual(["storage-objects", ACCOUNT_A, null, "aws", "logs"]);
+    expect(keys).toContainEqual(["cloud-resource", ACCOUNT_A, null, "aws", "storage", "logs"]);
+    expect(keys).toContainEqual(["cloud-resources", ACCOUNT_A, null, "aws", "storage"]);
   });
 
   it("is not offered where the schema does not advertise it", async () => {
@@ -781,9 +828,9 @@ describe("DynamicResourceView Empty bucket", () => {
     await act(async () => gate.resolve({ deleted: 2 }));
 
     await waitFor(() =>
-      expect(invalidatedKeys(invalidate)).toContainEqual(["storage-objects", ACCOUNT_A, "aws", "logs"]),
+      expect(invalidatedKeys(invalidate)).toContainEqual(["storage-objects", ACCOUNT_A, null, "aws", "logs"]),
     );
-    expect(invalidatedKeys(invalidate)).toContainEqual(["cloud-resources", ACCOUNT_A, "aws", "storage"]);
+    expect(invalidatedKeys(invalidate)).toContainEqual(["cloud-resources", ACCOUNT_A, null, "aws", "storage"]);
     expect(invalidatedKeys(invalidate).some((key) => key.includes(ACCOUNT_B))).toBe(false);
     expect(screen.queryByText(/Emptied logs/)).not.toBeInTheDocument();
   });
@@ -800,7 +847,7 @@ describe("DynamicResourceView Empty bucket", () => {
     expect(await screen.findByText(/Empty bucket did not finish for logs/)).toHaveTextContent(
       "stopped after deletion started: S3 refused to delete 2 of 1000 entries",
     );
-    expect(invalidatedKeys(invalidate)).toContainEqual(["storage-objects", ACCOUNT_A, "aws", "logs"]);
+    expect(invalidatedKeys(invalidate)).toContainEqual(["storage-objects", ACCOUNT_A, null, "aws", "logs"]);
     expect(screen.queryByText(/Emptied logs/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete logs" })).toBeInTheDocument();
     expect(deleteCloudResource).not.toHaveBeenCalled();
@@ -876,7 +923,7 @@ describe("DynamicResourceView Empty bucket", () => {
     expect(order).toEqual(["start sales/orders", "end sales/orders", "start sales", "end sales"]);
   });
 
-  it("sends every wave of a bulk delete to the account it was confirmed in", async () => {
+  it("sends every wave of a bulk delete to the account and region it was confirmed in", async () => {
     const user = userEvent.setup();
     vi.mocked(listCloudResources).mockResolvedValue([storageBucket("sales"), storageBucket("sales/orders")]);
     const gate = deferred<void>();
@@ -890,12 +937,18 @@ describe("DynamicResourceView Empty bucket", () => {
     await user.click(screen.getByRole("button", { name: "Delete Selected (2)" }));
     await user.click(screen.getByRole("button", { name: "Confirm Delete (2)" }));
 
+    // Confirmed on the default region, then both account and region switch while the first wave runs.
     act(() => setAccountId(ACCOUNT_B));
+    act(() => setRegion("eu-west-1"));
     await act(async () => gate.resolve());
 
     await waitFor(() => expect(deleteCloudResource).toHaveBeenCalledTimes(2));
-    const accounts = vi.mocked(deleteCloudResource).mock.calls.map((call) => call[4]);
-    expect(accounts).toEqual([ACCOUNT_A, ACCOUNT_A]);
+    const scopes = vi.mocked(deleteCloudResource).mock.calls.map((call) => call[4]);
+    expect(scopes).toEqual([
+      { accountId: ACCOUNT_A, region: null },
+      { accountId: ACCOUNT_A, region: null },
+    ]);
+    act(() => setRegion(null));
   });
 
   it("does not show a bulk refusal that arrives after another account is selected", async () => {

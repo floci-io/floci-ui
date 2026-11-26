@@ -1,5 +1,6 @@
 import { EndpointRegistry, HttpClient } from "./HttpClient";
 import { ACCOUNT_HEADER, getAccountId, isAccountId } from "@/lib/accountStore";
+import { CONSOLE_DEFAULT_REGION, REGION_HEADER, getRegion, isRegion } from "@/lib/regionStore";
 
 export class AuthenticationRequiredError extends Error {
   constructor() {
@@ -1193,6 +1194,18 @@ export function createApiClient(
       headers.set(ACCOUNT_HEADER, getAccountId());
     } else if (!isAccountId(explicit)) {
       throw new Error("Invalid account ID override");
+    }
+    // Region scope — sent only once a region is selected, so a console that
+    // never switches keeps using the region Floci started it with.
+    const explicitRegion = headers.get(REGION_HEADER);
+    const region = getRegion();
+    if (explicitRegion === null) {
+      if (region !== null) headers.set(REGION_HEADER, region);
+    } else if (explicitRegion === CONSOLE_DEFAULT_REGION) {
+      // Pinned to the console's default: the API serves that when no region is named.
+      headers.delete(REGION_HEADER);
+    } else if (!isRegion(explicitRegion)) {
+      throw new Error("Invalid region override");
     }
     init.headers = headers;
     return { url, init };

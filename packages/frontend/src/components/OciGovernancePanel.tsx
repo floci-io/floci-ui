@@ -4,6 +4,7 @@ import {useQueries} from '@tanstack/react-query'
 import {listCollectionItems} from '@/api/cloudProxyClient'
 import {EmptyState} from '@/components/EmptyState'
 import {useAccountId} from '@/lib/accountStore'
+import {useRegion} from '@/lib/regionStore'
 import type {ChildItem, CloudResource} from '@/types/resource'
 
 interface OciGovernancePanelProps {
@@ -74,11 +75,12 @@ interface ChildTableProps {
 
 function ChildTable({rule, collection, title, emptyTitle, emptyDescription, runtimeReachable, header, row}: ChildTableProps) {
     const accountId = useAccountId()
+    const region = useRegion()
     const [cursors, setCursors] = useState<Array<string | undefined>>([undefined])
 
     const pages = useQueries({
         queries: cursors.map((cursor) => ({
-            queryKey: ['oci-governance', accountId, rule, collection, cursor],
+            queryKey: ['oci-governance', accountId, region, rule, collection, cursor],
             queryFn: ({signal}: {signal: AbortSignal}) => listCollectionItems('oci', 'governance', rule, collection, cursor, signal),
             enabled: runtimeReachable,
         })),

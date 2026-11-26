@@ -43,6 +43,8 @@ import type {
 } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
 import { ACCOUNT_HEADER, getAccountId } from "@/lib/accountStore";
+import { getRegion } from "@/lib/regionStore";
+import { type RequestScope, scopeHeaders } from "@/lib/requestScope";
 
 type CloudPathParams = Record<string, string>;
 
@@ -229,13 +231,13 @@ export async function deleteCloudResource(
   service: CloudServiceType,
   id: string,
   signal?: AbortSignal,
-  accountId?: string,
+  scope?: RequestScope,
 ): Promise<void> {
   await apiClient.call<void>(
     apiEndpointKeys.clouds.resources.delete,
     requestOptions(cloud, service, {
       signal,
-      headers: accountId ? { [ACCOUNT_HEADER]: accountId } : undefined,
+      headers: scope ? scopeHeaders(scope) : undefined,
     }),
     { cloud, service, id },
   );
@@ -723,10 +725,14 @@ export function storageObjectDownloadUrl(
     cloud,
   )}/services/storage/resources/${encodeURIComponent(resourceId)}/object`;
   // This URL is opened directly by the browser (anchor/img), so it bypasses the
-  // request interceptor — pass the account as a query param the API also reads.
+  // request interceptor — pass the account (and region, once one is selected)
+  // as query params the API also reads.
+  const region = getRegion();
   return `${API_BASE_URL}${path}?key=${encodeURIComponent(
     key,
-  )}&account=${encodeURIComponent(getAccountId())}`;
+  )}&account=${encodeURIComponent(getAccountId())}${
+    region ? `&region=${encodeURIComponent(region)}` : ""
+  }`;
 }
 
 export async function deleteStorageObject(
