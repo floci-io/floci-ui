@@ -55,9 +55,9 @@ describe('AwsLogsAdapter resources', () => {
             }),
         })
 
-        const resources = await new AwsLogsAdapter(client, 'eu-west-3').list()
+        const resources = await new AwsLogsAdapter(client, 'ap-south-1').list()
 
-        expect(resources.map((r) => r.region)).toEqual(['eu-west-3', 'eu-west-3'])
+        expect(resources.map((r) => r.region)).toEqual(['eu-west-3', 'ap-south-1'])
     })
 
     // The runtime filters natively by prefix, so `search` must not be a

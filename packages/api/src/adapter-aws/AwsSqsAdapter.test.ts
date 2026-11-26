@@ -109,12 +109,12 @@ describe('AwsSqsAdapter', () => {
     test('takes the region from the queue ARN, else from the scoped client', async () => {
         const fromArn = await new AwsSqsAdapter(
             stubSqs({attributes: {QueueArn: 'arn:aws:sqs:eu-west-3:000000000000:orders-queue'}}).client,
-            'eu-west-3',
+            'ap-south-1',
         ).list()
-        const withoutArn = await new AwsSqsAdapter(stubSqs({attributes: {}}).client, 'eu-west-3').get('orders-queue')
+        const withoutArn = await new AwsSqsAdapter(stubSqs({attributes: {}}).client, 'ap-south-1').get('orders-queue')
 
         expect(fromArn[0]?.region).toBe('eu-west-3')
-        expect(withoutArn?.region).toBe('eu-west-3')
+        expect(withoutArn?.region).toBe('ap-south-1')
     })
 
     test('uses the queue name as the id, not the URL', async () => {
