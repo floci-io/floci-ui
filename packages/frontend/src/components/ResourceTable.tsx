@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import {Link} from 'react-router-dom';
 import {Pencil, Trash2} from 'lucide-react';
 import type {CloudResource} from '@/types/resource';
@@ -42,6 +42,7 @@ export function ResourceTable({
   canDeleteResource,
 }: ResourceTableProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const returnFocusToId = useRef<string | null>(null);
   const canDelete = schema.actions.includes('delete');
   const canEdit = schema.actions.includes('update') && Boolean(schema.updateFields?.length) && Boolean(onEdit);
   const rowCanDelete = (resource: CloudResource) => canDelete && (canDeleteResource?.(resource) ?? true);
@@ -177,9 +178,11 @@ export function ResourceTable({
                             <button
                               className="button compact"
                               type="button"
+                              autoFocus
                               disabled={deletingId === resource.id}
                               onClick={(e) => {
                                 e.stopPropagation();
+                                returnFocusToId.current = resource.id;
                                 setConfirmId(null);
                               }}
                             >
@@ -188,6 +191,12 @@ export function ResourceTable({
                           </div>
                         ) : (
                           <button
+                            ref={(el) => {
+                              if (el && returnFocusToId.current === resource.id) {
+                                returnFocusToId.current = null;
+                                el.focus();
+                              }
+                            }}
                             className="icon-btn danger"
                             type="button"
                             title={`Delete ${resource.name}`}
