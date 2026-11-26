@@ -128,8 +128,8 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
     } catch (error) {
       setReceiveError(error instanceof Error ? error.message : "Failed to delete the message.");
     } finally {
-      setDeletingHandle(null);
-      setConfirmingHandle(null);
+      setDeletingHandle((current) => (current === receiptHandle ? null : current));
+      setConfirmingHandle((current) => (current === receiptHandle ? null : current));
     }
   };
 
