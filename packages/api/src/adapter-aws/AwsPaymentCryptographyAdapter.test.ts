@@ -1,4 +1,5 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
 import {
     CreateAliasCommand,
     CreateKeyCommand,
@@ -6,6 +7,7 @@ import {
     DeleteKeyCommand,
     GetAliasCommand,
     GetKeyCommand,
+    GetResourcePolicyCommand,
     ListAliasesCommand,
     GetPublicKeyCertificateCommand,
     ListKeysCommand,
@@ -29,6 +31,21 @@ function stubClient(handler: (command: object) => SendResult | Promise<SendResul
         },
     } as unknown as PaymentCryptographyClient
     return {client, sent}
+}
+
+/**
+ * The doc block that sits above each method of a file, by the method's name.
+ *
+ * <p>A block that documents nothing is a block stacked on another one, so the
+ * map says where the blocks of the file really are.
+ */
+function documentedMethods(source: string): Map<string, string> {
+    const documented = new Map<string, string>()
+    const pattern = /((?:\/\*\*[\s\S]*?\*\/\s*)+)(?:public |private |protected )?(?:async )?([A-Za-z_]\w*)\s*\(/g
+    for (const match of source.matchAll(pattern)) {
+        documented.set(match[2], match[1])
+    }
+    return documented
 }
 
 const ARN = 'arn:aws:payment-cryptography:us-east-1:000000000000:key/4a1b2c3d4e5f60718293a4b5c6d7e8f9'
@@ -84,6 +101,7 @@ function runtimeStub(overrides: Record<string, SendResult | (() => never)> = {})
             return respond('certificate', {KeyCertificate: 'CERTIFICATE-PEM'})
         }
         if (command instanceof ListTagsForResourceCommand) return respond('tags', {Tags: []})
+        if (command instanceof GetResourcePolicyCommand) return respond('policy', {})
         if (command instanceof TagResourceCommand) return respond('tag', {})
         if (command instanceof UntagResourceCommand) return respond('untag', {})
         return {}
@@ -184,6 +202,16 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect((listCalls[1] as ListKeysCommand).input.NextToken).toBe('page-2')
         })
 
+        test('a row of the table carries no policy, because it was not read', async () => {
+            const {client} = runtimeStub()
+
+            const [row] = await new AwsPaymentCryptographyAdapter(client).list()
+
+            // The policy is read with the key, not with the table, so a row says
+            // nothing of a policy it never read.
+            expect(row?.metadata).not.toHaveProperty('keyPolicy')
+        })
+
         test('searches the ARN and the usage', async () => {
             const pinKey = {
                 ...key,
@@ -270,6 +298,43 @@ describe('AwsPaymentCryptographyAdapter', () => {
             expect(resource?.name).toBe(ARN)
             expect(resource?.metadata.tags).toEqual([])
             expect(resource?.metadata.tagsUnavailable).toBe(true)
+        })
+
+        test('keeps the key when the policy lookup fails, and says the policy is unknown', async () => {
+            const {client} = stubClient((command) => {
+                if (command instanceof GetKeyCommand) return {Key: key}
+                if (command instanceof ListTagsForResourceCommand) return {Tags: []}
+                throw Object.assign(new Error('Access denied'), {name: 'AccessDeniedException'})
+            })
+
+            // The policy is enrichment: a refusal leaves the key on screen and
+            // says the policy cannot be read.
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            expect(resource?.name).toBe(ARN)
+            expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+        })
+
+        test('a key that was read and holds no policy says so', async () => {
+            const {client} = runtimeStub({policy: {}})
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            expect(resource?.metadata.keyPolicy).toBeNull()
+        })
+
+        test('a policy that could not be read is not a key that holds none', async () => {
+            const {client} = runtimeStub({
+                policy: () => {
+                    throw new Error('denied')
+                },
+            })
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            // The policy was not read, so none is published: the marker says so.
+            expect(resource?.metadata).not.toHaveProperty('keyPolicy')
+            expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
         })
     })
 
@@ -621,6 +686,30 @@ describe('AwsPaymentCryptographyAdapter', () => {
             await new AwsPaymentCryptographyAdapter(client).updateTags(KEY_ID, {})
 
             expect(sent).toHaveLength(0)
+        })
+    })
+
+    describe('the doc blocks of the adapter', () => {
+        test('every block sits above the method it documents', () => {
+            const source = readFileSync(new URL('./AwsPaymentCryptographyAdapter.ts', import.meta.url), 'utf8')
+            const documented = documentedMethods(source)
+
+            // The policy's block sits above setPolicy and the usage's above
+            // setUsage: a block stacked on another one documents neither.
+            expect(documented.get('setPolicy')).toContain('The policy that lets another account use a key.')
+            expect(documented.get('setUsage')).toContain('Whether a key may be used.')
+            expect(documented.get('setUsage')).not.toContain('The policy that lets another account use a key.')
+        })
+    })
+
+    describe('the rules the adapter keeps', () => {
+        test('the rule that says a resource is not there is the shared one', () => {
+            const source = readFileSync(new URL('./AwsPaymentCryptographyAdapter.ts', import.meta.url), 'utf8')
+
+            // The rule lives in one place, so the adapter and the policy helper
+            // cannot drift apart on what a missing resource is.
+            expect(source).not.toMatch(/function isNotFound/)
+            expect(source).toMatch(/from '\.\/paymentCryptographyErrors'/)
         })
     })
 })

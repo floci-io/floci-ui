@@ -17,6 +17,8 @@ import {
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
 import {setKeyUsage} from './paymentCryptographyLifecycle'
+import {deleteKeyPolicy, getKeyPolicy, isKeyArn, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
+import {isNotFound} from './paymentCryptographyErrors'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
@@ -108,16 +110,18 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
-        // The tags and the certificate are reads of their own and do not depend on
-        // each other, so they are asked together rather than one after the other.
-        // Both are addressed by the ARN the key resolved to, because the service
-        // takes an ARN and a key may have been asked for by an alias or a short id.
+        // The tags, the certificate and the policy are reads of their own and do
+        // not depend on each other, so they are asked together rather than one
+        // after the other. All three are addressed by the ARN the key resolved
+        // to, because the service takes an ARN and a key may have been asked
+        // for by an alias or a short id.
         const arn = key.KeyArn ?? identifier
-        const [tags, certificate] = await Promise.all([
+        const [tags, certificate, policy] = await Promise.all([
             this.getTags(arn),
             this.publicKeyCertificate(arn, key),
+            getKeyPolicy(this.client, arn),
         ])
-        return toResource(key, tags, certificate)
+        return toResource(key, tags, certificate, policy)
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -179,6 +183,57 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             throw new ValidationError('the enabled member of the request must say whether the key may be used')
         }
         await setKeyUsage(this.client, identifier, enabled === true || enabled === 'true')
+    }
+
+    /**
+     * The policy that lets another account use a key.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
+    async setPolicy(id: string, input: Record<string, unknown>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+        const policy = input?.policy
+        // A request that says nothing about the policy is a fault of the caller,
+        // and it is refused: reading it as a removal would take the policy away
+        // from a key that still holds one.
+        if (policy === undefined) {
+            throw new ValidationError('the request must say what the policy is')
+        }
+        if (policy !== null && typeof policy !== 'string') {
+            throw new ValidationError('the policy of the request must be the policy document itself')
+        }
+        // The policy is written against the ARN of the key, because the service's
+        // ResourceArn takes the ARN of the key: a key addressed by an alias or a
+        // short id would otherwise be refused by the service with an error that
+        // says nothing.
+        const keyArn = isKeyArn(identifier) ? identifier : await this.resolvedArnOf(identifier)
+        // An empty policy is the console's way of saying that the policy is gone,
+        // so it removes the one the key holds rather than attaching nothing.
+        if (policy === null || policy.trim() === '') {
+            await deleteKeyPolicy(this.client, keyArn)
+            return
+        }
+        await putKeyPolicy(this.client, keyArn, policy)
+    }
+
+    /**
+     * The ARN of the key, from an identifier that is not one.
+     *
+     * <p>The service accepts an alias name and a short key id as well, so an
+     * identifier that is not an ARN is resolved to the ARN the key has: the
+     * policy commands take the ARN alone.
+     */
+    private async resolvedArnOf(identifier: string): Promise<string> {
+        const key = await this.describe(identifier)
+        if (!key) throw new ValidationError(`the key ${identifier} is not there`)
+        if (!key.KeyArn) {
+            throw new ValidationError(`the key ${identifier} has no ARN, so its policy cannot be changed`)
+        }
+        return key.KeyArn
     }
 
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {
@@ -466,6 +521,9 @@ function toResource(
     // A row of the table, or a key that was just made, has had no certificate
     // read, so it carries no state at all.
     certificateLookup: CertificateLookup = {},
+    // The policy is read with the key, and a policy that could not be read is
+    // said rather than taken for none.
+    policyLookup?: KeyPolicyLookup,
 ): CloudResource {
     const arn = key.KeyArn ?? ''
 
@@ -511,10 +569,26 @@ function toResource(
             ...(certificateLookup.state !== undefined
                 ? {publicKeyCertificateState: certificateLookup.state}
                 : {}),
+            ...policyMetadata(policyLookup),
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },
     }
+}
+
+/**
+ * The policy of a key, as the metadata carries it.
+ *
+ * <p>The policy is published only where it was read: a row of the table carries
+ * none, because it never read one. A read that failed is said so, so it cannot
+ * pass for a key that holds none. A policy that was read is published, even
+ * where the lookup says it failed: the policy is what the key holds.
+ */
+function policyMetadata(policyLookup: KeyPolicyLookup | undefined): Record<string, unknown> {
+    if (!policyLookup) return {}
+    if (policyLookup.policy !== null) return {keyPolicy: policyLookup.policy}
+    if (policyLookup.unavailable) return {keyPolicyUnavailable: true}
+    return {keyPolicy: null}
 }
 
 /**
@@ -676,16 +750,4 @@ function oneOf<T extends readonly string[]>(
         throw new ValidationError(`${field} must be one of ${allowed.join(', ')}`)
     }
     return raw as T[number]
-}
-
-/**
- * Payment Cryptography answers a missing key with `ResourceNotFoundException` and
- * HTTP **400**, the way KMS does, so the name is the signal and the status is only
- * a fallback for the emulator.
- */
-function isNotFound(error: unknown): boolean {
-    if (typeof error !== 'object' || error === null) return false
-    if ((error as {name?: string}).name === 'ResourceNotFoundException') return true
-    const metadata = (error as {$metadata?: {httpStatusCode?: number}}).$metadata
-    return metadata?.httpStatusCode === 404
 }

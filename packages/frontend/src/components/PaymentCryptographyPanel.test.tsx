@@ -5,7 +5,7 @@ import {describe, expect, it} from "vitest";
 import {PaymentCryptographyPanel} from "@/components/PaymentCryptographyPanel";
 import type {CloudResource} from "@/types/resource";
 
-/** The usage section asks the query client, so the panel needs one. */
+/** The policy section asks the query client, so the panel needs one. */
 function renderPanel(props: React.ComponentProps<typeof PaymentCryptographyPanel>) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   return render(
@@ -38,6 +38,18 @@ describe("the panels of a payment key", () => {
     expect(screen.getByLabelText("Public key certificate")).toBeDefined();
   });
 
+  it("shows the usage and the policy of a payment key as well", () => {
+    renderPanel({
+      resource: {...key, metadata: {...key.metadata, keyPolicy: '{"Version":"2012-10-17"}'}},
+      cloud: "aws",
+      runtimeReachable: true,
+    });
+
+    expect(screen.getByLabelText("Public key certificate")).toBeDefined();
+    expect(screen.getByText("Usage")).toBeDefined();
+    expect(screen.getByText(/Key Policy/)).toBeDefined();
+  });
+
   it("shows nothing for a resource that is not a payment key", () => {
     renderPanel({resource: {...key, type: "alias"}, cloud: "aws", runtimeReachable: true});
 
@@ -51,8 +63,8 @@ describe("the panels of a payment key", () => {
     // The certificate is part of the key's detail, and the detail has not been
     // read, so the panel says nothing of it.
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
-    // The usage says what it does not know.
-    expect(screen.getByText(/has not been read yet/)).toBeDefined();
+    // The policy says what it does not know.
+    expect(screen.getByText(/The policy has not been read yet/)).toBeDefined();
   });
 
   it("says so when the key could not be read", () => {
@@ -61,5 +73,24 @@ describe("the panels of a payment key", () => {
     // The key could not be read, so nothing is known of its certificate, and
     // the panel says that rather than staying silent.
     expect(screen.getByText(/its certificate is unknown/)).toBeDefined();
+    expect(
+      screen.getByText(/The key could not be read, so its policy is unknown/),
+    ).toBeDefined();
+  });
+
+  it("speaks of the key it read, whatever the keyUnreadable says", () => {
+    renderPanel({
+      resource: {...key, metadata: {...key.metadata, keyPolicy: '{"Version":"2012-10-17"}'}},
+      keyUnreadable: true,
+      cloud: "aws",
+      runtimeReachable: true,
+    });
+
+    // The key was read, so the three sections speak of it: the certificate it
+    // has, the usage it is in and the policy it holds.
+    expect(screen.getByText(/signed into a certificate/)).toBeDefined();
+    expect(screen.getByText(/The key may be used/)).toBeDefined();
+    expect(screen.getByRole("button", {name: /Edit policy/i})).toBeDefined();
+    expect(screen.queryAllByText(/could not be read/)).toHaveLength(0);
   });
 });

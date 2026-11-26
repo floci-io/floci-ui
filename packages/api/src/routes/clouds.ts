@@ -1166,6 +1166,18 @@ export function createCloudRoutes(
         })
     })
 
+    app.post('/:cloud/services/:service/resources/:id/policy', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
+
+        return withRuntime(c, async () => {
+            const input = await jsonBody<Record<string, unknown>>(c)
+            await svc(c).setPaymentCryptographyKeyPolicy(cloud, serviceType, c.req.param('id'), input)
+            return c.json({ok: true})
+        })
+    })
+
     app.delete('/:cloud/services/:service/resources/:id', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType

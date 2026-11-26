@@ -356,6 +356,20 @@ export async function setPaymentCryptographyKeyUsage(
   );
 }
 
+export async function setPaymentCryptographyKeyPolicy(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<unknown, Record<string, unknown>>(
+    apiEndpointKeys.clouds.resources.policy,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+}
+
 export async function encryptKmsResource(
   cloud: CloudProvider,
   id: string,

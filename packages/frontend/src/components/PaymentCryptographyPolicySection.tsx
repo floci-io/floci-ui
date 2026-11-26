@@ -1,0 +1,223 @@
+import {useEffect, useState} from "react";
+import {useMutation, useQueryClient} from "@tanstack/react-query";
+import {ShieldCheck, Trash2} from "lucide-react";
+import {setPaymentCryptographyKeyPolicy} from "@/api/cloudProxyClient";
+import {getAccountId} from "@/lib/accountStore";
+import {publishedPolicy} from "@/lib/paymentCryptography";
+import type {CloudProvider} from "@/types/cloud";
+import type {CloudResource} from "@/types/resource";
+
+interface PaymentCryptographyPolicySectionProps {
+  cloud: CloudProvider;
+  /** The key that was read, when it was read. */
+  resource?: CloudResource;
+  /** The key itself could not be read, so nothing is known of its policy. */
+  keyUnreadable?: boolean;
+  runtimeReachable: boolean;
+}
+
+/**
+ * The state the API published for the policy of a key.
+ *
+ * <p>The API owns the state: it publishes the policy where it read one, it
+ * publishes none where it did not read one, and it says so when the read
+ * failed. The console only picks the sentence.
+ */
+type PolicyState = "held" | "none" | "unreadable" | "not-read" | "key-unreadable";
+
+/** What the console says for each state the API published. */
+const POLICY_SENTENCES: Record<PolicyState, string> = {
+  held: "The policy that lets another account use this key.",
+  none: "No policy: the key is used only by the account that holds it.",
+  unreadable: "The policy could not be read.",
+  "not-read": "The policy has not been read yet.",
+  "key-unreadable": "The key could not be read, so its policy is unknown.",
+};
+
+/**
+ * The resource-based policy of a key.
+ *
+ * <p>A policy is what lets another account use the key, and the reference refuses
+ * one that grants public access.
+ *
+ * <p>The section speaks about the key it was given, which is the key the console
+ * read: a table's row carries no policy, so a section handed one would claim
+ * something of a key it has not read.
+ */
+export function PaymentCryptographyPolicySection({
+  cloud,
+  resource,
+  keyUnreadable,
+  runtimeReachable,
+}: PaymentCryptographyPolicySectionProps) {
+  const queryClient = useQueryClient();
+  // The policy the key holds is read through the rule the console keeps in
+  // one place, so the draft the editor opens with and the sentence the
+  // section picks cannot disagree about it.
+  const published = publishedPolicy(resource?.metadata);
+  const held = typeof published === "string" ? published : "";
+  const state = policyState(resource, keyUnreadable);
+  const [policy, setPolicy] = useState(held);
+  const [editing, setEditing] = useState(false);
+
+  // The key's policy is the truth, but a draft the user is writing is theirs:
+  // a refresh that arrives while the editor is open does not take it.
+  useEffect(() => {
+    if (editing) return;
+    setPolicy(held);
+    setEditing(false);
+  }, [held, resource?.id, editing]);
+
+  const save = useMutation({
+    mutationFn: (variables: {policy: string; target: CloudResource}) =>
+      setPaymentCryptographyKeyPolicy(cloud, variables.target.service, variables.target.id, {
+        policy: variables.policy,
+      }),
+    // Captured when the request is made: an account switch while it is in
+    // flight must not refresh another account's resources.
+    onMutate: () => ({accountId: getAccountId()}),
+    onSuccess: async (_result, variables, context) => {
+      // The write stays pending until the key has been read back, so the panel
+      // does not offer to write again over a policy it has not read, and a
+      // draft the user starts in that window is not lost when the read lands.
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "cloud-resource",
+          context.accountId,
+          cloud,
+          variables.target.service,
+          variables.target.id,
+        ],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["cloud-resources", context.accountId, cloud, variables.target.service],
+      });
+      setEditing(false);
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (target: CloudResource) =>
+      setPaymentCryptographyKeyPolicy(cloud, target.service, target.id, { policy: "" }),
+    // Captured when the request is made, for the same reason as the save.
+    onMutate: () => ({accountId: getAccountId()}),
+    onSuccess: (_result, target, context) => {
+      setEditing(false);
+      void queryClient.invalidateQueries({
+        queryKey: ["cloud-resource", context.accountId, cloud, target.service, target.id],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["cloud-resources", context.accountId, cloud, target.service],
+      });
+    },
+  });
+
+  // A write that is in flight holds the controls still: a second write would
+  // land after it and win, and the policy the key holds would be whichever
+  // landed last.
+  const writing = save.isPending || remove.isPending;
+
+  return (
+    <section className="inspector-section">
+      <p className="metric-label">Key Policy</p>
+      {editing ? (
+        <>
+          <textarea
+            className="textarea code-textarea"
+            rows={8}
+            value={policy}
+            aria-label="Key policy"
+            // The editor closes when the save succeeds, so an edit made during
+            // the request would be lost without a word.
+            disabled={save.isPending}
+            onChange={(event) => setPolicy(event.target.value)}
+          />
+          <button
+            className="button small primary"
+            type="button"
+            disabled={!runtimeReachable || writing || policy.trim() === ""}
+            onClick={() => {
+              if (!resource) return;
+              save.mutate({policy, target: resource});
+            }}
+          >
+            Save policy
+          </button>{" "}
+          <button
+            className="button small"
+            type="button"
+            // The editor closes when the save succeeds, so a cancel during the
+            // request would throw away the draft that was sent.
+            disabled={save.isPending}
+            onClick={() => {
+              // The draft is gone: the policy the key holds is what the editor
+              // shows the next time it is opened.
+              setPolicy(held);
+              setEditing(false);
+            }}
+          >
+            Cancel
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="muted compact-text">{POLICY_SENTENCES[state]}</p>
+          {(state === "held" || state === "none") && (
+            <button
+              className="button small"
+              type="button"
+              disabled={!runtimeReachable || writing}
+              onClick={() => setEditing(true)}
+            >
+              <ShieldCheck size={12} />
+              {state === "held" ? "Edit policy" : "Attach a policy"}
+            </button>
+          )}{" "}
+          {state === "held" && (
+            <button
+              className="button small"
+              type="button"
+              disabled={!runtimeReachable || writing}
+              onClick={() => {
+                if (!resource) return;
+                remove.mutate(resource);
+              }}
+            >
+              <Trash2 size={12} />
+              Remove policy
+            </button>
+          )}
+        </>
+      )}
+      {(save.error instanceof Error || remove.error instanceof Error) && (
+        <p className="form-error" role="alert">
+          {(save.error ?? remove.error) instanceof Error
+            ? ((save.error ?? remove.error) as Error).message
+            : ""}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * The state the metadata of a key publishes for its policy.
+ *
+ * <p>The names are the API's own, so they are read as own properties: a name
+ * inherited from the prototype is not a state the API published. A key that was
+ * not read at all is not a key whose policy is none.
+ *
+ * <p>A key that was read is a key that was read, whatever else the caller says
+ * about it, so the key the console read is the one the state is taken from.
+ */
+function policyState(
+  resource: CloudResource | undefined,
+  keyUnreadable?: boolean,
+): PolicyState {
+  if (!resource) return keyUnreadable ? "key-unreadable" : "not-read";
+  const metadata = resource.metadata;
+  if (metadata.keyPolicyUnavailable === true) return "unreadable";
+  const published = publishedPolicy(metadata);
+  if (published === undefined) return "not-read";
+  return published === null ? "none" : "held";
+}
