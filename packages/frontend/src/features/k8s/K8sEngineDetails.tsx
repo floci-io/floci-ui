@@ -342,6 +342,9 @@ function errorMessage(error: unknown) {
 
 function invalidateK8sQueries(queryClient: ReturnType<typeof useQueryClient>, cloud: CloudProvider, clusterName: string) {
     void queryClient.invalidateQueries({queryKey: ['k8s', cloud, clusterName]})
-    void queryClient.invalidateQueries({queryKey: ['cloud-resources', cloud, 'k8s']})
+    // The explorer list is keyed ['cloud-resources', account, region, cloud, service, ...].
+    void queryClient.invalidateQueries({
+        predicate: ({queryKey}) => queryKey[0] === 'cloud-resources' && queryKey[3] === cloud && queryKey[4] === 'k8s',
+    })
     void queryClient.invalidateQueries({queryKey: cloudQueryKeys.resources(cloud, 'k8s')})
 }
