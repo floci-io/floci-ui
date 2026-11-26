@@ -287,19 +287,25 @@ pre,
    not appear on focus and the rail would otherwise be unreadable without a
    mouse.
 
-   Scoped to focus inside .nav specifically, not the whole sidebar: clicking the
-   footer toggle leaves that button focused, and a bare :focus-within would then
-   re-expand the panel the click just collapsed. The condition is duplicated as
-   :not(:has(.nav:focus-within)) on the rail rules below — the two must stay in
+   Keyed on :focus-visible rather than :focus-within. A tap or click focuses the
+   link too, so :focus-within expanded the rail on the first tap (navigating took
+   a second one) and then left it open over the page. Browsers match
+   :focus-visible only for keyboard-driven focus, so Tab still expands the rail
+   and a pointer navigates in one tap with the rail staying collapsed.
+
+   Scoped to focus inside .nav specifically, not the whole sidebar: the footer
+   toggle keeps focus after it collapses the panel, and matching it would
+   re-expand the panel the toggle just collapsed. The condition is duplicated as
+   :not(:has(.nav :focus-visible)) on the rail rules below — the two must stay in
    sync or focus will strip the rail's styling without changing its width. */
-[data-sidebar="collapsed"] .sidebar:has(.nav:focus-within) .sidebar-inner {
+[data-sidebar="collapsed"] .sidebar:has(.nav :focus-visible) .sidebar-inner {
     width: var(--sidebar-w);
     z-index: 30;
     box-shadow: var(--sidebar-overlay-shadow);
 }
 
 /* Rail: collapsed and not hovered. Hovering restores every label below. */
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) :is(
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav :focus-visible)) :is(
     .nav-label,
     .nav-group-label,
     .nav-retry,
@@ -312,45 +318,45 @@ pre,
     display: none;
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .brand-mark {
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav :focus-visible)) .brand-mark {
     display: block;
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .brand {
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav :focus-visible)) .brand {
     align-items: center;
     padding: 12px 0;
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link {
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav :focus-visible)) .nav-link {
     justify-content: center;
     padding: 8px 0;
 }
 
 /* The 14px chrome size is too small once the icon is the only thing naming a
    service. CSS overrides lucide's width/height attributes. */
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link svg {
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav :focus-visible)) .nav-link svg {
     width: 18px;
     height: 18px;
 }
 
 /* With labels hidden the divider is the only grouping cue, so it uses the
    structural --border weight rather than --border-faint (1.17:1). */
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-group + .nav-group {
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav :focus-visible)) .nav-group + .nav-group {
     border-top: 1px solid var(--border);
     padding-top: 5px;
 }
 
 /* The active tint is ~1.2:1 in both themes and never carried active state on
    its own — the label did. Without a label, the accent inset does the work. */
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .nav-link.active {
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav :focus-visible)) .nav-link.active {
     box-shadow: inset 3px 0 var(--accent);
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .skeleton-bar {
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav :focus-visible)) .skeleton-bar {
     width: 20px;
 }
 
-[data-sidebar="collapsed"] .sidebar:not(:has(.nav:focus-within)) .sidebar-footer {
+[data-sidebar="collapsed"] .sidebar:not(:has(.nav :focus-visible)) .sidebar-footer {
     justify-content: center;
     padding: 8px;
 }

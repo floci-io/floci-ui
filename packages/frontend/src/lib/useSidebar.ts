@@ -21,8 +21,8 @@ function matchesNarrow(): boolean {
 }
 
 /**
- * True when focus sits inside the sidebar nav — the state that holds the rail
- * open via the `.sidebar:has(.nav:focus-within)` rule in index.css.
+ * True when focus sits inside the sidebar nav. Keyboard focus there holds the
+ * rail open via the `.sidebar:has(.nav :focus-visible)` rule in index.css.
  */
 function navHasFocus(): boolean {
     const active = document.activeElement
@@ -56,7 +56,7 @@ export function useSidebar() {
         setPref(next)
 
         // Collapsing while focus sits in the nav leaves
-        // `.sidebar:has(.nav:focus-within)` matching, which holds the panel at
+        // `.sidebar:has(.nav :focus-visible)` matching, which holds the panel at
         // full width — so the shortcut looks like it did nothing. Park focus on
         // the toggle instead: it is outside .nav, stays visible in the rail, and
         // is one Shift+Tab from where the user was. Blurring would drop them
