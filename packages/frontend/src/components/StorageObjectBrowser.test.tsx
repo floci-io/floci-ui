@@ -251,6 +251,23 @@ describe('StorageObjectBrowser storage cache', () => {
         expect(screen.getByTitle('Delete a.txt')).toBeInTheDocument()
     })
 
+    test('cancelling one object delete is not blocked by another delete in flight', async () => {
+        const user = userEvent.setup()
+        const gate = deferred()
+        vi.mocked(deleteStorageObject).mockReturnValue(gate.promise)
+        renderBrowser()
+        await screen.findByText('a.txt')
+
+        await user.click(screen.getByTitle('Delete a.txt'))
+        await user.click(screen.getByRole('button', {name: 'Confirm'}))
+        await user.click(screen.getByTitle('Delete b.txt'))
+        const cancel = screen.getByRole('button', {name: 'Cancel'})
+        expect(cancel).toBeEnabled()
+        await user.click(cancel)
+        expect(screen.queryByText('Delete b.txt?')).not.toBeInTheDocument()
+        await act(async () => gate.resolve())
+    })
+
     test('a partly failed bulk delete refreshes, keeps only the keys that failed, and says so', async () => {
         const user = userEvent.setup()
         vi.mocked(deleteStorageObject).mockImplementation(async (_account, _cloud, _bucket, key) => {

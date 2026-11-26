@@ -373,6 +373,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                     <p>Nothing matches &ldquo;{search}&rdquo;.</p>
                 </div>
             ) : (
+                <div className="table-scroll">
                 <table className="table object-table">
                     <thead>
                         <tr>
@@ -481,7 +482,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                                                 }}>
                                                     Confirm
                                                 </button>
-                                                <button className="button compact" type="button" disabled={deleteMut.isPending} onClick={() => setDeleteConfirm(null)}>
+                                                <button className="button compact" type="button" onClick={() => setDeleteConfirm(null)}>
                                                     Cancel
                                                 </button>
                                             </div>
@@ -498,6 +499,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
                         })}
                     </tbody>
                 </table>
+                </div>
             )}
 
             {/* ── Bulk action bar ── */}
