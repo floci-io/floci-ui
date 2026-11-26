@@ -3,7 +3,9 @@ import {XRayClient} from '@aws-sdk/client-xray'
 import {createCloudAdapterRegistry} from './cloudProxy'
 import {checkChildCapabilities} from './cloud-spi/childCapabilities'
 import {isServiceType} from './cloud-spi/serviceCatalog'
-import type {CloudProvider, CloudServiceAdapter, CloudServiceType, DatabaseActionName, KubernetesActionName, ResourceActionName} from './cloud-spi/types'
+import {CloudProxyService} from './service/CloudProxyService'
+import {CloudAdapterRegistry} from './registry/CloudAdapterRegistry'
+import type {CloudProvider, CloudResource, CloudServiceAdapter, CloudServiceType, DatabaseActionName, KubernetesActionName, ResourceActionName, ResourceQuery, ServiceSchema} from './cloud-spi/types'
 
 /**
  * Guards the schema-to-implementation contract for every registered adapter.
@@ -259,5 +261,96 @@ describe('adapter capability advertisements match the runtime reality', () => {
 
     test('Azure serverless is available now that Floci-AZ serves Functions', () => {
         expect(adapterFor('azure', 'serverless').descriptorOverride?.()).toBeUndefined()
+    })
+})
+
+describe('CloudProxyService.resourceCounts', () => {
+    function schema(cloud: CloudProvider, service: CloudServiceType): ServiceSchema {
+        return {
+            cloud, service, displayName: String(service), fields: [], actions: ['list'],
+            capabilities: {resourceActions: [{name: 'list', label: 'List', enabled: true, status: 'available'}]},
+            filters: [], columns: [{name: 'id', label: 'ID'}],
+        }
+    }
+    function resource(id: string, service: CloudServiceType): CloudResource {
+        return {id, name: id, cloud: 'aws', service, type: service, region: 'us-east-1', createdAt: null, metadata: {}}
+    }
+
+    test('returns counts and isolates adapter errors', async () => {
+        const registry = new CloudAdapterRegistry([
+            {
+                cloud: 'aws', service: 'storage', schema: () => schema('aws', 'storage'),
+                list: async () => [resource('b1', 'storage')],
+                get: async () => null, create: async () => resource('b1', 'storage'), delete: async () => {},
+            } as unknown as CloudServiceAdapter,
+            {
+                cloud: 'aws', service: 'database', schema: () => schema('aws', 'database'),
+                list: async (_q?: ResourceQuery) => { throw new Error('db down') },
+                get: async () => null, create: async () => resource('db1', 'database'), delete: async () => {},
+            } as unknown as CloudServiceAdapter,
+        ])
+        const svc = new CloudProxyService(registry)
+
+        const counts = await svc.resourceCounts('aws')
+        expect(counts).toContainEqual({cloud: 'aws', service: 'storage', count: 1})
+        expect(counts.find((c) => c.service === 'database')?.error).toContain('db down')
+    })
+
+    test('uses adapter count() when available', async () => {
+        let listCalls = 0
+        const registry = new CloudAdapterRegistry([
+            {
+                cloud: 'aws', service: 'storage', schema: () => schema('aws', 'storage'),
+                list: async () => { listCalls++; return [resource('b1', 'storage')] },
+                count: async () => 7,
+                get: async () => null, create: async () => resource('b1', 'storage'), delete: async () => {},
+            } as unknown as CloudServiceAdapter,
+        ])
+        const svc = new CloudProxyService(registry)
+
+        const counts = await svc.resourceCounts('aws')
+        expect(counts).toEqual([{cloud: 'aws', service: 'storage', count: 7}])
+        expect(listCalls).toBe(0)
+    })
+
+    test('caches counts and invalidateResourceCounts clears cache', async () => {
+        let countCalls = 0
+        const registry = new CloudAdapterRegistry([
+            {
+                cloud: 'aws', service: 'storage', schema: () => schema('aws', 'storage'),
+                list: async () => [resource('b1', 'storage')],
+                count: async () => { countCalls++; return 1 },
+                get: async () => null, create: async () => resource('b1', 'storage'), delete: async () => {},
+            } as unknown as CloudServiceAdapter,
+        ])
+        const svc = new CloudProxyService(registry)
+
+        await svc.resourceCounts('aws')
+        await svc.resourceCounts('aws')
+        expect(countCalls).toBe(1)
+
+        svc.invalidateResourceCounts('aws')
+        await svc.resourceCounts('aws')
+        expect(countCalls).toBe(2)
+    })
+
+    test('createResource invalidates cached counts', async () => {
+        let countCalls = 0
+        const registry = new CloudAdapterRegistry([
+            {
+                cloud: 'aws', service: 'storage', schema: () => schema('aws', 'storage'),
+                list: async () => [resource('b1', 'storage')],
+                count: async () => { countCalls++; return 1 },
+                get: async () => null, create: async () => resource('b1', 'storage'), delete: async () => {},
+            } as unknown as CloudServiceAdapter,
+        ])
+        const svc = new CloudProxyService(registry)
+
+        await svc.resourceCounts('aws')
+        expect(countCalls).toBe(1)
+
+        await svc.createResource('aws', 'storage', {values: {name: 'b1'}})
+        await svc.resourceCounts('aws')
+        expect(countCalls).toBe(2)
     })
 })

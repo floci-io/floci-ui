@@ -3,6 +3,7 @@ import type {
     CloudDescriptor,
     CloudProvider,
     CloudResource,
+    CloudResourceCount,
     CloudServiceAdapter,
     CloudServiceDescriptor,
     CloudServiceType,
@@ -84,6 +85,7 @@ const STATUS_TTL_MS = 5_000
 export class CloudProxyService {
     private readonly runtimeCache = new Map<CloudProvider, {at: number; value: {runtime: RuntimeReachability; checkedAt: string; error: string | null}}>()
     private readonly serviceStatusCache = new Map<string, {at: number; value: CloudServiceStatus}>()
+    private readonly resourceCountsCache = new Map<CloudProvider, {at: number; value: CloudResourceCount[]}>()
     private readonly probes: Record<CloudProvider, RuntimeProbe>
     // Empty bucket's final check proves a bucket empty only if no object write
     // this service started is still landing in it, so the two exclude each other
@@ -269,22 +271,99 @@ export class CloudProxyService {
         return this.requireAdapter(cloud, service).list(query)
     }
 
+    async resourceCounts(cloud: CloudProvider, services?: CloudServiceType[]): Promise<CloudResourceCount[]> {
+        const requested = services?.length ? new Set(services) : null
+        const cached = this.resourceCountsCache.get(cloud)
+        if (!requested && cached && Date.now() - cached.at < STATUS_TTL_MS) {
+            console.debug(`[resource-counts] cache hit cloud=${cloud} services=${cached.value.length}`)
+            return cached.value
+        }
+
+        const startedAt = Date.now()
+        const descriptors = await this.services(cloud)
+        const available = descriptors.filter((service) =>
+            service.availability === 'available' && (!requested || requested.has(service.service)),
+        )
+        const results: CloudResourceCount[] = []
+        const concurrency = 4
+
+        for (let i = 0; i < available.length; i += concurrency) {
+            const batch = available.slice(i, i + concurrency)
+            const batchResults = await Promise.all(batch.map(async (descriptor) => {
+                const serviceStartedAt = Date.now()
+                const adapter = this.registry.get(cloud, descriptor.service)
+                if (!adapter) {
+                    return {cloud, service: descriptor.service, error: 'Service not registered'}
+                }
+                try {
+                    const count = adapter.count
+                        ? await adapter.count()
+                        : (await adapter.list()).length
+                    return {cloud, service: descriptor.service, count, latencyMs: Date.now() - serviceStartedAt}
+                } catch (error) {
+                    const {body} = toHttpError(error, mapAwsSdkError)
+                    return {
+                        cloud,
+                        service: descriptor.service,
+                        error: body.detail ?? body.message ?? 'Failed to count resources',
+                        latencyMs: Date.now() - serviceStartedAt,
+                    }
+                }
+            }))
+            results.push(...batchResults.map(({latencyMs: _latencyMs, ...result}) => result))
+            for (const result of batchResults) {
+                if (result.error) {
+                    console.debug(`[resource-counts] cloud=${cloud} service=${result.service} error=${result.error} latencyMs=${result.latencyMs}`)
+                }
+            }
+        }
+
+        const errorCount = results.filter((result) => result.error).length
+        console.debug(`[resource-counts] cloud=${cloud} partial=${requested ? 'true' : 'false'} services=${results.length} errors=${errorCount} durationMs=${Date.now() - startedAt}`)
+
+        if (!requested) {
+            this.resourceCountsCache.set(cloud, {at: Date.now(), value: results})
+            return results
+        }
+
+        if (cached) {
+            const merged = cached.value.map((item) => results.find((result) => result.service === item.service) ?? item)
+            for (const result of results) {
+                if (!merged.some((item) => item.service === result.service)) merged.push(result)
+            }
+            this.resourceCountsCache.set(cloud, {at: Date.now(), value: merged})
+        } else {
+            this.resourceCountsCache.set(cloud, {at: Date.now(), value: results})
+        }
+
+        return results
+    }
+
+    invalidateResourceCounts(cloud: CloudProvider): void {
+        this.resourceCountsCache.delete(cloud)
+    }
+
     async getResource(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<CloudResource | null> {
         return this.requireAdapter(cloud, service).get(id)
     }
 
     async createResource(cloud: CloudProvider, service: CloudServiceType, input: CreateResourceInput): Promise<CloudResource> {
-        return this.requireAdapter(cloud, service).create(input)
+        const created = await this.requireAdapter(cloud, service).create(input)
+        this.invalidateResourceCounts(cloud)
+        return created
     }
 
     async updateResource(cloud: CloudProvider, service: CloudServiceType, id: string, input: UpdateResourceInput): Promise<CloudResource> {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.update) throw new NotSupportedError(`Resource updates are not supported for ${cloud}/${service}`)
-        return adapter.update(id, input)
+        const updated = await adapter.update(id, input)
+        this.invalidateResourceCounts(cloud)
+        return updated
     }
 
     async deleteResource(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<void> {
         await this.requireAdapter(cloud, service).delete(id)
+        this.invalidateResourceCounts(cloud)
     }
 
     /**
@@ -365,49 +444,62 @@ export class CloudProxyService {
     async cancelKmsDeletion(cloud: CloudProvider, id: string): Promise<CloudResource> {
         const adapter = this.requireAdapter(cloud, 'kms')
         if (!adapter.cancelDeletion) throw new NotSupportedError(`${cloud}/kms cancelDeletion is not supported`)
-        return adapter.cancelDeletion(id)
+        const result = await adapter.cancelDeletion(id)
+        this.invalidateResourceCounts(cloud)
+        return result
     }
 
     async recoverKms(cloud: CloudProvider, id: string): Promise<CloudResource> {
         const adapter = this.requireAdapter(cloud, 'kms')
         if (!adapter.recover) throw new NotSupportedError(`${cloud}/kms recover is not supported`)
-        return adapter.recover(id)
+        const result = await adapter.recover(id)
+        this.invalidateResourceCounts(cloud)
+        return result
     }
 
     async purgeDeletedKms(cloud: CloudProvider, id: string): Promise<void> {
         const adapter = this.requireAdapter(cloud, 'kms')
         if (!adapter.purgeDeleted) throw new NotSupportedError(`${cloud}/kms purgeDeleted is not supported`)
         await adapter.purgeDeleted(id)
+        this.invalidateResourceCounts(cloud)
     }
 
     async recoverIdentity(cloud: CloudProvider, id: string): Promise<CloudResource> {
         const adapter = this.requireAdapter(cloud, 'identity')
         if (!adapter.recover) throw new NotSupportedError(`${cloud}/identity recover is not supported`)
-        return adapter.recover(id)
+        const result = await adapter.recover(id)
+        this.invalidateResourceCounts(cloud)
+        return result
     }
 
     async recoverSecret(cloud: CloudProvider, id: string): Promise<CloudResource> {
         const adapter = this.requireAdapter(cloud, 'secrets')
         if (!adapter.recover) throw new NotSupportedError(`${cloud}/secrets recover is not supported`)
-        return adapter.recover(id)
+        const result = await adapter.recover(id)
+        this.invalidateResourceCounts(cloud)
+        return result
     }
 
     async purgeDeletedSecret(cloud: CloudProvider, id: string): Promise<void> {
         const adapter = this.requireAdapter(cloud, 'secrets')
         if (!adapter.purgeDeleted) throw new NotSupportedError(`${cloud}/secrets purgeDeleted is not supported`)
         await adapter.purgeDeleted(id)
+        this.invalidateResourceCounts(cloud)
     }
 
     async recoverCertificate(cloud: CloudProvider, id: string): Promise<CloudResource> {
         const adapter = this.requireAdapter(cloud, 'certificates')
         if (!adapter.recover) throw new NotSupportedError(`${cloud}/certificates recover is not supported`)
-        return adapter.recover(id)
+        const result = await adapter.recover(id)
+        this.invalidateResourceCounts(cloud)
+        return result
     }
 
     async purgeDeletedCertificate(cloud: CloudProvider, id: string): Promise<void> {
         const adapter = this.requireAdapter(cloud, 'certificates')
         if (!adapter.purgeDeleted) throw new NotSupportedError(`${cloud}/certificates purgeDeleted is not supported`)
         await adapter.purgeDeleted(id)
+        this.invalidateResourceCounts(cloud)
     }
 
     async invokeResource(

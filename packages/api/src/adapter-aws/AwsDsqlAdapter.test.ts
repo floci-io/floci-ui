@@ -85,6 +85,24 @@ describe('AwsDsqlAdapter', () => {
         })
     })
 
+    test('counts clusters without describing each one, but falls back to list for search', async () => {
+        let getCalls = 0
+        const adapter = createAdapter(async (command) => {
+            if (command instanceof ListClustersCommand) return {clusters: [{identifier: IDENTIFIER}]}
+            if (command instanceof GetClusterCommand) {
+                getCalls++
+                return cluster(command.input.identifier, {tags: {Name: 'orders'}})
+            }
+            throw new Error(`Unexpected command: ${command?.constructor?.name}`)
+        })
+
+        await expect(adapter.count()).resolves.toBe(1)
+        expect(getCalls).toBe(0)
+
+        await expect(adapter.count({search: 'orders'})).resolves.toBe(1)
+        expect(getCalls).toBe(1)
+    })
+
     test('names a cluster after its Name tag and finds it by either', async () => {
         const adapter = createAdapter(async (command) => {
             if (command instanceof ListClustersCommand) return {clusters: [{identifier: IDENTIFIER}]}

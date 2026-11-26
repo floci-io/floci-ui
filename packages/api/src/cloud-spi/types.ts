@@ -77,6 +77,13 @@ export interface CloudServiceStatus {
     errorCode: string | null
 }
 
+export interface CloudResourceCount {
+    cloud: CloudProvider
+    service: CloudServiceType
+    count?: number
+    error?: string
+}
+
 export type FieldType = 'text' | 'textarea' | 'password' | 'select'
 
 /** Holds when the named field equals `equals`, or when it differs from `notEquals`. Set one of them. */
@@ -713,6 +720,11 @@ export interface CloudServiceAdapter {
      */
     resolveDescriptorOverride?(): Promise<CloudServiceDescriptorOverride>
     list(query?: ResourceQuery): Promise<CloudResource[]>
+    /**
+     * Cheap resource count. Defaults to `list().length` when omitted; override
+     * where listing is expensive or the provider exposes a count.
+     */
+    count?(query?: ResourceQuery): Promise<number>
     get(id: string): Promise<CloudResource | null>
     create(input: CreateResourceInput): Promise<CloudResource>
     update?(id: string, input: UpdateResourceInput): Promise<CloudResource>

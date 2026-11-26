@@ -47,6 +47,11 @@ export class AwsParameterStoreAdapter implements CloudServiceAdapter {
         return filterBySearch(resources, query.search)
     }
 
+    async count(query: ResourceQuery = {}): Promise<number> {
+        if (query.search) return (await this.list(query)).length
+        return (await this.describeAll()).length
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         try {
             const [parameter] = await this.describe({

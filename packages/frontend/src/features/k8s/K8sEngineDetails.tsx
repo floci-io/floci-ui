@@ -10,6 +10,7 @@ import {
     listKubernetesNodegroups,
 } from '@/api/cloudProxyClient'
 import {cloudQueryKeys} from '@/api/queries/cloudQueries'
+import {getAccountId} from '@/lib/accountStore'
 import {
     type CreateKubernetesFargateProfileInput,
     type CreateKubernetesNodegroupInput,
@@ -341,7 +342,9 @@ function errorMessage(error: unknown) {
 }
 
 function invalidateK8sQueries(queryClient: ReturnType<typeof useQueryClient>, cloud: CloudProvider, clusterName: string) {
+    const accountId = getAccountId()
     void queryClient.invalidateQueries({queryKey: ['k8s', cloud, clusterName]})
-    void queryClient.invalidateQueries({queryKey: ['cloud-resources', cloud, 'k8s']})
-    void queryClient.invalidateQueries({queryKey: cloudQueryKeys.resources(cloud, 'k8s')})
+    void queryClient.invalidateQueries({queryKey: ['cloud-resources', accountId, cloud, 'k8s']})
+    void queryClient.invalidateQueries({queryKey: ['cloud-resource-counts', accountId, cloud]})
+    void queryClient.invalidateQueries({queryKey: cloudQueryKeys.resources(accountId, cloud, 'k8s')})
 }

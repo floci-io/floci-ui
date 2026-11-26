@@ -59,6 +59,22 @@ export class AwsSchedulerAdapter implements CloudServiceAdapter {
         return resources
     }
 
+    async count(query: ResourceQuery = {}): Promise<number> {
+        const schedules: ScheduleSummary[] = []
+        let nextToken: string | undefined
+        do {
+            const response = await this.scheduler.send(new ListSchedulesCommand({NextToken: nextToken}))
+            schedules.push(...(response.Schedules ?? []))
+            nextToken = response.NextToken
+        } while (nextToken)
+
+        const search = query.search?.trim().toLowerCase()
+        return schedules.filter((schedule) => {
+            const name = schedule.Name
+            return !!name && (!search || name.toLowerCase().includes(search))
+        }).length
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         const {groupName, name} = parseScheduleId(id)
         const schedule = await this.loadSchedule(name, groupName)

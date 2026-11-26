@@ -81,6 +81,10 @@ export class AwsEcsAdapter implements CloudServiceAdapter {
         return clusters
     }
 
+    async count(query: ResourceQuery = {}): Promise<number> {
+        return filterBySearch(await this.listClusterArns(), query.search).length
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         const [cluster] = await describeClusters(this.ecs, [id])
         return cluster ? toResource(cluster) : null

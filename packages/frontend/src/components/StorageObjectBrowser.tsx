@@ -572,6 +572,7 @@ function MoveOrCopyModal({
             setDestResourceId(created.id)
             setNewResourceName('')
             void qc.invalidateQueries({queryKey: ['cloud-resources', cloud, 'storage']})
+            void qc.invalidateQueries({queryKey: ['cloud-resource-counts']})
         },
     })
 

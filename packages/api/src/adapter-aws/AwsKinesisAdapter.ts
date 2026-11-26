@@ -48,6 +48,10 @@ export class AwsKinesisAdapter implements CloudServiceAdapter {
         return resources
     }
 
+    async count(query: ResourceQuery = {}): Promise<number> {
+        return filterBySearch(await this.listStreamNames(), query.search).length
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         return this.describe(id)
     }

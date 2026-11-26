@@ -100,6 +100,17 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         return filterBySearch(groups.flat(), query.search)
     }
 
+    async count(query: ResourceQuery = {}): Promise<number> {
+        if (query.search) return (await this.list(query)).length
+        const kind = optionalKind(query.filters?.kind)
+        const kinds = kind ? [kind] : [...PAYMENT_CRYPTOGRAPHY_KINDS]
+        const counts = await Promise.all(kinds.map(async (each) => {
+            if (each === 'aliases') return (await this.listAliases()).length
+            return (await this.listKeyArns()).length
+        }))
+        return counts.reduce((total, count) => total + count, 0)
+    }
+
     async get(id: string): Promise<CloudResource | null> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {
