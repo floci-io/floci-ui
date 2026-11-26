@@ -67,6 +67,7 @@ describe("SqsMessagingPanel", () => {
     expect(await screen.findByText("hello")).toBeInTheDocument();
     expect(onMessagesChanged).toHaveBeenCalledTimes(2);
     await user.click(screen.getByRole("button", {name: "Delete"}));
+    await user.click(screen.getByRole("button", {name: "Confirm"}));
     expect(deleteQueueMessage).toHaveBeenCalledWith("oci", "messaging", ociQueue.id, "receipt/one");
     expect(onMessagesChanged).toHaveBeenCalledTimes(3);
   });
@@ -120,8 +121,63 @@ describe("SqsMessagingPanel", () => {
 
     await user.click(screen.getByRole("button", {name: "Delete"}));
 
+    expect(screen.getByText("Delete this message?")).toBeInTheDocument();
+    expect(deleteQueueMessage).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", {name: "Confirm"}));
+
     expect(deleteQueueMessage).toHaveBeenCalledWith("aws", "messaging", "orders-queue", "handle-1");
     expect(screen.queryByText("hello")).not.toBeInTheDocument();
+  });
+
+  test("keeps the message when the delete is cancelled", async () => {
+    vi.mocked(receiveQueueMessages).mockResolvedValue([
+      {messageId: "msg-1", body: "hello", receiptHandle: "handle-1"},
+    ]);
+    const user = userEvent.setup();
+
+    render(<SqsMessagingPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.click(screen.getByRole("button", {name: "Receive"}));
+    await user.click(screen.getByRole("button", {name: "Receive messages"}));
+    expect(await screen.findByText("hello")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", {name: "Delete"}));
+    const cancel = screen.getByRole("button", {name: "Cancel"});
+    expect(cancel).not.toHaveClass("success");
+    await user.click(cancel);
+
+    expect(deleteQueueMessage).not.toHaveBeenCalled();
+    expect(screen.getByText("hello")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Delete"})).toBeInTheDocument();
+  });
+
+  test("finishing one message delete leaves another message's prompt open", async () => {
+    vi.mocked(receiveQueueMessages).mockResolvedValue([
+      {messageId: "msg-1", body: "first", receiptHandle: "handle-1"},
+      {messageId: "msg-2", body: "second", receiptHandle: "handle-2"},
+    ]);
+    let finishFirst: () => void = () => {};
+    vi.mocked(deleteQueueMessage).mockImplementationOnce(
+      () => new Promise<void>((resolve) => { finishFirst = resolve; }),
+    );
+    const user = userEvent.setup();
+
+    render(<SqsMessagingPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.click(screen.getByRole("button", {name: "Receive"}));
+    await user.click(screen.getByRole("button", {name: "Receive messages"}));
+    expect(await screen.findByText("second")).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", {name: "Delete"})[0]);
+    await user.click(screen.getByRole("button", {name: "Confirm"}));
+    await user.click(screen.getByRole("button", {name: "Delete"}));
+    expect(screen.getByText("Delete this message?")).toBeInTheDocument();
+
+    finishFirst();
+    expect(await screen.findByText("second")).toBeInTheDocument();
+    await vi.waitFor(() => expect(screen.queryByText("first")).not.toBeInTheDocument());
+    expect(screen.getByText("Delete this message?")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Confirm"})).toBeEnabled();
   });
 
   test("passes maxMessages to receiveQueueMessages and defaults to 10", async () => {
