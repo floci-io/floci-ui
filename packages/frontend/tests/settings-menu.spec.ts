@@ -80,14 +80,14 @@ test('cloud switching from direct Settings keeps the console landing', async ({p
     await expect(page).toHaveURL(/\/console\/azure$/)
 })
 
-test('OCI Settings keeps one cloud and account control and shares the main theme toggle', async ({page}) => {
+test('OCI Settings keeps one cloud control, no AWS account control, and shares the main theme toggle', async ({page}) => {
     await mockCloudApi(page)
     await page.goto('/console/oci')
     await page.getByRole('link', {name: 'Settings', exact: true}).click()
     await expect(page).toHaveURL(/\/settings$/)
 
     await expect(page.getByRole('button', {name: 'Switch cloud, currently OCI'})).toHaveCount(1)
-    await expect(page.getByRole('button', {name: /Switch AWS account/})).toHaveCount(1)
+    await expect(page.getByRole('button', {name: /Switch AWS account/})).toHaveCount(0)
     await expect(page.locator('.topbar .cloud-switcher, .topbar .account-switcher')).toHaveCount(0)
 
     const toggle = page.getByRole('button', {name: /^Theme: /})

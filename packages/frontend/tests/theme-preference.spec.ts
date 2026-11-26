@@ -30,7 +30,7 @@ async function expectCloud(page: Page, cloud: string) {
     await expect(page.locator('.topbar .cloud-switcher, .topbar .account-switcher')).toHaveCount(0)
     if (/^\/settings\/?$/i.test(new URL(page.url()).pathname)) {
         await expect(page.getByRole('button', {name: `Switch cloud, currently ${cloud.toUpperCase()}`})).toBeVisible()
-        await expect(page.getByRole('button', {name: /Switch AWS account/})).toHaveCount(1)
+        await expect(page.getByRole('button', {name: /Switch AWS account/})).toHaveCount(cloud === 'aws' ? 1 : 0)
     }
 }
 
