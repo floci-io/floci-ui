@@ -1,14 +1,32 @@
 name: CI
 
-# Runs on every pull request and on pushes to main. The API tests are
+# Runs on pull requests and on pushes to main. The API tests are
 # self-contained unit tests (mocked clients) and do NOT require the Floci
 # emulators to be running.
+#
+# Changes that only touch documentation or repository metadata cannot affect
+# lint, type-check, tests or the build, so they do not start this workflow.
+# The main ruleset requires no status checks, so a skipped run never blocks
+# a merge.
 
 on:
   pull_request:
+    paths-ignore: &docs-only
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/workflows/changelog-guard.yml'
+      - '.github/workflows/pr-hygiene.yml'
+      - '.github/workflows/pr-limit.yml'
+      - '.github/workflows/release-please.yml'
+      - '.github/workflows/release.yml'
+      - '.release-please-manifest.json'
+      - 'release-please-config.json'
   push:
     branches:
       - main
+    paths-ignore: *docs-only
 
 permissions:
   contents: read
@@ -20,6 +38,13 @@ concurrency:
 jobs:
   checks:
     name: Lint, type-check, test, build
+    # The release-please PR only bumps versions and the CHANGELOG on top of
+    # main, which was already tested on push, and it is rebuilt after every
+    # merge to main. Only a branch in this repository gets the exemption.
+    if: >-
+      !(github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        startsWith(github.head_ref, 'release-please--branches--main'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
