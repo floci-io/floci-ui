@@ -65,6 +65,13 @@ describe('AwsParameterStoreAdapter', () => {
         expect(adapter.schema().displayName).toBe('SSM Parameter Store')
     })
 
+    // DescribeParameters returns no ARN, so the region is the client's.
+    test('reports the region the SSM client is scoped to', async () => {
+        const resources = await new AwsParameterStoreAdapter(runtimeStub().client, 'eu-west-3').list()
+
+        expect(resources.map((r) => r.region)).toEqual(['eu-west-3', 'eu-west-3'])
+    })
+
     test('lists parameters with their metadata', async () => {
         const {client, sent} = runtimeStub()
         const resources = await new AwsParameterStoreAdapter(client).list()

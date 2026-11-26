@@ -23,7 +23,7 @@ import {
     PutObjectCommand,
     type S3Client,
 } from '@aws-sdk/client-s3'
-import {s3 as defaultS3} from '../aws'
+import {resolveRegion, s3 as defaultS3} from '../aws'
 import {awsStorageSchema} from '../cloud-spi/storageSchema'
 import type {
     CloudResource,
@@ -62,6 +62,7 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
 
     constructor(
         private readonly s3: S3Client = defaultS3,
+        private readonly region: string = resolveRegion(),
         private readonly deleteBatchTimeoutMs = DELETE_BATCH_TIMEOUT_MS,
     ) {}
 
@@ -81,7 +82,9 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
                 cloud: 'aws',
                 service: 'storage',
                 type: 'bucket',
-                region: null,
+                // ListBuckets names no region and Floci S3 is region-independent,
+                // so the bucket is shown in the region the S3 client is scoped to.
+                region: this.region,
                 createdAt: bucket.CreationDate?.toISOString() ?? null,
                 metadata: {
                     provider: 'aws',
@@ -148,7 +151,7 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
             cloud: 'aws',
             service: 'storage',
             type: 'bucket',
-            region: stringValue(input.values.region) || null,
+            region: this.region,
             createdAt: null,
             metadata: {
                 provider: 'aws',

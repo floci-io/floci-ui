@@ -9,6 +9,7 @@ import {
     RemoveTagsFromResourceCommand,
     type SSMClient,
 } from '@aws-sdk/client-ssm'
+import {resolveRegion} from '../aws'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {awsParametersSchema, PARAMETER_NAME_MAX_LENGTH, PARAMETER_TYPES} from '../cloud-spi/parametersSchema'
 import type {
@@ -35,7 +36,10 @@ export class AwsParameterStoreAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'parameters' as const
 
-    constructor(private readonly ssm: SSMClient) {}
+    constructor(
+        private readonly ssm: SSMClient,
+        private readonly region: string = resolveRegion(),
+    ) {}
 
     schema(): ServiceSchema {
         return awsParametersSchema()
@@ -138,7 +142,7 @@ export class AwsParameterStoreAdapter implements CloudServiceAdapter {
 
     private async toResource(parameter: ParameterMetadata): Promise<CloudResource> {
         const name = parameter.Name ?? ''
-        return toResource(parameter, await this.getTags(name))
+        return toResource(parameter, await this.getTags(name), this.region)
     }
 
     /**
@@ -171,7 +175,7 @@ export class AwsParameterStoreAdapter implements CloudServiceAdapter {
  * runtime to withhold it would leak the secret. The adapter therefore never
  * issues GetParameter at all.
  */
-function toResource(parameter: ParameterMetadata, tagLookup: TagLookup): CloudResource {
+function toResource(parameter: ParameterMetadata, tagLookup: TagLookup, region: string): CloudResource {
     const name = parameter.Name ?? ''
 
     return {
@@ -180,9 +184,9 @@ function toResource(parameter: ParameterMetadata, tagLookup: TagLookup): CloudRe
         cloud: 'aws',
         service: 'parameters',
         type: 'parameter',
-        // Parameter Store is regional but DescribeParameters does not echo the
-        // region, and inventing one would be fake data.
-        region: null,
+        // DescribeParameters returns no ARN, so the region is the one the
+        // SSM client is scoped to, which is where the parameter lives.
+        region,
         createdAt: parameter.LastModifiedDate ? parameter.LastModifiedDate.toISOString() : null,
         status: null,
         metadata: {

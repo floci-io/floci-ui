@@ -45,6 +45,21 @@ describe('AwsLogsAdapter resources', () => {
         }])
     })
 
+    test('takes the region from the log group ARN, else from the scoped client', async () => {
+        const {client} = stubClient({
+            DescribeLogGroupsCommand: () => ({
+                logGroups: [
+                    {logGroupName: '/paris', arn: 'arn:aws:logs:eu-west-3:000000000000:log-group:/paris'},
+                    {logGroupName: '/no-arn'},
+                ],
+            }),
+        })
+
+        const resources = await new AwsLogsAdapter(client, 'eu-west-3').list()
+
+        expect(resources.map((r) => r.region)).toEqual(['eu-west-3', 'eu-west-3'])
+    })
+
     // The runtime filters natively by prefix, so `search` must not be a
     // client-side contains — that would silently disagree with the field label.
     test('search is sent as logGroupNamePrefix', async () => {
@@ -209,7 +224,7 @@ describe('AwsLogsAdapter queryLogs', () => {
             StartQueryCommand: () => ({queryId: 'q-3'}),
             GetQueryResultsCommand: () => ({status: 'Running', results: []}),
         })
-        const adapter = new AwsLogsAdapter(client, {timeoutMs: 30, intervalMs: 10})
+        const adapter = new AwsLogsAdapter(client, 'us-east-1', {timeoutMs: 30, intervalMs: 10})
 
         const result = await adapter.queryLogs('/floci/probe', {queryString: 'fields @message', startTime: 0, endTime: 1})
 

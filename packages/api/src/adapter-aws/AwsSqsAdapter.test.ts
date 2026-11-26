@@ -106,6 +106,17 @@ describe('AwsSqsAdapter', () => {
         }
     })
 
+    test('takes the region from the queue ARN, else from the scoped client', async () => {
+        const fromArn = await new AwsSqsAdapter(
+            stubSqs({attributes: {QueueArn: 'arn:aws:sqs:eu-west-3:000000000000:orders-queue'}}).client,
+            'eu-west-3',
+        ).list()
+        const withoutArn = await new AwsSqsAdapter(stubSqs({attributes: {}}).client, 'eu-west-3').get('orders-queue')
+
+        expect(fromArn[0]?.region).toBe('eu-west-3')
+        expect(withoutArn?.region).toBe('eu-west-3')
+    })
+
     test('uses the queue name as the id, not the URL', async () => {
         // A URL embeds the endpoint and changes if the runtime is re-pointed,
         // which would make resource links unstable.

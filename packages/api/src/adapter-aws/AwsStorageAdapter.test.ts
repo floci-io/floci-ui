@@ -1,6 +1,7 @@
 import {describe, expect, test} from 'bun:test'
 import {join} from 'node:path'
 import {
+    CreateBucketCommand,
     DeleteBucketCommand,
     DeleteObjectsCommand,
     type DeleteObjectsCommandInput,
@@ -36,6 +37,7 @@ function fakeS3(overrides: Partial<{
                 if (overrides.deleteBucketError) throw overrides.deleteBucketError
                 return {}
             }
+            if (command instanceof CreateBucketCommand) return {}
             if (command instanceof ListBucketsCommand) {
                 return {
                     Buckets: overrides.buckets ?? [
@@ -121,6 +123,18 @@ describe('AwsStorageAdapter', () => {
 
         expect(result.map((r) => r.name).sort()).toEqual(['prod-assets', 'prod-logs'])
         expect(requestedBuckets.sort()).toEqual(['prod-assets', 'prod-logs'])
+    })
+
+    // ListBuckets names no region and Floci S3 is region-independent, so the
+    // row carries the region the S3 client is scoped to.
+    test('list and create report the region the client is scoped to', async () => {
+        const adapter = new AwsStorageAdapter(fakeS3(), 'eu-west-3')
+
+        const [bucket] = await adapter.list()
+        const created = await adapter.create({values: {bucketName: 'paris-bucket'}})
+
+        expect(bucket?.region).toBe('eu-west-3')
+        expect(created.region).toBe('eu-west-3')
     })
 })
 
@@ -530,7 +544,7 @@ describe('AwsStorageAdapter emptyBucket delete batch bound', () => {
             },
         })
 
-        const error = await new AwsStorageAdapter(bucket.client, 30).emptyBucket('versioned').catch((err: unknown) => err)
+        const error = await new AwsStorageAdapter(bucket.client, 'us-east-1', 30).emptyBucket('versioned').catch((err: unknown) => err)
 
         expect(error).toBeInstanceOf(RuntimeUnavailableError)
         expect((error as Error).message).toContain('stopped after deletion started')
@@ -550,7 +564,7 @@ describe('AwsStorageAdapter emptyBucket delete batch bound', () => {
                     ? Promise.resolve({Versions: [{Key: 'a.txt', VersionId: 'v1'}], IsTruncated: false})
                     : new Promise(() => {}),
             }
-            const error = await new AwsStorageAdapter(client, 50).emptyBucket('versioned').catch((err) => err)
+            const error = await new AwsStorageAdapter(client, 'us-east-1', 50).emptyBucket('versioned').catch((err) => err)
             if (!(error instanceof RuntimeUnavailableError)) throw new Error('The batch did not time out')
             console.log('batch bounded')
         `
@@ -611,7 +625,7 @@ describe('AwsStorageAdapter emptyBucket delete batch bound against the SDK', () 
         } as unknown as S3ClientConfig)
         const started = performance.now()
 
-        const error = await new AwsStorageAdapter(s3, 100).emptyBucket('versioned').catch((err: unknown) => err)
+        const error = await new AwsStorageAdapter(s3, 'us-east-1', 100).emptyBucket('versioned').catch((err: unknown) => err)
 
         expect(performance.now() - started).toBeLessThan(1_000)
         expect(error).toBeInstanceOf(RuntimeUnavailableError)
@@ -629,7 +643,7 @@ describe('AwsStorageAdapter emptyBucket delete batch bound (inside it)', () => {
             },
         })
 
-        const result = await new AwsStorageAdapter(bucket.client, 300).emptyBucket('versioned')
+        const result = await new AwsStorageAdapter(bucket.client, 'us-east-1', 300).emptyBucket('versioned')
 
         expect(result).toEqual({deleted: 3})
     })

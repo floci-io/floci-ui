@@ -109,10 +109,11 @@ import {createRdsService} from './services/rds'
  */
 export function createCloudAdapterRegistry(accountId?: string | null, region?: string | null): CloudAdapterRegistry {
     const clients = awsClientsForAccount(accountId, region)
+    const awsRegion = resolveRegion(region)
     const ec2Service = createEc2Service(clients.ec2)
 
     return new CloudAdapterRegistry([
-        new AwsStorageAdapter(clients.s3),
+        new AwsStorageAdapter(clients.s3, awsRegion),
         new AwsDynamoDbAdapter(clients.dynamodb),
         new AwsEksAdapter(createEksService(clients.eks)),
         new AwsDatabaseAdapter(createRdsService(clients.rds), clients.rds),
@@ -123,8 +124,8 @@ export function createCloudAdapterRegistry(accountId?: string | null, region?: s
         new AwsComputeAdapter(ec2Service),
         new AwsNetworkingAdapter(ec2Service),
         new AwsServerlessAdapter(clients.lambda, clients.s3, clients.dynamodb, clients.sqs, clients.kinesis),
-        new AwsLogsAdapter(clients.logs),
-        new AwsParameterStoreAdapter(clients.ssm),
+        new AwsLogsAdapter(clients.logs, awsRegion),
+        new AwsParameterStoreAdapter(clients.ssm, awsRegion),
         new AwsKmsAdapter(clients.kms),
         new AwsPaymentCryptographyAdapter(clients.paymentCryptography),
         new AwsAcmAdapter(clients.acm),
@@ -147,7 +148,7 @@ export function createCloudAdapterRegistry(accountId?: string | null, region?: s
         new AwsRoute53Adapter(clients.route53),
         new AwsSchedulerAdapter(clients.scheduler),
         new AwsAthenaAdapter(clients.athena),
-        new AwsXrayAdapter(clients.xray, resolveRegion(region)),
+        new AwsXrayAdapter(clients.xray, awsRegion),
         new AzureStorageAdapter(),
         new AzureTableAdapter(),
         new AzureServiceBusAdapter(),
@@ -194,7 +195,7 @@ export function createCloudAdapterRegistry(accountId?: string | null, region?: s
         new OciWorkRequestsAdapter(),
         new OciOrganizationsAdapter(),
         new OciGovernanceRulesAdapter(),
-        new AwsSqsAdapter(clients.sqs),
+        new AwsSqsAdapter(clients.sqs, awsRegion),
         new AwsSnsAdapter(clients.sns),
         new AwsCloudWatchAdapter(clients.cloudwatch),
         new AzureServerlessAdapter(),
