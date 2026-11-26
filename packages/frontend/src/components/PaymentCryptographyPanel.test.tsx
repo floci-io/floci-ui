@@ -5,7 +5,7 @@ import {describe, expect, it} from "vitest";
 import {PaymentCryptographyPanel} from "@/components/PaymentCryptographyPanel";
 import type {CloudResource} from "@/types/resource";
 
-/** The usage section asks the query client, so the panel needs one. */
+/** The usage and the Regions ask the query client, so the panel needs one. */
 function renderPanel(props: React.ComponentProps<typeof PaymentCryptographyPanel>) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   return render(
@@ -38,6 +38,19 @@ describe("the panels of a payment key", () => {
     expect(screen.getByLabelText("Public key certificate")).toBeDefined();
   });
 
+  it("shows the usage and the Regions of a payment key as well", () => {
+    renderPanel({
+      resource: {...key, metadata: {...key.metadata, replicationRegions: ["us-east-2"]}},
+      cloud: "aws",
+      runtimeReachable: true,
+    });
+
+    expect(screen.getByLabelText("Public key certificate")).toBeDefined();
+    expect(screen.getByText("Usage")).toBeDefined();
+    expect(screen.getByText(/Replication/)).toBeDefined();
+    expect(screen.getByText(/us-east-2/)).toBeDefined();
+  });
+
   it("shows nothing for a resource that is not a payment key", () => {
     renderPanel({resource: {...key, type: "alias"}, cloud: "aws", runtimeReachable: true});
 
@@ -51,8 +64,10 @@ describe("the panels of a payment key", () => {
     // The certificate is part of the key's detail, and the detail has not been
     // read, so the panel says nothing of it.
     expect(screen.queryByLabelText("Public key certificate")).toBeNull();
-    // The usage says what it does not know.
-    expect(screen.getByText(/has not been read yet/)).toBeDefined();
+    // The Regions say what they do not know.
+    expect(
+      screen.getByText(/The key has not been read yet, so the Regions it is replicated to are not known yet/),
+    ).toBeDefined();
   });
 
   it("says so when the key could not be read", () => {
@@ -61,5 +76,8 @@ describe("the panels of a payment key", () => {
     // The key could not be read, so nothing is known of its certificate, and
     // the panel says that rather than staying silent.
     expect(screen.getByText(/its certificate is unknown/)).toBeDefined();
+    expect(
+      screen.getByText(/The key could not be read, so the Regions it is replicated to are unknown/),
+    ).toBeDefined();
   });
 });

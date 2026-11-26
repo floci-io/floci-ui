@@ -16,6 +16,10 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
+import {
+    addReplicationRegions,
+    removeReplicationRegions,
+} from './paymentCryptographyReplication'
 import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
@@ -161,6 +165,73 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             return
         }
         await this.client.send(new DeleteKeyCommand({KeyIdentifier: identifier}))
+    }
+
+    /**
+     * The Regions a key is replicated to.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
+    async setReplication(id: string, input: Record<string, unknown>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+        // A request that says nothing at all is a fault of the caller, and it
+        // is refused rather than read as a request to change nothing.
+        if (!input || typeof input !== 'object') {
+            throw new ValidationError('the request must say which Regions to add or remove')
+        }
+        // The reference's own commands add and remove one Region at a time, so
+        // the request says which Region to add and which to remove rather than a
+        // set the service has to diff. A list that is not there is a list of no
+        // Regions: a request that adds a Region and says nothing about the ones
+        // that go says the ones that go are none.
+        const added = regionList(input.addReplicationRegions, 'addReplicationRegions')
+        const removed = regionList(input.removeReplicationRegions, 'removeReplicationRegions')
+        // A Region named in both lists says two things about the same Region,
+        // and the request is refused rather than resolved, because which of the
+        // two would happen depends on the state the key is in.
+        refuseAmbiguousRegions(added, removed)
+        const key = await this.readKey(identifier)
+        // A replica is read-only: the reference says a Replica Region key cannot
+        // be configured to replicate to other Regions, so the API refuses what
+        // it cannot do rather than sending a request the service would refuse.
+        if (key?.MultiRegionKeyType === 'REPLICA') {
+            throw new ValidationError(
+                'a replica is read-only, so the Regions it is replicated to are those of its primary',
+            )
+        }
+        const primary = key?.PrimaryRegion ?? null
+        if (primary && (added.includes(primary) || removed.includes(primary))) {
+            // The Region the primary is in is not a replica, and the reference
+            // refuses it. It is refused here too, before anything is changed:
+            // the Regions that are gone go first, so a request that named the
+            // primary would take a replica away and then fail.
+            throw new ValidationError(
+                `the key is the primary in ${primary}, so it is not replicated to it`,
+            )
+        }
+        const current = key ? replicationRegionsOf(key) : []
+        // A Region the key already holds is not added again, and one it does not
+        // hold is not taken away.
+        const toAdd = added.filter((region) => !current.includes(region))
+        const toRemove = removed.filter((region) => current.includes(region))
+        // The Regions that are gone go first: a key that replicates to as many
+        // Regions as it may would be refused a fifth one, so a Region that is
+        // replaced would fail to be replaced.
+        // The commands take the ARN of the key, and the key was just read, so
+        // the ARN it resolved to is what they are addressed by.
+        const keyArn = key?.KeyArn ?? identifier
+        await removeReplicationRegions(this.client, keyArn, toRemove)
+        await addReplicationRegions(this.client, keyArn, toAdd)
+    }
+
+    /** The key as it answers, which is where the rules of its replication are read from. */
+    private async readKey(keyArn: string): Promise<Key | undefined> {
+        const res = await this.client.send(new GetKeyCommand({KeyIdentifier: keyArn}))
+        return res.Key
     }
 
     /**
@@ -460,6 +531,18 @@ function orderedModes(modes: readonly PaymentCryptographyModeOfUse[]): PaymentCr
     return [...modes].sort((a, b) => PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(a) - PAYMENT_CRYPTOGRAPHY_MODES_OF_USE.indexOf(b))
 }
 
+/**
+ * The Regions a key is replicated to.
+ *
+ * <p>The key's own status names them, and the primary Region is not one of
+ * them: it is where the key is.
+ */
+function replicationRegionsOf(key: Key): string[] {
+    const status = key.ReplicationStatus
+    if (!status) return []
+    return Object.keys(status).filter((region) => region !== key.PrimaryRegion)
+}
+
 function toResource(
     key: Key,
     tagLookup: TagLookup,
@@ -496,6 +579,9 @@ function toResource(
             deleteTimestamp: isoDate(key.DeleteTimestamp),
             multiRegionKeyType: key.MultiRegionKeyType,
             primaryRegion: key.PrimaryRegion,
+            // The Regions the key is replicated to are published where the key
+            // is read, so the console does not work them out for itself.
+            replicationRegions: replicationRegionsOf(key),
             // The certificate is published only where it was read, so a row that
             // was never inspected does not claim that the key has none. The
             // state says which of the five it is, so the console does not have
@@ -646,6 +732,48 @@ function requiredString(value: unknown, field: string): string {
     const raw = optionalString(value, field)?.trim()
     if (!raw) throw new ValidationError(`${field} is required`)
     return raw
+}
+
+/**
+ * A list of Region names, which is what a request about replication has to name.
+ *
+ * <p>A member that is not a list of names is a fault of the caller, not a quiet
+ * "nothing to change". A name that names no Region is refused as well, because
+ * the console's Region field is free text, and the same Region named twice is
+ * one Region, so the list holds it once.
+ */
+/**
+ * The Regions a request names, or none when it names none.
+ *
+ * <p>A list that is not there is a list of no Regions: a request that adds a
+ * Region and says nothing about the ones that go says the ones that go are
+ * none. A list that is there and is not a list of Region names is a fault of
+ * the caller and is refused.
+ */
+function regionList(value: unknown, field: string): string[] {
+    if (value === undefined || value === null) return []
+    if (!Array.isArray(value) || value.some((region) => typeof region !== 'string')) {
+        throw new ValidationError(`the ${field} of the request must be a list of Region names`)
+    }
+    const names = value.map((region) => region.trim())
+    if (names.some((region) => region === '')) {
+        throw new ValidationError(`the ${field} of the request must not hold a blank Region name`)
+    }
+    return [...new Set(names)]
+}
+
+/**
+ * A Region named in both lists is ambiguous.
+ *
+ * <p>Which of the two would win depends on the state the key happens to be in,
+ * so the request is refused rather than resolved.
+ */
+function refuseAmbiguousRegions(added: string[], removed: string[]): void {
+    const ambiguous = added.filter((region) => removed.includes(region))
+    if (ambiguous.length === 0) return
+    throw new ValidationError(
+        `the request names ${ambiguous.length > 1 ? 'the Regions' : 'the Region'} ${ambiguous.join(', ')} both to add and to remove`,
+    )
 }
 
 /**

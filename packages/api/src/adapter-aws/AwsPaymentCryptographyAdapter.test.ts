@@ -1,4 +1,6 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
+import {join} from 'node:path'
 import {
     CreateAliasCommand,
     CreateKeyCommand,
@@ -244,6 +246,28 @@ describe('AwsPaymentCryptographyAdapter', () => {
             })
         })
 
+        test('publishes the Regions the key is replicated to', async () => {
+            const {client} = runtimeStub({
+                get: {
+                    Key: {
+                        ...key,
+                        MultiRegionKeyType: 'PRIMARY',
+                        PrimaryRegion: 'us-east-1',
+                        // The status holds the Regions the key is replicated to,
+                        // and the Region the primary is in is not one of them.
+                        ReplicationStatus: {
+                            'us-east-1': {Status: 'SYNCHRONIZED'},
+                            'us-east-2': {Status: 'SYNCHRONIZED'},
+                        },
+                    },
+                },
+            })
+
+            const resource = await new AwsPaymentCryptographyAdapter(client).get(KEY_ID)
+
+            expect(resource?.metadata.replicationRegions).toEqual(['us-east-2'])
+        })
+
         test('returns null for a key that does not exist', async () => {
             const {client} = runtimeStub({get: notFound})
 
@@ -482,6 +506,16 @@ describe('AwsPaymentCryptographyAdapter', () => {
 
         expect(sent).toHaveLength(1)
         expect((sent[0] as ListKeysCommand).input).toEqual({MaxResults: 1})
+    })
+
+    test('the command a key is read with has one name in the file', () => {
+        const source = readFileSync(join(import.meta.dir, 'AwsPaymentCryptographyAdapter.ts'), 'utf8')
+
+        // The file already imports GetKeyCommand for the detail it reads, so
+        // the same command under a second name is one command with two names,
+        // and a reader has to know which one a line means.
+        expect(source).not.toMatch(/GetKeyCommand as /)
+        expect(source).toMatch(/new GetKeyCommand\(\{KeyIdentifier: keyArn\}\)/)
     })
 
     describe('aliases', () => {

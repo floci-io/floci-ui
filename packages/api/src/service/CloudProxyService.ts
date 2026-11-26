@@ -300,6 +300,12 @@ export class CloudProxyService {
     }
 
     /**
+     * The Regions a key is replicated to.
+     *
+     * <p>Only the payment cryptography service has this, so the adapter's own
+     * method answers it.
+     */
+    /**
      * Whether a key may be used.
      *
      * <p>Only the payment cryptography service has this, so the adapter's own
@@ -319,6 +325,22 @@ export class CloudProxyService {
             throw new NotSupportedError(`${cloud}/${service} does not do this`)
         }
         await setter.setUsage(id, input)
+    }
+
+    async setPaymentCryptographyKeyReplication(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        id: string,
+        input: Record<string, unknown>,
+    ): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        const setter = adapter as {
+            setReplication?: (id: string, input: Record<string, unknown>) => Promise<void>
+        }
+        if (!setter.setReplication) {
+            throw new NotSupportedError(`${cloud}/${service} does not do this`)
+        }
+        await setter.setReplication(id, input)
     }
 
     async encryptKms(cloud: CloudProvider, keyId: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {
