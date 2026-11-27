@@ -2,6 +2,7 @@ import {Fragment, useEffect, useState} from 'react'
 import {ChevronDown, ChevronRight, History, Play, RefreshCw} from 'lucide-react'
 import {useQueries} from '@tanstack/react-query'
 import {listChildCollections, listCollectionItems} from '@/api/cloudProxyClient'
+import {useCloudQueryScope} from '@/api/queries/cloudQueries'
 import {EmptyState} from '@/components/EmptyState'
 import {formatDateTime} from '@/lib/format'
 import {expandJsonStrings, formatDuration, isExpressExecution, summarizeDetails} from '@/lib/workflowHistory'
@@ -28,6 +29,7 @@ interface WorkflowExecutionsPanelProps {
  */
 export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: WorkflowExecutionsPanelProps) {
     const machineId = resource?.id
+    const scope = useCloudQueryScope(cloud)
     const [selectedExecutionId, setSelectedExecutionId] = useState<string | undefined>()
     const [executionCursors, setExecutionCursors] = useState<Array<string | undefined>>([undefined])
     const [eventCursors, setEventCursors] = useState<Array<string | undefined>>([undefined])
@@ -47,7 +49,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
 
     const executionPages = useQueries({
         queries: executionCursors.map((cursor) => ({
-            queryKey: ['workflow-executions', cloud, machineId, cursor],
+            queryKey: ['workflow-executions', cloud, machineId, cursor, ...scope],
             queryFn: ({signal}: {signal: AbortSignal}) =>
                 listChildCollections(cloud, 'workflows', machineId ?? '', cursor, signal),
             enabled: Boolean(machineId) && runtimeReachable,
@@ -65,7 +67,7 @@ export function WorkflowExecutionsPanel({cloud, resource, runtimeReachable}: Wor
 
     const eventPages = useQueries({
         queries: eventCursors.map((cursor) => ({
-            queryKey: ['workflow-execution-history', cloud, machineId, selectedExecutionId, cursor],
+            queryKey: ['workflow-execution-history', cloud, machineId, selectedExecutionId, cursor, ...scope],
             queryFn: ({signal}: {signal: AbortSignal}) =>
                 listCollectionItems(cloud, 'workflows', machineId ?? '', selectedExecutionId ?? '', cursor, signal),
             enabled: Boolean(machineId && selectedExecutionId) && runtimeReachable && !selectedIsExpress,

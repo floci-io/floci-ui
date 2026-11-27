@@ -2,8 +2,7 @@ import {FormEvent, useEffect, useMemo, useRef, useState} from 'react'
 import {Code2, Database, Play, Plus, RefreshCw, Table2, Trash2, type LucideIcon} from 'lucide-react'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {JsonRecordModal} from '@/components/JsonRecordModal'
-import {useAccountId} from '@/lib/accountStore'
-import {useRegion} from '@/lib/regionStore'
+import {useCloudQueryScope} from '@/api/queries/cloudQueries'
 import {
     createCosmosContainer,
     deleteCosmosContainer,
@@ -26,8 +25,7 @@ interface CosmosNoSqlPanelProps {
 
 export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedContainerId, onSelectContainer}: CosmosNoSqlPanelProps) {
     const qc = useQueryClient()
-    const accountId = useAccountId()
-    const region = useRegion()
+    const scope = useCloudQueryScope(cloud)
     const selectionChanged = useRef(false)
     const databaseId = resource?.id
     const [containerName, setContainerName] = useState('')
@@ -40,8 +38,8 @@ export function CosmosNoSqlPanel({cloud, resource, runtimeReachable, selectedCon
     const [confirmContainer, setConfirmContainer] = useState<string | null>(null)
     const [confirmItem, setConfirmItem] = useState<string | null>(null)
 
-    const containersKey = useMemo(() => ['cosmos-containers', accountId, region, cloud, databaseId], [accountId, region, cloud, databaseId])
-    const itemsKey = useMemo(() => ['cosmos-items', accountId, region, cloud, databaseId, selectedContainerId], [accountId, region, cloud, databaseId, selectedContainerId])
+    const containersKey = useMemo(() => ['cosmos-containers', ...scope, cloud, databaseId], [scope, cloud, databaseId])
+    const itemsKey = useMemo(() => ['cosmos-items', ...scope, cloud, databaseId, selectedContainerId], [scope, cloud, databaseId, selectedContainerId])
 
     const containersQuery = useQuery({
         queryKey: containersKey,

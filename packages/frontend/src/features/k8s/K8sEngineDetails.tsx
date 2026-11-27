@@ -9,7 +9,7 @@ import {
     listKubernetesFargateProfiles,
     listKubernetesNodegroups,
 } from '@/api/cloudProxyClient'
-import {cloudQueryKeys} from '@/api/queries/cloudQueries'
+import {cloudQueryKeys, useCloudQueryScope} from '@/api/queries/cloudQueries'
 import {
     type CreateKubernetesFargateProfileInput,
     type CreateKubernetesNodegroupInput,
@@ -43,7 +43,8 @@ export function K8sEngineDetails({cloud, clusterName}: K8sEngineDetailsProps) {
 
 function EksNodegroupsSection({cloud, clusterName}: {cloud: CloudProvider; clusterName: string}) {
     const queryClient = useQueryClient()
-    const queryKey = ['k8s', cloud, clusterName, 'nodegroups'] as const
+    const scope = useCloudQueryScope(cloud)
+    const queryKey = ['k8s', cloud, clusterName, 'nodegroups', ...scope] as const
     const nodegroupsQuery = useQuery({
         queryKey,
         queryFn: ({signal}) => listKubernetesNodegroups(cloud, clusterName, signal),
@@ -129,7 +130,8 @@ function EksNodegroupsSection({cloud, clusterName}: {cloud: CloudProvider; clust
 
 function EksFargateProfilesSection({cloud, clusterName}: {cloud: CloudProvider; clusterName: string}) {
     const queryClient = useQueryClient()
-    const queryKey = ['k8s', cloud, clusterName, 'fargate-profiles'] as const
+    const scope = useCloudQueryScope(cloud)
+    const queryKey = ['k8s', cloud, clusterName, 'fargate-profiles', ...scope] as const
     const profilesQuery = useQuery({
         queryKey,
         queryFn: ({signal}) => listKubernetesFargateProfiles(cloud, clusterName, signal),

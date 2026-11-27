@@ -1,3 +1,4 @@
+import {useMemo} from 'react'
 import {useQuery} from '@tanstack/react-query'
 import {
     getCloudServiceStatus,
@@ -6,7 +7,24 @@ import {
     listCloudServices,
     listClouds,
 } from '@/api/cloudProxyClient'
+import {useAccountId} from '@/lib/accountStore'
+import {useRegion} from '@/lib/regionStore'
 import type {CloudProvider, CloudServiceDescriptor, CloudServiceType, CloudStatus} from '@/types/cloud'
+
+/** The account and region a cloud's data is cached under; empty for a cloud that has neither. */
+export type CloudQueryScope = readonly [] | readonly [accountId: string, region: string | null]
+
+/**
+ * Floci isolates AWS resources per account and region, so AWS data is cached under
+ * both, as the EC2 queries are. They go last: a key without them still matches every
+ * account's and region's copy by prefix. Azure, GCP and OCI adapters are
+ * account-neutral and ignore the AWS region, so their data is cached once.
+ */
+export function useCloudQueryScope(cloud: CloudProvider | undefined): CloudQueryScope {
+    const accountId = useAccountId()
+    const region = useRegion()
+    return useMemo(() => (cloud === 'aws' ? [accountId, region] : []), [cloud, accountId, region])
+}
 
 /**
  * Shared cloud queries.
@@ -21,8 +39,8 @@ export const cloudQueryKeys = {
     status: (cloud: CloudProvider) => ['cloud-status', cloud] as const,
     serviceStatus: (cloud: CloudProvider, service: CloudServiceType) =>
         ['cloud-service-status', cloud, service] as const,
-    resources: (cloud: CloudProvider, service: CloudServiceType) =>
-        ['cloud-console-resources', cloud, service] as const,
+    resources: (cloud: CloudProvider, service: CloudServiceType, scope: CloudQueryScope = []) =>
+        ['cloud-console-resources', cloud, service, ...scope] as const,
 }
 
 export function useCloudsQuery() {
@@ -75,8 +93,9 @@ export function useCloudConsoleResourcesQuery({
     services?: CloudServiceDescriptor[]
     status?: CloudStatus
 }) {
+    const scope = useCloudQueryScope(cloud)
     return useQuery({
-        queryKey: cloudQueryKeys.resources(cloud, service),
+        queryKey: cloudQueryKeys.resources(cloud, service, scope),
         queryFn: ({signal}) => listCloudResources(cloud, service, undefined, signal),
         enabled: hasAvailableService(services, service) && status?.runtime === 'reachable',
     })

@@ -9,7 +9,6 @@ import {
   type KmsSigningAlgorithm,
 } from "@/api/cloudProxyClient";
 import {useAccountId} from "@/lib/accountStore";
-import {useRegion} from "@/lib/regionStore";
 import type {CloudResource} from "@/types/resource";
 
 interface OciKmsActionsPanelProps {
@@ -33,7 +32,6 @@ const ECDSA_ALGORITHMS: KmsSigningAlgorithm[] = [
 
 export function OciKmsActionsPanel({resource, runtimeReachable, onChanged}: OciKmsActionsPanelProps) {
   const accountId = useAccountId();
-  const region = useRegion();
   const shape = resource?.metadata.algorithm;
   const isKey = resource?.type === "key";
   const pendingDeletion = resource?.status === "PENDING_DELETION" || resource?.status === "SCHEDULING_DELETION";
@@ -70,7 +68,7 @@ export function OciKmsActionsPanel({resource, runtimeReachable, onChanged}: OciK
       activeRequest.current?.abort();
       activeRequest.current = null;
     };
-  }, [accountId, region, resource?.id, initialAlgorithm]);
+  }, [accountId, resource?.id, initialAlgorithm]);
 
   if (!resource || resource.cloud !== "oci" || resource.service !== "kms") return null;
 

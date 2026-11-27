@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronDown, ChevronUp, Copy, Zap } from 'lucide-react'
 import { K8sEngineDetails } from "@/features/k8s/K8sEngineDetails";
 import { listLambdaTriggers } from "@/api/cloudProxyClient";
+import { useCloudQueryScope } from "@/api/queries/cloudQueries";
 import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource, StorageObject } from "@/types/resource";
 import { formatBytes } from "@/lib/format";
@@ -45,6 +46,7 @@ export function ResourceInspector({
   );
   const resourceCloud = cloud ?? resource?.cloud;
   const isAwsLambda = isLambda && resourceCloud === "aws";
+  const scope = useCloudQueryScope(resourceCloud);
 
   // The copy is of the resource on screen, so a resource that changes under the
   // button takes the claim of the last copy with it.
@@ -62,7 +64,7 @@ export function ResourceInspector({
   };
 
   const triggersQuery = useQuery({
-    queryKey: ["lambda-triggers", resourceCloud, resource?.id],
+    queryKey: ["lambda-triggers", resourceCloud, resource?.id, ...scope],
     queryFn: ({ signal }) =>
       resource ? listLambdaTriggers(resourceCloud!, resource.id, signal) : Promise.resolve([]),
     enabled: isAwsLambda && Boolean(runtimeReachable) && Boolean(resource),
