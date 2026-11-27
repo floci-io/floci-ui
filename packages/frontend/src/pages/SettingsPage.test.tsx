@@ -72,7 +72,7 @@ describe('SettingsPage', () => {
         renderSettings('/settings')
 
         await user.click(screen.getByRole('button', {name: 'Switch AWS region eu-central-1'}))
-        expect(screen.getByRole('option', {name: /eu-central-1.*default/})).toHaveAttribute('aria-selected', 'true')
+        expect(screen.getByRole('option', {name: /Console default.*eu-central-1/})).toHaveAttribute('aria-selected', 'true')
 
         // A defined list, with the AWS console's names, and no field to type a region into.
         expect(screen.getByRole('option', {name: /eu-central-1.*Europe \(Frankfurt\)/})).toBeInTheDocument()
@@ -83,11 +83,12 @@ describe('SettingsPage', () => {
         expect(getRegion()).toBe('us-west-2')
         expect(screen.getByRole('button', {name: 'Switch AWS region us-west-2'})).toBeInTheDocument()
 
-        // The region just picked comes back on top, under Recent, as well as in the full list.
+        // The region just picked comes back on top, under Recent, and is not offered a second time below.
         await user.click(screen.getByRole('button', {name: 'Switch AWS region us-west-2'}))
         expect(within(screen.getByRole('group', {name: 'Recent regions'})).getByRole('option', {name: /us-west-2/}))
             .toHaveAttribute('aria-selected', 'true')
-        expect(within(screen.getByRole('group', {name: 'All regions'})).getAllByRole('option')).toHaveLength(36)
+        expect(within(screen.getByRole('group', {name: 'Other regions'})).getAllByRole('option')).toHaveLength(35)
+        expect(screen.getAllByRole('option', {name: /us-west-2/})).toHaveLength(1)
         setRegion(null)
     })
 
