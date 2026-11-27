@@ -2932,6 +2932,24 @@ pre,
     padding: 12px 16px;
 }
 
+/* A row of the inspector that is not a row of a table: the frame of the table
+   is not the frame of the inspector. */
+.inspector-input-row {
+    padding: 8px 0;
+    border-bottom: none;
+    background: none;
+    /* The column of the inspector is narrow, so the row wraps rather than
+       running out of it. */
+    flex-wrap: wrap;
+}
+
+/* The control in the row is sized for the row and not for a table, so it may
+   shrink with the column. */
+.inspector-input-row .input {
+    flex: 1 1 160px;
+    min-width: 0;
+}
+
 .inspector-section-header {
     display: flex;
     align-items: center;

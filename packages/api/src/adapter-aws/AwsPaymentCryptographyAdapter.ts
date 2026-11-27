@@ -18,10 +18,17 @@ import {
 } from '@aws-sdk/client-payment-cryptography'
 import {setKeyUsage} from './paymentCryptographyLifecycle'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {isNotFound} from './paymentCryptographyErrors'
+import {deleteKeyPolicy, getKeyPolicy, isKeyArn, putKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
+import {addReplicationRegions, removeReplicationRegions} from './paymentCryptographyReplication'
+import {exportKeyTr31, importKeyTr31, keyArnOf} from './paymentCryptographyTransfer'
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
+    mayUnwrapKey,
+    mayWrapKey,
+    mayWrapWith,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
@@ -29,7 +36,13 @@ import {
     PAYMENT_CRYPTOGRAPHY_KIND_PREFIX,
     PAYMENT_CRYPTOGRAPHY_KINDS,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
+    PAYMENT_CRYPTOGRAPHY_SOURCES,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
+    PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES,
+    isWrappingUsage,
+    modesAllowUnwrapping,
+    modesAllowWrapping,
+    wrappingAlgorithmsFor,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
     type PaymentCryptographyKeyAlgorithm,
@@ -41,6 +54,7 @@ import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
+    ExportedKeyMaterial,
     ResourceQuery,
     ServiceSchema,
 } from '../cloud-spi/types'
@@ -96,8 +110,178 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const kind = optionalKind(query.filters?.kind)
         const kinds = kind ? [kind] : [...PAYMENT_CRYPTOGRAPHY_KINDS]
-        const groups = await Promise.all(kinds.map((each) => this.listKind(each)))
-        return filterBySearch(groups.flat(), query.search)
+        // The aliases are read once. They are rows of the table, and they name
+        // the keys the table shows.
+        //
+        // When the list holds alias rows, the aliases are what the list is, so
+        // a read that fails fails the list. When it does not, they only name
+        // the keys, and a read that fails leaves the names unknown and the keys
+        // standing.
+        const aliases = kinds.includes('aliases')
+            ? await this.listAliases()
+            : await this.aliasesOfAccount()
+        const groups = await Promise.all(kinds.map((each) => this.listKind(each, aliases)))
+        const resources = groups.flat()
+        if (kinds.includes('keys')) {
+            this.nameKeysByTheirAliases(resources, aliases)
+        }
+        return filterBySearch(resources, query.search)
+    }
+
+    /**
+     * The aliases that name each key.
+     *
+     * <p>An alias is a friendly name for a key, and it is the name the operator
+     * knows it by: a key has no name of its own, so an ARN is all the console
+     * could offer. The alias names the key and the key is what the service
+     * takes, so the key carries the names it was given and the console offers
+     * it under one of them.
+     */
+    private nameKeysByTheirAliases(resources: CloudResource[], aliases: Alias[]): void {
+        const byKey = new Map<string, string[]>()
+        for (const alias of aliases) {
+            const arn = alias.KeyArn
+            if (!arn) continue
+            const names = byKey.get(arn) ?? []
+            if (alias.AliasName) names.push(alias.AliasName)
+            byKey.set(arn, names)
+        }
+        for (const resource of resources) {
+            if (resource.type !== 'key') continue
+            const names = byKey.get(String(resource.metadata.arn))
+            if (names && names.length > 0) resource.metadata.names = names
+        }
+    }
+
+    /**
+     * The material a key leaves under.
+     *
+     * <p>The form the console offers is the TR-31 block the service wraps with a
+     * key the account holds, which is the form a key usually leaves in.
+     *
+     * <p>The wrapping key has to be one the reference allows: a key encryption key
+     * that may wrap, and at least as strong as the key it carries. The matrix is
+     * the reference's own, and it is in one place, so the panel and this agree
+     * about it.
+     */
+    async exportKey(id: string, input: {wrappingKeyArn: string}): Promise<ExportedKeyMaterial> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias is a name for a key; it is the key that leaves')
+        }
+        // The form names a resource, and the resource id carries its kind, so the
+        // prefix is taken off before the runtime is asked about it.
+        const wrappingKeyArn = targetKeyArn(input?.wrappingKeyArn, 'wrappingKeyArn')
+
+        // The pairing is checked here as well as by the runtime, so a caller that
+        // goes past the form is refused with the reference's own reason.
+        const carried = await this.describe(identifier)
+        if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
+        const wrapping = await this.requireWrappingKey(wrappingKeyArn)
+        // The service takes an ARN, and a key may have been asked for by an alias
+        // or a short id, so the two keys are addressed by the ARN they resolved
+        // to rather than by the identifier the request named.
+        const carriedArn = carried.KeyArn ?? identifier
+        const wrappingArn = wrapping.KeyArn ?? wrappingKeyArn
+        // A key may not carry itself, and the service refuses a key that does.
+        // The two are compared by the ARN they resolved to, so a key that is
+        // named two ways is caught as well.
+        if (carriedArn === wrappingArn) {
+            throw new ValidationError(`the key ${identifier} may not carry itself`)
+        }
+        // A key that may not leave does not leave, and the service refuses it,
+        // so the reason is given here rather than there.
+        if (carried.Exportable === false) {
+            throw new ValidationError(`the key ${identifier} is not exportable, so its material does not leave`)
+        }
+
+        const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
+        const wrappingAlgorithm = String(wrapping.KeyAttributes?.KeyAlgorithm ?? '')
+        if (!mayWrapWith(carriedAlgorithm, wrappingAlgorithm)) {
+            const allowed = wrappingAlgorithmsFor(carriedAlgorithm)
+            throw new ValidationError(
+                `a ${carriedAlgorithm} key may not be carried by a ${wrappingAlgorithm} key: ` +
+                'the wrapping key has to be at least as strong as the key it carries, ' +
+                (allowed.length > 0
+                    ? `so it may be one of ${allowed.join(', ')}`
+                    : 'and the matrix names no key that may carry it'),
+            )
+        }
+
+        return exportKeyTr31(this.client, carriedArn, wrappingArn)
+    }
+
+    /**
+     * The Regions a key is replicated to.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
+    async setReplication(id: string, input: Record<string, unknown>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+        // A request that says nothing at all is a fault of the caller, and it
+        // is refused rather than read as a request to change nothing.
+        if (!input || typeof input !== 'object') {
+            throw new ValidationError('the request must say which Regions to add or remove')
+        }
+        // The reference's own commands add and remove one Region at a time, so
+        // the request says which Region to add and which to remove rather than a
+        // set the service has to diff. A list that is not there is a list of no
+        // Regions: a request that adds a Region and says nothing about the ones
+        // that go says the ones that go are none.
+        const added = regionList(input.addReplicationRegions, 'addReplicationRegions')
+        const removed = regionList(input.removeReplicationRegions, 'removeReplicationRegions')
+        // A Region named in both lists says two things about the same Region,
+        // and the request is refused rather than resolved, because which of the
+        // two would happen depends on the state the key is in.
+        refuseAmbiguousRegions(added, removed)
+        // The key is read with the same command the detail is read with, so a
+        // key that is not there is refused with the reason the rest of the
+        // adapter refuses it with.
+        const key = await this.describe(identifier)
+        if (!key) throw new ValidationError(`the key ${identifier} is not there`)
+        // The reference only lets an exportable key be replicated to another
+        // Region, and the console states that, so the key is refused here with
+        // the reference's own reason rather than by the service.
+        if (key.Exportable === false) {
+            throw new ValidationError(
+                `the key ${identifier} is not exportable, so it is not replicated to another Region`,
+            )
+        }
+        // A replica is read-only: the reference says a Replica Region key cannot
+        // be configured to replicate to other Regions, so the API refuses what
+        // it cannot do rather than sending a request the service would refuse.
+        if (key.MultiRegionKeyType === 'REPLICA') {
+            throw new ValidationError(
+                'a replica is read-only, so the Regions it is replicated to are those of its primary',
+            )
+        }
+        const primary = key.PrimaryRegion ?? null
+        if (primary && (added.includes(primary) || removed.includes(primary))) {
+            // The Region the primary is in is not a replica, and the reference
+            // refuses it. It is refused here too, before anything is changed:
+            // the Regions that are gone go first, so a request that named the
+            // primary would take a replica away and then fail.
+            throw new ValidationError(
+                `the key is the primary in ${primary}, so it is not replicated to it`,
+            )
+        }
+        const current = replicationRegionsOf(key)
+        // A Region the key already holds is not added again, and one it does not
+        // hold is not taken away.
+        const toAdd = added.filter((region) => !current.includes(region))
+        const toRemove = removed.filter((region) => current.includes(region))
+        // The Regions that are gone go first: a key that replicates to as many
+        // Regions as it may would be refused a fifth one, so a Region that is
+        // replaced would fail to be replaced.
+        // The commands take the ARN of the key, and the key was just read, so
+        // the ARN it resolved to is what they are addressed by.
+        const keyArn = key.KeyArn ?? identifier
+        await removeReplicationRegions(this.client, keyArn, toRemove)
+        await addReplicationRegions(this.client, keyArn, toAdd)
     }
 
     async get(id: string): Promise<CloudResource | null> {
@@ -108,22 +292,90 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
         const key = await this.describe(identifier)
         if (!key) return null
-        // The tags and the certificate are reads of their own and do not depend on
-        // each other, so they are asked together rather than one after the other.
-        // Both are addressed by the ARN the key resolved to, because the service
-        // takes an ARN and a key may have been asked for by an alias or a short id.
+        // The tags, the certificate, the policy and the aliases are reads of
+        // their own and do not depend on each other, so they are asked together
+        // rather than one after the other. All four are addressed by the ARN
+        // the key resolved to, because the service takes an ARN and a key may
+        // have been asked for by an alias or a short id.
         const arn = key.KeyArn ?? identifier
-        const [tags, certificate] = await Promise.all([
+        const [tags, certificate, policy, aliases] = await Promise.all([
             this.getTags(arn),
             this.publicKeyCertificate(arn, key),
+            this.readKeyPolicy(arn),
+            this.aliasesOf(arn),
         ])
-        return toResource(key, tags, certificate)
+        const resource = toResource(key, tags, certificate, policy)
+        // The key carries the names it was given here as well as in the list, so
+        // the two never disagree about what a key is called. The names are the
+        // aliases that name this key, so the ones that name another key are
+        // left out: the list path tells an alias from its key by the ARN, and
+        // the detail path does the same.
+        const names = aliases.aliases
+            .filter((alias) => alias.KeyArn === arn)
+            .map((alias) => alias.AliasName)
+            .filter((name): name is string => Boolean(name))
+        if (names.length > 0) resource.metadata.names = names
+        // The names that could not be read are said so, so a key whose aliases
+        // could not be read is not read as a key that has none.
+        if (aliases.unavailable) resource.metadata.namesUnavailable = true
+        return resource
+    }
+
+    /**
+     * The aliases that name one key, or the reason they could not be read.
+     *
+     * <p>The service lists the aliases of a key when it is asked for them, so
+     * the key's own detail can say what it is called.
+     *
+     * <p>A read that fails leaves the names unknown and the key standing: a key
+     * whose names could not be read is still a key, and the console says what
+     * it does not know rather than losing the key with it. The marker is
+     * published so a key whose aliases could not be read is not read as a key
+     * that has none.
+     */
+    private async aliasesOf(keyArn: string): Promise<{aliases: Alias[]; unavailable: boolean}> {
+        try {
+            return {aliases: await this.listAliases(keyArn), unavailable: false}
+        } catch {
+            return {aliases: [], unavailable: true}
+        }
+    }
+
+    /**
+     * The policy of the key, or the reason it could not be read.
+     *
+     * <p>The policy is enrichment: a key whose policy cannot be read is still a
+     * key, so a refusal leaves the key on screen and says that the policy is
+     * unreadable rather than losing the key with it.
+     */
+    private async readKeyPolicy(keyArn: string): Promise<KeyPolicyLookup> {
+        try {
+            return await getKeyPolicy(this.client, keyArn)
+        } catch (error) {
+            return {
+                policy: null,
+                unavailable: true,
+                reason: error instanceof Error ? error.name : 'unknown',
+            }
+        }
+    }
+
+    /** The aliases of the account, or none when the read failed. */
+    private async aliasesOfAccount(): Promise<Alias[]> {
+        try {
+            return await this.listAliases()
+        } catch {
+            return []
+        }
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
-        const kind = oneOf(input.values.kind, PAYMENT_CRYPTOGRAPHY_KINDS, 'kind', 'keys')
-        if (kind === 'aliases') {
+        const source = oneOf(input.values.source, PAYMENT_CRYPTOGRAPHY_SOURCES, 'source', 'keys')
+        if (source === 'aliases') {
             return this.createAlias(input)
+        }
+        if (source === 'import') {
+            return this.importKey(input)
         }
 
         const keyUsage = oneOf(input.values.keyUsage, PAYMENT_CRYPTOGRAPHY_KEY_USAGES, 'keyUsage')
@@ -181,6 +433,57 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         await setKeyUsage(this.client, identifier, enabled === true || enabled === 'true')
     }
 
+    /**
+     * The policy that lets another account use a key.
+     *
+     * <p>The route is the only way in, so this is what decides what the operation
+     * does.
+     */
+    async setPolicy(id: string, input: Record<string, unknown>): Promise<void> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias has no settings of its own; the key it names does')
+        }
+        const policy = input?.policy
+        // A request that says nothing about the policy is a fault of the caller,
+        // and it is refused: reading it as a removal would take the policy away
+        // from a key that still holds one.
+        if (policy === undefined) {
+            throw new ValidationError('the request must say what the policy is')
+        }
+        if (policy !== null && typeof policy !== 'string') {
+            throw new ValidationError('the policy of the request must be the policy document itself')
+        }
+        // The policy is written against the ARN of the key, because the service's
+        // ResourceArn takes the ARN of the key: a key addressed by an alias or a
+        // short id would otherwise be refused by the service with an error that
+        // says nothing.
+        const keyArn = isKeyArn(identifier) ? identifier : await this.resolvedArnOf(identifier)
+        // An empty policy is the console's way of saying that the policy is gone,
+        // so it removes the one the key holds rather than attaching nothing.
+        if (policy === null || policy.trim() === '') {
+            await deleteKeyPolicy(this.client, keyArn)
+            return
+        }
+        await putKeyPolicy(this.client, keyArn, policy)
+    }
+
+    /**
+     * The ARN of the key, from an identifier that is not one.
+     *
+     * <p>The service accepts an alias name and a short key id as well, so an
+     * identifier that is not an ARN is resolved to the ARN the key has: the
+     * policy commands take the ARN alone.
+     */
+    private async resolvedArnOf(identifier: string): Promise<string> {
+        const key = await this.describe(identifier)
+        if (!key) throw new ValidationError(`the key ${identifier} is not there`)
+        if (!key.KeyArn) {
+            throw new ValidationError(`the key ${identifier} has no ARN, so its policy cannot be changed`)
+        }
+        return key.KeyArn
+    }
+
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {
         const {kind, identifier} = parseId(id)
         if (kind === 'aliases') {
@@ -236,9 +539,9 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /** One kind of resource: the keys, or the aliases that name them. */
-    private async listKind(kind: PaymentCryptographyKind): Promise<CloudResource[]> {
+    private async listKind(kind: PaymentCryptographyKind, aliases: Alias[]): Promise<CloudResource[]> {
         if (kind === 'aliases') {
-            return (await this.listAliases()).map(toAliasResource)
+            return aliases.map(toAliasResource)
         }
 
         const arns = await this.listKeyArns()
@@ -252,7 +555,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /** ListAliases pages like ListKeys, so an account past that would be truncated. */
-    private async listAliases(): Promise<Alias[]> {
+    private async listAliases(keyArn?: string): Promise<Alias[]> {
         const aliases: Alias[] = []
         let nextToken: string | undefined
 
@@ -260,6 +563,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             const res = await this.client.send(
                 new ListAliasesCommand({
                     MaxResults: LIST_PAGE_SIZE,
+                    ...(keyArn ? {KeyArn: keyArn} : {}),
                     ...(nextToken ? {NextToken: nextToken} : {}),
                 }),
             )
@@ -281,10 +585,102 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         }
     }
 
+    /**
+     * A key comes in under a TR-31 block a key the account holds wraps.
+     *
+     * <p>The material carries the key's own attributes, so the form asks for the
+     * block and the wrapping key and not for the usage and the algorithm.
+     */
+    private async importKey(input: CreateResourceInput): Promise<CloudResource> {
+        // The form names a resource, and the resource id carries its kind, so the
+        // prefix is taken off before the runtime is asked about it.
+        const wrappingKeyArn = targetKeyArn(input.values.wrappingKeyArn, 'wrappingKeyArn')
+        const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
+        const enabled = booleanValue(input.values.enabled, 'enabled', true)
+
+        // The block is wrapped under a key of the account, so the key is held
+        // to the same rules the export path holds it to.
+        await this.requireUnwrappingKey(wrappingKeyArn)
+
+        const arn = await importKeyTr31(this.client, wrappingKeyArn, wrappedKeyBlock, enabled)
+        if (!arn) throw new RuntimeError('Payment Cryptography did not return the key it imported')
+
+        const key = await this.describe(arn)
+        if (!key) throw new RuntimeError('Payment Cryptography did not return the key it imported')
+        return toResource(key, {tags: []})
+    }
+
+    /**
+     * The key a block is wrapped under, held to the rules the reference holds
+     * it to.
+     *
+     * <p>The export and the import path both wrap a block under a key of the
+     * account, so both refuse the same keys: a key that is not there, a key
+     * whose usage may not wrap a key, a key that is not allowed to wrap and a
+     * disabled key.
+     */
+    private async requireWrappingKey(wrappingKeyArn: string): Promise<Key> {
+        return this.requireWrappingKeyOf(wrappingKeyArn, modesAllowWrapping, 'wrap')
+    }
+
+    /**
+     * The key a block comes in under, which unwraps it rather than wraps it.
+     *
+     * <p>The reference names the wrapping key by its usage and its modes of use,
+     * and the two differ between the two directions: a key that leaves under a
+     * block wraps it, and a key that a block comes in under unwraps it.
+     */
+    private async requireUnwrappingKey(wrappingKeyArn: string): Promise<Key> {
+        return this.requireWrappingKeyOf(wrappingKeyArn, modesAllowUnwrapping, 'unwrap')
+    }
+
+    /**
+     * The key a block is wrapped under, held to the rule of the direction it
+     * is used in.
+     */
+    private async requireWrappingKeyOf(
+        wrappingKeyArn: string,
+        allows: (modes: KeyModesOfUse | undefined) => boolean,
+        direction: 'wrap' | 'unwrap',
+    ): Promise<Key> {
+        const wrapping = await this.describe(wrappingKeyArn)
+        if (!wrapping) throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not there`)
+
+        // The reference names the wrapping key by its usage: a key encryption key
+        // or a key block protection key. A key with any other usage may not wrap
+        // a key, so it is refused here rather than by the service.
+        const usage = String(wrapping.KeyAttributes?.KeyUsage ?? '')
+        if (!isWrappingUsage(usage)) {
+            throw new ValidationError(
+                `the wrapping key ${wrappingKeyArn} has the usage ${usage || 'of an unknown usage'}, ` +
+                `which may not wrap a key: a wrapping key has to be one of ${PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES.join(', ')}`,
+            )
+        }
+        // A key that is allowed to encrypt may not wrap a block, and a key that
+        // is not enabled does no work at all. A key whose enabled state was not
+        // read is not a key that may wrap either: a state that is not read is
+        // not a permission, the same way the modes of use are not one.
+        if (!allows(wrapping.KeyAttributes?.KeyModesOfUse)) {
+            throw new ValidationError(
+                direction === 'wrap'
+                    ? `the wrapping key ${wrappingKeyArn} is not allowed to wrap a key`
+                    : `the wrapping key ${wrappingKeyArn} is not allowed to unwrap a key`,
+            )
+        }
+        if (wrapping.Enabled !== true) {
+            throw new ValidationError(
+                wrapping.Enabled === false
+                    ? `the wrapping key ${wrappingKeyArn} is not enabled`
+                    : `the wrapping key ${wrappingKeyArn} does not say whether it is enabled`,
+            )
+        }
+        return wrapping
+    }
+
     /** An alias points at a key, and the reference refuses one that points at none. */
     private async createAlias(input: CreateResourceInput): Promise<CloudResource> {
         const aliasName = requiredAliasName(input.values.aliasName)
-        const targetKey = targetKeyArn(input.values.aliasTargetKey)
+        const targetKey = targetKeyArn(input.values.aliasTargetKey, 'aliasTargetKey')
 
         const res = await this.client.send(new CreateAliasCommand({AliasName: aliasName, KeyArn: targetKey}))
         if (!res.Alias) throw new RuntimeError('Payment Cryptography did not return the alias it created')
@@ -466,6 +862,9 @@ function toResource(
     // A row of the table, or a key that was just made, has had no certificate
     // read, so it carries no state at all.
     certificateLookup: CertificateLookup = {},
+    // The policy is read with the key, and a policy that could not be read is
+    // said rather than taken for none.
+    policyLookup?: KeyPolicyLookup,
 ): CloudResource {
     const arn = key.KeyArn ?? ''
 
@@ -485,6 +884,22 @@ function toResource(
             keyUsage: key.KeyAttributes?.KeyUsage,
             keyAlgorithm: key.KeyAttributes?.KeyAlgorithm,
             keyModesOfUse: key.KeyAttributes?.KeyModesOfUse,
+            // Whether the key may wrap another one is the service's to say, so it
+            // is published with the key rather than worked out by the console
+            // from the usage and the modes of use.
+            mayWrap: mayWrapKey(
+                key.KeyAttributes?.KeyUsage,
+                key.KeyAttributes?.KeyModesOfUse,
+                key.Enabled,
+            ),
+            // Whether the key may unwrap a block that comes in under it is the
+            // other half of the same question, and it is published as well: a
+            // key that comes in under a block is unwrapped by it.
+            mayUnwrap: mayUnwrapKey(
+                key.KeyAttributes?.KeyUsage,
+                key.KeyAttributes?.KeyModesOfUse,
+                key.Enabled,
+            ),
             keyCheckValue: key.KeyCheckValue,
             keyCheckValueAlgorithm: key.KeyCheckValueAlgorithm,
             keyOrigin: key.KeyOrigin,
@@ -511,10 +926,32 @@ function toResource(
             ...(certificateLookup.state !== undefined
                 ? {publicKeyCertificateState: certificateLookup.state}
                 : {}),
+            ...policyMetadata(policyLookup),
+            replicationRegions: replicationRegionsOf(key),
+            usingDefaultReplicationRegions: key.UsingDefaultReplicationRegions,
             tags: tagLookup.tags,
             ...(tagLookup.unavailable ? {tagsUnavailable: true} : {}),
         },
     }
+}
+
+/**
+ * The policy of a key, as the metadata carries it.
+ *
+ * <p>The policy is published only where it was read: a row of the table carries
+ * none, because it never read one. A read that failed is said so, so it cannot
+ * pass for a key that holds none, and the reason it failed is published with
+ * it, so a throttle is told apart from a denial.
+ */
+function policyMetadata(policyLookup: KeyPolicyLookup | undefined): Record<string, unknown> {
+    if (!policyLookup) return {}
+    if (policyLookup.unavailable) {
+        return {
+            keyPolicyUnavailable: true,
+            ...(policyLookup.reason ? {keyPolicyUnavailableReason: policyLookup.reason} : {}),
+        }
+    }
+    return {keyPolicy: policyLookup.policy}
 }
 
 /**
@@ -540,6 +977,8 @@ function toAliasResource(alias: Alias): CloudResource {
         status: null,
         metadata: {
             aliasName: name,
+            // An alias is named by the alias it is, which is its own name.
+            names: name ? [name] : [],
             targetKeyArn: alias.KeyArn ?? null,
             tags: [],
         },
@@ -582,11 +1021,12 @@ function optionalKind(value: unknown): PaymentCryptographyKind | undefined {
  * <p>The form offers the keys the account holds, by the id the console knows them
  * by, and an ARN is accepted as well for a caller that has one. The reference names
  * a key that exists, so the alias never names one that is not there yet.
+ *
+ * <p>The field is named by the caller, so the refusal is about the field the
+ * caller asked for rather than about one this helper made up.
  */
-function targetKeyArn(value: unknown): string {
-    const raw = requiredString(value, 'aliasTargetKey')
-    const prefix = `${PAYMENT_CRYPTOGRAPHY_KIND_PREFIX.keys}/`
-    return raw.startsWith(prefix) ? raw.slice(prefix.length) : raw
+function targetKeyArn(value: unknown, field: string): string {
+    return keyArnOf(requiredString(value, field))
 }
 
 /**
@@ -632,8 +1072,69 @@ function filterBySearch(resources: CloudResource[], search?: string): CloudResou
 
     return resources.filter((resource) => {
         const usage = String(resource.metadata.keyUsage ?? '').toLowerCase()
-        return resource.name.toLowerCase().includes(normalized) || usage.includes(normalized)
+        if (resource.name.toLowerCase().includes(normalized) || usage.includes(normalized)) return true
+        // A key is known by the name it was given, so the search finds it by
+        // that name and not only by its ARN.
+        const names = resource.metadata.names
+        if (!Array.isArray(names)) return false
+        return names.some((each) => typeof each === 'string' && each.toLowerCase().includes(normalized))
     })
+}
+
+/**
+ * The Regions a key is replicated to, as the key answers them.
+ *
+ * <p>The status holds the Regions the key is replicated to, and the Region the
+ * primary is in is not one of them. It is named apart, and a runtime that
+ * answered with it in the status would have it taken away, which the reference
+ * refuses.
+ */
+function replicationRegionsOf(key: Key): string[] {
+    const status = key.ReplicationStatus
+    if (!status) return []
+    return Object.keys(status).filter((region) => region !== key.PrimaryRegion)
+}
+
+/**
+ * A list of Region names, which is what a request about replication has to name.
+ *
+ * <p>A member that is not a list of names is a fault of the caller, not a quiet
+ * "nothing to change". A name that names no Region is refused as well, because
+ * the console's Region field is free text, and the same Region named twice is
+ * one Region, so the list holds it once.
+ */
+/**
+ * The Regions a request names, or none when it names none.
+ *
+ * <p>A list that is not there is a list of no Regions: a request that adds a
+ * Region and says nothing about the ones that go says the ones that go are
+ * none. A list that is there and is not a list of Region names is a fault of
+ * the caller and is refused.
+ */
+function regionList(value: unknown, field: string): string[] {
+    if (value === undefined || value === null) return []
+    if (!Array.isArray(value) || value.some((region) => typeof region !== 'string')) {
+        throw new ValidationError(`the ${field} of the request must be a list of Region names`)
+    }
+    const names = value.map((region) => region.trim())
+    if (names.some((region) => region === '')) {
+        throw new ValidationError(`the ${field} of the request must not hold a blank Region name`)
+    }
+    return [...new Set(names)]
+}
+
+/**
+ * A Region named in both lists is ambiguous.
+ *
+ * <p>Which of the two would win depends on the state the key happens to be in,
+ * so the request is refused rather than resolved.
+ */
+function refuseAmbiguousRegions(added: string[], removed: string[]): void {
+    const ambiguous = added.filter((region) => removed.includes(region))
+    if (ambiguous.length === 0) return
+    throw new ValidationError(
+        `the request names ${ambiguous.length > 1 ? 'the Regions' : 'the Region'} ${ambiguous.join(', ')} both to add and to remove`,
+    )
 }
 
 function optionalString(value: unknown, field: string): string | undefined {
@@ -676,16 +1177,4 @@ function oneOf<T extends readonly string[]>(
         throw new ValidationError(`${field} must be one of ${allowed.join(', ')}`)
     }
     return raw as T[number]
-}
-
-/**
- * Payment Cryptography answers a missing key with `ResourceNotFoundException` and
- * HTTP **400**, the way KMS does, so the name is the signal and the status is only
- * a fallback for the emulator.
- */
-function isNotFound(error: unknown): boolean {
-    if (typeof error !== 'object' || error === null) return false
-    if ((error as {name?: string}).name === 'ResourceNotFoundException') return true
-    const metadata = (error as {$metadata?: {httpStatusCode?: number}}).$metadata
-    return metadata?.httpStatusCode === 404
 }

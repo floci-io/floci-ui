@@ -1,0 +1,157 @@
+import {
+    DeleteResourcePolicyCommand,
+    GetResourcePolicyCommand,
+    PutResourcePolicyCommand,
+    type PaymentCryptographyClient,
+} from '@aws-sdk/client-payment-cryptography'
+import {ValidationError} from '../cloud-spi/errors'
+import {isNotFound} from './paymentCryptographyErrors'
+
+/** The prefix the ARN of a payment cryptography key carries. */
+const KEY_ARN_PREFIX = 'arn:aws:payment-cryptography:'
+
+/**
+ * The ARN of a key, or the reason the value is not one.
+ *
+ * <p>The policy commands take the ARN of the key, so a value that is not one (an
+ * alias name, a short key id) is refused here rather than by the service, which
+ * answers with an InvalidArnException that says nothing the console can show.
+ */
+function requireKeyArn(keyArn: string, action: 'read' | 'changed'): string {
+    if (!keyArn.startsWith(KEY_ARN_PREFIX)) {
+        throw new ValidationError(`the policy of a key is ${action} by the ARN of the key, not by ${keyArn}`)
+    }
+    return keyArn
+}
+
+/**
+ * Whether the value is the ARN of a payment cryptography key.
+ *
+ * <p>The console names a key by its ARN, so the answer is usually yes, and the
+ * ARN a caller names another way (an alias name, a short key id) is resolved to
+ * the ARN the key has.
+ */
+export function isKeyArn(value: string): boolean {
+    return value.startsWith(KEY_ARN_PREFIX)
+}
+
+/**
+ * The policy of a key, and whether the lookup of it failed.
+ *
+ * <p>A key that holds no policy is not the same as a key whose policy cannot be
+ * read, so the two are told apart here rather than by the caller. A lookup that
+ * failed carries no policy: the two cannot happen at once, so the type says so
+ * and a policy that was read cannot be dropped by a caller that answers both.
+ */
+export type KeyPolicyLookup =
+    | {policy: string; unavailable?: false}
+    | {policy: null; unavailable?: false}
+    | {policy: null; unavailable: true; reason?: string}
+
+/**
+ * The resource-based policy of a key, which is what lets another account use it.
+ *
+ * <p>The policy is enrichment: a key whose policy cannot be read is still a key,
+ * so a denial or a throttle is reported rather than thrown, and the key stays on
+ * screen. A key that holds no policy answers a policy of null, and so does a key
+ * that is not there.
+ */
+export async function getKeyPolicy(
+    client: PaymentCryptographyClient,
+    keyArn: string,
+): Promise<KeyPolicyLookup> {
+    // The service's ResourceArn takes a full key ARN. The key behind this call
+    // is resolved by GetKeyCommand, whose KeyIdentifier accepts an ARN, an
+    // alias name or a short key id, so a caller that hands the identifier over
+    // would be refused with an InvalidArnException and the policy of a readable
+    // key would be published as unreadable.
+    requireKeyArn(keyArn, 'read')
+    try {
+        const res = await client.send(new GetResourcePolicyCommand({ResourceArn: keyArn}))
+        const policy = res.Policy ?? null
+        // A key that holds a policy and a key that holds none are two states,
+        // and the type says so.
+        return policy === null ? {policy: null} : {policy}
+    } catch (error) {
+        if (isNotFound(error)) return {policy: null}
+        // The refusal says nothing of the policy the key holds, so it is reported
+        // as unreadable rather than taken for one that is not there. The reason
+        // is kept, so a throttle is told apart from a denial and a request the
+        // service refused as malformed is not passed off as an unreadable
+        // policy.
+        return {
+            policy: null,
+            unavailable: true,
+            reason: error instanceof Error ? error.name : 'unknown',
+        }
+    }
+}
+
+/**
+ * Attaches a policy to a key, or replaces the one it holds.
+ *
+ * <p>The reference refuses a policy that grants public access, and says so.
+ */
+export async function putKeyPolicy(
+    client: PaymentCryptographyClient,
+    keyArn: string,
+    policy: string,
+): Promise<void> {
+    // The service's ResourceArn takes a full key ARN, so a value that is not
+    // one is refused here rather than by the service.
+    const arn = requireKeyArn(keyArn, 'changed')
+    await serialized(arn, () =>
+        client.send(new PutResourcePolicyCommand({ResourceArn: arn, Policy: policy})),
+    )
+}
+
+/**
+ * Removes the policy of a key.
+ *
+ * <p>A key that holds no policy is a key whose policy is already gone, so the
+ * removal has happened and the removal does not fail, the way the read path
+ * takes a missing policy for none rather than for a policy it could not read.
+ */
+export async function deleteKeyPolicy(
+    client: PaymentCryptographyClient,
+    keyArn: string,
+): Promise<void> {
+    // The service's ResourceArn takes a full key ARN, so a value that is not
+    // one is refused here rather than by the service.
+    const arn = requireKeyArn(keyArn, 'changed')
+    await serialized(arn, async () => {
+        try {
+            await client.send(new DeleteResourcePolicyCommand({ResourceArn: arn}))
+        } catch (error) {
+            if (isNotFound(error)) return
+            throw error
+        }
+    })
+}
+
+/**
+ * The write in flight for each key, so a later one waits for the earlier one to
+ * land.
+ *
+ * <p>Both writers address the same key policy and nothing orders them against
+ * each other, so two overlapping requests for one key (two console tabs, or a
+ * retry that races a removal) could land in either order and the key would end
+ * up holding the older of the two. The service offers no version to write
+ * against, so the ordering comes from here.
+ */
+const writesInFlight = new Map<string, Promise<unknown>>()
+
+/** Runs a write after the write that is in flight for the same key has landed. */
+async function serialized<T>(keyArn: string, write: () => Promise<T>): Promise<T> {
+    const previous = writesInFlight.get(keyArn) ?? Promise.resolve()
+    const current = previous.then(write, write)
+    const settled = current.catch(() => undefined)
+    writesInFlight.set(keyArn, settled)
+    // The entry goes once the chain for this key has drained, so the map does
+    // not grow for the lifetime of the process. Only the entry that is still
+    // the current one is dropped: a write that started later keeps its own.
+    void settled.then(() => {
+        if (writesInFlight.get(keyArn) === settled) writesInFlight.delete(keyArn)
+    })
+    return current
+}

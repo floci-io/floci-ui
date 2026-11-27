@@ -56,6 +56,12 @@ const LOGS_QUERY_TIMEOUT_MS = 20_000;
 const INVOKE_TIMEOUT_MS = 120_000;
 /** The API stops emptying after 120s and keeps the connection for 150s, so wait past both. */
 const EMPTY_BUCKET_TIMEOUT_MS = 180_000;
+/**
+ * The API changes the Regions of a key with one command per Region, and each
+ * of them may be retried, so a request naming several of them takes several
+ * round trips.
+ */
+const REPLICATION_TIMEOUT_MS = 60_000;
 
 export async function listClouds(
   signal?: AbortSignal,
@@ -226,6 +232,89 @@ export async function updateCloudResourceTags(
   );
 }
 
+/**
+ * Whether a payment cryptography key may be used.
+ *
+ * <p>Disabling a key is the reversible alternative to deleting it.
+ */
+export async function setPaymentCryptographyKeyUsage(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: { enabled: boolean },
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void, { enabled: boolean }>(
+    apiEndpointKeys.clouds.resources.usage,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+}
+
+/**
+ * The Regions a payment cryptography key is replicated to.
+ *
+ * <p>The request names the Regions to add and the Regions to remove, so a
+ * Region that is not named keeps the place it holds.
+ */
+export async function setPaymentCryptographyKeyReplication(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: { addReplicationRegions: string[]; removeReplicationRegions: string[] },
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void, { addReplicationRegions: string[]; removeReplicationRegions: string[] }>(
+    apiEndpointKeys.clouds.resources.replication,
+    requestOptions(cloud, service, { signal, body, timeout: REPLICATION_TIMEOUT_MS }),
+    { cloud, service, id },
+  );
+}
+
+/**
+ * The policy that lets another account use a payment cryptography key.
+ *
+ * <p>An empty policy removes the one the key holds.
+ */
+export async function setPaymentCryptographyKeyPolicy(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: { policy: string },
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiClient.call<void, { policy: string }>(
+    apiEndpointKeys.clouds.resources.policy,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+}
+
+/** The material a payment cryptography key leaves under. */
+export interface ExportedPaymentCryptographyKey {
+  keyMaterial: string;
+  /** The form the material is in, as the reference names it. */
+  format: "KEY_CRYPTOGRAM" | "TR31_KEY_BLOCK" | "TR34_KEY_BLOCK" | null;
+  wrappingKeyArn: string | null;
+  keyCheckValue: string | null;
+}
+
+/** The material a key leaves under, wrapped by a key the account holds. */
+export async function exportPaymentCryptographyKey(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: { wrappingKeyArn: string },
+  signal?: AbortSignal,
+): Promise<ExportedPaymentCryptographyKey> {
+  const res = await apiClient.call<ExportedPaymentCryptographyKey, { wrappingKeyArn: string }>(
+    apiEndpointKeys.clouds.resources.exportKey,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+  return res.data;
+}
+
 export async function deleteCloudResource(
   cloud: CloudProvider,
   service: CloudServiceType,
@@ -340,20 +429,6 @@ export async function invokeCloudResource(
     { cloud, service, id },
   );
   return res.data;
-}
-
-export async function setPaymentCryptographyKeyUsage(
-  cloud: CloudProvider,
-  service: CloudServiceType,
-  id: string,
-  body: Record<string, unknown>,
-  signal?: AbortSignal,
-): Promise<void> {
-  await apiClient.call<unknown, Record<string, unknown>>(
-    apiEndpointKeys.clouds.resources.usage,
-    requestOptions(cloud, service, { signal, body }),
-    { cloud, service, id },
-  );
 }
 
 export async function encryptKmsResource(

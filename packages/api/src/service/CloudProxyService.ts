@@ -20,6 +20,7 @@ import type {
     DeleteLambdaTriggerOptions,
     EmptyBucketOptions,
     EmptyBucketResult,
+    ExportedKeyMaterial,
     AppConfigConfigurationProfile,
     AppConfigDeployment,
     AppConfigDeploymentStrategy,
@@ -66,7 +67,7 @@ import type {
     KeyQuery,
     PageQuery,
 } from '../cloud-spi/childCollections'
-import {ConflictError, NotFoundError, NotSupportedError} from '../cloud-spi/errors'
+import {ConflictError, NotFoundError, NotSupportedError, ValidationError} from '../cloud-spi/errors'
 import {CloudAdapterRegistry} from '../registry/CloudAdapterRegistry'
 import {SERVICE_CATALOG_ENTRIES, descriptionFor, displayNameFor, docsUrlFor, routeFor} from '../cloud-spi/serviceCatalog'
 import {toHttpError} from '../cloud-spi/errors'
@@ -283,6 +284,95 @@ export class CloudProxyService {
         return adapter.update(id, input)
     }
 
+    /**
+     * Whether a key may be used.
+     *
+     * <p>Only the payment cryptography service has this, so the adapter's own
+     * method answers it.
+     */
+    /**
+     * Whether a key may be used.
+     *
+     * <p>Only the payment cryptography service has this, so the adapter that was
+     * found has to be the one: the route is generic, and a service that happens
+     * to have a method of the same name would otherwise be driven with a body
+     * shaped for a payment key.
+     */
+    async setPaymentCryptographyKeyUsage(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        id: string,
+        input: Record<string, unknown>,
+    ): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (adapter.service !== 'paymentcryptography' || !adapter.setUsage) {
+            throw new NotSupportedError(`${cloud}/${service} does not change whether a key may be used`)
+        }
+        await adapter.setUsage(id, input)
+    }
+
+    /**
+     * The Regions a key is replicated to.
+     *
+     * <p>Only the payment cryptography service has this, so the adapter's own
+     * method answers it.
+     */
+    async setPaymentCryptographyKeyReplication(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        id: string,
+        input: Record<string, unknown>,
+    ): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (adapter.service !== 'paymentcryptography' || !adapter.setReplication) {
+            throw new NotSupportedError(`${cloud}/${service} does not replicate a key to other Regions`)
+        }
+        await adapter.setReplication(id, input)
+    }
+
+    /**
+     * The policy that lets another account use a key.
+     *
+     * <p>Only the payment cryptography service has this, so the adapter's own
+     * method answers it.
+     */
+    async setPaymentCryptographyKeyPolicy(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        id: string,
+        input: Record<string, unknown>,
+    ): Promise<void> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (adapter.service !== 'paymentcryptography' || !adapter.setPolicy) {
+            throw new NotSupportedError(`${cloud}/${service} does not set key policies`)
+        }
+        await adapter.setPolicy(id, input)
+    }
+
+    /**
+     * The material a key leaves under.
+     *
+     * <p>Only the payment cryptography service exports a key, so the adapter's own
+     * method answers it.
+     */
+    async exportPaymentCryptographyKey(
+        cloud: CloudProvider,
+        service: CloudServiceType,
+        id: string,
+        input: {wrappingKeyArn?: unknown},
+    ): Promise<ExportedKeyMaterial> {
+        const adapter = this.requireAdapter(cloud, service)
+        if (adapter.service !== 'paymentcryptography' || !adapter.exportKey) {
+            throw new NotSupportedError(`${cloud}/${service} does not export keys`)
+        }
+        // The body is what the caller sent, which is not checked before it
+        // reaches here, so the value is checked here: the adapter is handed the
+        // string the contract says it is handed.
+        const wrappingKeyArn = typeof input?.wrappingKeyArn === 'string' ? input.wrappingKeyArn.trim() : ''
+        if (!wrappingKeyArn) throw new ValidationError('wrappingKeyArn is required')
+        return adapter.exportKey(id, {wrappingKeyArn})
+    }
+
     async deleteResource(cloud: CloudProvider, service: CloudServiceType, id: string): Promise<void> {
         await this.requireAdapter(cloud, service).delete(id)
     }
@@ -297,28 +387,6 @@ export class CloudProxyService {
         const adapter = this.requireAdapter(cloud, service)
         if (!adapter.updateTags) throw new NotSupportedError(`Tag editing is not supported for ${cloud}/${service}`)
         await adapter.updateTags(id, tags)
-    }
-
-    /**
-     * Whether a key may be used.
-     *
-     * <p>Only the payment cryptography service has this, so the adapter's own
-     * method answers it.
-     */
-    async setPaymentCryptographyKeyUsage(
-        cloud: CloudProvider,
-        service: CloudServiceType,
-        id: string,
-        input: Record<string, unknown>,
-    ): Promise<void> {
-        const adapter = this.requireAdapter(cloud, service)
-        const setter = adapter as {
-            setUsage?: (id: string, input: Record<string, unknown>) => Promise<void>
-        }
-        if (!setter.setUsage) {
-            throw new NotSupportedError(`${cloud}/${service} does not do this`)
-        }
-        await setter.setUsage(id, input)
     }
 
     async encryptKms(cloud: CloudProvider, keyId: string, input: KmsEncryptInput): Promise<KmsEncryptResult> {

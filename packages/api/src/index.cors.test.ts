@@ -16,6 +16,8 @@ const AZURE_SECRET_PURGE_URL = 'http://localhost/api/clouds/azure/services/secre
 const AZURE_CERTIFICATE_RECOVER_URL = 'http://localhost/api/clouds/azure/services/certificates/resources/app-tls/recover'
 const AZURE_CERTIFICATE_PURGE_URL = 'http://localhost/api/clouds/azure/services/certificates/resources/app-tls/purge-deleted'
 const KMS_SCHEMA_URL = 'http://localhost/api/clouds/aws/services/kms/schema'
+const PAYMENT_CRYPTOGRAPHY_EXPORT_URL =
+    'http://localhost/api/clouds/aws/services/paymentcryptography/resources/key-1/export'
 const TRUSTED_ORIGIN = 'http://localhost:4500'
 const UNTRUSTED_ORIGIN = 'https://example.invalid'
 
@@ -160,6 +162,105 @@ describe('credentialed route CORS', () => {
 
         expect(schema.status).toBe(200)
         expect(schema.headers.get('access-control-allow-origin')).toBe('*')
+    })
+
+    test('does not serve the payment cryptography export to another origin', async () => {
+        // The route hands the key's material to the browser, so a page in the
+        // user's browser must not be able to read it back.
+        const preflight = await server.fetch(new Request(PAYMENT_CRYPTOGRAPHY_EXPORT_URL, {
+            method: 'OPTIONS',
+            headers: {origin: UNTRUSTED_ORIGIN, 'access-control-request-method': 'POST'},
+        }))
+        expect(preflight.headers.get('access-control-allow-origin')).toBeNull()
+
+        for (const origin of [UNTRUSTED_ORIGIN, 'null']) {
+            const response = await server.fetch(new Request(PAYMENT_CRYPTOGRAPHY_EXPORT_URL, {
+                method: 'POST',
+                headers: {origin, 'content-type': 'text/plain'},
+                body: JSON.stringify({wrappingKeyArn: 'key/arn:aws:payment-cryptography:us-east-1:000000000000:key/1'}),
+            }))
+            expect(response.headers.get('access-control-allow-origin')).toBeNull()
+        }
+
+        const trusted = await server.fetch(new Request(PAYMENT_CRYPTOGRAPHY_EXPORT_URL, {
+            method: 'POST',
+            headers: {origin: TRUSTED_ORIGIN, 'content-type': 'application/json'},
+            body: JSON.stringify({wrappingKeyArn: 'key/arn:aws:payment-cryptography:us-east-1:000000000000:key/1'}),
+        }))
+        expect(trusted.headers.get('access-control-allow-origin')).toBe(TRUSTED_ORIGIN)
+    })
+
+    test('refuses a cross-origin write that changes who may use the key', async () => {
+        const routes = new Hono()
+        let writes = 0
+        routes.post('/:cloud/services/paymentcryptography/resources/:id/policy', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
+        routes.post('/:cloud/services/paymentcryptography/resources/:id/replication', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
+        routes.post('/:cloud/services/paymentcryptography/resources/:id/usage', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
+        const app = createApiApp(routes)
+
+        for (const path of ['policy', 'replication', 'usage']) {
+            const url = `http://localhost/api/clouds/aws/services/paymentcryptography/resources/key-1/${path}`
+            const preflight = await app.fetch(new Request(url, {
+                method: 'OPTIONS',
+                headers: {origin: UNTRUSTED_ORIGIN, 'access-control-request-method': 'POST'},
+            }))
+            expect(preflight.headers.get('access-control-allow-origin')).toBeNull()
+
+            for (const origin of [UNTRUSTED_ORIGIN, 'null']) {
+                const response = await app.fetch(new Request(url, {method: 'POST', headers: {origin}}))
+                expect(response.status).toBe(403)
+            }
+            const trusted = await app.fetch(new Request(url, {method: 'POST', headers: {origin: TRUSTED_ORIGIN}}))
+            expect(trusted.status).toBe(200)
+        }
+        expect(writes).toBe(3)
+    })
+
+    test('refuses a cross-origin write that makes a key, because a key may be made by importing a block', async () => {
+        const routes = new Hono()
+        let writes = 0
+        routes.post('/:cloud/services/paymentcryptography/resources', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
+        routes.post('/:cloud/services/s3/resources', (c) => {
+            writes += 1
+            return c.json({ok: true})
+        })
+        const app = createApiApp(routes)
+
+        const url = 'http://localhost/api/clouds/aws/services/paymentcryptography/resources'
+        const preflight = await app.fetch(new Request(url, {
+            method: 'OPTIONS',
+            headers: {origin: UNTRUSTED_ORIGIN, 'access-control-request-method': 'POST'},
+        }))
+        expect(preflight.headers.get('access-control-allow-origin')).toBeNull()
+
+        for (const origin of [UNTRUSTED_ORIGIN, 'null']) {
+            const response = await app.fetch(new Request(url, {method: 'POST', headers: {origin}}))
+            expect(response.status).toBe(403)
+        }
+        const trusted = await app.fetch(new Request(url, {method: 'POST', headers: {origin: TRUSTED_ORIGIN}}))
+        expect(trusted.status).toBe(200)
+
+        // The refusal is about a payment cryptography key: another service's
+        // create route is not a key and stays permissive.
+        const other = await app.fetch(new Request(
+            'http://localhost/api/clouds/aws/services/s3/resources',
+            {method: 'POST', headers: {origin: UNTRUSTED_ORIGIN}},
+        ))
+        expect(other.status).toBe(200)
+        expect(other.headers.get('access-control-allow-origin')).toBe('*')
+        expect(writes).toBe(2)
     })
 })
 

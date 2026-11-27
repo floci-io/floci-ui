@@ -121,6 +121,15 @@ export interface FieldSchema {
      * resources the account holds now rather than a list baked into the schema.
      */
     optionsFrom?: string
+    /**
+     * The published state of a row that makes it an option of this field.
+     *
+     * <p>A field that names another resource of the same service offers every row
+     * of that kind by default. A field that may name only some of them says
+     * which state the service published, so the choices are the ones the service
+     * allows rather than the ones the console worked out for itself.
+     */
+    optionsState?: string
 }
 
 /** The power verbs a compute adapter may implement, reached through `/compute/resources/:id/<verb>`. */
@@ -210,6 +219,36 @@ export interface TableColumnSchema {
     width?: string
 }
 
+/**
+ * The discriminators a service publishes a pairing rule under.
+ *
+ * <p>The discriminator is part of the wire contract: a consumer picks its rule
+ * by comparing this value against a literal, so a rename on the service side
+ * has to be a mistake the compiler catches where the rule is published.
+ */
+export type PairingDiscriminator = 'keyAlgorithm'
+
+/**
+ * A rule a service publishes about what may carry what, for a panel that has to
+ * offer only the pairings the service allows.
+ */
+export interface PairingRule {
+    /**
+     * The metadata member that says what the resource is, such as its algorithm.
+     * The consumer reads that member, so a rename on this side is a mistake the
+     * compiler catches where the rule is published.
+     */
+    discriminator: PairingDiscriminator
+    /**
+     * The pairings, keyed by the discriminator value of the resource that is
+     * carried: `allowed[X]` holds the discriminator values of the resources that
+     * may carry a resource whose discriminator value is `X`. A value the map
+     * does not name may not be carried at all, which is not the same as a
+     * service that publishes no table at all.
+     */
+    allowed: Readonly<Partial<Record<string, readonly string[]>>>
+}
+
 export interface ServiceSchema {
     cloud: CloudProvider
     service: CloudServiceType
@@ -230,6 +269,17 @@ export interface ServiceSchema {
     filters: FieldSchema[]
     columns: TableColumnSchema[]
     updateFields?: FieldSchema[]
+    /**
+     * The pairings the service allows, for a panel that chooses one resource to
+     * carry another.
+     *
+     * <p>The absence of a rule is a rule of its own and both sides must read it
+     * the same way: a service that publishes no `pairings`, a rule for another
+     * discriminator, or a discriminator value the table does not name all mean
+     * that nothing may carry the resource. A panel that reads the absence as
+     * "anything goes" offers pairings the adapter refuses.
+     */
+    pairings?: readonly PairingRule[]
     /** A standing caveat shown above the list, for what the local runtime emulates but does not do. */
     notice?: string
 }
@@ -590,6 +640,39 @@ export interface KmsDecryptResult {
     encryptionAlgorithm: KmsEncryptionAlgorithm
 }
 
+/**
+ * The key the material a key leaves under is wrapped under.
+ *
+ * <p>Declared here rather than written out at every use, so the route that
+ * serves the export and the adapter that answers it are checked against the
+ * same shape.
+ */
+export interface ExportKeyInput {
+    wrappingKeyArn: string
+}
+
+/**
+ * The forms the material a key leaves under is in, as the reference names them.
+ */
+export type ExportedKeyMaterialFormat = 'KEY_CRYPTOGRAM' | 'TR31_KEY_BLOCK' | 'TR34_KEY_BLOCK'
+
+/**
+ * The material a key leaves under, and what the service says about it.
+ *
+ * <p>Declared here rather than in the adapter, so the route that serves it and
+ * the console that reads it are checked against the same shape.
+ */
+export interface ExportedKeyMaterial {
+    /** The protected material, in the form the reference writes it in. */
+    keyMaterial: string
+    /** The form the material is in, as the reference names it. */
+    format: ExportedKeyMaterialFormat | null
+    /** The key it is wrapped under, as the reference names it. */
+    wrappingKeyArn: string | null
+    /** The check value of the key that left. */
+    keyCheckValue: string | null
+}
+
 export type KmsSigningAlgorithm =
     | 'SHA_256_RSA_PKCS1_V1_5'
     | 'SHA_384_RSA_PKCS1_V1_5'
@@ -749,6 +832,27 @@ export interface CloudServiceAdapter {
     stop?(id: string, force?: boolean): Promise<void>
     reboot?(id: string): Promise<void>
     updateTags?(id: string, tags: Record<string, string | null>): Promise<void>
+    /**
+     * Whether a key may be used, for the service whose keys carry a setting of
+     * their own.
+     */
+    setUsage?(id: string, input: Record<string, unknown>): Promise<void>
+    /**
+     * The Regions a key is replicated to.
+     */
+    setReplication?(id: string, input: Record<string, unknown>): Promise<void>
+    /**
+     * The policy that lets another account use a key.
+     */
+    setPolicy?(id: string, input: Record<string, unknown>): Promise<void>
+    /**
+     * The material a key leaves under, wrapped by a key the account holds.
+     *
+     * <p>Declared here rather than reached through a cast, so the route that
+     * serves it and the adapter that answers it are checked against the same
+     * shape.
+     */
+    exportKey?(id: string, input: ExportKeyInput): Promise<ExportedKeyMaterial>
     /**
      * Cheap liveness check. Defaults to `list()`, which is a valid probe for
      * every current adapter; override where listing is expensive.

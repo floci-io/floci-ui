@@ -1,4 +1,6 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
+import {join} from 'node:path'
 import {Hono} from 'hono'
 import {CloudError, NotFoundError, toHttpError} from '../cloud-spi/errors'
 import {ActivityLog} from '../service/activityLog'
@@ -65,7 +67,21 @@ describe('describeRequest', () => {
         // The usage of a payment key is an operation on the key, not a child
         // that is created.
         expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/usage')).toMatchObject({operation: 'Usage'})
+        expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/usage')).toMatchObject({operation: 'Usage'})
+        expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/policy')).toMatchObject({operation: 'Policy'})
+        expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/replication')).toMatchObject({operation: 'Replication'})
+        expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/export')).toMatchObject({operation: 'Export'})
         expect(describeRequest('DELETE', '/api/clouds/aws/services/email/inbox')).toMatchObject({operation: 'Clear'})
+    })
+
+    test('the payment cryptography routes are named for what they change', () => {
+        const source = readFileSync(join(import.meta.dir, 'activity.ts'), 'utf8')
+
+        // The routes act on a key rather than making one, so the comment says
+        // that, and the set holds the actions that are not a create rather than
+        // verbs only, because the payment cryptography ones are nouns.
+        expect(source).not.toMatch(/ACTION_VERBS/)
+        expect(source).toContain('they act on a key rather than making')
     })
 
     test('skips reads, including ones sent as POST', () => {

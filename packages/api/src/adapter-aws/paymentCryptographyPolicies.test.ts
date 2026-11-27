@@ -1,0 +1,347 @@
+import {describe, expect, test} from 'bun:test'
+import {
+    DeleteResourcePolicyCommand,
+    GetKeyCommand,
+    GetResourcePolicyCommand,
+    PutResourcePolicyCommand,
+    type PaymentCryptographyClient,
+} from '@aws-sdk/client-payment-cryptography'
+import {AwsPaymentCryptographyAdapter} from './AwsPaymentCryptographyAdapter'
+import {getKeyPolicy, putKeyPolicy, deleteKeyPolicy, type KeyPolicyLookup} from './paymentCryptographyPolicies'
+import {ValidationError} from '../cloud-spi/errors'
+
+type SendResult = Record<string, unknown>
+
+/** Minimal PaymentCryptographyClient stub that records the commands it was sent. */
+function stubClient(handler: (command: object) => SendResult | Promise<SendResult>) {
+    const sent: object[] = []
+    const client = {
+        async send(command: object) {
+            sent.push(command)
+            return handler(command)
+        },
+    } as unknown as PaymentCryptographyClient
+    return {client, sent}
+}
+
+const ARN = 'arn:aws:payment-cryptography:us-east-1:000000000000:key/4a1b2c3d4e5f60718293a4b5c6d7e8f9'
+const KEY_ID = `key/${ARN}`
+const ALIAS_ID = 'alias/ExampleAlias'
+
+const attributes = {
+    KeyClass: 'SYMMETRIC_KEY',
+    KeyUsage: 'TR31_K0_KEY_ENCRYPTION_KEY',
+    KeyAlgorithm: 'AES_256',
+    KeyModesOfUse: {Encrypt: true, Decrypt: true, Wrap: true, Unwrap: true},
+}
+
+const key = {
+    KeyArn: ARN,
+    KeyAttributes: attributes,
+    KeyCheckValue: '3F2A1B',
+    KeyCheckValueAlgorithm: 'CMAC',
+    Enabled: true,
+    Exportable: false,
+    KeyState: 'CREATE_COMPLETE',
+    KeyOrigin: 'AWS_PAYMENT_CRYPTOGRAPHY',
+    CreateTimestamp: new Date('2026-11-04T09:15:00.000Z'),
+}
+
+const POLICY = JSON.stringify({
+    Version: '2012-10-17',
+    Statement: [{Sid: 'Allow', Effect: 'Allow', Principal: {AWS: 'arn:aws:iam::111122223333:root'}, Action: 'kms:Decrypt', Resource: '*'}],
+})
+
+function runtimeStub(policy: string | null = POLICY) {
+    return stubClient((command) => {
+        if (command instanceof GetKeyCommand) return {Key: key}
+        if (command instanceof GetResourcePolicyCommand) return {Policy: policy ?? undefined}
+        if (command instanceof PutResourcePolicyCommand) return {ResourceArn: ARN, Policy: POLICY}
+        if (command instanceof DeleteResourcePolicyCommand) return {ResourceArn: ARN}
+        return {}
+    })
+}
+
+describe('the policy of a payment key', () => {
+    test('a policy is put on the key', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await adapter.setPolicy(KEY_ID, {policy: POLICY})
+
+        const command = sent.find((each) => each instanceof PutResourcePolicyCommand)
+        expect(command).toBeDefined()
+        const input = (command as PutResourcePolicyCommand).input
+        expect(input.ResourceArn).toBe(ARN)
+        expect(input.Policy).toBe(POLICY)
+    })
+
+    test('an empty policy removes the one the key has', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await adapter.setPolicy(KEY_ID, {policy: ''})
+
+        const command = sent.find((each) => each instanceof DeleteResourcePolicyCommand)
+        expect(command).toBeDefined()
+        expect((command as DeleteResourcePolicyCommand).input.ResourceArn).toBe(ARN)
+        expect(sent.some((each) => each instanceof PutResourcePolicyCommand)).toBe(false)
+    })
+
+    test('the policy the key holds is read with the key', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // The panel shows the policy the key holds, so it is read with the key
+        // rather than left for the panel to ask for.
+        expect(sent.some((command) => command instanceof GetResourcePolicyCommand)).toBe(true)
+        expect(resource?.metadata.keyPolicy).toBe(POLICY)
+    })
+
+    test('a key with no policy says so', async () => {
+        const {client} = runtimeStub(null)
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        expect(resource?.metadata.keyPolicy).toBeNull()
+    })
+
+    test('a request that says nothing about the policy is refused, not a removal', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // A request without a policy is a fault of the caller. Reading it as a
+        // removal would take the policy away from a key that still holds one.
+        await expect(adapter.setPolicy(KEY_ID, {})).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(false)
+        expect(sent.some((command) => command instanceof PutResourcePolicyCommand)).toBe(false)
+    })
+
+    test('a policy that is not a document is refused', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await expect(adapter.setPolicy(KEY_ID, {policy: 42})).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof PutResourcePolicyCommand)).toBe(false)
+    })
+
+    test('a request that says nothing is refused, not a fault', async () => {
+        const {client, sent} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await expect(adapter.setPolicy(KEY_ID, null as never)).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(false)
+    })
+
+    test('an alias has no policy of its own; the key it names does', async () => {
+        const {client} = runtimeStub()
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await expect(adapter.setPolicy(ALIAS_ID, {policy: POLICY})).rejects.toBeInstanceOf(ValidationError)
+    })
+
+    test('a policy that cannot be read is reported, not thrown', async () => {
+        const {client} = stubClient(() => {
+            throw Object.assign(new Error('throttled'), {name: 'ThrottlingException'})
+        })
+
+        // The policy is enrichment: a refusal says nothing of the policy the key
+        // holds, so it must not take the key with it.
+        expect(await getKeyPolicy(client, ARN)).toEqual({
+            policy: null,
+            unavailable: true,
+            reason: 'ThrottlingException',
+        })
+    })
+
+    test('the reason the policy could not be read is kept', async () => {
+        const {client} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: key}
+            if (command instanceof GetResourcePolicyCommand) {
+                throw Object.assign(new Error('throttled'), {name: 'ThrottlingException'})
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        // The caught error was dropped, so a throttle was told apart from a
+        // denial by nothing at all.
+        expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+        expect(resource?.metadata.keyPolicyUnavailableReason).toBe('ThrottlingException')
+    })
+
+    test('a lookup that failed cannot carry a policy', () => {
+        const failed: KeyPolicyLookup = {policy: null, unavailable: true}
+        const read: KeyPolicyLookup = {policy: POLICY}
+
+        expect(failed.policy).toBeNull()
+        expect(read.policy).toBe(POLICY)
+
+        // @ts-expect-error a lookup that failed carries no policy of its own.
+        const impossible: KeyPolicyLookup = {policy: POLICY, unavailable: true}
+        expect(impossible.policy).toBe(POLICY)
+    })
+
+    test('a key that holds no policy is not a policy that could not be read', async () => {
+        const {client} = stubClient(() => {
+            throw Object.assign(new Error('not found'), {name: 'ResourceNotFoundException'})
+        })
+
+        expect(await getKeyPolicy(client, ARN)).toEqual({policy: null})
+    })
+
+    test('the policy is read with the ARN of the key', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetResourcePolicyCommand) return {Policy: POLICY}
+            return {}
+        })
+
+        // The service takes an ARN, and a key may have been asked for by a short
+        // key id, so a reader that named the key by anything else would be
+        // refused with an InvalidArnException.
+        await expect(getKeyPolicy(client, 'abcd1234')).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof GetResourcePolicyCommand)).toBe(false)
+    })
+
+    test('the policy of a key asked for by a short id is read with its ARN', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: key}
+            if (command instanceof GetResourcePolicyCommand) return {Policy: POLICY}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The key was asked for by a short key id, which the service resolves to
+        // the key it names.
+        const resource = await adapter.get('key/abcd1234')
+
+        // The policy is read with the ARN the key resolved to, not with the
+        // identifier the request named.
+        const reads = sent
+            .filter((command) => command instanceof GetResourcePolicyCommand)
+            .map((command) => (command as GetResourcePolicyCommand).input.ResourceArn)
+        expect(reads).toEqual([ARN])
+        expect(resource?.metadata.keyPolicy).toBe(POLICY)
+    })
+
+    test('a key that holds no policy is a policy that is already gone', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof DeleteResourcePolicyCommand) {
+                throw Object.assign(new Error('not found'), {name: 'ResourceNotFoundException'})
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The policy is already gone, so the removal has happened: refusing it
+        // would fail the case the caller wanted anyway.
+        await adapter.setPolicy(KEY_ID, {policy: ''})
+
+        expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(true)
+    })
+
+    test('a refusal that is not a missing policy still fails the removal', async () => {
+        const {client} = stubClient((command) => {
+            if (command instanceof DeleteResourcePolicyCommand) {
+                throw Object.assign(new Error('Access denied'), {name: 'AccessDeniedException'})
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        await expect(adapter.setPolicy(KEY_ID, {policy: ''})).rejects.toThrow('Access denied')
+    })
+
+    test('two writes for one key are ordered', async () => {
+        const order: string[] = []
+        let release: (() => void) | undefined
+        const {client} = stubClient(async (command) => {
+            if (command instanceof PutResourcePolicyCommand) {
+                order.push('put:start')
+                await new Promise<void>((resolve) => {
+                    release = resolve
+                })
+                order.push('put:end')
+            }
+            if (command instanceof DeleteResourcePolicyCommand) order.push('delete')
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const first = adapter.setPolicy(KEY_ID, {policy: POLICY})
+        const second = adapter.setPolicy(KEY_ID, {policy: ''})
+        await Promise.resolve()
+        release?.()
+        await Promise.all([first, second])
+
+        // The service offers no version to write against, so the ordering comes
+        // from here: the removal waits for the write that is in flight.
+        expect(order).toEqual(['put:start', 'put:end', 'delete'])
+    })
+
+    test('a policy that cannot be read leaves the key on screen and says so', async () => {
+        const {client} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: key}
+            if (command instanceof GetResourcePolicyCommand) {
+                throw Object.assign(new Error('Access denied'), {name: 'AccessDeniedException'})
+            }
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get(KEY_ID)
+
+        expect(resource?.name).toBe(ARN)
+        expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+    })
+
+    test('a key whose ARN is not known still leaves the key on screen and says so', async () => {
+        const {client} = stubClient((command) => {
+            // A runtime that answers a key without its ARN leaves the policy
+            // unreadable, but the key is still a key.
+            if (command instanceof GetKeyCommand) return {Key: {...key, KeyArn: undefined}}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        const resource = await adapter.get('key/abcd1234')
+
+        // The key is still on screen, and the policy is said to be unreadable.
+        expect(resource?.status).toBe('CREATE_COMPLETE')
+        expect(resource?.metadata.keyPolicyUnavailable).toBe(true)
+    })
+
+    test('the policy of a key asked for by a short id is written with its ARN', async () => {
+        const {client, sent} = stubClient((command) => {
+            if (command instanceof GetKeyCommand) return {Key: key}
+            return {}
+        })
+        const adapter = new AwsPaymentCryptographyAdapter(client)
+
+        // The key was asked for by a short key id, which the service resolves to
+        // the key it names.
+        await adapter.setPolicy('key/abcd1234', {policy: POLICY})
+
+        // The policy is written against the ARN the key resolved to, because the
+        // service's ResourceArn takes the ARN of the key.
+        const put = sent.find((command) => command instanceof PutResourcePolicyCommand)
+        expect(put).toBeDefined()
+        expect((put as PutResourcePolicyCommand).input.ResourceArn).toBe(ARN)
+    })
+
+    test('a policy is not written against a value that is not an ARN', async () => {
+        const {client, sent} = stubClient(() => ({}))
+
+        // The service would refuse this with an InvalidArnException, so it is
+        // refused here with the reason the console can show.
+        await expect(putKeyPolicy(client, 'abcd1234', POLICY)).rejects.toBeInstanceOf(ValidationError)
+        await expect(deleteKeyPolicy(client, 'abcd1234')).rejects.toBeInstanceOf(ValidationError)
+        expect(sent.some((command) => command instanceof PutResourcePolicyCommand)).toBe(false)
+        expect(sent.some((command) => command instanceof DeleteResourcePolicyCommand)).toBe(false)
+    })
+})

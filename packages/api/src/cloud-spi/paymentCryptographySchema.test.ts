@@ -1,8 +1,17 @@
 import {describe, expect, test} from 'bun:test'
+import {readFileSync} from 'node:fs'
+import {join} from 'node:path'
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
+    isWrappingUsage,
     keyClassForAlgorithm,
+    mayUnwrapKey,
+    mayWrapKey,
+    mayWrapWith,
+    modesAllowUnwrapping,
+    modesAllowWrapping,
+    wrappingAlgorithmsFor,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
@@ -10,6 +19,32 @@ import {
 } from './paymentCryptographySchema'
 
 describe('awsPaymentCryptographySchema', () => {
+    test('a field that names a key is offered under the name the key was given', () => {
+        const schema = awsPaymentCryptographySchema()
+
+        const wrapping = schema.fields.find(field => field.name === 'wrappingKeyArn')
+        const target = schema.fields.find(field => field.name === 'aliasTargetKey')
+
+        // A key has no name of its own, so an ARN is all the console could
+        // offer, and an ARN is not something an operator remembers. The console
+        // reads the names the API published beside the key, so a field does not
+        // have to say where they come from.
+        expect(wrapping?.optionsFrom).toEqual('key')
+        expect(target?.optionsFrom).toEqual('key')
+    })
+
+    test('the table leads with the name the operator knows the key by', () => {
+        const schema = awsPaymentCryptographySchema()
+
+        const name = schema.columns.find(column => column.name === 'names')
+        const arn = schema.columns.find(column => column.name === 'arn')
+
+        // The name the operator knows the key by is what leads the table, and
+        // the identity is beside it.
+        expect(name?.path).toEqual('metadata.names')
+        expect(arn?.path).toEqual('metadata.arn')
+    })
+
     test('offers the tag editor for a key and not for an alias', () => {
         const schema = awsPaymentCryptographySchema()
         const updateTags = schema.capabilities?.resourceActions?.find(capability => capability.name === 'updateTags')
@@ -24,6 +59,80 @@ describe('awsPaymentCryptographySchema', () => {
         const target = schema.fields.find(field => field.name === 'aliasTargetKey')
 
         expect(target?.optionsFrom).toBe('key')
+    })
+
+    test('the import form offers only the keys that may unwrap', () => {
+        const schema = awsPaymentCryptographySchema()
+        const wrapping = schema.fields.find(field => field.name === 'wrappingKeyArn')
+
+        // The service refuses a key that may not wrap, so the form does not
+        // offer one.
+        expect(wrapping?.optionsFrom).toBe('key')
+        // A block comes in under a key that unwraps it, where a block leaves
+        // under a key that wraps it.
+        expect(wrapping?.optionsState).toBe('mayUnwrap')
+    })
+
+    test('the rule of an unwrapping key is the other half of it', () => {
+        // A block comes in under a key that unwraps it, where a block leaves
+        // under a key that wraps it, so the two are read apart.
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Unwrap: true}, true)).toBe(true)
+        expect(mayUnwrapKey('TR31_K1_KEY_BLOCK_PROTECTION_KEY', {Unwrap: true}, true)).toBe(true)
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {NoRestrictions: true}, true)).toBe(true)
+        // A key that may only wrap does not unwrap a block that comes in.
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, true)).toBe(false)
+        // A usage that is not a wrapping one and a disabled key are each a
+        // reason.
+        expect(mayUnwrapKey('TR31_D0_SYMMETRIC_DATA_ENCRYPTION_KEY', {Unwrap: true}, true)).toBe(false)
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Unwrap: true}, false)).toBe(false)
+        // A key whose enabled state was not read is not one either.
+        expect(mayUnwrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Unwrap: true}, undefined)).toBe(false)
+    })
+
+    test('the matrix says which key may carry which', () => {
+        expect(mayWrapWith('AES_256', 'AES_256')).toBe(true)
+        expect(mayWrapWith('AES_256', 'AES_128')).toBe(false)
+        expect(mayWrapWith('TDES_3KEY', 'TDES_2KEY')).toBe(false)
+        // The matrix names the symmetric keys, so a key it does not name may not
+        // be carried by any.
+        expect(mayWrapWith('RSA_2048', 'AES_256')).toBe(false)
+    })
+
+    test('the matrix is not read through the prototype chain', () => {
+        // The algorithm comes from the service, so a name the prototype chain
+        // answers for is not a row of the matrix.
+        for (const name of ['__proto__', 'constructor', 'toString']) {
+            expect(mayWrapWith(name, 'AES_256')).toBe(false)
+        }
+    })
+
+    test('the row handed out is a copy of the row of the matrix', () => {
+        const row = wrappingAlgorithmsFor('AES_256') as string[]
+        row.push('AES_128')
+
+        // The matrix is the very table the schema publishes to the console, so a
+        // caller that changed the row would change what every later caller
+        // believes.
+        expect(wrappingAlgorithmsFor('AES_256')).toEqual(['AES_256'])
+    })
+
+    test('the keyed-hash keys are not rows of the matrix, and the table says why', () => {
+        // The reference's own table of what may be wrapped by what names the
+        // encryption keys alone, so a key whose algorithm is a hash leaves under
+        // no key at all.
+        expect(mayWrapWith('HMAC_SHA256', 'AES_256')).toBe(false)
+        expect(mayWrapWith('HMAC_SHA512', 'AES_256')).toBe(false)
+
+        const source = readFileSync(join(import.meta.dir, 'paymentCryptographySchema.ts'), 'utf8')
+        expect(source).toContain('keyed-hash')
+    })
+
+    test('the strength of a key is stated once', () => {
+        const source = readFileSync(join(import.meta.dir, 'paymentCryptographySchema.ts'), 'utf8')
+
+        // The matrix already says which key may carry which, so a second table
+        // of strengths is a second source of truth that can drift from it.
+        expect(source).not.toMatch(/PAYMENT_CRYPTOGRAPHY_KEY_STRENGTH/)
     })
 })
 
@@ -73,5 +182,49 @@ describe('the class of a payment key', () => {
         expect(new Set(Object.values(PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES))).toEqual(
             new Set(['unknown', 'no-public-half', 'signed', 'unsigned', 'unreadable']),
         )
+    })
+})
+
+describe('the keys that may carry another key', () => {
+    test('a key with no restrictions may wrap', () => {
+        // The reference's own table of valid attributes lists NoRestrictions as
+        // a combination the wrapping usages may take, and a key with no
+        // restrictions may do anything at all.
+        expect(modesAllowWrapping({NoRestrictions: true})).toBe(true)
+        expect(
+            mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {NoRestrictions: true}, true),
+        ).toBe(true)
+        expect(
+            mayWrapKey('TR31_K1_KEY_BLOCK_PROTECTION_KEY', {NoRestrictions: true}, true),
+        ).toBe(true)
+    })
+
+    test('a key that may wrap may wrap', () => {
+        expect(modesAllowWrapping({Wrap: true, Unwrap: true})).toBe(true)
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, true)).toBe(true)
+    })
+
+    test('a key that may not wrap does not wrap', () => {
+        // A key that may only encrypt may not wrap a block.
+        expect(modesAllowWrapping({Encrypt: true, Decrypt: true})).toBe(false)
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Encrypt: true}, true)).toBe(false)
+        // The usage says what the key is for, and a key with another one may not
+        // wrap a key.
+        expect(isWrappingUsage('TR31_P0_PIN_ENCRYPTION_KEY')).toBe(false)
+        expect(mayWrapKey('TR31_P0_PIN_ENCRYPTION_KEY', {Wrap: true}, true)).toBe(false)
+        // A disabled key does no work at all.
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, false)).toBe(false)
+    })
+
+    test('the modes of use that were not read are not a permission to wrap', () => {
+        expect(modesAllowWrapping(undefined)).toBe(false)
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', undefined, true)).toBe(false)
+    })
+
+    test('the enabled state that was not read is not a permission to wrap', () => {
+        // The state of a key that was not read is not a state the console may
+        // read as a permission: a key that may not say whether it is enabled may
+        // not wrap, the same way the modes of use are read.
+        expect(mayWrapKey('TR31_K0_KEY_ENCRYPTION_KEY', {Wrap: true}, undefined)).toBe(false)
     })
 })

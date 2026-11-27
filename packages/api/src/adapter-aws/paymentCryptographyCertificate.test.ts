@@ -22,7 +22,6 @@ function stubClient(handler: (command: object) => SendResult | Promise<SendResul
 }
 
 const ARN = 'arn:aws:payment-cryptography:us-east-1:000000000000:key/4a1b2c3d4e5f60718293a4b5c6d7e8f9'
-/** A resource id carries its kind, so the key's own id is the kind and the ARN. */
 const KEY_ID = `key/${ARN}`
 
 const symmetricKey = {

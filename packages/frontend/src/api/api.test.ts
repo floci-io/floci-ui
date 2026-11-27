@@ -1,5 +1,7 @@
+import {readFileSync} from 'node:fs'
+import {resolve} from 'node:path'
 import {afterEach, beforeEach, describe, expect, test, vi} from 'vitest'
-import {apiEndpointKeys, createApiClient} from './api'
+import {apiEndpointKeys, createApiClient, endpointRegistry} from './api'
 import {copyStorageObject, deleteStorageObject, emptyStorageBucket, listStorageObjects, uploadStorageObject} from './cloudProxyClient'
 import {ACCOUNT_HEADER, setAccountId} from '@/lib/accountStore'
 import {REGION_HEADER, setRegion} from '@/lib/regionStore'
@@ -136,4 +138,25 @@ describe('shared request interceptors', () => {
         expect(init.method).toBe('POST')
         expect(sentHeaders().get(ACCOUNT_HEADER)).toBe(CONFIRMED)
     })
+})
+
+describe('the endpoint registry', () => {
+    test('the payment cryptography endpoints are registered once', () => {
+        // The registry is a map, so a key that is registered twice is silently
+        // overwritten by the later one: the first block becomes dead code and
+        // the two definitions can drift apart without any error.
+        const source = readFileSync(resolve(process.cwd(), "src/api/api.ts"), "utf8");
+        const registered = [...source.matchAll(/apiEndpointKeys\.clouds\.resources\.(\w+),/g)].map(
+            (each) => each[1],
+        );
+        const payment = ["usage", "policy", "replication", "exportKey"];
+
+        for (const name of payment) {
+            expect(registered.filter((each) => each === name)).toHaveLength(1);
+        }
+        expect(endpointRegistry.has(apiEndpointKeys.clouds.resources.usage)).toBe(true);
+        expect(endpointRegistry.has(apiEndpointKeys.clouds.resources.policy)).toBe(true);
+        expect(endpointRegistry.has(apiEndpointKeys.clouds.resources.replication)).toBe(true);
+        expect(endpointRegistry.has(apiEndpointKeys.clouds.resources.exportKey)).toBe(true);
+    });
 })

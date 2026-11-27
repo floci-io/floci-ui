@@ -133,6 +133,9 @@ function isSensitiveCredentialRoute(path: string): boolean {
   return (
     path.startsWith("/api/secretsmanager") ||
     /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:encrypt|decrypt|sign|verify|rotate|cancel-deletion)$/.test(path) ||
+    // The payment cryptography export hands the key's material to the browser,
+    // so it is served the way the KMS crypto routes are.
+    /^\/api\/clouds\/[^/]+\/services\/paymentcryptography\/resources\/[^/]+\/export$/.test(path) ||
     isKeyMutationRoute(path)
   );
 }
@@ -140,6 +143,14 @@ function isSensitiveCredentialRoute(path: string): boolean {
 function isKeyMutationRoute(path: string): boolean {
   return (
     /^\/api\/clouds\/[^/]+\/services\/kms\/resources\/[^/]+\/(?:rotate|cancel-deletion|recover|purge-deleted)$/.test(path) ||
-    /^\/api\/clouds\/[^/]+\/services\/(?:secrets|certificates)\/resources\/[^/]+\/(?:recover|purge-deleted)$/.test(path)
+    /^\/api\/clouds\/[^/]+\/services\/(?:secrets|certificates)\/resources\/[^/]+\/(?:recover|purge-deleted)$/.test(path) ||
+    // A policy says who may use the key, the replication says where it lives
+    // and the usage says whether the key works at all, so all three are
+    // refused when they come from another origin.
+    /^\/api\/clouds\/[^/]+\/services\/paymentcryptography\/resources\/[^/]+\/(?:policy|replication|usage)$/.test(path) ||
+    // A key is made on the create route, and it may be made by importing a
+    // TR-31 block, so the route writes key material into the account and is
+    // refused from another origin as well.
+    /^\/api\/clouds\/[^/]+\/services\/paymentcryptography\/resources$/.test(path)
   );
 }
