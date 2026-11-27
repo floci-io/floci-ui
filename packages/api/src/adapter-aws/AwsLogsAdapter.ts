@@ -17,6 +17,7 @@ import type {
     DocumentStoreAdapter,
     PageQuery,
 } from '../cloud-spi/childCollections'
+import {resolveRegion} from '../aws'
 import {NotFoundError, ValidationError} from '../cloud-spi/errors'
 import {awsLogsSchema} from '../cloud-spi/logsSchema'
 import type {
@@ -28,6 +29,7 @@ import type {
     ResourceQuery,
     ServiceSchema,
 } from '../cloud-spi/types'
+import {regionFromArn} from './arnRegion'
 
 // Real StartQuery is async and queries can run up to an hour server-side. Floci
 // completes instantly by default (FLOCI_SERVICES_CLOUDWATCHLOGS_QUERY_COMPLETION_DELAY_MS=0),
@@ -82,6 +84,7 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
 
     constructor(
         private readonly client: CloudWatchLogsClient,
+        private readonly region: string = resolveRegion(),
         /** Overridable so tests can shrink the wait instead of taking QUERY_POLL_TIMEOUT_MS for real. */
         private readonly queryPoll: {timeoutMs?: number; intervalMs?: number} = {},
     ) {
@@ -106,12 +109,12 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
             logGroups.push(...(response.logGroups ?? []))
             nextToken = response.nextToken
         } while (nextToken)
-        return logGroups.map(toResource)
+        return logGroups.map((group) => toResource(group, this.region))
     }
 
     async get(id: string): Promise<CloudResource | null> {
         const group = await this.describeExact(id)
-        return group ? toResource(group) : null
+        return group ? toResource(group, this.region) : null
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -122,7 +125,7 @@ export class AwsLogsAdapter implements CloudServiceAdapter {
 
         const group = await this.describeExact(name)
         if (!group) throw new NotFoundError(`Log group ${name} was created but could not be read back.`)
-        return toResource(group)
+        return toResource(group, this.region)
     }
 
     async delete(id: string): Promise<void> {
@@ -300,7 +303,7 @@ function toCollection(stream: LogStreamShape, parentId: string): ChildCollection
     }
 }
 
-function toResource(group: LogGroupShape): CloudResource {
+function toResource(group: LogGroupShape, clientRegion: string): CloudResource {
     const name = group.logGroupName ?? ''
     return {
         id: name,
@@ -308,7 +311,7 @@ function toResource(group: LogGroupShape): CloudResource {
         cloud: 'aws',
         service: 'logs',
         type: 'log-group',
-        region: null,
+        region: regionFromArn(group.arn) ?? clientRegion,
         createdAt: createdAtOf(group),
         metadata: {
             arn: group.arn,

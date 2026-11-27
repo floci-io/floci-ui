@@ -13,7 +13,8 @@ import {
 } from '@aws-sdk/client-sqs'
 import {NotFoundError, ValidationError} from '../cloud-spi/errors'
 import {awsMessagingSchema} from '../cloud-spi/messagingSchema'
-import {sqs as defaultSqs} from '../aws'
+import {resolveRegion, sqs as defaultSqs} from '../aws'
+import {regionFromArn} from './arnRegion'
 import type {
     CloudResource,
     CloudServiceAdapter,
@@ -54,7 +55,10 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
     readonly cloud = 'aws' as const
     readonly service = 'messaging' as const
 
-    constructor(private readonly sqs: SQSClient = defaultSqs) {}
+    constructor(
+        private readonly sqs: SQSClient = defaultSqs,
+        private readonly region: string = resolveRegion(),
+    ) {}
 
     schema(): ServiceSchema {
         return awsMessagingSchema()
@@ -70,7 +74,7 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
                 // A queue with no attributes is still a queue, so a failed
                 // describe degrades to the bare row rather than failing the list.
                 const attributes = await this.attributesFor(url).catch(() => ({}))
-                return toResource(name, url, attributes)
+                return toResource(name, url, attributes, this.region)
             }),
         )
 
@@ -80,7 +84,7 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
     async get(id: string): Promise<CloudResource | null> {
         const url = await this.queueUrl(id)
         if (!url) return null
-        return toResource(id, url, await this.attributesFor(url))
+        return toResource(id, url, await this.attributesFor(url), this.region)
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
@@ -123,7 +127,7 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
         )
 
         const url = res.QueueUrl ?? (await this.queueUrl(name)) ?? ''
-        return toResource(name, url, await this.attributesFor(url).catch(() => ({})))
+        return toResource(name, url, await this.attributesFor(url).catch(() => ({})), this.region)
     }
 
     async update(id: string, input: UpdateResourceInput): Promise<CloudResource> {
@@ -168,7 +172,7 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
             }),
         )
 
-        return toResource(id, url, await this.attributesFor(url).catch(() => ({})))
+        return toResource(id, url, await this.attributesFor(url).catch(() => ({})), this.region)
     }
 
     async delete(id: string): Promise<void> {
@@ -285,14 +289,14 @@ export class AwsSqsAdapter implements CloudServiceAdapter {
     }
 }
 
-function toResource(name: string, url: string, attributes: QueueAttributes): CloudResource {
+function toResource(name: string, url: string, attributes: QueueAttributes, clientRegion: string): CloudResource {
     return {
         id: name,
         name,
         cloud: 'aws',
         service: 'messaging',
         type: attributes.FifoQueue === 'true' ? 'fifo-queue' : 'queue',
-        region: null,
+        region: regionFromArn(attributes.QueueArn) ?? clientRegion,
         createdAt: epochSecondsToIso(attributes.CreatedTimestamp),
         metadata: {
             provider: 'aws',
