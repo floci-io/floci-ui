@@ -19,7 +19,7 @@ const workflowFilters: FieldSchema[] = [{name: 'search', label: 'Search', type: 
  * Step Functions accepts a wider character set, but this is the subset AWS
  * recommends and the one that is unambiguous in an ARN.
  */
-export const STATE_MACHINE_NAME_PATTERN = '^[a-zA-Z0-9_-]{1,80}$'
+export const STATE_MACHINE_NAME_PATTERN = '^[a-zA-Z0-9_\\-]{1,80}$'
 
 export function awsWorkflowsSchema(): ServiceSchema {
     return {
@@ -48,7 +48,7 @@ export function awsWorkflowsSchema(): ServiceSchema {
                 group: 'Required',
                 description: 'The IAM role the state machine assumes when it runs.',
                 validation: {
-                    pattern: '^arn:aws[a-z-]*:iam::\\d{12}:role/.+$',
+                    pattern: '^arn:aws[a-z\\-]*:iam::\\d{12}:role/.+$',
                     message: 'Must be an IAM role ARN, e.g. arn:aws:iam::000000000000:role/my-role.',
                 },
             },

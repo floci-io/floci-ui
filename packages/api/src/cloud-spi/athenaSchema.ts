@@ -1,6 +1,6 @@
 import type {ServiceSchema, TableColumnSchema} from './types'
 
-export const AWS_ATHENA_WORKGROUP_PATTERN = '^[A-Za-z0-9._-]{1,128}$'
+export const AWS_ATHENA_WORKGROUP_PATTERN = '^[A-Za-z0-9._\\-]{1,128}$'
 export const AWS_ATHENA_WORKGROUP_MESSAGE = 'Use 1-128 letters, numbers, periods, hyphens, or underscores.'
 
 /**

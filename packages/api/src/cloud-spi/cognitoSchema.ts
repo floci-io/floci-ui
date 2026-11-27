@@ -1,6 +1,6 @@
 import type {CapabilitySchema, ResourceActionName, ServiceSchema} from './types'
 
-export const COGNITO_POOL_NAME_PATTERN = '^[A-Za-z0-9_+=,.@ -]{1,128}$'
+export const COGNITO_POOL_NAME_PATTERN = '^[A-Za-z0-9_+=,.@ \\-]{1,128}$'
 export const COGNITO_POOL_NAME_MESSAGE =
     'Use a valid user pool name: 1-128 letters, numbers, spaces, and +=,.@_- characters.'
 

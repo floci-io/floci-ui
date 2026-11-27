@@ -34,7 +34,7 @@ export function gcpSchedulerSchema(): ServiceSchema {
                 required: true,
                 description: 'Unique identifier for the job.',
                 validation: {
-                    pattern: '^[a-zA-Z0-9_-]{1,500}$',
+                    pattern: '^[a-zA-Z0-9_\\-]{1,500}$',
                     minLength: 1,
                     maxLength: 500,
                     message: 'Use a valid job name: 1-500 alphanumeric characters, underscores, or hyphens.',
@@ -103,7 +103,7 @@ export function awsSchedulerSchema(): ServiceSchema {
                 required: true,
                 description: 'Unique name within the schedule group.',
                 validation: {
-                    pattern: '^[A-Za-z0-9._-]{1,64}$',
+                    pattern: '^[A-Za-z0-9._\\-]{1,64}$',
                     minLength: 1,
                     maxLength: 64,
                     message: 'Use 1-64 letters, numbers, periods, hyphens, or underscores.',

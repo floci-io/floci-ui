@@ -31,7 +31,7 @@ export const CIDR_PATTERN = `^(${OCTET}\\.){3}${OCTET}/(3[0-2]|[12]?\\d)$`
  * rejects, so a one-character name or a trailing hyphen would only fail on the
  * ARM PUT.
  */
-export const AZURE_VNET_NAME_PATTERN = '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9_]$'
+export const AZURE_VNET_NAME_PATTERN = '^[a-zA-Z0-9][a-zA-Z0-9._\\-]{0,62}[a-zA-Z0-9_]$'
 
 /**
  * Azure offers real create and delete, unlike AWS in this category.
@@ -166,7 +166,7 @@ export const GCP_NETWORK_KINDS = ['network', 'subnetwork', 'firewall'] as const
 export type GcpNetworkKind = (typeof GCP_NETWORK_KINDS)[number]
 
 /** Compute Engine resource names: RFC1035, 1-63 characters, lower case. */
-export const GCP_RESOURCE_NAME_PATTERN = '^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$'
+export const GCP_RESOURCE_NAME_PATTERN = '^[a-z]([\\-a-z0-9]{0,61}[a-z0-9])?$'
 
 const IS_SUBNETWORK = {field: 'kind', equals: 'subnetwork'}
 const IS_FIREWALL = {field: 'kind', equals: 'firewall'}

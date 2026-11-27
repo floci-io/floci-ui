@@ -412,7 +412,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 requiredWhen: {field: 'kind', equals: 'aliases'},
                 description: 'The name of the alias. It has to begin with "alias/".',
                 validation: {
-                    pattern: '^alias/[A-Za-z0-9/_-]+$',
+                    pattern: '^alias/[A-Za-z0-9\\/_\\-]+$',
                     message: 'Use an alias name that begins with "alias/" and holds only letters, digits, slashes, underscores and dashes.',
                 },
             },

@@ -347,7 +347,7 @@ export function azureKmsSchema(): ServiceSchema {
 export const GCP_KMS_RESOURCE_TYPES = ['key', 'keyRing'] as const
 
 /** Cloud KMS ids for key rings and crypto keys: 1-63 letters, numbers, hyphens or underscores. */
-export const GCP_KMS_ID_PATTERN = '^[A-Za-z0-9_-]{1,63}$'
+export const GCP_KMS_ID_PATTERN = '^[A-Za-z0-9_\\-]{1,63}$'
 export const GCP_KMS_ID_MESSAGE = 'Use 1-63 letters, numbers, hyphens, or underscores.'
 
 /**

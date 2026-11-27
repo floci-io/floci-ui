@@ -14,7 +14,7 @@ export function awsLogsSchema(): ServiceSchema {
                 validation: {
                     minLength: 1,
                     maxLength: 512,
-                    pattern: '^[A-Za-z0-9_./#-]+$',
+                    pattern: '^[A-Za-z0-9_.\\/#\\-]+$',
                     message: 'Use letters, numbers, underscore, dot, slash, hash, or dash.',
                 },
             },

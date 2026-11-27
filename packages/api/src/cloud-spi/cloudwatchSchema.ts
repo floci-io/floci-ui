@@ -103,7 +103,7 @@ export function awsCloudWatchSchema(): ServiceSchema {
 }
 
 /** Only these two prefixes are user-created metrics, which is all the runtime lets be deleted. */
-export const GCP_MONITORING_TYPE_PATTERN = '^(custom|external)\\.googleapis\\.com/[A-Za-z0-9_./-]+$'
+export const GCP_MONITORING_TYPE_PATTERN = '^(custom|external)\\.googleapis\\.com/[A-Za-z0-9_.\\/\\-]+$'
 export const GCP_MONITORING_TYPE_MESSAGE =
     'Use custom.googleapis.com/ or external.googleapis.com/ followed by letters, digits, underscore, dot, slash or dash.'
 export const GCP_MONITORING_METRIC_KINDS = ['GAUGE', 'DELTA', 'CUMULATIVE'] as const

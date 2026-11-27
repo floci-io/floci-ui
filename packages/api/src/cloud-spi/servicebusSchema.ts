@@ -20,7 +20,7 @@ export function azureServiceBusSchema(): ServiceSchema {
                 required: true,
                 description: '6-50 characters. Letters, numbers, and hyphens; starts with a letter, ends with a letter or number. Cannot end with -sb or -mgmt.',
                 validation: {
-                    pattern: '^(?!.*-(?:[sS][bB]|[mM][gG][mM][tT])$)[A-Za-z][A-Za-z0-9-]{4,48}[A-Za-z0-9]$',
+                    pattern: '^(?!.*-(?:[sS][bB]|[mM][gG][mM][tT])$)[A-Za-z][A-Za-z0-9\\-]{4,48}[A-Za-z0-9]$',
                     minLength: 6,
                     maxLength: 50,
                     message: 'Use a valid Service Bus namespace: 6-50 letters, numbers, or hyphens; start with a letter, end with a letter or number, and do not end with -sb or -mgmt.',

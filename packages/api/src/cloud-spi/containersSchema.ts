@@ -11,7 +11,7 @@ const containerColumns: TableColumnSchema[] = [
 const containerFilters: FieldSchema[] = [{name: 'search', label: 'Search', type: 'text', required: false}]
 
 /** Cloud Run service names: lowercase letters, digits and hyphens, max 49 chars. */
-export const CLOUD_RUN_NAME_PATTERN = '^[a-z]([-a-z0-9]*[a-z0-9])?$'
+export const CLOUD_RUN_NAME_PATTERN = '^[a-z]([\\-a-z0-9]*[a-z0-9])?$'
 export const CLOUD_RUN_NAME_MAX_LENGTH = 49
 
 export function gcpContainersSchema(): ServiceSchema {
@@ -122,7 +122,7 @@ export function awsContainersSchema(): ServiceSchema {
 }
 
 /** Container app and managed environment names: lowercase letters, digits and hyphens, 2 to 32 chars. */
-export const CONTAINER_APP_NAME_PATTERN = '^[a-z][-a-z0-9]{0,30}[a-z0-9]$'
+export const CONTAINER_APP_NAME_PATTERN = '^[a-z][\\-a-z0-9]{0,30}[a-z0-9]$'
 export const CONTAINER_APP_NAME_MESSAGE =
     'Start with a letter; 2 to 32 lowercase letters, digits and hyphens, ending with a letter or digit.'
 export const CONTAINER_APP_LOCATIONS = ['eastus', 'eastus2', 'westus', 'westus2', 'westeurope', 'northeurope'] as const

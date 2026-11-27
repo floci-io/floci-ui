@@ -115,7 +115,7 @@ export const AZURE_VM_SIZES = [
 export const AZURE_LOCATIONS = ['eastus', 'eastus2', 'westus', 'westus2', 'westeurope', 'northeurope'] as const
 
 /** Azure VM names: 1-64 chars, letters, digits, hyphens, underscores and periods. */
-export const AZURE_VM_NAME_PATTERN = '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$'
+export const AZURE_VM_NAME_PATTERN = '^[a-zA-Z0-9][a-zA-Z0-9._\\-]{0,63}$'
 
 export function azureComputeSchema(): ServiceSchema {
     return {
@@ -263,7 +263,7 @@ export const GCP_MACHINE_TYPES = [
 ] as const
 
 /** Compute Engine resource names: RFC1035, 1-63 chars. */
-export const GCP_INSTANCE_NAME_PATTERN = '^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$'
+export const GCP_INSTANCE_NAME_PATTERN = '^[a-z]([\\-a-z0-9]{0,61}[a-z0-9])?$'
 
 const gcpComputeColumns: TableColumnSchema[] = [
     {name: 'name', label: 'Name'},

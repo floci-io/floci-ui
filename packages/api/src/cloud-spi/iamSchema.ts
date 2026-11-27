@@ -11,7 +11,7 @@ export type IamKind = (typeof IAM_KINDS)[number]
 /** Singular form used for a resource id prefix and the `type` field. */
 export const IAM_KIND_SINGULAR = {users: 'user', roles: 'role', policies: 'policy'} as const
 
-export const IAM_NAME_PATTERN = '^[\\w+=,.@-]+$'
+export const IAM_NAME_PATTERN = '^[\\w+=,.@\\-]+$'
 export const IAM_NAME_MESSAGE = 'Letters, digits and + = , . @ _ - only.'
 /** IAM's own limits: a user or role name is at most 64 characters, a policy name 128. */
 export const IAM_NAME_MAX_LENGTH: Record<IamKind, number> = {users: 64, roles: 64, policies: 128}
@@ -139,7 +139,7 @@ export const OCI_IDENTITY_KIND_SINGULAR = {
 } as const
 
 /** User names may be email-shaped; the other kinds may not contain `@` or `+`. */
-export const OCI_IDENTITY_NAME_PATTERN = '^[A-Za-z0-9._+@-]+$'
+export const OCI_IDENTITY_NAME_PATTERN = '^[A-Za-z0-9._+@\\-]+$'
 export const OCI_IDENTITY_NAME_MAX_LENGTH = 100
 export const OCI_IDENTITY_NAME_MESSAGE =
     'Up to 100 letters, digits, periods, dashes and underscores. User names may also contain + and @.'
@@ -341,7 +341,7 @@ export type GcpIdentityKind = (typeof GCP_IDENTITY_KINDS)[number]
 export const GCP_IDENTITY_KIND_SINGULAR = {serviceAccounts: 'serviceAccount', roles: 'role'} as const
 
 /** 6 to 30 characters: a lowercase letter first, then lowercase letters, digits and hyphens, not ending in a hyphen. */
-export const GCP_ACCOUNT_ID_PATTERN = '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
+export const GCP_ACCOUNT_ID_PATTERN = '^[a-z][a-z0-9\\-]{4,28}[a-z0-9]$'
 export const GCP_ACCOUNT_ID_MESSAGE =
     '6 to 30 characters: lowercase letters, digits and hyphens, starting with a letter and not ending in a hyphen.'
 export const GCP_ROLE_ID_PATTERN = '^[A-Za-z0-9_.]{3,64}$'

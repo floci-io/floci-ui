@@ -12,7 +12,7 @@ const distributionColumns: TableColumnSchema[] = [
 const cdnFilters: FieldSchema[] = [{name: 'search', label: 'Search', type: 'text', required: false}]
 
 /** A bare host name: no scheme, port or path, which is what an origin `DomainName` carries. */
-export const CLOUDFRONT_ORIGIN_DOMAIN_PATTERN = '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'
+export const CLOUDFRONT_ORIGIN_DOMAIN_PATTERN = '^[A-Za-z0-9]([A-Za-z0-9.\\-]*[A-Za-z0-9])?$'
 export const CLOUDFRONT_ORIGIN_DOMAIN_MAX_LENGTH = 253
 export const CLOUDFRONT_COMMENT_MAX_LENGTH = 128
 
