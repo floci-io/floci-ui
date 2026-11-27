@@ -6,6 +6,7 @@ import {AWS_REGIONS, setRegion, useRegion, useRegionRecents} from '@/lib/regionS
 
 const REGION_NAMES = new Map(AWS_REGIONS.map((region) => [region.id, region.name]))
 const DEFAULT_KEY = 'default'
+const DEFAULT_LABEL = 'Console default'
 
 /**
  * AWS region switcher, the region counterpart of the AccountSwitcher: one active
@@ -60,7 +61,9 @@ export function RegionSwitcher() {
 
     // Opening puts focus on the selected region, the one Tab stop in the list.
     useEffect(() => {
-        if (open) listboxRef.current?.querySelector<HTMLElement>('[role="option"][tabindex="0"]')?.focus()
+        if (!open) return
+        typeahead.current = {text: '', at: 0}
+        listboxRef.current?.querySelector<HTMLElement>('[role="option"][tabindex="0"]')?.focus()
     }, [open])
 
     function optionElements(): HTMLElement[] {
@@ -83,15 +86,19 @@ export function RegionSwitcher() {
         else if (event.key === 'ArrowUp') next = Math.max(index - 1, 0)
         else if (event.key === 'Home') next = 0
         else if (event.key === 'End') next = options.length - 1
-        else if (event.key.length === 1 && /\S/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
             // Typing jumps to the next region whose code or name starts with what was typed.
+            // A space continues a search in progress ("US West"); on its own it selects.
             const now = Date.now()
-            const text = (now - typeahead.current.at < 700 ? typeahead.current.text : '') + event.key.toLowerCase()
+            const searching = typeahead.current.text !== '' && now - typeahead.current.at < 700
+            if (event.key === ' ' && !searching) return
+            if (/\s/.test(event.key)) event.preventDefault()
+            const text = (searching ? typeahead.current.text : '') + event.key.toLowerCase()
             typeahead.current = {text, at: now}
             const ordered = [...options.slice(index + (text.length === 1 ? 1 : 0)), ...options.slice(0, index)]
             const match = ordered.find((option) => {
                 const key = option.dataset.key ?? ''
-                const name = REGION_NAMES.get(key)?.toLowerCase() ?? ''
+                const name = (key === DEFAULT_KEY ? DEFAULT_LABEL : REGION_NAMES.get(key) ?? '').toLowerCase()
                 return key.startsWith(text) || name.startsWith(text)
             })
             if (match) next = options.indexOf(match)
@@ -175,7 +182,7 @@ export function RegionSwitcher() {
                             onFocus={() => setActiveKey(DEFAULT_KEY)}
                             onClick={() => applyRegion(null)}
                         >
-                            <span className="account-option-id region-option-id">Console default</span>
+                            <span className="account-option-id region-option-id">{DEFAULT_LABEL}</span>
                             {defaultRegion && <span className="region-option-name">{defaultRegion}</span>}
                             {selected === null && <Check size={13}/>}
                         </button>

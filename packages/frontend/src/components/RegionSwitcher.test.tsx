@@ -122,4 +122,37 @@ describe('RegionSwitcher', () => {
         expect(getRegion()).toBeNull()
         expect(screen.getByRole('button', {name: /Switch AWS region/})).toHaveFocus()
     })
+
+    it('continues a name search across a space instead of selecting', async () => {
+        const user = userEvent.setup()
+        renderSwitcher()
+        await openSwitcher(user)
+
+        await user.keyboard('us west')
+
+        expect(screen.getByRole('listbox', {name: 'Regions'})).toBeInTheDocument()
+        expect(getRegion()).toBeNull()
+        expect(document.activeElement?.getAttribute('data-key')).toMatch(/^us-west-/)
+    })
+
+    it('finds the console default by the label it shows', async () => {
+        const user = userEvent.setup()
+        renderSwitcher()
+        await openSwitcher(user)
+
+        await user.keyboard('{End}console')
+
+        expect(document.activeElement?.getAttribute('data-key')).toBe('default')
+    })
+
+    it('starts a new search each time the list opens', async () => {
+        const user = userEvent.setup()
+        renderSwitcher()
+        await openSwitcher(user)
+        await user.keyboard('e{Escape}')
+        await user.keyboard('{Enter}')
+        await user.keyboard('a')
+
+        expect(document.activeElement?.getAttribute('data-key')).toMatch(/^a/)
+    })
 })
