@@ -1061,7 +1061,19 @@ export function DynamicResourceView({
               )}
               {renderResourceSurface({
                 schema,
-                resources,
+                resources: cloud === "aws" && service === "email"
+                  ? [...resources].sort((a, b) => {
+                    const aTime = Date.parse(a.createdAt ?? "");
+                    const bTime = Date.parse(b.createdAt ?? "");
+                    const milliseconds = (Number.isNaN(bTime) ? -Infinity : bTime)
+                      - (Number.isNaN(aTime) ? -Infinity : aTime);
+                    if (milliseconds) return milliseconds;
+                    if (Number.isNaN(aTime)) return 0;
+                    const fraction = (value: string | null) =>
+                      Number(value?.match(/T\d{2}:\d{2}:\d{2}\.\d{3}(\d{1,6})/)?.[1]?.padEnd(6, "0") ?? 0);
+                    return fraction(b.createdAt) - fraction(a.createdAt);
+                  })
+                  : resources,
                 selectedId: activeSelected?.id,
                 deletingId: deleteMut.isPending ? deleteMut.variables?.id : undefined,
                 cloudStatus,
