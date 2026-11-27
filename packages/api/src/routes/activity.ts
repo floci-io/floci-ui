@@ -1,5 +1,5 @@
 import {Hono} from 'hono'
-import type {MiddlewareHandler} from 'hono'
+import type {HonoRequest, MiddlewareHandler} from 'hono'
 import {clampLimit} from '../cloud-spi/childCollections'
 import {CloudError, toHttpError, ValidationError} from '../cloud-spi/errors'
 import type {CloudProvider} from '../cloud-spi/types'
@@ -34,10 +34,35 @@ const LEGACY_SERVICES: Record<string, string> = {
 
 /** POST actions that mean something other than "created a resource". */
 const ACTION_LABELS: Record<string, string> = {
-    messages: 'Send',
-    'stream-messages': 'Send',
     tags: 'Tag',
-    object: 'Copy',
+}
+
+/**
+ * Path segments below a resource that address something inside it. The
+ * operation names that thing ("Delete message"), so a change to a child never
+ * reads as a change to the resource that holds it.
+ */
+const CHILD_NOUNS: Record<string, string> = {
+    object: 'object',
+    messages: 'message',
+    'stream-messages': 'message',
+    containers: 'container',
+    collections: 'collection',
+    items: 'item',
+    nodegroups: 'node group',
+    'fargate-profiles': 'Fargate profile',
+    environments: 'environment',
+    'configuration-profiles': 'configuration profile',
+    'hosted-configuration-versions': 'configuration version',
+    deployments: 'deployment',
+    triggers: 'trigger',
+    tags: 'tags',
+    attributes: 'attributes',
+    ingress: 'ingress rule',
+    egress: 'egress rule',
+    routes: 'route',
+    associations: 'association',
+    image: 'image',
 }
 
 /** POST actions that are operations on an existing resource, not a create. */
@@ -60,6 +85,10 @@ export interface ResourceRequest {
     operation: string
     resourceId: string | null
     action: string | null
+    /** The collection below the resource the operation acted on, if any. */
+    child: string | null
+    /** Ids below the resource on the way to the child acted on, outermost first. */
+    childPath: string[]
 }
 
 /**
@@ -96,25 +125,69 @@ export function describeRequest(method: string, path: string): ResourceRequest |
 
     let resourceId: string | null = null
     let action: string | null = null
+    let below: string[] = []
     if (rest[0] === 'resources') {
         resourceId = rest[1] ?? null
-        action = rest[2] ?? null
+        below = rest.slice(2)
     } else if (rest.length >= 2) {
         // Legacy shape: /instances/:id[/action], or a child route without a
         // `resources` segment. With one segment there is no resource yet.
         resourceId = rest[1]
-        action = rest[2] ?? null
+        below = rest.slice(2)
     } else if (rest.length === 1) {
         action = rest[0]
     }
+    action = below[0] ?? action
 
+    const child = childOf(below)
     return {
         cloud,
         service,
-        operation: operationFor(method, action, resourceId !== null),
+        operation: child
+            ? childOperationFor(method, child.collection, child.nested)
+            : operationFor(method, action, resourceId !== null),
         resourceId,
         action,
+        child: child?.collection ?? null,
+        childPath: child?.ids ?? [],
     }
+}
+
+/**
+ * Reads the child a route addresses below its resource: collection and id
+ * segments alternate (`containers/:cid/items/:itemId`), and the last
+ * collection is what the operation acted on. Null when the segment below the
+ * resource is a verb on the resource itself (start, rotate, ...).
+ */
+function childOf(below: string[]): {collection: string; ids: string[]; nested: string | null} | null {
+    const first = below[0]
+    if (!first || !CHILD_NOUNS[first]) return null
+    // `object/copy` is a verb on the object, not an object named "copy".
+    if (first === 'object') return {collection: 'object', ids: [], nested: below[1] ?? null}
+
+    let collection = first
+    const ids: string[] = []
+    for (let index = 0; index < below.length; index += 2) {
+        collection = below[index]
+        const id = below[index + 1]
+        if (id !== undefined) ids.push(id)
+    }
+    return {collection, ids, nested: null}
+}
+
+function childOperationFor(method: string, collection: string, nested: string | null): string {
+    if (method === 'POST' && ACTION_LABELS[collection]) return ACTION_LABELS[collection]
+    const noun = CHILD_NOUNS[collection] ?? humanize(collection).toLowerCase()
+    return `${childVerbFor(method, collection, nested)} ${noun}`
+}
+
+function childVerbFor(method: string, collection: string, nested: string | null): string {
+    if (method === 'DELETE') return 'Delete'
+    if (method === 'PUT' && collection === 'object') return 'Upload'
+    if (method === 'PUT' || method === 'PATCH') return 'Update'
+    if (collection === 'object' && nested === 'copy') return 'Copy'
+    if (collection === 'messages' || collection === 'stream-messages') return 'Send'
+    return 'Create'
 }
 
 function isCloudProvider(value: string | undefined): boolean {
@@ -265,7 +338,7 @@ export function activityRecorder(log: ActivityLog = activityLog): MiddlewareHand
                 service: described.service,
                 operation: described.operation,
                 resourceType: stringField(body, 'type'),
-                resourceName: resourceNameFor(described, c.req.query(), body),
+                resourceName: resourceNameFor(described, c.req.query(), body, await copyTarget(described, c.req)),
                 status: statusCode < 400 ? 'success' : 'failed',
                 statusCode,
                 source: sourceFor(c.req.header('user-agent') ?? ''),
@@ -279,18 +352,50 @@ export function activityRecorder(log: ActivityLog = activityLog): MiddlewareHand
     }
 }
 
+/**
+ * One rule for every row: the resource the route addresses, then the path down
+ * to the child the operation acted on (`bucket/key`, `database/container`).
+ * A child without a name of its own, such as a queue message, leaves the
+ * resource alone.
+ */
 function resourceNameFor(
     described: ResourceRequest,
     query: Record<string, string>,
     body: Record<string, unknown> | null,
+    copied: string | null,
 ): string | null {
-    if (described.action === 'object') {
-        // Object writes name their target in the query string, not the body.
-        const key = query.key ?? query.destKey
-        if (key) return key
-    }
     const named = stringField(body, 'name') ?? stringField(body, 'id')
-    return named ?? described.resourceId
+    const {resourceId, child, childPath, operation} = described
+    if (resourceId === null) return named
+    if (copied) return copied
+    // Tags have no name of their own: their row names the resource they belong to.
+    if (child === null || (child === 'tags' && childPath.length === 0)) return named ?? resourceId
+
+    const path = [resourceId, ...childPath]
+    // Object routes name their key in the query string, not the path.
+    if (child === 'object' && query.key) path.push(query.key)
+    else if (operation.startsWith('Create ')) {
+        // A deployment answers with its number rather than a name or id.
+        const created = named ?? numberField(body, 'deploymentNumber')
+        if (created) path.push(created)
+    }
+    return path.join('/')
+}
+
+/** An object copy names its destination in the request body. */
+async function copyTarget(described: ResourceRequest, req: HonoRequest): Promise<string | null> {
+    if (described.operation !== 'Copy object' || described.resourceId === null) return null
+    try {
+        // The handler has already parsed the body; Hono serves it from its cache.
+        const parsed: unknown = await req.json()
+        if (!parsed || typeof parsed !== 'object') return null
+        const {destKey, destResourceId} = parsed as Record<string, unknown>
+        if (typeof destKey !== 'string' || !destKey) return null
+        const bucket = typeof destResourceId === 'string' && destResourceId ? destResourceId : described.resourceId
+        return `${bucket}/${destKey}`
+    } catch {
+        return null
+    }
 }
 
 function failureDetail(error: unknown, statusCode: number, body: Record<string, unknown> | null): string | null {
@@ -305,6 +410,11 @@ function failureDetail(error: unknown, statusCode: number, body: Record<string, 
 
 function bodyDetail(body: Record<string, unknown> | null): string | null {
     return stringField(body, 'detail') ?? stringField(body, 'message') ?? stringField(body, 'error')
+}
+
+function numberField(body: Record<string, unknown> | null, field: string): string | null {
+    const value = body?.[field]
+    return typeof value === 'number' && Number.isFinite(value) ? String(value) : null
 }
 
 function stringField(body: Record<string, unknown> | null, field: string): string | null {

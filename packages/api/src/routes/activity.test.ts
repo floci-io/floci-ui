@@ -43,6 +43,7 @@ describe('describeRequest', () => {
     test('names the cloud, service and operation of a generic mutation', () => {
         expect(describeRequest('POST', '/api/clouds/aws/services/storage/resources')).toEqual({
             cloud: 'aws', service: 'storage', operation: 'Create', resourceId: null, action: null,
+            child: null, childPath: [],
         })
         expect(describeRequest('PUT', '/api/clouds/gcp/services/compute/resources/i-1')).toMatchObject({
             cloud: 'gcp', service: 'compute', operation: 'Update', resourceId: 'i-1',
@@ -60,12 +61,39 @@ describe('describeRequest', () => {
         expect(describeRequest('POST', '/api/clouds/aws/services/serverless/resources/fn/invoke')).toMatchObject({operation: 'Invoke'})
         expect(describeRequest('POST', '/api/clouds/aws/services/kms/resources/k/rotate')).toMatchObject({operation: 'Rotate'})
         expect(describeRequest('POST', '/api/clouds/aws/services/secrets/resources/s/purge-deleted')).toMatchObject({operation: 'Purge deleted'})
-        expect(describeRequest('POST', '/api/clouds/aws/services/storage/resources/b/object/copy')).toMatchObject({operation: 'Copy'})
-        expect(describeRequest('POST', '/api/clouds/aws/services/nosql/resources/db/containers')).toMatchObject({operation: 'Create'})
         // The usage of a payment key is an operation on the key, not a child
         // that is created.
         expect(describeRequest('POST', '/api/clouds/aws/services/paymentcryptography/resources/k/usage')).toMatchObject({operation: 'Usage'})
         expect(describeRequest('DELETE', '/api/clouds/aws/services/email/inbox')).toMatchObject({operation: 'Clear'})
+    })
+
+    test('names the child a sub-resource route acts on, not the resource holding it', () => {
+        const on = (method: string, path: string) => describeRequest(method, `/api/clouds/aws/services${path}`)
+        expect(on('PUT', '/storage/resources/b/object')).toMatchObject({operation: 'Upload object', resourceId: 'b'})
+        expect(on('DELETE', '/storage/resources/b/object')).toMatchObject({operation: 'Delete object'})
+        expect(on('POST', '/storage/resources/b/object/copy')).toMatchObject({operation: 'Copy object'})
+        expect(on('POST', '/messaging/resources/q/messages')).toMatchObject({operation: 'Send message', resourceId: 'q'})
+        expect(on('DELETE', '/messaging/resources/q/messages')).toMatchObject({operation: 'Delete message', resourceId: 'q'})
+        expect(on('POST', '/stream/resources/s/stream-messages')).toMatchObject({operation: 'Send message'})
+        expect(on('POST', '/nosql/resources/db/containers')).toMatchObject({operation: 'Create container', childPath: []})
+        expect(on('DELETE', '/nosql/resources/db/containers/c1')).toMatchObject({operation: 'Delete container', childPath: ['c1']})
+        expect(on('DELETE', '/nosql/resources/db/containers/c1/items/i1')).toMatchObject({
+            operation: 'Delete item', resourceId: 'db', child: 'items', childPath: ['c1', 'i1'],
+        })
+        expect(on('DELETE', '/k8s/resources/c/nodegroups/ng')).toMatchObject({operation: 'Delete node group'})
+        expect(on('DELETE', '/k8s/resources/c/fargate-profiles/p')).toMatchObject({operation: 'Delete Fargate profile'})
+        expect(on('POST', '/configuration/resources/app/environments/e/deployments')).toMatchObject({
+            operation: 'Create deployment', childPath: ['e'],
+        })
+        expect(on('DELETE', '/configuration/resources/app/configuration-profiles/p/hosted-configuration-versions/3'))
+            .toMatchObject({operation: 'Delete configuration version', childPath: ['p', '3']})
+        expect(on('DELETE', '/serverless/resources/fn/triggers/t')).toMatchObject({operation: 'Delete trigger'})
+        expect(on('DELETE', '/cache/resources/r/collections/c/items/k')).toMatchObject({operation: 'Delete item'})
+        expect(on('PATCH', '/storage/resources/b/tags')).toMatchObject({operation: 'Update tags'})
+        expect(describeRequest('DELETE', '/api/ec2/security-groups/sg-1/ingress')).toMatchObject({operation: 'Delete ingress rule'})
+        expect(describeRequest('DELETE', '/api/ec2/route-tables/rtb-1/routes')).toMatchObject({operation: 'Delete route'})
+        expect(describeRequest('POST', '/api/ec2/instances/i-1/image')).toMatchObject({operation: 'Create image'})
+        expect(describeRequest('PUT', '/api/ec2/vpcs/vpc-1/attributes')).toMatchObject({operation: 'Update attributes'})
     })
 
     test('skips reads, including ones sent as POST', () => {
@@ -84,6 +112,7 @@ describe('describeRequest', () => {
     test('maps the legacy AWS-only routes onto catalog service keys', () => {
         expect(describeRequest('POST', '/api/ec2/instances')).toEqual({
             cloud: 'aws', service: 'compute', operation: 'Create', resourceId: null, action: 'instances',
+            child: null, childPath: [],
         })
         expect(describeRequest('POST', '/api/ec2/instances/i-1/start')).toMatchObject({service: 'compute', operation: 'Start'})
         expect(describeRequest('DELETE', '/api/secretsmanager/secrets/my-secret')).toMatchObject({service: 'secrets', operation: 'Delete'})
@@ -99,6 +128,20 @@ describe('describeRequest', () => {
 })
 
 describe('activity recorder', () => {
+    test('names a started deployment after its number', async () => {
+        const {app} = appWith((routes) => {
+            routes.post('/api/clouds/aws/services/configuration/resources/:id/environments/:env/deployments', (c) =>
+                c.json({deploymentNumber: 7, state: 'DEPLOYING'}, 201))
+        })
+
+        await app.request('/api/clouds/aws/services/configuration/resources/app/environments/prod/deployments', {
+            method: 'POST', body: '{}',
+        })
+
+        const {items} = await feed(app)
+        expect(items[0]).toMatchObject({operation: 'Create deployment', resourceName: 'app/prod/7'})
+    })
+
     test('records a successful create with the name and type the API answered with', async () => {
         const {app} = appWith((routes) => {
             routes.post('/api/clouds/aws/services/storage/resources', (c) =>
@@ -150,18 +193,69 @@ describe('activity recorder', () => {
         })
     })
 
-    test('names object writes after their key', async () => {
+    test('records an object upload as an upload of bucket/key', async () => {
         const {app} = appWith((routes) => {
             routes.put('/api/clouds/aws/services/storage/resources/:id/object', (c) => c.json({ok: true}))
         })
 
-        await app.request('/api/clouds/aws/services/storage/resources/bucket-a/object?key=hello.txt', {
+        await app.request('/api/clouds/aws/services/storage/resources/bucket-a/object?key=notes/hello.txt', {
             method: 'PUT',
             body: 'hi',
         })
 
         const {items} = await feed(app)
-        expect(items[0]).toMatchObject({operation: 'Update', resourceName: 'hello.txt', resourceType: null})
+        expect(items[0]).toMatchObject({
+            service: 'storage', operation: 'Upload object', resourceName: 'bucket-a/notes/hello.txt', resourceType: null,
+        })
+    })
+
+    test('records a message delete as a delete of a message on its queue', async () => {
+        const {app} = appWith((routes) => {
+            routes.delete('/api/clouds/aws/services/messaging/resources/:id/messages', (c) => c.json({ok: true}))
+        })
+
+        await app.request('/api/clouds/aws/services/messaging/resources/orders/messages?receiptHandle=rh-1', {method: 'DELETE'})
+
+        const {items} = await feed(app)
+        expect(items[0]).toMatchObject({service: 'messaging', operation: 'Delete message', resourceName: 'orders'})
+    })
+
+    test('records an object copy under its destination', async () => {
+        const {app} = appWith((routes) => {
+            routes.post('/api/clouds/aws/services/storage/resources/:id/object/copy', async (c) => {
+                await c.req.json()
+                return c.json({ok: true})
+            })
+        })
+
+        await app.request('/api/clouds/aws/services/storage/resources/bucket-a/object/copy', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({srcKey: 'a.txt', destKey: 'b.txt', destResourceId: 'bucket-b'}),
+        })
+
+        const {items} = await feed(app)
+        expect(items[0]).toMatchObject({operation: 'Copy object', resourceName: 'bucket-b/b.txt'})
+    })
+
+    test('names a child after the resource holding it and the path down to it', async () => {
+        const {app} = appWith((routes) => {
+            routes.post('/api/clouds/azure/services/nosql/resources/:id/containers', (c) => c.json({id: 'orders', name: 'orders'}))
+            routes.delete('/api/clouds/azure/services/nosql/resources/:id/containers/:cid/items/:itemId', (c) => c.json({ok: true}))
+        })
+
+        await app.request('/api/clouds/azure/services/nosql/resources/shop/containers', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: '{}',
+        })
+        await app.request('/api/clouds/azure/services/nosql/resources/shop/containers/orders/items/o-1', {method: 'DELETE'})
+
+        const {items} = await feed(app)
+        expect(items.map(({operation, resourceName}) => ({operation, resourceName}))).toEqual([
+            {operation: 'Delete item', resourceName: 'shop/orders/o-1'},
+            {operation: 'Create container', resourceName: 'shop/orders'},
+        ])
     })
 
     test('maps legacy routes to their catalog service key', async () => {
