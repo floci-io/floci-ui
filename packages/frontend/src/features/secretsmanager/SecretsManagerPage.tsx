@@ -29,6 +29,7 @@ import {
   usePutSecretValueMutation,
 } from '@/api/aws/secretsmanager.mutations'
 import { timeAgo } from '@/lib/utils'
+import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 type JsonValueKind = 'string' | 'number' | 'boolean' | 'null' | 'json'
@@ -667,6 +668,7 @@ export function SecretsManagerPage() {
   const [creating, setCreating] = useState(false)
 
   const query = useSecretsQuery()
+  useDocumentTitle('Secrets Manager')
 
   const secrets = useMemo(() => {
     const all = query.data ?? []
