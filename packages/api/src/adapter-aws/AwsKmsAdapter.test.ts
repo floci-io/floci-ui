@@ -12,7 +12,7 @@ import {
     UntagResourceCommand,
 } from '@aws-sdk/client-kms'
 import {AwsKmsAdapter} from './AwsKmsAdapter'
-import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 
 type SendResult = Record<string, unknown>
 
@@ -463,8 +463,24 @@ describe('AwsKmsAdapter', () => {
         expect(sent.some((c) => c instanceof ScheduleKeyDeletionCommand)).toBe(false)
     })
 
+    test('refuses to schedule deletion of a key already pending deletion', async () => {
+        for (const KeyState of ['PendingDeletion', 'PendingReplicaDeletion']) {
+            const {client, sent} = runtimeStub({describe: {KeyMetadata: {...keyMetadata, KeyState, Enabled: false}}})
+
+            await expect(new AwsKmsAdapter(client).delete(KEY_ID)).rejects.toThrow(ConflictError)
+            expect(sent.some((c) => c instanceof ScheduleKeyDeletionCommand)).toBe(false)
+        }
+    })
+
+    test('refuses to tag an AWS managed key', async () => {
+        const {client, sent} = runtimeStub({describe: {KeyMetadata: {...keyMetadata, KeyManager: 'AWS'}}})
+
+        await expect(new AwsKmsAdapter(client).updateTags(KEY_ID, {env: 'prod', stale: null})).rejects.toThrow(ValidationError)
+        expect(sent.some((c) => c instanceof TagResourceCommand || c instanceof UntagResourceCommand)).toBe(false)
+    })
+
     test('adds and removes tags in one update', async () => {
-        const {client, sent} = stubKms(() => ({}))
+        const {client, sent} = runtimeStub()
         await new AwsKmsAdapter(client).updateTags(KEY_ID, {env: 'prod', stale: null})
 
         const tagged = sent.find((c) => c instanceof TagResourceCommand) as TagResourceCommand
@@ -475,7 +491,7 @@ describe('AwsKmsAdapter', () => {
     })
 
     test('skips the tag calls it has nothing to send', async () => {
-        const {client, sent} = stubKms(() => ({}))
+        const {client, sent} = runtimeStub()
         await new AwsKmsAdapter(client).updateTags(KEY_ID, {env: 'prod'})
 
         expect(sent.some((c) => c instanceof UntagResourceCommand)).toBe(false)

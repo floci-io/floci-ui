@@ -786,6 +786,7 @@ describe("DynamicResourceView AWS KMS", () => {
     vi.mocked(listCloudResources).mockResolvedValue([
       { ...summary, id: "customer-key", name: "customer-key", service: "kms", type: "key", metadata: { keyManager: "CUSTOMER" } },
       { ...summary, id: "aws-key", name: "aws-key", service: "kms", type: "key", metadata: { keyManager: "AWS" } },
+      { ...summary, id: "pending-key", name: "pending-key", service: "kms", type: "key", status: "PendingDeletion", metadata: { keyManager: "CUSTOMER" } },
     ]);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -804,6 +805,50 @@ describe("DynamicResourceView AWS KMS", () => {
     const awsRow = (await screen.findByText("aws-key")).closest("tr")!;
     expect(within(customerRow).queryByRole("button", { name: /delete/i })).not.toBeNull();
     expect(within(awsRow).queryByRole("button", { name: /delete/i })).toBeNull();
+    const pendingRow = (await screen.findByText("pending-key")).closest("tr")!;
+    expect(within(pendingRow).queryByRole("button", { name: /delete/i })).toBeNull();
+  });
+
+  it("offers the tag editor on customer managed keys only, since KMS cannot tag an AWS managed key", async () => {
+    const user = userEvent.setup();
+    const customerKey: CloudResource = { ...summary, id: "customer-key", name: "customer-key", service: "kms", type: "key", metadata: { keyManager: "CUSTOMER" } };
+    const awsKey: CloudResource = { ...summary, id: "aws-key", name: "aws-key", service: "kms", type: "key", metadata: { keyManager: "AWS" } };
+    vi.mocked(getServiceSchema).mockResolvedValue({
+      cloud: "aws",
+      service: "kms",
+      displayName: "AWS KMS",
+      fields: [],
+      filters: [],
+      actions: ["list", "inspect"],
+      columns: [{ name: "name", label: "Key ID" }],
+      capabilities: {
+        resourceActions: [
+          { name: "list", label: "List keys", enabled: true, status: "available" },
+          { name: "inspect", label: "Inspect key", enabled: true, status: "available" },
+          { name: "updateTags", label: "Edit tags", enabled: true, status: "available" },
+        ],
+      },
+    });
+    vi.mocked(listCloudResources).mockResolvedValue([customerKey, awsKey]);
+    vi.mocked(getCloudResource).mockImplementation(async (_cloud, _service, id) => (id === awsKey.id ? awsKey : customerKey));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="kms"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("customer-key"));
+    expect(await screen.findByRole("button", { name: /Edit tags/ })).toBeDefined();
+
+    await user.click(screen.getByText("aws-key"));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Edit tags/ })).toBeNull());
   });
 });
 

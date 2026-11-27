@@ -71,6 +71,9 @@ const StreamMessagesPanel = lazyPanel(() => import("@/components/StreamMessagesP
 const LogsQueryPanel = lazyPanel(() => import("@/components/LogsQueryPanel").then((m) => m.LogsQueryPanel));
 const SageMakerDashboardPanel = lazyPanel(() => import("@/components/SageMakerDashboardPanel").then((m) => m.SageMakerDashboardPanel));
 
+/** The key states in which KMS has already scheduled the key for deletion. */
+const KMS_PENDING_DELETION_STATES = new Set(["PendingDeletion", "PendingReplicaDeletion"]);
+
 interface DynamicResourceViewProps {
   cloud: CloudProvider;
   service: CloudServiceType;
@@ -293,7 +296,8 @@ export function DynamicResourceView({
           : isAwsCodeBuild
             ? (resource: CloudResource) => resource.type === "project"
             : isAwsKms
-              ? (resource: CloudResource) => resource.metadata.keyManager !== "AWS"
+              ? (resource: CloudResource) =>
+                  resource.metadata.keyManager !== "AWS" && !KMS_PENDING_DELETION_STATES.has(resource.status ?? "")
               : isOciIdentity
                 ? (resource: CloudResource) => resource.type !== "region subscription"
                 : emptyingKey !== undefined
@@ -682,9 +686,11 @@ export function DynamicResourceView({
   const inspectNotice =
     inspectCapability?.status === "partial" ? inspectCapability.reason : undefined;
   const updateTagsCapability = capabilityFor(resourceCapabilities, "updateTags");
+  // KMS tags customer managed keys only.
   const canEditTags =
     capabilityEnabled(updateTagsCapability) &&
-    capabilityAppliesToType(updateTagsCapability, inspectedResource?.type);
+    capabilityAppliesToType(updateTagsCapability, inspectedResource?.type) &&
+    !(isAwsKms && inspectedResource?.metadata.keyManager === "AWS");
   const databaseCapabilities = withServiceAvailability(
     withRuntimeState(
       normalizeCapabilities(schema.capabilities?.databaseActions),

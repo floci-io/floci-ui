@@ -11,7 +11,7 @@ import {
     TagResourceCommand,
     UntagResourceCommand,
 } from '@aws-sdk/client-kms'
-import {RuntimeError, ValidationError} from '../cloud-spi/errors'
+import {ConflictError, RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     awsKmsSchema,
     KMS_DESCRIPTION_MAX_LENGTH,
@@ -110,18 +110,28 @@ export class AwsKmsAdapter implements CloudServiceAdapter {
      *
      * An AWS managed key belongs to the service that created it, and KMS refuses
      * to schedule its deletion, so the console refuses first with a typed error.
+     * A key already scheduled for deletion is refused too: KMS answers a second
+     * schedule with KMSInvalidStateException.
      */
     async delete(id: string): Promise<void> {
         const metadata = await this.describeForCrypto(id)
         if (metadata.KeyManager === 'AWS') {
             throw new ValidationError(`Key ${id} is an AWS managed key, which cannot be scheduled for deletion`)
         }
+        if (isPendingDeletion(metadata.KeyState)) {
+            throw new ConflictError(`Key ${id} is already scheduled for deletion`)
+        }
         await this.kms.send(
             new ScheduleKeyDeletionCommand({KeyId: id, PendingWindowInDays: PENDING_DELETION_WINDOW_DAYS}),
         )
     }
 
+    /** KMS tags customer managed keys only, so an AWS managed key is refused before any call. */
     async updateTags(id: string, tags: Record<string, string | null>): Promise<void> {
+        const metadata = await this.describeForCrypto(id)
+        if (metadata.KeyManager === 'AWS') {
+            throw new ValidationError(`Key ${id} is an AWS managed key, which cannot be tagged`)
+        }
         const added = Object.entries(tags).filter((entry): entry is [string, string] => entry[1] !== null)
         const removed = Object.keys(tags).filter((key) => tags[key] === null)
 
@@ -324,6 +334,11 @@ function responseAlgorithm(
         return value
     }
     throw new RuntimeError('KMS returned an unsupported encryption algorithm')
+}
+
+/** The key states in which KMS has already scheduled the key for deletion. */
+function isPendingDeletion(keyState: string | undefined): boolean {
+    return keyState === 'PendingDeletion' || keyState === 'PendingReplicaDeletion'
 }
 
 function toResource(metadata: KeyMetadata, tagLookup: TagLookup): CloudResource {
