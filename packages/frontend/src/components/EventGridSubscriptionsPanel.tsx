@@ -3,8 +3,6 @@ import {Radio} from 'lucide-react'
 import {useQueries} from '@tanstack/react-query'
 import {listCollectionItems} from '@/api/cloudProxyClient'
 import {EmptyState} from '@/components/EmptyState'
-import {useAccountId} from '@/lib/accountStore'
-import {useRegion} from '@/lib/regionStore'
 import type {ChildItem, CloudResource} from '@/types/resource'
 
 interface EventGridSubscriptionsPanelProps {
@@ -41,13 +39,11 @@ export function EventGridSubscriptionsPanel({resource, runtimeReachable}: EventG
 }
 
 function SubscriptionsPanel({topic, name, runtimeReachable}: {topic: string; name: string; runtimeReachable: boolean}) {
-    const accountId = useAccountId()
-    const region = useRegion()
     const [cursors, setCursors] = useState<Array<string | undefined>>([undefined])
 
     const pages = useQueries({
         queries: cursors.map((cursor) => ({
-            queryKey: ['azure-event-subscriptions', accountId, region, topic, cursor],
+            queryKey: ['azure-event-subscriptions', topic, cursor],
             queryFn: ({signal}: {signal: AbortSignal}) => listCollectionItems('azure', 'events', topic, COLLECTION, cursor, signal),
             enabled: runtimeReachable,
         })),

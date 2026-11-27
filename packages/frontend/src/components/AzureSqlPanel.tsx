@@ -2,13 +2,12 @@ import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Code2, Database, Play, Plug, RefreshCw, Table2, Unplug } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useAccountId } from "@/lib/accountStore";
-import { useRegion } from "@/lib/regionStore";
 import {
   listSqlDatabases,
   listSqlTables,
   querySql,
 } from "@/api/cloudProxyClient";
+import { useCloudQueryScope } from "@/api/queries/cloudQueries";
 import type { CloudProvider } from "@/types/cloud";
 import type {
   CloudResource,
@@ -39,8 +38,7 @@ export function AzureSqlPanel({
   resource,
   runtimeReachable,
 }: AzureSqlPanelProps) {
-  const accountId = useAccountId();
-  const region = useRegion();
+  const scope = useCloudQueryScope(cloud);
   const serverId = resource?.id;
   const service = resource?.service ?? "database";
   // Aurora DSQL signs in as admin with an IAM token, which the API mints: there
@@ -69,7 +67,7 @@ export function AzureSqlPanel({
   const databaseExists = databases.some((database) => database.name === selectedDatabase);
 
   const tablesQuery = useQuery({
-    queryKey: ['sql-tables', accountId, region, cloud, serverId, engine, selectedDatabase, username],
+    queryKey: ['sql-tables', ...scope, cloud, serverId, engine, selectedDatabase, username],
     queryFn: ({signal}) => listSqlTables(cloud, service, serverId ?? "", engine, selectedDatabase, credentials, signal),
     enabled: connected && databaseExists && runtimeReachable,
     gcTime: 0,

@@ -21,6 +21,7 @@ import {
   listCloudResources,
   listLambdaTriggers,
 } from "@/api/cloudProxyClient";
+import { useCloudQueryScope } from "@/api/queries/cloudQueries";
 import type { CloudProvider } from "@/types/cloud";
 import type { CloudResource, CreateLambdaTriggerInput, LambdaTrigger } from "@/types/resource";
 
@@ -58,6 +59,7 @@ export function LambdaTriggerPanel({
   onClose,
 }: LambdaTriggerPanelProps) {
   const qc = useQueryClient();
+  const scope = useCloudQueryScope(cloud);
   const [isRegisterOpen, setIsRegisterOpen] = useState(initialRegisterOpen);
   const [selectedType, setSelectedType] = useState<TriggerType>("s3");
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -98,32 +100,32 @@ export function LambdaTriggerPanel({
 
   // Query triggers
   const triggersQuery = useQuery({
-    queryKey: ["lambda-triggers", cloud, resource.id],
+    queryKey: ["lambda-triggers", cloud, resource.id, ...scope],
     queryFn: ({ signal }) => listLambdaTriggers(cloud, resource.id, signal),
     enabled: cloud === "aws" && runtimeReachable,
   });
 
   // Query resources for dropdown helpers
   const storageBucketsQuery = useQuery({
-    queryKey: ["cloud-resources", cloud, "storage"],
+    queryKey: ["cloud-resources", ...scope, cloud, "storage"],
     queryFn: ({ signal }) => listCloudResources(cloud, "storage", undefined, signal),
     enabled: cloud === "aws" && isRegisterOpen && selectedType === "s3",
   });
 
   const dynamoTablesQuery = useQuery({
-    queryKey: ["cloud-resources", cloud, "nosql"],
+    queryKey: ["cloud-resources", ...scope, cloud, "nosql"],
     queryFn: ({ signal }) => listCloudResources(cloud, "nosql", undefined, signal),
     enabled: cloud === "aws" && isRegisterOpen && selectedType === "dynamodb",
   });
 
   const sqsQueuesQuery = useQuery({
-    queryKey: ["cloud-resources", cloud, "messaging"],
+    queryKey: ["cloud-resources", ...scope, cloud, "messaging"],
     queryFn: ({ signal }) => listCloudResources(cloud, "messaging", undefined, signal),
     enabled: cloud === "aws" && isRegisterOpen && selectedType === "sqs",
   });
 
   const kinesisStreamsQuery = useQuery({
-    queryKey: ["cloud-resources", cloud, "streams"],
+    queryKey: ["cloud-resources", ...scope, cloud, "streams"],
     queryFn: ({ signal }) => listCloudResources(cloud, "streams", undefined, signal),
     enabled: cloud === "aws" && isRegisterOpen && selectedType === "kinesis",
   });

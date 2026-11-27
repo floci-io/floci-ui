@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react'
 import {ChevronRight, Maximize2, Minimize2, RefreshCw, ScrollText} from 'lucide-react'
 import {useQueries} from '@tanstack/react-query'
 import {listChildCollections, listCollectionItems} from '@/api/cloudProxyClient'
+import {useCloudQueryScope} from '@/api/queries/cloudQueries'
 import {EmptyState} from '@/components/EmptyState'
 import {ExpandablePanel} from '@/components/ExpandablePanel'
 import {formatBytes, formatDateTime} from '@/lib/format'
@@ -35,6 +36,7 @@ interface LogsExplorerPanelProps {
  */
 export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplorerPanelProps) {
     const groupId = resource?.id
+    const scope = useCloudQueryScope(cloud)
     const [selectedStreamId, setSelectedStreamId] = useState<string | undefined>()
     const [streamCursors, setStreamCursors] = useState<Array<string | undefined>>([undefined])
     const [eventCursors, setEventCursors] = useState<Array<string | undefined>>([undefined])
@@ -52,7 +54,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
 
     const streamPages = useQueries({
         queries: streamCursors.map((cursor) => ({
-            queryKey: ['log-streams', cloud, groupId, cursor],
+            queryKey: ['log-streams', cloud, groupId, cursor, ...scope],
             queryFn: ({signal}: {signal: AbortSignal}) => listChildCollections(cloud, 'logs', groupId ?? '', cursor, signal),
             enabled: Boolean(groupId) && runtimeReachable,
         })),
@@ -65,7 +67,7 @@ export function LogsExplorerPanel({cloud, resource, runtimeReachable}: LogsExplo
 
     const eventPages = useQueries({
         queries: eventCursors.map((cursor) => ({
-            queryKey: ['log-events', cloud, groupId, selectedStreamId, cursor],
+            queryKey: ['log-events', cloud, groupId, selectedStreamId, cursor, ...scope],
             queryFn: ({signal}: {signal: AbortSignal}) => listCollectionItems(cloud, 'logs', groupId ?? '', selectedStreamId ?? '', cursor, signal),
             enabled: Boolean(groupId && selectedStreamId) && runtimeReachable,
         })),

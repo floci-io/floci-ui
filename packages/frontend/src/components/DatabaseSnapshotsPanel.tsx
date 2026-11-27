@@ -3,6 +3,7 @@ import { Camera, Loader2, Plus, RefreshCw } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDatabaseSnapshot, listDatabaseSnapshots } from "@/api/cloudProxyClient";
 import { HttpError } from "@/api/HttpClient";
+import { useCloudQueryScope } from "@/api/queries/cloudQueries";
 import { EmptyState } from "@/components/EmptyState";
 import { capabilityEnabled } from "@/lib/capabilities";
 import type { CloudProvider } from "@/types/cloud";
@@ -25,6 +26,7 @@ export function DatabaseSnapshotsPanel({
   runtimeReachable,
 }: DatabaseSnapshotsPanelProps) {
   const qc = useQueryClient();
+  const scope = useCloudQueryScope(cloud);
   const [sourceInstance, setSourceInstance] = useState("");
   const [snapshotId, setSnapshotId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -33,7 +35,7 @@ export function DatabaseSnapshotsPanel({
   const canCreate = runtimeReachable && capabilityEnabled(createCapability);
 
   const snapshotsQuery = useQuery({
-    queryKey: ["database-snapshots", cloud],
+    queryKey: ["database-snapshots", cloud, ...scope],
     queryFn: ({ signal }) => listDatabaseSnapshots(cloud, undefined, signal),
     enabled: canList,
   });

@@ -3,6 +3,7 @@ import {useQueries} from '@tanstack/react-query'
 import {listCloudResources} from '@/api/cloudProxyClient'
 import {
     cloudQueryKeys,
+    useCloudQueryScope,
     useCloudServicesQuery,
     useCloudStatusQuery,
 } from '@/api/queries/cloudQueries'
@@ -29,6 +30,7 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
     const servicesQuery = useCloudServicesQuery(cloud)
     const statusQuery = useCloudStatusQuery(cloud)
     const status = statusQuery.data
+    const scope = useCloudQueryScope(cloud)
     const services = useMemo(() => servicesQuery.data ?? [], [servicesQuery.data])
 
     // Availability is derived from adapter registration, so an available service
@@ -43,7 +45,7 @@ export function useCloudConsoleHomeData(cloud: CloudProvider) {
     const runtimeReachable = status?.runtime === 'reachable'
     const countQueries = useQueries({
         queries: countable.map((service) => ({
-            queryKey: cloudQueryKeys.resources(cloud, service.service),
+            queryKey: cloudQueryKeys.resources(cloud, service.service, scope),
             queryFn: ({signal}: {signal?: AbortSignal}) =>
                 listCloudResources(cloud, service.service, undefined, signal),
             enabled: runtimeReachable,
