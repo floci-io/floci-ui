@@ -281,6 +281,7 @@ export function DynamicResourceView({
   const isAwsAthena = cloud === "aws" && service === "analytics";
   const isOciIdentity = cloud === "oci" && service === "identity";
   const isAwsCodeBuild = cloud === "aws" && service === "cicd";
+  const isAwsKms = cloud === "aws" && service === "kms";
   const canDeleteResource = viewingDeleted
     ? () => false
     : isAwsSageMaker
@@ -291,11 +292,13 @@ export function DynamicResourceView({
           ? (resource: CloudResource) => resource.type === "athena-workgroup" && resource.name !== "primary"
           : isAwsCodeBuild
             ? (resource: CloudResource) => resource.type === "project"
-            : isOciIdentity
-              ? (resource: CloudResource) => resource.type !== "region subscription"
-              : emptyingKey !== undefined
-                ? (resource: CloudResource) => targetKey({ accountId, region, cloud, bucketId: resource.id }) !== emptyingKey
-                : undefined;
+            : isAwsKms
+              ? (resource: CloudResource) => resource.metadata.keyManager !== "AWS"
+              : isOciIdentity
+                ? (resource: CloudResource) => resource.type !== "region subscription"
+                : emptyingKey !== undefined
+                  ? (resource: CloudResource) => targetKey({ accountId, region, cloud, bucketId: resource.id }) !== emptyingKey
+                  : undefined;
   const sagemakerDashboardResourcesQuery = useQuery({
     queryKey: ["sagemaker-dashboard-resources", accountId, region, cloud, service],
     queryFn: ({ signal }) => listCloudResources(cloud, service, "", signal),

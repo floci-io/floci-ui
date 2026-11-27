@@ -10,6 +10,13 @@ const kmsColumns: TableColumnSchema[] = [
     {name: 'description', label: 'Description', path: 'metadata.description', emptyText: '—'},
     {name: 'status', label: 'State', format: 'badge'},
     {name: 'keyUsage', label: 'Usage', path: 'metadata.keyUsage'},
+    {
+        name: 'deletionDate',
+        label: 'Deletion Date',
+        path: 'metadata.deletionDate',
+        format: 'datetime',
+        emptyText: '—',
+    },
     {name: 'createdAt', label: 'Created', format: 'datetime'},
 ]
 

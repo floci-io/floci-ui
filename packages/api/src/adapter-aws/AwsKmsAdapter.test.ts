@@ -446,14 +446,21 @@ describe('AwsKmsAdapter', () => {
         })).rejects.toThrow(RuntimeError)
     })
 
-    test('deletes a key by scheduling deletion with the shortest window', async () => {
-        const {client, sent} = stubKms(() => ({KeyId: KEY_ARN, DeletionDate: new Date()}))
+    test('deletes a customer managed key by scheduling deletion with the shortest window', async () => {
+        const {client, sent} = runtimeStub()
         await new AwsKmsAdapter(client).delete(KEY_ID)
 
-        const command = sent[0] as ScheduleKeyDeletionCommand
+        const command = sent.find((c) => c instanceof ScheduleKeyDeletionCommand) as ScheduleKeyDeletionCommand
         expect(command).toBeInstanceOf(ScheduleKeyDeletionCommand)
         expect(command.input.KeyId).toBe(KEY_ID)
         expect(command.input.PendingWindowInDays).toBe(7)
+    })
+
+    test('refuses to schedule deletion of an AWS managed key', async () => {
+        const {client, sent} = runtimeStub({describe: {KeyMetadata: {...keyMetadata, KeyManager: 'AWS'}}})
+
+        await expect(new AwsKmsAdapter(client).delete(KEY_ID)).rejects.toThrow(ValidationError)
+        expect(sent.some((c) => c instanceof ScheduleKeyDeletionCommand)).toBe(false)
     })
 
     test('adds and removes tags in one update', async () => {

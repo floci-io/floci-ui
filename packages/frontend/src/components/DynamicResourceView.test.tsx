@@ -738,6 +738,46 @@ describe("DynamicResourceView AWS CodeBuild", () => {
   });
 });
 
+describe("DynamicResourceView AWS KMS", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(ACCOUNT_A);
+  });
+
+  it("offers delete on customer managed keys only, since AWS managed keys cannot be deleted", async () => {
+    vi.mocked(getServiceSchema).mockResolvedValue({
+      cloud: "aws",
+      service: "kms",
+      displayName: "AWS KMS",
+      fields: [],
+      filters: [],
+      actions: ["list", "inspect", "delete"],
+      columns: [{ name: "name", label: "Key ID" }],
+    });
+    vi.mocked(listCloudResources).mockResolvedValue([
+      { ...summary, id: "customer-key", name: "customer-key", service: "kms", type: "key", metadata: { keyManager: "CUSTOMER" } },
+      { ...summary, id: "aws-key", name: "aws-key", service: "kms", type: "key", metadata: { keyManager: "AWS" } },
+    ]);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="kms"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    const customerRow = (await screen.findByText("customer-key")).closest("tr")!;
+    const awsRow = (await screen.findByText("aws-key")).closest("tr")!;
+    expect(within(customerRow).queryByRole("button", { name: /delete/i })).not.toBeNull();
+    expect(within(awsRow).queryByRole("button", { name: /delete/i })).toBeNull();
+  });
+});
+
 describe("DynamicResourceView Empty bucket", () => {
   beforeEach(() => {
     vi.clearAllMocks();
