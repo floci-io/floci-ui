@@ -141,6 +141,35 @@ describe("DynamicResourceView", () => {
     });
   });
 
+  it.each([
+    ["email", ["newer fraction", "new", "same time", "old", "missing", "invalid"]],
+    ["cognito", ["missing", "old", "new", "invalid", "same time", "newer fraction"]],
+  ] as const)("orders %s resources without mutating the response", async (service, expected) => {
+    const resources: CloudResource[] = [
+      { ...summary, id: "missing", name: "missing", service, createdAt: null },
+      { ...summary, id: "old", name: "old", service, createdAt: "2026-01-01T00:00:00Z" },
+      { ...summary, id: "new", name: "new", service, createdAt: "2026-02-01T00:00:00.000023456Z" },
+      { ...summary, id: "invalid", name: "invalid", service, createdAt: "invalid" },
+      { ...summary, id: "same", name: "same time", service, createdAt: "2026-02-01T09:00:00.000023456+09:00" },
+      { ...summary, id: "newer", name: "newer fraction", service, createdAt: "2026-02-01T00:00:00.000123456Z" },
+    ];
+    vi.mocked(getServiceSchema).mockResolvedValue({ ...schema, service });
+    vi.mocked(listCloudResources).mockResolvedValue(resources);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView cloud="aws" service={service} serviceAvailability="available"
+          cloudStatus={cloudStatus} onOpenInfo={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("newer fraction");
+    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+    expect(rows.map((row) => within(row).getByRole("cell").textContent)).toEqual(expected);
+    expect(resources.map((resource) => resource.name)).toEqual(["missing", "old", "new", "invalid", "same time", "newer fraction"]);
+  });
+
   it("loads resource details before inspecting a selected list row", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
