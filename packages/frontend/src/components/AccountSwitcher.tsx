@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react'
+import {useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent} from 'react'
 import {useQueryClient} from '@tanstack/react-query'
 import {Check, ChevronDown, UserRound} from 'lucide-react'
 import {
@@ -21,7 +21,10 @@ export function AccountSwitcher() {
     const [open, setOpen] = useState(false)
     const [draft, setDraft] = useState('')
     const [error, setError] = useState<string | null>(null)
+    const [activeId, setActiveId] = useState(accountId)
     const containerRef = useRef<HTMLDivElement>(null)
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const listboxRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         if (!open) return
@@ -29,7 +32,10 @@ export function AccountSwitcher() {
             if (!containerRef.current?.contains(event.target as Node)) setOpen(false)
         }
         const onKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setOpen(false)
+            if (event.key !== 'Escape') return
+            const hadFocus = containerRef.current?.contains(document.activeElement) ?? false
+            setOpen(false)
+            if (hadFocus) triggerRef.current?.focus()
         }
         document.addEventListener('mousedown', onClick)
         document.addEventListener('keydown', onKey)
@@ -39,6 +45,27 @@ export function AccountSwitcher() {
         }
     }, [open])
 
+    // Opening puts focus on the selected account, the one Tab stop in the list.
+    useEffect(() => {
+        if (!open) return
+        listboxRef.current?.querySelector<HTMLElement>('[role="option"][tabindex="0"]')?.focus()
+    }, [open])
+
+    function onListKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+        const options = Array.from(listboxRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])
+        if (options.length === 0) return
+        const index = Math.max(0, options.findIndex((option) => option.dataset.id === activeId))
+        let next: number | null = null
+        if (event.key === 'ArrowDown') next = Math.min(index + 1, options.length - 1)
+        else if (event.key === 'ArrowUp') next = Math.max(index - 1, 0)
+        else if (event.key === 'Home') next = 0
+        else if (event.key === 'End') next = options.length - 1
+        if (next === null) return
+        event.preventDefault()
+        setActiveId(options[next].dataset.id ?? accountId)
+        options[next].focus()
+    }
+
     function applyAccount(id: string) {
         if (!setAccountId(id)) {
             setError('Account id must be exactly 12 digits.')
@@ -47,6 +74,7 @@ export function AccountSwitcher() {
         setDraft('')
         setError(null)
         setOpen(false)
+        triggerRef.current?.focus()
         // Resources are account-scoped, so anything cached under the previous
         // account must not leak into the new view.
         void queryClient.invalidateQueries()
@@ -64,9 +92,13 @@ export function AccountSwitcher() {
     return (
         <div className="account-switcher" ref={containerRef}>
             <button
+                ref={triggerRef}
                 type="button"
                 className="account-trigger"
-                onClick={() => setOpen((v) => !v)}
+                onClick={() => {
+                    setActiveId(accountId)
+                    setOpen((v) => !v)
+                }}
                 title="Switch AWS account"
                 aria-label={`Switch AWS account ${formatAccount(accountId)}`}
                 aria-haspopup="listbox"
@@ -81,16 +113,25 @@ export function AccountSwitcher() {
             </button>
 
             {open && (
-                <div className="account-popover" role="listbox">
+                <div className="account-popover">
                     <div className="account-popover-title">Switch account</div>
-                    <div className="account-recents">
+                    <div
+                        className="account-recents"
+                        role="listbox"
+                        aria-label="Accounts"
+                        ref={listboxRef}
+                        onKeyDown={onListKeyDown}
+                    >
                         {recents.map((id) => (
                             <button
                                 key={id}
+                                data-id={id}
                                 type="button"
                                 className={`account-option${id === accountId ? ' active' : ''}`}
                                 role="option"
                                 aria-selected={id === accountId}
+                                tabIndex={id === activeId ? 0 : -1}
+                                onFocus={() => setActiveId(id)}
                                 onClick={() => applyAccount(id)}
                             >
                                 <span className="account-option-id">{formatAccount(id)}</span>
