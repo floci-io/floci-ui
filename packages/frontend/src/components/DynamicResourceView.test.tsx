@@ -1780,42 +1780,110 @@ describe("DynamicResourceView the certificate of a payment key", () => {
   });
 });
 
-describe("DynamicResourceView the usage of a payment key", () => {
-  const ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/abc";
-  const key: CloudResource = {
-    id: `key/${ARN}`,
-    name: ARN,
+describe("DynamicResourceView the material a payment key leaves under", () => {
+  const CARRIED_ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/carried";
+  const WRAPPING_ARN = "arn:aws:payment-cryptography:us-east-1:000000000000:key/wrapping";
+
+  const carried: CloudResource = {
+    id: `key/${CARRIED_ARN}`,
+    name: CARRIED_ARN,
     cloud: "aws",
     service: "paymentcryptography",
     type: "key",
     region: "us-east-1",
     createdAt: null,
     status: "CREATE_COMPLETE",
-    metadata: {enabled: false},
+    metadata: {
+      enabled: true,
+      exportable: true,
+      keyAlgorithm: "AES_256",
+      keyUsage: "TR31_P1_PIN_GENERATION_KEY",
+      keyModesOfUse: {Generate: true},
+    },
   };
-  // The table's row is the row of the table: it is not the key that was read,
-  // and it says something else about the key's usage.
-  const row: CloudResource = {...key, metadata: {enabled: true}};
 
-  const paymentSchema: ServiceSchema = {
+  const wrapping: CloudResource = {
+    id: `key/${WRAPPING_ARN}`,
+    name: WRAPPING_ARN,
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    status: "CREATE_COMPLETE",
+    metadata: {
+      enabled: true,
+      exportable: true,
+      mayWrap: true,
+      keyAlgorithm: "AES_256",
+      keyUsage: "TR31_K0_KEY_ENCRYPTION_KEY",
+      keyModesOfUse: {Wrap: true, Unwrap: true},
+    },
+  };
+
+  /** A key of the account that the service does not say may wrap another one. */
+  const paymentOnly: CloudResource = {
+    id: "key/arn:aws:payment-cryptography:us-east-1:000000000000:key/payment",
+    name: "arn:aws:payment-cryptography:us-east-1:000000000000:key/payment",
+    cloud: "aws",
+    service: "paymentcryptography",
+    type: "key",
+    region: "us-east-1",
+    createdAt: null,
+    status: "CREATE_COMPLETE",
+    metadata: {
+      enabled: true,
+      exportable: true,
+      mayWrap: false,
+      keyAlgorithm: "AES_256",
+      keyUsage: "TR31_D0_SYMMETRIC_DATA_ENCRYPTION_KEY",
+      keyModesOfUse: {Encrypt: true, Decrypt: true},
+    },
+  };
+
+  const exportSchema: ServiceSchema = {
     cloud: "aws",
     service: "paymentcryptography",
     displayName: "Payment Cryptography",
-    fields: [],
+    fields: [
+      {
+        name: "wrappingKeyArn",
+        label: "Wrapping Key",
+        type: "select",
+        required: false,
+        optionsFrom: "key",
+      },
+    ],
     filters: [],
     actions: ["list", "inspect"],
     columns: [{name: "name", label: "Name"}],
+    pairings: [
+      {
+        discriminator: "keyAlgorithm",
+        allowed: {AES_256: ["AES_256"]},
+      },
+    ],
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     setAccountId(DEFAULT_ACCOUNT_ID);
-    vi.mocked(getServiceSchema).mockResolvedValue(paymentSchema);
-    vi.mocked(listCloudResources).mockResolvedValue([row]);
-    vi.mocked(getCloudResource).mockResolvedValue(key);
+    vi.mocked(getServiceSchema).mockResolvedValue(exportSchema);
+    vi.mocked(getCloudResource).mockResolvedValue(carried);
   });
 
-  function renderPayment() {
+  it("offers a wrapping key under the name it was given", async () => {
+    // A key has no name of its own, so an ARN is all the console could offer.
+    // The alias that names it is what the operator knows it by.
+    const named: CloudResource = {
+      ...wrapping,
+      metadata: {...wrapping.metadata, names: ["alias/prosa-kek"]},
+    };
+    vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) =>
+      search === undefined ? [carried, named] : [carried],
+    );
+
+    const user = userEvent.setup();
     const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
     render(
       <QueryClientProvider client={queryClient}>
@@ -1828,48 +1896,166 @@ describe("DynamicResourceView the usage of a payment key", () => {
         />
       </QueryClientProvider>,
     );
-  }
 
-  it("states the usage of the key that was read", async () => {
-    const user = userEvent.setup();
-    renderPayment();
+    await user.click(await screen.findByText(CARRIED_ARN));
 
-    await user.click(await screen.findByText(ARN));
+    const select = await screen.findByLabelText("Wrapping key");
+    const options = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).textContent ?? "");
 
-    expect(await screen.findByText(/The key is disabled/)).toBeDefined();
-    expect(screen.getByRole("button", {name: /Enable key/})).toBeDefined();
+    // The option is offered under the alias, and the value is still the key, so
+    // the service is asked for exactly the key that was chosen.
+    expect(options.some((text) => text.includes("alias/prosa-kek"))).toBe(true);
+    // The ARN is beside the alias, so an alias in a list of keys reads as the
+    // key it names and not as another kind of resource.
+    expect(options.some((text) => text.includes("alias/prosa-kek") && text.includes(named.name))).toBe(
+      true,
+    );
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+    expect(values).toContain(named.id);
   });
 
-  it("says nothing about the key until its detail has been read", async () => {
+  it("offers the wrapping keys the account holds, not the rows the table shows", async () => {
+    // The table's rows are the ones the search box narrowed; the keys a wrapping
+    // key may be chosen from come from the service's own list.
+    vi.mocked(listCloudResources).mockImplementation(async (_cloud, _service, search) =>
+      search === undefined ? [carried, wrapping] : [carried],
+    );
+
     const user = userEvent.setup();
-    // The detail never comes, so the panel waits for it.
-    vi.mocked(getCloudResource).mockImplementation(() => new Promise(() => undefined));
-    renderPayment();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
 
-    await user.click(await screen.findByText(ARN));
+    await user.type(await screen.findByLabelText("Filter resources"), "carried");
+    await user.click(await screen.findByText(CARRIED_ARN));
 
-    // The panel must not speak about a key it has not read: the row on screen
-    // is not the key that was read, and the usage it carries must not be
-    // stated as the key's own.
-    await screen.findByText("Usage");
-    expect(screen.queryByText(/The key may be used/)).toBeNull();
-    expect(screen.queryByText(/The key is disabled/)).toBeNull();
-    expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
-    expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
+    const select = await screen.findByLabelText("Wrapping key");
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+
+    // The account holds a key that may carry this one, so it is offered, even
+    // though the table is showing one row.
+    expect(values).toContain(wrapping.id);
+  });
+
+  it("offers only the keys the service says may wrap", async () => {
+    // The import form names the key the block is wrapped under, and the
+    // service refuses any other key, so the choices are the keys it says may
+    // wrap.
+    const importSchema: ServiceSchema = {
+      ...exportSchema,
+      actions: ["list", "create", "inspect"],
+      fields: [
+        {
+          name: "wrappingKeyArn",
+          label: "Wrapping Key",
+          type: "select",
+          required: false,
+          optionsFrom: "key",
+          optionsState: "mayWrap",
+        },
+      ],
+    };
+    vi.mocked(getServiceSchema).mockResolvedValue(importSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([carried, wrapping, paymentOnly]);
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole("button", {name: /^Create$/}));
+
+    const select = await screen.findByLabelText("Wrapping Key");
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+
+    expect(values).toContain(wrapping.id);
+    expect(values).not.toContain(paymentOnly.id);
+  });
+
+  it("offers the wrapping keys even when the form names no other resource", async () => {
+    // The account's own list is the panel's data, not the create form's, so it
+    // does not hang on whether the schema declares a field that names another
+    // resource.
+    vi.mocked(getServiceSchema).mockResolvedValue({...exportSchema, fields: []});
+    vi.mocked(listCloudResources).mockResolvedValue([carried, wrapping]);
+
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText(CARRIED_ARN));
+
+    const select = await screen.findByLabelText("Wrapping key");
+    const values = within(select)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+
+    expect(values).toContain(wrapping.id);
   });
 
   it("says so when the key itself could not be read", async () => {
-    const user = userEvent.setup();
+    vi.mocked(listCloudResources).mockImplementation(async () => [
+      {...carried, metadata: {...carried.metadata, exportable: false}},
+    ]);
     vi.mocked(getCloudResource).mockRejectedValue(new Error("The runtime is not answering."));
-    renderPayment();
 
-    await user.click(await screen.findByText(ARN));
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="paymentcryptography"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
 
-    // The key could not be read, so nothing is known of its usage, and the
-    // console says that rather than speaking from the row.
-    expect(await screen.findByText(/whether it may be used is unknown/)).toBeDefined();
-    expect(screen.queryByText(/The key may be used/)).toBeNull();
-    expect(screen.queryByRole("button", {name: /Disable key/})).toBeNull();
-    expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
+    await user.click(await screen.findByText(CARRIED_ARN));
+
+    // The key could not be read, so nothing is known of the material it leaves
+    // under, and the console says that rather than speaking about a key it has
+    // not read.
+    expect(await screen.findByText(/its material is unknown/)).toBeDefined();
+    expect(screen.queryByText(/not exportable/)).toBeNull();
+    expect(screen.queryByRole("button", {name: /Export key/i})).toBeNull();
   });
 });

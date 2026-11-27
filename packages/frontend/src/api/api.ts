@@ -23,6 +23,7 @@ export const apiEndpointKeys = {
       update: "clouds.services.resources.update",
       tags: "clouds.services.resources.tags",
       usage: "clouds.services.resources.usage",
+      exportKey: "clouds.services.resources.exportKey",
       delete: "clouds.services.resources.delete",
       invoke: "clouds.services.resources.invoke",
       encrypt: "clouds.services.resources.encrypt",
@@ -347,6 +348,14 @@ export const endpointRegistry: EndpointRegistry = new Map([
     apiEndpointKeys.clouds.resources.usage,
     {
       path: "/clouds/:cloud/services/:service/resources/:id/usage",
+      method: "POST",
+      telemetry: { service: "cloud-proxy" },
+    },
+  ],
+  [
+    apiEndpointKeys.clouds.resources.exportKey,
+    {
+      path: "/clouds/:cloud/services/:service/resources/:id/export",
       method: "POST",
       telemetry: { service: "cloud-proxy" },
     },

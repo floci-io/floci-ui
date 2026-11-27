@@ -2627,3 +2627,113 @@ describe('empty bucket route', () => {
         expect(requested).toEqual(['eu-central-1', 'us-west-2', undefined])
     })
 })
+
+describe('the export route', () => {
+    const EXPORT_URL = '/api/clouds/aws/services/paymentcryptography/resources/key-1/export'
+    const json = {'content-type': 'application/json'}
+
+    function paymentCryptographyAdapter(overrides: Partial<CloudServiceAdapter>): CloudServiceAdapter {
+        return mockAdapter('aws', {service: 'paymentcryptography', ...overrides})
+    }
+
+    test('refuses a request that names no wrapping key', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            exportKey: async () => ({
+                keyMaterial: 'WRAPPED-BLOCK',
+                format: 'TR31_KEY_BLOCK',
+                wrappingKeyArn: null,
+                keyCheckValue: null,
+            }),
+        })])
+
+        for (const body of [{}, {wrappingKeyArn: 42}, {wrappingKeyArn: '   '}]) {
+            const res = await app.request(EXPORT_URL, {
+                method: 'POST',
+                headers: json,
+                body: JSON.stringify(body),
+            })
+
+            expect(res.status).toBe(400)
+        }
+    })
+
+    test('answers with the material and does not store it', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            exportKey: async () => ({
+                keyMaterial: 'WRAPPED-BLOCK',
+                format: 'TR31_KEY_BLOCK',
+                wrappingKeyArn: null,
+                keyCheckValue: null,
+            }),
+        })])
+
+        const res = await app.request(EXPORT_URL, {
+            method: 'POST',
+            headers: json,
+            body: JSON.stringify({wrappingKeyArn: 'key/wrapping'}),
+        })
+
+        expect(res.status).toBe(200)
+        expect(res.headers.get('cache-control')).toBe('no-store')
+        expect((await res.json()).keyMaterial).toBe('WRAPPED-BLOCK')
+    })
+
+    test('does not store the error about it either', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            exportKey: async () => {
+                throw new RuntimeError('Payment Cryptography did not return the key material it exported')
+            },
+        })])
+
+        const res = await app.request(EXPORT_URL, {
+            method: 'POST',
+            headers: json,
+            body: JSON.stringify({wrappingKeyArn: 'key/wrapping'}),
+        })
+
+        expect(res.status).toBe(502)
+        expect(res.headers.get('cache-control')).toBe('no-store')
+    })
+
+    test('masks the words of the service', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            exportKey: async () => {
+                throw Object.assign(new Error('the account 111122223333 said no'), {
+                    name: 'ValidationException',
+                    $metadata: {httpStatusCode: 400},
+                })
+            },
+        })])
+
+        const res = await app.request(EXPORT_URL, {
+            method: 'POST',
+            headers: json,
+            body: JSON.stringify({wrappingKeyArn: 'key/wrapping'}),
+        })
+
+        expect(res.status).toBe(400)
+        // The words of the service are not the console's to show.
+        expect(JSON.stringify(await res.json())).not.toContain('111122223333')
+    })
+
+    test('is not served to another origin', async () => {
+        const app = appWithRoutes([paymentCryptographyAdapter({
+            exportKey: async () => ({
+                keyMaterial: 'WRAPPED-BLOCK',
+                format: 'TR31_KEY_BLOCK',
+                wrappingKeyArn: null,
+                keyCheckValue: null,
+            }),
+        })])
+
+        // The material is the most secret thing the API answers with, so it is
+        // served the way the KMS crypto routes are served.
+        const res = await app.request(EXPORT_URL, {
+            method: 'POST',
+            headers: {...json, origin: 'https://example.invalid'},
+            body: JSON.stringify({wrappingKeyArn: 'key/wrapping'}),
+        })
+
+        expect(res.headers.get('access-control-allow-origin')).toBeNull()
+    })
+})

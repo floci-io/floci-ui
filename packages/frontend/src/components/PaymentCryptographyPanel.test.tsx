@@ -5,7 +5,7 @@ import {describe, expect, it} from "vitest";
 import {PaymentCryptographyPanel} from "@/components/PaymentCryptographyPanel";
 import type {CloudResource} from "@/types/resource";
 
-/** The usage section asks the query client, so the panel needs one. */
+/** The usage and the export sections ask the query client, so the panel needs one. */
 function renderPanel(props: React.ComponentProps<typeof PaymentCryptographyPanel>) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
   return render(
@@ -36,6 +36,14 @@ describe("the panels of a payment key", () => {
     renderPanel({resource: key, cloud: "aws", runtimeReachable: true});
 
     expect(screen.getByLabelText("Public key certificate")).toBeDefined();
+  });
+
+  it("shows the usage and the material the key leaves under as well", () => {
+    renderPanel({resource: key, cloud: "aws", runtimeReachable: true});
+
+    expect(screen.getByLabelText("Public key certificate")).toBeDefined();
+    expect(screen.getByText("Usage")).toBeDefined();
+    expect(screen.getAllByText(/Export/).length).toBeGreaterThan(0);
   });
 
   it("shows nothing for a resource that is not a payment key", () => {

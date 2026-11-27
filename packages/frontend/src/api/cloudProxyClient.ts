@@ -342,6 +342,16 @@ export async function invokeCloudResource(
   return res.data;
 }
 
+/** The material a payment cryptography key leaves under. */
+export interface ExportedPaymentCryptographyKey {
+  keyMaterial: string;
+  /** The form the material is in, as the reference names it. */
+  format: "KEY_CRYPTOGRAM" | "TR31_KEY_BLOCK" | "TR34_KEY_BLOCK" | null;
+  wrappingKeyArn: string | null;
+  keyCheckValue: string | null;
+}
+
+/** The material a key leaves under, wrapped by a key the account holds. */
 export async function setPaymentCryptographyKeyUsage(
   cloud: CloudProvider,
   service: CloudServiceType,
@@ -354,6 +364,26 @@ export async function setPaymentCryptographyKeyUsage(
     requestOptions(cloud, service, { signal, body }),
     { cloud, service, id },
   );
+}
+
+export async function exportPaymentCryptographyKey(
+  cloud: CloudProvider,
+  service: CloudServiceType,
+  id: string,
+  body: { wrappingKeyArn: string },
+  signal?: AbortSignal,
+): Promise<ExportedPaymentCryptographyKey> {
+  const res = await apiClient.call<ExportedPaymentCryptographyKey, { wrappingKeyArn: string }>(
+    apiEndpointKeys.clouds.resources.exportKey,
+    requestOptions(cloud, service, { signal, body }),
+    { cloud, service, id },
+  );
+  // The answer is checked here, so an export that produced nothing is a
+  // message the panel knows how to show rather than a silent success.
+  if (!res.data?.keyMaterial) {
+    throw new Error("The service returned no key material.");
+  }
+  return res.data;
 }
 
 export async function encryptKmsResource(

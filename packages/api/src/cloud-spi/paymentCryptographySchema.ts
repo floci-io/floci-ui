@@ -231,6 +231,158 @@ export type PaymentCryptographyCertificateState =
     (typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES)[keyof typeof PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES]
 
 /**
+ * The wrapping keys each key may leave under, as the reference's matrix allows.
+ *
+ * <p>The matrix is a table of the key to protect against the wrapping key, and the
+ * row of a key is what it may be carried by. The transports that are not a TR-31
+ * block are not here, because a key that leaves under an RSA or an elliptic curve
+ * key leaves as a cryptogram and not as a block.
+ *
+ * <p>The keys are the algorithms the reference names, so a mistyped one is a
+ * compile error here rather than a row that never matches.
+ */
+export const PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS = {
+    TDES_2KEY: ['TDES_2KEY', 'TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
+    TDES_3KEY: ['TDES_3KEY', 'AES_128', 'AES_192', 'AES_256'],
+    AES_128: ['AES_128', 'AES_192', 'AES_256'],
+    AES_192: ['AES_192', 'AES_256'],
+    AES_256: ['AES_256'],
+} satisfies Readonly<Partial<Record<PaymentCryptographyKeyAlgorithm, readonly PaymentCryptographyKeyAlgorithm[]>>>
+
+/**
+ * The usages a key may have when it wraps another key.
+ *
+ * <p>A key that wraps a block is a key encryption key or a key block protection
+ * key, which are the two the reference names for the purpose.
+ */
+export const PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES = [
+    'TR31_K0_KEY_ENCRYPTION_KEY',
+    'TR31_K1_KEY_BLOCK_PROTECTION_KEY',
+] as const
+
+/**
+ * The modes of use a key is allowed, as the service sends them.
+ *
+ * <p>Only the two that say whether the key may wrap are of interest here, but
+ * the whole set is named so the service's own answer may be handed over as it
+ * is.
+ */
+export type WrappingModes = Partial<Record<PaymentCryptographyModeOfUse, boolean>>
+
+/**
+ * Whether a key of this usage may wrap another key.
+ *
+ * <p>The usage says what the key is for, and the reference names the wrapping
+ * key by its usage: a key encryption key or a key block protection key.
+ */
+export function isWrappingUsage(usage: string | undefined): boolean {
+    if (usage === undefined) return false
+    return (PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES as readonly string[]).includes(usage)
+}
+
+/**
+ * The matrix as it is published: a frozen copy of it.
+ *
+ * <p>The matrix is the very table the schema publishes, and a caller that
+ * changed it would change what every other caller believes, so the copy is
+ * frozen.
+ */
+function frozenWrappingAlgorithms(): Readonly<Partial<Record<PaymentCryptographyKeyAlgorithm, readonly PaymentCryptographyKeyAlgorithm[]>>> {
+    const frozen: Record<string, readonly PaymentCryptographyKeyAlgorithm[]> = {}
+    for (const [algorithm, allowed] of Object.entries(PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS)) {
+        frozen[algorithm] = Object.freeze([...allowed])
+    }
+    return Object.freeze(frozen)
+}
+
+/**
+ * Whether the modes of use allow a key to wrap a block.
+ *
+ * <p>A key that may wrap may do it, and a key with no restrictions may do
+ * anything at all. A key that may only encrypt may not wrap.
+ */
+export function modesAllowWrapping(modes: WrappingModes | undefined): boolean {
+    if (!modes) return false
+    return modes.Wrap === true || modes.NoRestrictions === true
+}
+
+/**
+ * Whether the modes of use allow a key to unwrap a block.
+ *
+ * <p>A key that may unwrap may do it, and a key with no restrictions may do
+ * anything at all. A key that may only encrypt may not unwrap.
+ *
+ * <p>This is the other half of the rule above: a key that leaves under a block
+ * wraps it, and a key that a block comes in under unwraps it, so the two are
+ * read apart.
+ */
+export function modesAllowUnwrapping(modes: WrappingModes | undefined): boolean {
+    if (!modes) return false
+    return modes.Unwrap === true || modes.NoRestrictions === true
+}
+
+/**
+ * Whether a key may wrap another key.
+ *
+ * <p>This is the one rule the adapter holds to and the console reads, so the
+ * two cannot disagree about which key may carry which: the state is published
+ * with every key rather than worked out by the console from the modes of use.
+ *
+ * <p>All three states are read the same way: a state that was not read is not a
+ * permission. A key whose enabled state is not known is not a key that may
+ * wrap, the way a key whose modes of use were not read is not one either.
+ */
+export function mayWrapKey(
+    usage: string | undefined,
+    modes: WrappingModes | undefined,
+    enabled: boolean | undefined,
+): boolean {
+    return enabled === true && isWrappingUsage(usage) && modesAllowWrapping(modes)
+}
+
+/**
+ * Whether a key may unwrap a block that comes in under it.
+ *
+ * <p>This is the other half of the rule above, and it is read the same way: a
+ * state that was not read is not a permission.
+ */
+export function mayUnwrapKey(
+    usage: string | undefined,
+    modes: WrappingModes | undefined,
+    enabled: boolean | undefined,
+): boolean {
+    return enabled === true && isWrappingUsage(usage) && modesAllowUnwrapping(modes)
+}
+
+/**
+ * The wrapping keys a key of one algorithm may leave under.
+ *
+ * <p>The matrix is a plain object and the algorithm comes from the service, so a
+ * name the prototype chain answers for is not a row of the matrix. The row is
+ * copied, because the matrix is the very table the schema publishes and a
+ * caller that changed it would change what every other caller believes.
+ */
+export function wrappingAlgorithmsFor(carriedAlgorithm: string): readonly string[] {
+    const matrix = PAYMENT_CRYPTOGRAPHY_WRAPPING_ALGORITHMS as Readonly<
+        Record<string, readonly string[] | undefined>
+    >
+    if (!Object.prototype.hasOwnProperty.call(matrix, carriedAlgorithm)) {
+        return []
+    }
+    return [...(matrix[carriedAlgorithm] ?? [])]
+}
+
+/**
+ * Whether a key of one algorithm may be carried by a key of another.
+ *
+ * <p>The rule is the reference's matrix, and it is the same rule the local runtime
+ * holds to, so the table and the runtime agree.
+ */
+export function mayWrapWith(carriedAlgorithm: string, wrappingAlgorithm: string): boolean {
+    return wrappingAlgorithmsFor(carriedAlgorithm).includes(wrappingAlgorithm)
+}
+
+/**
  * The class a key of an algorithm has.
  *
  * The class says what shape the key has, and the algorithm says what material it
@@ -255,6 +407,27 @@ export const PAYMENT_CRYPTOGRAPHY_KINDS = ['keys', 'aliases'] as const
 
 export type PaymentCryptographyKind = (typeof PAYMENT_CRYPTOGRAPHY_KINDS)[number]
 
+/**
+ * What the create form makes: a key, an alias, or a key that comes in under a
+ * TR-31 block a key the account holds wraps.
+ */
+export const PAYMENT_CRYPTOGRAPHY_SOURCES = ['keys', 'aliases', 'import'] as const
+
+export type PaymentCryptographySource = (typeof PAYMENT_CRYPTOGRAPHY_SOURCES)[number]
+
+/**
+ * What the form calls each source, and what the button says when it is the one
+ * picked.
+ */
+const PAYMENT_CRYPTOGRAPHY_SOURCE_LABELS: Record<
+    PaymentCryptographySource,
+    {label: string; submitLabel: string}
+> = {
+    keys: {label: 'A new key', submitLabel: 'Create key'},
+    aliases: {label: 'An alias', submitLabel: 'Create alias'},
+    import: {label: 'An imported key', submitLabel: 'Import key'},
+}
+
 /** The prefix a kind's resource ids carry, as the explorer holds several kinds in one table. */
 export const PAYMENT_CRYPTOGRAPHY_KIND_PREFIX: Record<PaymentCryptographyKind, string> = {
     keys: 'key',
@@ -267,7 +440,12 @@ export const PAYMENT_CRYPTOGRAPHY_KIND_PREFIX: Record<PaymentCryptographyKind, s
  */
 const paymentCryptographyColumns: TableColumnSchema[] = [
     {name: 'kind', label: 'Kind', path: 'type', format: 'badge'},
-    {name: 'name', label: 'Name', format: 'code'},
+    // The name the operator knows the resource by leads the table: a key has
+    // no name of its own, so the alias that names it is what the operator
+    // recognises, and an ARN is what they can neither remember nor read
+    // aloud. The identity is in the column beside it.
+    {name: 'names', label: 'Name', path: 'metadata.names', format: 'list', emptyText: '—'},
+    {name: 'arn', label: 'ARN', path: 'metadata.arn', format: 'code', emptyText: '—'},
     {name: 'keyClass', label: 'Key Type', path: 'metadata.keyClass', format: 'badge', emptyText: '—'},
     {name: 'keyUsage', label: 'Key Usage', path: 'metadata.keyUsage', emptyText: '—'},
     {name: 'keyAlgorithm', label: 'Key Algorithm', path: 'metadata.keyAlgorithm', emptyText: '—'},
@@ -311,7 +489,7 @@ function modeFields(): FieldSchema[] {
         type: 'select',
         required: false,
         group: 'Key modes of use',
-        visibleWhen: {field: 'kind', equals: 'keys'},
+        visibleWhen: {field: 'source', equals: 'keys'},
         defaultValue: 'false',
         options: ALLOWED_OPTIONS,
     }))
@@ -341,17 +519,17 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
         displayName: 'Payment Cryptography',
         fields: [
             {
-                name: 'kind',
-                label: 'Kind',
+                name: 'source',
+                label: 'What to make',
                 type: 'select',
                 required: true,
                 group: 'Required',
-                description: 'What to make: a key, or an alias name that points at one.',
+                description: 'A key, an alias name that points at one, or a key that comes in under a TR-31 block.',
                 defaultValue: 'keys',
-                options: [
-                    {label: 'Key', value: 'keys', submitLabel: 'Create key'},
-                    {label: 'Alias', value: 'aliases', submitLabel: 'Create alias'},
-                ],
+                options: PAYMENT_CRYPTOGRAPHY_SOURCES.map((value) => ({
+                    value,
+                    ...PAYMENT_CRYPTOGRAPHY_SOURCE_LABELS[value],
+                })),
             },
             {
                 name: 'keyUsage',
@@ -359,7 +537,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: true,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description:
                     'What the key is for, as TR-31 names it. It decides which algorithms the key may be made of ' +
                     'and which combinations of modes of use it may have. The default is the first usage, ' +
@@ -373,7 +551,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description:
                     'The algorithm the key is made of. It has to be one the usage allows. Left unset, the first ' +
                     'algorithm the usage allows is chosen.',
@@ -385,7 +563,7 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description: 'Whether the key may leave the service. It cannot be changed once the key is made.',
                 defaultValue: 'false',
                 options: ALLOWED_OPTIONS,
@@ -396,20 +574,61 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Key',
-                visibleWhen: {field: 'kind', equals: 'keys'},
+                visibleWhen: {field: 'source', equals: 'keys'},
                 description: 'Whether the key does any work. A disabled key is refused by every operation that runs under it.',
                 defaultValue: 'true',
                 options: ALLOWED_OPTIONS,
             },
             ...modeFields(),
             {
+                name: 'wrappingKeyArn',
+                label: 'Wrapping Key',
+                type: 'select',
+                required: false,
+                group: 'Import',
+                visibleWhen: {field: 'source', equals: 'import'},
+                requiredWhen: {field: 'source', equals: 'import'},
+                description:
+                    'The key the block is wrapped under. It has to be a key encryption key that may wrap, and at ' +
+                    'least as strong as the key it carries.',
+                optionsFrom: 'key',
+                // Only the keys the service says may unwrap are offered, so the
+                // form does not offer a key the service refuses: a block comes
+                // in under a key that unwraps it, where a block leaves under a
+                // key that wraps it.
+                optionsState: 'mayUnwrap',
+            },
+            {
+                name: 'wrappedKeyBlock',
+                label: 'Wrapped Key Block',
+                type: 'textarea',
+                required: false,
+                group: 'Import',
+                visibleWhen: {field: 'source', equals: 'import'},
+                requiredWhen: {field: 'source', equals: 'import'},
+                description: 'The TR-31 block the key comes in under, as the service wrote it.',
+            },
+            {
+                // The choice in the Key group belongs to a key the console makes,
+                // and a field hidden by another answer keeps its value, so an
+                // imported key is offered a choice of its own.
+                name: 'importEnabled',
+                label: 'Enabled',
+                type: 'select',
+                required: false,
+                group: 'Import',
+                visibleWhen: {field: 'source', equals: 'import'},
+                defaultValue: 'true',
+                options: ALLOWED_OPTIONS,
+            },
+            {
                 name: 'aliasName',
                 label: 'Alias Name',
                 type: 'text',
                 required: false,
                 group: 'Alias',
-                visibleWhen: {field: 'kind', equals: 'aliases'},
-                requiredWhen: {field: 'kind', equals: 'aliases'},
+                visibleWhen: {field: 'source', equals: 'aliases'},
+                requiredWhen: {field: 'source', equals: 'aliases'},
                 description: 'The name of the alias. It has to begin with "alias/".',
                 validation: {
                     pattern: '^alias/[A-Za-z0-9/_-]+$',
@@ -422,8 +641,8 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
                 type: 'select',
                 required: false,
                 group: 'Alias',
-                visibleWhen: {field: 'kind', equals: 'aliases'},
-                requiredWhen: {field: 'kind', equals: 'aliases'},
+                visibleWhen: {field: 'source', equals: 'aliases'},
+                requiredWhen: {field: 'source', equals: 'aliases'},
                 description: 'The key the alias points at. An alias names a key that exists.',
                 optionsFrom: 'key',
             },
@@ -434,6 +653,14 @@ export function awsPaymentCryptographySchema(): ServiceSchema {
         },
         filters: paymentCryptographyFilters,
         columns: paymentCryptographyColumns,
+        pairings: [
+            {
+                discriminator: 'keyAlgorithm',
+                // A frozen copy: the published rule may not be changed by a
+                // caller that holds it, the way the matrix is not.
+                allowed: frozenWrappingAlgorithms(),
+            },
+        ],
         notice:
             'The keys a payment operator holds and the alias names that point at them: their attributes, ' +
             'their check value and their state. Key replication and Multi-Party Approval are not in this view.',

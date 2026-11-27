@@ -56,6 +56,25 @@ export interface FieldCondition {
     notEquals?: string
 }
 
+/**
+ * The discriminators a service publishes a pairing rule under.
+ *
+ * <p>The console reads one value, so a rule under another one is not read at
+ * all and the console offers nothing rather than every pairing.
+ */
+export type PairingDiscriminator = 'keyAlgorithm'
+
+/**
+ * A rule a service publishes about what may carry what, for a panel that has to
+ * offer only the pairings the service allows.
+ */
+export interface PairingRule {
+    /** The metadata member that says what the resource is, such as its algorithm. */
+    discriminator: PairingDiscriminator
+    /** What it may carry, by that member's value. */
+    allowed: Readonly<Record<string, readonly string[]>>
+}
+
 export interface FieldSchema {
     name: string
     label: string
@@ -86,6 +105,15 @@ export interface FieldSchema {
      * another resource of the same service.
      */
     optionsFrom?: string
+    /**
+     * The published state of a row that makes it an option of this field.
+     *
+     * <p>A field that names another resource of the same service offers every
+     * row of that kind by default. A field that may name only some of them says
+     * which state the service published, so the choices are the ones the service
+     * allows rather than the ones the console worked out for itself.
+     */
+    optionsState?: string
 }
 
 export type ColumnFormat = 'text' | 'datetime' | 'relative' | 'bytes' | 'boolean' | 'badge' | 'code' | 'list'
@@ -115,5 +143,11 @@ export interface ServiceSchema {
     filters: FieldSchema[]
     columns: TableColumnSchema[]
     updateFields?: FieldSchema[]
+    /**
+     * The pairings the service allows, for a panel that chooses one resource to
+     * carry another. At most one rule per discriminator: a consumer that asks
+     * for a discriminator takes the first rule that names it.
+     */
+    pairings?: PairingRule[]
     notice?: string
 }

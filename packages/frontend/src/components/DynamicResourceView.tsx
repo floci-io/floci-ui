@@ -16,6 +16,7 @@ import { DynamicFormRenderer } from "@/components/DynamicFormRenderer";
 import { ResourceInspector } from "@/components/ResourceInspector";
 import { ResourceTable } from "@/components/ResourceTable";
 import { StorageObjectBrowser } from "@/components/StorageObjectBrowser";
+import { displayNameOf, namesLabel, namesOf} from "@/lib/displayName";
 import { getPath } from "@/lib/resourcePath";
 import { deleteWaves } from "@/lib/deleteOrder";
 import {
@@ -200,7 +201,11 @@ export function DynamicResourceView({
       schemaQuery.isSuccess &&
       serviceAvailability === "available" &&
       cloudStatus?.runtime === "reachable" &&
-      namesAnotherResource(schemaQuery.data),
+      // The create form needs the account's own list when a field names
+      // another resource, and the payment cryptography panel needs it to offer
+      // the keys a key may leave under. The two are apart, so neither hangs on
+      // the other.
+      (namesAnotherResource(schemaQuery.data) || service === "paymentcryptography"),
   });
   // The choices of a field that names another resource come from a request of
   // their own, and a failed one leaves the field empty: an account with no keys
@@ -373,7 +378,7 @@ export function DynamicResourceView({
         cloud: context.cloud,
         service: context.service,
         resourceId: resource.id,
-        message: `Could not delete ${resource.name || resource.id}: ${errorMessage(error)}`,
+        message: `Could not delete ${displayNameOf(resource)}: ${errorMessage(error)}`,
       });
     },
     onSuccess: (_, resource, context) => {
@@ -489,7 +494,7 @@ export function DynamicResourceView({
       setEditingResource(null);
       setUpdateError(null);
       selectResource(updatedResource);
-      setSuccessToast(`Successfully updated ${updatedResource.name || updatedResource.id}`);
+      setSuccessToast(`Successfully updated ${displayNameOf(updatedResource)}`);
       void qc.invalidateQueries({
         queryKey: ["cloud-resources", accountId, region, cloud, service],
       });
@@ -1177,18 +1182,23 @@ export function DynamicResourceView({
         />
       )}
       {service === "paymentcryptography" && isPaymentKey(activeSelected) && (
-        // The certificate of a payment key and whether the key may be used are
-        // part of the key's detail, and the table's row carries neither of
-        // them, so the panel shows the detail and never the row: it would speak
-        // about a key it has not read. A detail that was never read leaves them
-        // unknown, and the panel says so rather than staying silent. A later
-        // refetch that failed keeps the detail that was read, so the flag is
-        // scoped to a key that has never been read at all.
+        // The certificate of a payment key, whether the key may be used and the
+        // material it leaves under are part of the key's detail, and the
+        // table's row carries none of them, so the panel shows the detail and
+        // never the row: it would speak about a key it has not read. A detail
+        // that was never read leaves them unknown, and the panel says so rather
+        // than staying silent. A later refetch that failed keeps the detail
+        // that was read, so the flag is scoped to a key that has never been
+        // read at all.
         <PaymentCryptographyPanel
           key={activeSelected.id}
           cloud={cloud}
           resource={inspectedDetail}
           keyUnreadable={resourceDetailQuery.isError && inspectedDetail === undefined}
+          resources={optionRowsQuery.data}
+          resourcesLoading={optionRowsQuery.isLoading}
+          resourcesError={optionRowsQuery.isError}
+          schema={schema}
           runtimeReachable={canUseRuntime}
         />
       )}
@@ -1291,7 +1301,7 @@ export function DynamicResourceView({
               }}
             >
               <h2 style={{ margin: 0 }}>
-                Edit {schema.displayName}: {editingResource.name || editingResource.id}
+                Edit {schema.displayName}: {displayNameOf(editingResource)}
               </h2>
               <button
                 className="icon-btn"
@@ -1408,14 +1418,37 @@ function namesAnotherResource(schema: ServiceSchema | undefined): boolean {
  * The options of a field that names another resource of the same service.
  *
  * <p>The rows of the list are the resources the account holds now, so a field that
- * names one of them offers them rather than a list baked into the schema.
+ * names one of them offers them rather than a list baked into the schema. A field
+ * that may name only some of them says which state the service published, so the
+ * choices are the ones the service allows.
  */
 function optionsFromRows(field: FieldSchema, rows: CloudResource[] | undefined): FieldSchema {
   if (!field.optionsFrom) return field;
   const options = (rows ?? [])
     .filter((row) => row.type === field.optionsFrom)
-    .map((row) => ({ label: row.name || row.id, value: row.id }));
+    .filter((row) => !field.optionsState || row.metadata[field.optionsState] === true)
+    .map((row) => ({ label: optionLabel(row), value: row.id }));
   return { ...field, options };
+}
+
+/**
+ * The name an option is offered under.
+ *
+ * <p>A field may say which member of the row's metadata carries the name the
+ * operator knows the resource by. A payment key is known by the alias that
+ * names it, and an ARN is not something an operator remembers, so the option
+ * is offered under the alias when the row has one.
+ */
+function optionLabel(row: CloudResource): string {
+  const friendly = namesOf(row);
+  const identity = row.name || row.id;
+  if (friendly.length === 0) return identity;
+  // The name and the identity together, so a choice under a name that reads
+  // like another kind of resource is still the resource it is: an alias in a
+  // list of keys is the key that alias names, and the ARN beside it says so.
+  const label = namesLabel(friendly);
+  if (identity === label) return label;
+  return `${label} · ${identity}`;
 }
 
 function errorMessage(error: unknown): string {

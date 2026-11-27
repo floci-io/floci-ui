@@ -17,11 +17,13 @@ import {
     UntagResourceCommand,
 } from '@aws-sdk/client-payment-cryptography'
 import {setKeyUsage} from './paymentCryptographyLifecycle'
+import {exportKeyTr31, importKeyTr31} from './paymentCryptographyTransfer'
 import {RuntimeError, ValidationError} from '../cloud-spi/errors'
 import {
     algorithmsForUsage,
     awsPaymentCryptographySchema,
     keyClassForAlgorithm,
+    mayWrapWith,
     PAYMENT_CRYPTOGRAPHY_CERTIFICATE_STATES,
     PAYMENT_CRYPTOGRAPHY_KEY_ALGORITHMS,
     PAYMENT_CRYPTOGRAPHY_KEY_CLASSES,
@@ -29,7 +31,15 @@ import {
     PAYMENT_CRYPTOGRAPHY_KIND_PREFIX,
     PAYMENT_CRYPTOGRAPHY_KINDS,
     PAYMENT_CRYPTOGRAPHY_MODES_OF_USE,
+    PAYMENT_CRYPTOGRAPHY_SOURCES,
     PAYMENT_CRYPTOGRAPHY_USAGE_RULES,
+    PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES,
+    isWrappingUsage,
+    mayUnwrapKey,
+    mayWrapKey,
+    modesAllowUnwrapping,
+    modesAllowWrapping,
+    wrappingAlgorithmsFor,
     type ModeCombination,
     type PaymentCryptographyCertificateState,
     type PaymentCryptographyKeyAlgorithm,
@@ -41,6 +51,7 @@ import type {
     CloudResource,
     CloudServiceAdapter,
     CreateResourceInput,
+    ExportedKeyMaterial,
     ResourceQuery,
     ServiceSchema,
 } from '../cloud-spi/types'
@@ -96,8 +107,47 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     async list(query: ResourceQuery = {}): Promise<CloudResource[]> {
         const kind = optionalKind(query.filters?.kind)
         const kinds = kind ? [kind] : [...PAYMENT_CRYPTOGRAPHY_KINDS]
-        const groups = await Promise.all(kinds.map((each) => this.listKind(each)))
-        return filterBySearch(groups.flat(), query.search)
+        // The aliases are read once. They are rows of the table, and they name
+        // the keys the table shows.
+        //
+        // When the list holds alias rows, the aliases are what the list is, so
+        // a read that fails fails the list. When it does not, they only name
+        // the keys, and a read that fails leaves the names unknown and the keys
+        // standing.
+        const aliases = kinds.includes('aliases')
+            ? await this.listAliases()
+            : await this.aliasesOfAccount()
+        const groups = await Promise.all(kinds.map((each) => this.listKind(each, aliases)))
+        const resources = groups.flat()
+        if (kinds.includes('keys')) {
+            this.nameKeysByTheirAliases(resources, aliases)
+        }
+        return filterBySearch(resources, query.search)
+    }
+
+    /**
+     * The aliases that name each key.
+     *
+     * <p>An alias is a friendly name for a key, and it is the name the operator
+     * knows it by: a key has no name of its own, so an ARN is all the console
+     * could offer. The alias names the key and the key is what the service
+     * takes, so the key carries the names it was given and the console offers
+     * it under one of them.
+     */
+    private nameKeysByTheirAliases(resources: CloudResource[], aliases: Alias[]): void {
+        const byKey = new Map<string, string[]>()
+        for (const alias of aliases) {
+            const arn = alias.KeyArn
+            if (!arn) continue
+            const names = byKey.get(arn) ?? []
+            if (alias.AliasName) names.push(alias.AliasName)
+            byKey.set(arn, names)
+        }
+        for (const resource of resources) {
+            if (resource.type !== 'key') continue
+            const names = byKey.get(String(resource.metadata.arn))
+            if (names && names.length > 0) resource.metadata.names = names
+        }
     }
 
     async get(id: string): Promise<CloudResource | null> {
@@ -113,16 +163,65 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
         // Both are addressed by the ARN the key resolved to, because the service
         // takes an ARN and a key may have been asked for by an alias or a short id.
         const arn = key.KeyArn ?? identifier
-        const [tags, certificate] = await Promise.all([
+        const [tags, certificate, aliases] = await Promise.all([
             this.getTags(arn),
             this.publicKeyCertificate(arn, key),
+            this.aliasesOf(arn),
         ])
-        return toResource(key, tags, certificate)
+        const resource = toResource(key, tags, certificate)
+        // The key carries the names it was given here as well as in the list, so
+        // the two never disagree about what a key is called. The names are the
+        // aliases that name this key, so the ones that name another key are
+        // left out: the list path tells an alias from its key by the ARN, and
+        // the detail path does the same.
+        const names = aliases.aliases
+            .filter((alias) => alias.KeyArn === arn)
+            .map((alias) => alias.AliasName)
+            .filter((name): name is string => Boolean(name))
+        if (names.length > 0) resource.metadata.names = names
+        // The names that could not be read are said so, so a key whose aliases
+        // could not be read is not read as a key that has none.
+        if (aliases.unavailable) resource.metadata.namesUnavailable = true
+        return resource
+    }
+
+    /**
+     * The aliases that name one key, or the reason they could not be read.
+     *
+     * <p>The service lists the aliases of a key when it is asked for them, so
+     * the key's own detail can say what it is called.
+     *
+     * <p>A read that fails leaves the names unknown and the key standing: a key
+     * whose names could not be read is still a key, and the console says what
+     * it does not know rather than losing the key with it. The marker is
+     * published so a key whose aliases could not be read is not read as a key
+     * that has none.
+     */
+    private async aliasesOf(keyArn: string): Promise<{aliases: Alias[]; unavailable: boolean}> {
+        try {
+            return {aliases: await this.listAliases(keyArn), unavailable: false}
+        } catch {
+            return {aliases: [], unavailable: true}
+        }
+    }
+
+    /** The aliases of the account, or none when the read failed. */
+    private async aliasesOfAccount(): Promise<Alias[]> {
+        try {
+            return await this.listAliases()
+        } catch {
+            return []
+        }
     }
 
     async create(input: CreateResourceInput): Promise<CloudResource> {
-        const kind = oneOf(input.values.kind, PAYMENT_CRYPTOGRAPHY_KINDS, 'kind', 'keys')
-        if (kind === 'aliases') {
+        // The source is validated once against the sources the service names,
+        // and the branch is taken on the validated value.
+        const source = oneOf(input.values.source, PAYMENT_CRYPTOGRAPHY_SOURCES, 'source', 'keys')
+        if (source === 'import') {
+            return this.importKey(input)
+        }
+        if (source === 'aliases') {
             return this.createAlias(input)
         }
 
@@ -146,6 +245,89 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
 
         // A brand new key has no tags, so this skips the ListTagsForResource call.
         return toResource(res.Key, {tags: []})
+    }
+
+    /**
+     * The material a key leaves under.
+     *
+     * <p>The wrapping key has to be one the reference allows: a key encryption key
+     * that may wrap, and at least as strong as the key it carries. The matrix is
+     * the reference's own, and it is in one place, so the panel and this agree
+     * about it.
+     */
+    async exportKey(id: string, input: {wrappingKeyArn: string}): Promise<ExportedKeyMaterial> {
+        const {kind, identifier} = parseId(id)
+        if (kind === 'aliases') {
+            throw new ValidationError('an alias is a name for a key; it is the key that leaves')
+        }
+        // The form names a resource, and the resource id carries its kind, so the
+        // prefix is taken off before the runtime is asked about it.
+        const wrappingKeyArn = targetKeyArn(input?.wrappingKeyArn, 'wrappingKeyArn')
+
+        const carried = await this.describe(identifier)
+        if (!carried) throw new ValidationError(`the key ${identifier} is not there`)
+        // A key that may not leave does not leave, and the service refuses it,
+        // so the reason is given here rather than there.
+        if (carried.Exportable === false) {
+            throw new ValidationError(`the key ${identifier} is not exportable, so its material does not leave`)
+        }
+        const wrapping = await this.requireWrappingKey(wrappingKeyArn)
+        // The service takes an ARN, and a key may have been asked for by an alias
+        // or a short id, so the two keys are addressed by the ARN they resolved
+        // to rather than by the identifier the request named.
+        const carriedArn = carried.KeyArn ?? identifier
+        const wrappingArn = wrapping.KeyArn ?? wrappingKeyArn
+        // A key may not carry itself, and the service refuses a key that does.
+        // The two are compared by the ARN they resolved to, so a key that is
+        // named two ways is caught as well.
+        if (carriedArn === wrappingArn) {
+            throw new ValidationError(`the key ${identifier} may not carry itself`)
+        }
+
+        const carriedAlgorithm = String(carried.KeyAttributes?.KeyAlgorithm ?? '')
+        const wrappingAlgorithm = String(wrapping.KeyAttributes?.KeyAlgorithm ?? '')
+        if (!mayWrapWith(carriedAlgorithm, wrappingAlgorithm)) {
+            const allowed = wrappingAlgorithmsFor(carriedAlgorithm)
+            throw new ValidationError(
+                `a ${carriedAlgorithm} key may not be carried by a ${wrappingAlgorithm} key: ` +
+                'the wrapping key has to be at least as strong as the key it carries, ' +
+                (allowed.length > 0
+                    ? `so it may be one of ${allowed.join(', ')}`
+                    : 'and the matrix names no key that may carry it'),
+            )
+        }
+
+        return exportKeyTr31(this.client, carriedArn, wrappingArn)
+    }
+
+    /**
+     * A key that comes in under a TR-31 block a key the account holds wraps.
+     *
+     * <p>An imported key carries its own attributes, so the block says what it is
+     * and the form asks for the block and the wrapping key alone.
+     */
+    private async importKey(input: CreateResourceInput): Promise<CloudResource> {
+        // The form names a resource, and the resource id carries its kind, so the
+        // prefix is taken off before the runtime is asked about it.
+        const wrappingKeyArn = targetKeyArn(input.values?.wrappingKeyArn, 'wrappingKeyArn')
+        const wrappedKeyBlock = requiredString(input.values.wrappedKeyBlock, 'wrappedKeyBlock')
+        // The choice the import group publishes, and not the one the key group
+        // publishes: a field hidden by another answer keeps its value, so the
+        // stale one would make the key disabled without the reader having
+        // chosen that.
+        const enabled = booleanValue(input.values.importEnabled, 'importEnabled', true)
+
+        // The block comes in under a key of the account, so the key is held to
+        // the rules of that direction: a key that a block comes in under
+        // unwraps it, where a key that a block leaves under wraps it.
+        await this.requireUnwrappingKey(wrappingKeyArn)
+
+        const arn = await importKeyTr31(this.client, wrappingKeyArn, wrappedKeyBlock, enabled)
+        if (!arn) throw new RuntimeError('Payment Cryptography did not return the key it imported')
+
+        const key = await this.describe(arn)
+        if (!key) throw new RuntimeError('Payment Cryptography did not return the key it imported')
+        return toResource(key, {tags: []})
     }
 
     /**
@@ -236,9 +418,9 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /** One kind of resource: the keys, or the aliases that name them. */
-    private async listKind(kind: PaymentCryptographyKind): Promise<CloudResource[]> {
+    private async listKind(kind: PaymentCryptographyKind, aliases: Alias[]): Promise<CloudResource[]> {
         if (kind === 'aliases') {
-            return (await this.listAliases()).map(toAliasResource)
+            return aliases.map(toAliasResource)
         }
 
         const arns = await this.listKeyArns()
@@ -252,7 +434,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     }
 
     /** ListAliases pages like ListKeys, so an account past that would be truncated. */
-    private async listAliases(): Promise<Alias[]> {
+    private async listAliases(keyArn?: string): Promise<Alias[]> {
         const aliases: Alias[] = []
         let nextToken: string | undefined
 
@@ -260,6 +442,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             const res = await this.client.send(
                 new ListAliasesCommand({
                     MaxResults: LIST_PAGE_SIZE,
+                    ...(keyArn ? {KeyArn: keyArn} : {}),
                     ...(nextToken ? {NextToken: nextToken} : {}),
                 }),
             )
@@ -284,7 +467,7 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
     /** An alias points at a key, and the reference refuses one that points at none. */
     private async createAlias(input: CreateResourceInput): Promise<CloudResource> {
         const aliasName = requiredAliasName(input.values.aliasName)
-        const targetKey = targetKeyArn(input.values.aliasTargetKey)
+        const targetKey = targetKeyArn(input.values.aliasTargetKey, 'aliasTargetKey')
 
         const res = await this.client.send(new CreateAliasCommand({AliasName: aliasName, KeyArn: targetKey}))
         if (!res.Alias) throw new RuntimeError('Payment Cryptography did not return the alias it created')
@@ -300,6 +483,73 @@ export class AwsPaymentCryptographyAdapter implements CloudServiceAdapter {
             if (isNotFound(error)) return null
             throw error
         }
+    }
+
+    /**
+     * The key a block is wrapped under, held to the rules the reference holds
+     * it to.
+     *
+     * <p>The export and the import path both wrap a block under a key of the
+     * account, so both refuse the same keys: a key that is not there, a key
+     * whose usage may not wrap a key, a key that is not allowed to wrap and a
+     * disabled key.
+     */
+    private async requireWrappingKey(wrappingKeyArn: string): Promise<Key> {
+        return this.requireWrappingKeyOf(wrappingKeyArn, modesAllowWrapping, 'wrap')
+    }
+
+    /**
+     * The key a block comes in under, which unwraps it rather than wraps it.
+     *
+     * <p>The reference names the wrapping key by its usage and its modes of use,
+     * and the two differ between the two directions: a key that leaves under a
+     * block wraps it, and a key that a block comes in under unwraps it.
+     */
+    private async requireUnwrappingKey(wrappingKeyArn: string): Promise<Key> {
+        return this.requireWrappingKeyOf(wrappingKeyArn, modesAllowUnwrapping, 'unwrap')
+    }
+
+    /**
+     * The key a block is wrapped under, held to the rule of the direction it
+     * is used in.
+     */
+    private async requireWrappingKeyOf(
+        wrappingKeyArn: string,
+        allows: (modes: KeyModesOfUse | undefined) => boolean,
+        direction: 'wrap' | 'unwrap',
+    ): Promise<Key> {
+        const wrapping = await this.describe(wrappingKeyArn)
+        if (!wrapping) throw new ValidationError(`the wrapping key ${wrappingKeyArn} is not there`)
+
+        // The reference names the wrapping key by its usage: a key encryption key
+        // or a key block protection key. A key with any other usage may not wrap
+        // a key, so it is refused here rather than by the service.
+        const usage = String(wrapping.KeyAttributes?.KeyUsage ?? '')
+        if (!isWrappingUsage(usage)) {
+            throw new ValidationError(
+                `the wrapping key ${wrappingKeyArn} has the usage ${usage || 'of an unknown usage'}, ` +
+                `which may not wrap a key: a wrapping key has to be one of ${PAYMENT_CRYPTOGRAPHY_WRAPPING_USAGES.join(', ')}`,
+            )
+        }
+        // A key that is allowed to encrypt may not wrap a block, and a key that
+        // is not enabled does no work at all. A key whose enabled state was not
+        // read is not a key that may wrap either: a state that is not read is
+        // not a permission, the same way the modes of use are not one.
+        if (!allows(wrapping.KeyAttributes?.KeyModesOfUse)) {
+            throw new ValidationError(
+                direction === 'wrap'
+                    ? `the wrapping key ${wrappingKeyArn} is not allowed to wrap a key`
+                    : `the wrapping key ${wrappingKeyArn} is not allowed to unwrap a key`,
+            )
+        }
+        if (wrapping.Enabled !== true) {
+            throw new ValidationError(
+                wrapping.Enabled === false
+                    ? `the wrapping key ${wrappingKeyArn} is not enabled`
+                    : `the wrapping key ${wrappingKeyArn} does not say whether it is enabled`,
+            )
+        }
+        return wrapping
     }
 
     /**
@@ -485,6 +735,22 @@ function toResource(
             keyUsage: key.KeyAttributes?.KeyUsage,
             keyAlgorithm: key.KeyAttributes?.KeyAlgorithm,
             keyModesOfUse: key.KeyAttributes?.KeyModesOfUse,
+            // Whether the key may wrap another one is the service's to say, so it
+            // is published with the key rather than worked out by the console
+            // from the usage and the modes of use.
+            mayWrap: mayWrapKey(
+                key.KeyAttributes?.KeyUsage,
+                key.KeyAttributes?.KeyModesOfUse,
+                key.Enabled,
+            ),
+            // Whether the key may unwrap a block that comes in under it is the
+            // other half of the same question, and it is published as well: a
+            // key that comes in under a block is unwrapped by it.
+            mayUnwrap: mayUnwrapKey(
+                key.KeyAttributes?.KeyUsage,
+                key.KeyAttributes?.KeyModesOfUse,
+                key.Enabled,
+            ),
             keyCheckValue: key.KeyCheckValue,
             keyCheckValueAlgorithm: key.KeyCheckValueAlgorithm,
             keyOrigin: key.KeyOrigin,
@@ -540,6 +806,8 @@ function toAliasResource(alias: Alias): CloudResource {
         status: null,
         metadata: {
             aliasName: name,
+            // An alias is named by the alias it is, which is its own name.
+            names: name ? [name] : [],
             targetKeyArn: alias.KeyArn ?? null,
             tags: [],
         },
@@ -582,9 +850,12 @@ function optionalKind(value: unknown): PaymentCryptographyKind | undefined {
  * <p>The form offers the keys the account holds, by the id the console knows them
  * by, and an ARN is accepted as well for a caller that has one. The reference names
  * a key that exists, so the alias never names one that is not there yet.
+ *
+ * <p>The field is named by the caller, so the refusal is about the field the
+ * caller asked for rather than about one this helper made up.
  */
-function targetKeyArn(value: unknown): string {
-    const raw = requiredString(value, 'aliasTargetKey')
+function targetKeyArn(value: unknown, field: string): string {
+    const raw = requiredString(value, field)
     const prefix = `${PAYMENT_CRYPTOGRAPHY_KIND_PREFIX.keys}/`
     return raw.startsWith(prefix) ? raw.slice(prefix.length) : raw
 }
@@ -632,7 +903,12 @@ function filterBySearch(resources: CloudResource[], search?: string): CloudResou
 
     return resources.filter((resource) => {
         const usage = String(resource.metadata.keyUsage ?? '').toLowerCase()
-        return resource.name.toLowerCase().includes(normalized) || usage.includes(normalized)
+        if (resource.name.toLowerCase().includes(normalized) || usage.includes(normalized)) return true
+        // A key is known by the name it was given, so the search finds it by
+        // that name and not only by its ARN.
+        const names = resource.metadata.names
+        if (!Array.isArray(names)) return false
+        return names.some((each) => typeof each === 'string' && each.toLowerCase().includes(normalized))
     })
 }
 

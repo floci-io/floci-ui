@@ -16,7 +16,7 @@ import type {
 } from '../cloud-spi/types'
 import {COMPUTE_POWER_ACTIONS} from '../cloud-spi/types'
 import {clampLimit, parseKeyQuery, type PageQuery} from '../cloud-spi/childCollections'
-import {CloudError, NotFoundError, toHttpError, ValidationError} from '../cloud-spi/errors'
+import {CloudError, NotFoundError, RuntimeError, toHttpError, ValidationError} from '../cloud-spi/errors'
 import {isServiceType} from '../cloud-spi/serviceCatalog'
 import {mapAwsSdkError} from '../adapter-aws/awsErrors'
 import type {ApiBindings} from '../app'
@@ -1154,6 +1154,32 @@ export function createCloudRoutes(
         })
     })
 
+    app.post('/:cloud/services/:service/resources/:id/export', async (c) => {
+        const cloud = c.req.param('cloud') as CloudProvider
+        const serviceType = c.req.param('service') as CloudServiceType
+        if (!isCloudProvider(cloud) || !isServiceType(serviceType)) throw new NotFoundError('Unknown cloud or service')
+
+        return withPaymentCryptographyRuntime(c, async () => {
+            // The body is checked rather than cast, so a value that is not a
+            // string never reaches the adapter as one.
+            const body = await jsonBody<Record<string, unknown>>(c)
+            const wrappingKeyArn = typeof body.wrappingKeyArn === 'string' ? body.wrappingKeyArn.trim() : ''
+            if (!wrappingKeyArn) throw new ValidationError('wrappingKeyArn must be a non-empty string')
+            const material = await svc(c).exportPaymentCryptographyKey(
+                cloud,
+                serviceType,
+                c.req.param('id'),
+                {wrappingKeyArn},
+            )
+            // An export that produced no material is not an export, so it is
+            // not answered with an empty block and a success.
+            if (!material?.keyMaterial) {
+                throw new RuntimeError('Payment Cryptography did not return the key material it exported')
+            }
+            return c.json(material, 200)
+        })
+    })
+
     app.post('/:cloud/services/:service/resources/:id/usage', async (c) => {
         const cloud = c.req.param('cloud') as CloudProvider
         const serviceType = c.req.param('service') as CloudServiceType
@@ -1400,6 +1426,34 @@ async function withSensitiveRuntime(c: Context, handler: () => Promise<Response>
         const {status, body} = toHttpError(err, mapAwsSdkError)
         if (err instanceof KmsRequestValidationError) return c.json(body, status)
         const message = body.code === 'invalid_request' ? 'KMS rejected the request' : body.error
+        return c.json({error: message, code: body.code, message}, status)
+    }
+}
+
+/**
+ * The route that hands out the material a key leaves under.
+ *
+ * <p>The material is the most secret thing this API answers with, so the words
+ * of the service are not answered with it: a refusal of the API is the
+ * console's to show, and the text of the service is masked, the way the KMS
+ * crypto routes mask it.
+ *
+ * <p>The refusal of the adapter is a CloudError of this API, so it is told
+ * apart from the failure of the service, which is not one and whose text may
+ * name the account, the key or the request.
+ */
+async function withPaymentCryptographyRuntime(
+    c: Context,
+    handler: () => Promise<Response>,
+): Promise<Response> {
+    c.header('cache-control', 'no-store')
+    try {
+        return await handler()
+    } catch (err) {
+        const {status, body} = toHttpError(err, mapAwsSdkError)
+        if (err instanceof CloudError) return c.json(body, status)
+        const message =
+            body.code === 'invalid_request' ? 'Payment Cryptography rejected the request' : body.error
         return c.json({error: message, code: body.code, message}, status)
     }
 }
