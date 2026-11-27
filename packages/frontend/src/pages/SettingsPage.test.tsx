@@ -3,7 +3,7 @@ import {render, screen, within} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {DEFAULT_ACCOUNT_ID, setAccountId} from '@/lib/accountStore'
+import {DEFAULT_ACCOUNT_ID, getAccountId, setAccountId} from '@/lib/accountStore'
 import {getRegion, setRegion} from '@/lib/regionStore'
 import type {CloudDescriptor, CloudProvider} from '@/types/cloud'
 import {SettingsPage} from './SettingsPage'
@@ -32,8 +32,11 @@ beforeEach(() => {
     clouds.data = ALL_CLOUDS
 })
 
-function renderSettings(initialEntry: string | {pathname: string; state: {cloud: CloudProvider; fromCloudExplorer?: boolean}}) {
-    setAccountId(DEFAULT_ACCOUNT_ID)
+function renderSettings(
+    initialEntry: string | {pathname: string; state: {cloud: CloudProvider; fromCloudExplorer?: boolean}},
+    accountId = DEFAULT_ACCOUNT_ID,
+) {
+    setAccountId(accountId)
     const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}})
 
     render(
@@ -88,10 +91,30 @@ describe('SettingsPage', () => {
         setRegion(null)
     })
 
-    it('shows no region switcher outside AWS', () => {
-        renderSettings({pathname: '/settings', state: {cloud: 'azure'}})
+    it.each(['azure', 'gcp', 'oci'] as const)('shows no account or region setting on %s', (cloud) => {
+        setRegion('us-west-2')
+        renderSettings({pathname: '/settings', state: {cloud}}, '111122223333')
 
+        expect(screen.getByRole('button', {name: /Switch cloud, currently/})).toBeInTheDocument()
+        expect(screen.queryByRole('button', {name: /Switch AWS account/})).not.toBeInTheDocument()
         expect(screen.queryByRole('button', {name: /Switch AWS region/})).not.toBeInTheDocument()
+        expect(screen.queryByText('Account', {selector: '.settings-label'})).not.toBeInTheDocument()
+        expect(screen.queryByText('Region', {selector: '.settings-label'})).not.toBeInTheDocument()
+        // The stored choices are kept for the return to AWS.
+        expect(getAccountId()).toBe('111122223333')
+        expect(getRegion()).toBe('us-west-2')
+        setRegion(null)
+    })
+
+    it('shows the account and region settings on AWS, with the stored choices', () => {
+        setRegion('us-west-2')
+        renderSettings({pathname: '/settings', state: {cloud: 'aws'}}, '111122223333')
+
+        expect(screen.getByText('Account', {selector: '.settings-label'})).toBeInTheDocument()
+        expect(screen.getByRole('button', {name: 'Switch AWS account 1111-2222-3333'})).toBeInTheDocument()
+        expect(screen.getByText('Region', {selector: '.settings-label'})).toBeInTheDocument()
+        expect(screen.getByRole('button', {name: 'Switch AWS region us-west-2'})).toBeInTheDocument()
+        setRegion(null)
     })
 
     it('sends a cloud switch from Cloud Explorer to the new cloud storage view', async () => {
