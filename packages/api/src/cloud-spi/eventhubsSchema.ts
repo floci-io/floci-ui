@@ -20,7 +20,7 @@ export function azureEventHubsSchema(): ServiceSchema {
                 required: true,
                 description: '6-50 characters. Letters, numbers, and hyphens; starts with a letter, ends with a letter or number.',
                 validation: {
-                    pattern: '^[A-Za-z][A-Za-z0-9-]{4,48}[A-Za-z0-9]$',
+                    pattern: '^[A-Za-z][A-Za-z0-9\\-]{4,48}[A-Za-z0-9]$',
                     minLength: 6,
                     maxLength: 50,
                     message: 'Use a valid Event Hubs namespace: 6-50 letters, numbers, or hyphens; start with a letter and end with a letter or number.',

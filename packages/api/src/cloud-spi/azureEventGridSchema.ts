@@ -1,6 +1,6 @@
 import type {CapabilitySchema, FieldSchema, ResourceActionName, ServiceSchema, TableColumnSchema} from './types'
 
-export const AZURE_EVENT_GRID_TOPIC_NAME_PATTERN = '^[A-Za-z0-9-]{3,50}$'
+export const AZURE_EVENT_GRID_TOPIC_NAME_PATTERN = '^[A-Za-z0-9\\-]{3,50}$'
 export const AZURE_EVENT_GRID_TOPIC_NAME_MESSAGE = '3 to 50 letters, digits and hyphens.'
 export const AZURE_EVENT_GRID_LOCATIONS = ['eastus', 'eastus2', 'westus', 'westus2', 'westeurope', 'northeurope'] as const
 export const AZURE_EVENT_GRID_INPUT_SCHEMAS = ['EventGridSchema', 'CloudEventSchemaV1_0'] as const

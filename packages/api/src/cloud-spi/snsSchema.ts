@@ -13,7 +13,7 @@ export function awsSnsSchema(): ServiceSchema {
                 required: true,
                 description: 'Up to 256 letters, numbers, hyphens, or underscores. FIFO topics end in .fifo.',
                 validation: {
-                    pattern: '^(?:[A-Za-z0-9_-]{1,256}|[A-Za-z0-9_-]{1,251}\\.fifo)$',
+                    pattern: '^(?:[A-Za-z0-9_\\-]{1,256}|[A-Za-z0-9_\\-]{1,251}\\.fifo)$',
                     maxLength: 256,
                     message: 'Use a valid SNS topic name, with .fifo only as the FIFO suffix.',
                 },

@@ -6,7 +6,7 @@ export type CodeBuildKind = (typeof CODEBUILD_KINDS)[number]
 /** A project name is 2 to 255 characters, starting with a letter or digit. */
 export const CODEBUILD_NAME_MIN_LENGTH = 2
 export const CODEBUILD_NAME_MAX_LENGTH = 255
-export const CODEBUILD_NAME_PATTERN = '^[A-Za-z0-9][A-Za-z0-9_-]*$'
+export const CODEBUILD_NAME_PATTERN = '^[A-Za-z0-9][A-Za-z0-9_\\-]*$'
 export const CODEBUILD_NAME_MESSAGE = 'Start with a letter or digit; letters, digits, hyphens and underscores only.'
 
 export const CODEBUILD_DEFAULT_IMAGE = 'public.ecr.aws/docker/library/alpine:latest'

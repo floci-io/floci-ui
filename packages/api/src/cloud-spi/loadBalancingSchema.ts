@@ -15,7 +15,7 @@ export const ELB_TYPES = ['application', 'network'] as const
 export const ELB_SCHEMES = ['internet-facing', 'internal'] as const
 
 /** ELBv2 names: up to 32 chars, alphanumerics and hyphens, no leading/trailing hyphen. */
-export const ELB_NAME_PATTERN = '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,30}[a-zA-Z0-9])?$'
+export const ELB_NAME_PATTERN = '^[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,30}[a-zA-Z0-9])?$'
 
 export function awsLoadBalancingSchema(): ServiceSchema {
     return {

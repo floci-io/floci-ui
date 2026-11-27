@@ -50,7 +50,7 @@ export function awsStorageSchema(): ServiceSchema {
                 required: true,
                 description: '3-63 characters. Lowercase letters, numbers, dots, and hyphens.',
                 validation: {
-                    pattern: '^(?!\\d+\\.\\d+\\.\\d+\\.\\d+$)(?!.*\\.\\.)(?!.*\\.-)(?!.*-\\.)(?!.*--x-s3$)(?!.*-s3alias$)[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$',
+                    pattern: '^(?!\\d+\\.\\d+\\.\\d+\\.\\d+$)(?!.*\\.\\.)(?!.*\\.-)(?!.*-\\.)(?!.*--x-s3$)(?!.*-s3alias$)[a-z0-9][a-z0-9.\\-]{1,61}[a-z0-9]$',
                     minLength: 3,
                     maxLength: 63,
                     message: 'Use a valid S3 bucket name: 3-63 lowercase characters, numbers, dots, or hyphens.',
@@ -114,7 +114,7 @@ export function gcpStorageSchema(): ServiceSchema {
                 required: true,
                 description: '3-63 characters. Lowercase letters, numbers, dots, underscores, and hyphens.',
                 validation: {
-                    pattern: '^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$',
+                    pattern: '^[a-z0-9][a-z0-9._\\-]{1,61}[a-z0-9]$',
                     minLength: 3,
                     maxLength: 63,
                     message: 'Use a valid GCS bucket name: 3-63 lowercase characters, numbers, dots, underscores, or hyphens.',
@@ -144,7 +144,7 @@ export function ociStorageSchema(): ServiceSchema {
                 required: true,
                 description: 'Up to 256 characters. Letters, numbers, dashes, underscores, and periods.',
                 validation: {
-                    pattern: '^[A-Za-z0-9._-]{1,256}$',
+                    pattern: '^[A-Za-z0-9._\\-]{1,256}$',
                     minLength: 1,
                     maxLength: 256,
                     message: 'Use a valid OCI bucket name: 1-256 letters, numbers, dashes, underscores, or periods.',

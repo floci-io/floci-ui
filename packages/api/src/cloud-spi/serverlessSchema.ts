@@ -142,7 +142,7 @@ const azureServerlessFields: FieldSchema[] = [
         required: true,
         description: 'The app to create, or the existing app the function is deployed into.',
         validation: {
-            pattern: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,58}[A-Za-z0-9])?$',
+            pattern: '^[A-Za-z0-9](?:[A-Za-z0-9\\-]{0,58}[A-Za-z0-9])?$',
             message: 'Use 1-60 letters, numbers, or hyphens; do not start or end with a hyphen.',
         },
     },
@@ -181,7 +181,7 @@ const azureServerlessFields: FieldSchema[] = [
         group: 'Function',
         description: 'Unique within the Function App.',
         validation: {
-            pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,126}$',
+            pattern: '^[A-Za-z0-9][A-Za-z0-9_\\-]{0,126}$',
             message: 'Use up to 127 letters, numbers, hyphens, or underscores, starting with a letter or number.',
         },
     },

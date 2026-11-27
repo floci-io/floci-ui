@@ -54,7 +54,7 @@ const sqsMessageCapabilities: CapabilitySchema<ResourceActionName>[] = [
  */
 export const sqsValidations = {
     queueName: {
-        pattern: '^([A-Za-z0-9_-]{1,80}|[A-Za-z0-9_-]{1,75}\\.fifo)$',
+        pattern: '^([A-Za-z0-9_\\-]{1,80}|[A-Za-z0-9_\\-]{1,75}\\.fifo)$',
         message: 'Use a valid SQS queue name: up to 80 alphanumeric characters, hyphens, or underscores.',
     },
     visibilityTimeout: {

@@ -11,7 +11,7 @@ const zoneColumns: TableColumnSchema[] = [
 const dnsFilters: FieldSchema[] = [{name: 'search', label: 'Search', type: 'text', required: false}]
 
 /** A domain name, optionally with the trailing root dot Route 53 itself returns. */
-export const ROUTE53_ZONE_NAME_PATTERN = '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\\.?$'
+export const ROUTE53_ZONE_NAME_PATTERN = '^[A-Za-z0-9]([A-Za-z0-9.\\-]*[A-Za-z0-9])?\\.?$'
 export const ROUTE53_ZONE_NAME_MAX_LENGTH = 253
 export const ROUTE53_COMMENT_MAX_LENGTH = 256
 export const ROUTE53_VPC_ID_PATTERN = '^vpc-[A-Za-z0-9]+$'

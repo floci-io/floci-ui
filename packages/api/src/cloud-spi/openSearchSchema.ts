@@ -3,7 +3,7 @@ import type {CapabilitySchema, FieldSchema, ResourceActionName, ServiceSchema, T
 /** A domain name is 3 to 28 characters, starts with a lowercase letter, then lowercase letters, digits and hyphens. */
 export const OPENSEARCH_NAME_MIN_LENGTH = 3
 export const OPENSEARCH_NAME_MAX_LENGTH = 28
-export const OPENSEARCH_NAME_PATTERN = '^[a-z][a-z0-9-]*$'
+export const OPENSEARCH_NAME_PATTERN = '^[a-z][a-z0-9\\-]*$'
 export const OPENSEARCH_NAME_MESSAGE = 'Start with a lowercase letter; lowercase letters, digits and hyphens only.'
 
 const openSearchFilters: FieldSchema[] = [

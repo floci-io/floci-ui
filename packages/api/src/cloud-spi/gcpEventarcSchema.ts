@@ -1,6 +1,6 @@
 import type {CapabilitySchema, FieldSchema, ResourceActionName, ServiceSchema, TableColumnSchema} from './types'
 
-export const GCP_EVENTARC_TRIGGER_ID_PATTERN = '^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$'
+export const GCP_EVENTARC_TRIGGER_ID_PATTERN = '^[a-z]([a-z0-9\\-]{0,61}[a-z0-9])?$'
 export const GCP_EVENTARC_TRIGGER_ID_MESSAGE =
     'Use 1 to 63 lowercase letters, digits and hyphens, starting with a letter and ending with a letter or digit.'
 

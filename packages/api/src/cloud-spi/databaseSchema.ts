@@ -34,7 +34,7 @@ export function awsDatabaseSchema(): ServiceSchema {
                 type: 'text',
                 required: true,
                 validation: {
-                    pattern: '^(?!.*--)[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$',
+                    pattern: '^(?!.*--)[a-z](?:[a-z0-9\\-]{0,61}[a-z0-9])?$',
                     minLength: 1,
                     maxLength: 63,
                 },
@@ -222,7 +222,7 @@ export function azureDatabaseSchema(defaultLocation = 'eastus'): ServiceSchema {
                 validation: {
                     minLength: 1,
                     maxLength: 63,
-                    pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$',
+                    pattern: '^[a-z0-9](?:[a-z0-9\\-]*[a-z0-9])?$',
                     message: 'Use 1-63 lowercase letters, numbers, or hyphens.',
                 },
             },

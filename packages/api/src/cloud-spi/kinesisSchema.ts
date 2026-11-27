@@ -39,7 +39,7 @@ export function awsKinesisSchema(): ServiceSchema {
                 required: true,
                 description: '1-128 letters, numbers, underscores, hyphens, or periods.',
                 validation: {
-                    pattern: '^[A-Za-z0-9_.-]+$',
+                    pattern: '^[A-Za-z0-9_.\\-]+$',
                     minLength: 1,
                     maxLength: 128,
                     message: 'Use 1-128 letters, numbers, underscores, hyphens, or periods.',
@@ -138,12 +138,12 @@ export function ociStreamingSchema(): ServiceSchema {
 export const GCP_KAFKA_RESOURCE_TYPES = ['cluster', 'topic'] as const
 
 /** Managed Kafka cluster ids: 1-63 lowercase letters, numbers or hyphens, starting with a letter. */
-export const GCP_KAFKA_CLUSTER_ID_PATTERN = '^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$'
+export const GCP_KAFKA_CLUSTER_ID_PATTERN = '^[a-z]([\\-a-z0-9]{0,61}[a-z0-9])?$'
 export const GCP_KAFKA_CLUSTER_ID_MESSAGE =
     'Use 1-63 lowercase letters, numbers, or hyphens, starting with a letter and not ending in a hyphen.'
 
 /** Kafka topic names: 1-249 letters, numbers, dots, underscores or hyphens. */
-export const GCP_KAFKA_TOPIC_ID_PATTERN = '^[A-Za-z0-9._-]{1,249}$'
+export const GCP_KAFKA_TOPIC_ID_PATTERN = '^[A-Za-z0-9._\\-]{1,249}$'
 export const GCP_KAFKA_TOPIC_ID_MESSAGE = 'Use 1-249 letters, numbers, dots, underscores, or hyphens.'
 
 /**

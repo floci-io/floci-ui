@@ -25,7 +25,7 @@ export function azureNoSqlSchema(): ServiceSchema {
                 validation: {
                     minLength: 1,
                     maxLength: 255,
-                    pattern: '^[A-Za-z0-9._-]+$',
+                    pattern: '^[A-Za-z0-9._\\-]+$',
                     message: 'Use letters, numbers, dot, underscore, or dash.',
                 },
             },
@@ -65,7 +65,7 @@ export function gcpNoSqlSchema(): ServiceSchema {
                 validation: {
                     minLength: 1,
                     maxLength: 1500,
-                    pattern: '^(?!\\.{1,2}$)(?!__.*__$)[^/]+$',
+                    pattern: '^(?!\\.{1,2}$)(?!__.*__$)[^\\/]+$',
                     message: 'Use 1 to 1500 bytes without "/", not "." or "..", and not of the form __name__.',
                 },
             },
@@ -77,7 +77,7 @@ export function gcpNoSqlSchema(): ServiceSchema {
                 description: 'Up to 1500 bytes. Leave empty to let Firestore generate an ID.',
                 validation: {
                     maxLength: 1500,
-                    pattern: '^((?!\\.{1,2}$)(?!__.*__$)[^/]+)?$',
+                    pattern: '^((?!\\.{1,2}$)(?!__.*__$)[^\\/]+)?$',
                     message: 'Use up to 1500 bytes without "/", not "." or "..", and not of the form __name__.',
                 },
             },
