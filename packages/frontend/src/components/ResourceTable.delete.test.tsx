@@ -46,6 +46,19 @@ describe("ResourceTable delete confirmation", () => {
     expect(onDelete).not.toHaveBeenCalled();
   });
 
+  it("moves focus to Cancel when the confirm opens and back to the trigger on Cancel", async () => {
+    const user = userEvent.setup();
+    render(<ResourceTable schema={schema} resources={[bucket]} onSelect={vi.fn()} onDelete={vi.fn()} />);
+
+    screen.getByRole("button", { name: "Delete ux-assets" }).focus();
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    expect(screen.queryByText("Delete ux-assets?")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete ux-assets" })).toHaveFocus();
+  });
+
   it("deletes once confirmed", async () => {
     const onDelete = vi.fn();
     const user = userEvent.setup();

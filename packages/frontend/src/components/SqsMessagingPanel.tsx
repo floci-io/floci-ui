@@ -40,6 +40,7 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
   const [receiving, setReceiving] = useState(false);
   const [deletingHandle, setDeletingHandle] = useState<string | null>(null);
   const [confirmingHandle, setConfirmingHandle] = useState<string | null>(null);
+  const returnFocusToHandle = useRef<string | null>(null);
   const [purgeConfirming, setPurgeConfirming] = useState(false);
   const [purgeError, setPurgeError] = useState<string | null>(null);
   const [purging, setPurging] = useState(false);
@@ -365,14 +366,24 @@ export function SqsMessagingPanel({cloud, resource, runtimeReachable, onMessages
                       <button
                         className="button compact"
                         type="button"
+                        autoFocus
                         disabled={deletingHandle === message.receiptHandle}
-                        onClick={() => setConfirmingHandle(null)}
+                        onClick={() => {
+                          returnFocusToHandle.current = message.receiptHandle;
+                          setConfirmingHandle(null);
+                        }}
                       >
                         Cancel
                       </button>
                     </div>
                   ) : (
                     <button
+                      ref={(el) => {
+                        if (el && returnFocusToHandle.current === message.receiptHandle) {
+                          returnFocusToHandle.current = null;
+                          el.focus();
+                        }
+                      }}
                       className="button"
                       type="button"
                       onClick={() => setConfirmingHandle(message.receiptHandle)}

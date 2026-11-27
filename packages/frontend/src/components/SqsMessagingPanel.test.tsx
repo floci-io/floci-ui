@@ -151,6 +151,27 @@ describe("SqsMessagingPanel", () => {
     expect(screen.getByRole("button", {name: "Delete"})).toBeInTheDocument();
   });
 
+  test("moves focus to Cancel when the delete confirm opens and back to Delete on Cancel", async () => {
+    vi.mocked(receiveQueueMessages).mockResolvedValue([
+      {messageId: "msg-1", body: "hello", receiptHandle: "handle-1"},
+    ]);
+    const user = userEvent.setup();
+
+    render(<SqsMessagingPanel cloud="aws" resource={resource} runtimeReachable={true}/>);
+
+    await user.click(screen.getByRole("button", {name: "Receive"}));
+    await user.click(screen.getByRole("button", {name: "Receive messages"}));
+    expect(await screen.findByText("hello")).toBeInTheDocument();
+
+    screen.getByRole("button", {name: "Delete"}).focus();
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("button", {name: "Cancel"})).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    expect(screen.queryByText("Delete this message?")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Delete"})).toHaveFocus();
+  });
+
   test("finishing one message delete leaves another message's prompt open", async () => {
     vi.mocked(receiveQueueMessages).mockResolvedValue([
       {messageId: "msg-1", body: "first", receiptHandle: "handle-1"},
