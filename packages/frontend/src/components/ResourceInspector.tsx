@@ -25,6 +25,11 @@ interface ResourceInspectorProps {
   serviceName?: string;
   /** Whether the service's schema declares that its tags can be edited. */
   canEditTags?: boolean;
+  /**
+   * Why the inspector shows less than the whole resource: the reason a schema
+   * gives when its inspect capability is partial.
+   */
+  inspectNotice?: string;
 }
 
 export type { InspectorTab };
@@ -36,6 +41,7 @@ export function ResourceInspector({
   runtimeReachable,
   serviceName,
   canEditTags,
+  inspectNotice,
 }: ResourceInspectorProps) {
   const [activeTab, setActiveTab] = useState<InspectorTab>('plain');
   const {copied: copiedJson, copy: copyJson, reset: resetCopyJson} = useCopyToClipboard();
@@ -235,6 +241,11 @@ export function ResourceInspector({
         />
       )}
       <InspectorTabs idPrefix="inspector" activeTab={activeTab} onChange={setActiveTab} />
+      {inspectNotice && (
+        <p className="muted compact-text" role="note">
+          {inspectNotice}
+        </p>
+      )}
 
       {activeTab === 'plain' && (
         <div

@@ -672,6 +672,12 @@ export function DynamicResourceView({
   const createResourceLabel = createCapability?.label ?? "Create resource";
   // A service can hold kinds of resource that do not take the same actions: an
   // alias carries no tags of its own, so the tag editor is the key's alone.
+  // A partial inspect says what the inspector leaves out, so a withheld field
+  // reads as a policy rather than a gap. The schema's own reason is used, not
+  // the runtime or availability wording that replaces it on the action buttons.
+  const inspectCapability = capabilityFor(normalizeCapabilities(resourceCapabilityInputs), "inspect");
+  const inspectNotice =
+    inspectCapability?.status === "partial" ? inspectCapability.reason : undefined;
   const updateTagsCapability = capabilityFor(resourceCapabilities, "updateTags");
   const canEditTags =
     capabilityEnabled(updateTagsCapability) &&
@@ -1108,6 +1114,7 @@ export function DynamicResourceView({
             runtimeReachable={canUseRuntime}
             serviceName={schema.displayName}
             canEditTags={canEditTags}
+            inspectNotice={inspectNotice}
           />
         )}
       </div>

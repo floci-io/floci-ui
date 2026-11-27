@@ -610,3 +610,33 @@ describe('ResourceInspector bucket versioning', () => {
         })
     }
 })
+
+describe('ResourceInspector a field the schema withholds', () => {
+    const reason = 'Parameter values are never returned to the console, so the inspector shows metadata only.'
+    const parameter: CloudResource = {
+        id: '/app/db/url',
+        name: '/app/db/url',
+        cloud: 'aws',
+        service: 'parameters',
+        type: 'parameter',
+        region: null,
+        createdAt: null,
+        status: null,
+        metadata: {parameterType: 'String', version: 1, valueWithheld: true},
+    }
+
+    test('says why the value is not shown on every tab', async () => {
+        const user = userEvent.setup()
+        renderWithClient(<ResourceInspector resource={parameter} cloud="aws" inspectNotice={reason} />)
+
+        expect(screen.getByRole('note')).toHaveTextContent(reason)
+        await user.click(screen.getByRole('tab', {name: /json/i}))
+        expect(screen.getByRole('note')).toHaveTextContent(reason)
+    })
+
+    test('says nothing extra when the schema declares a full inspect', () => {
+        renderWithClient(<ResourceInspector resource={parameter} cloud="aws" />)
+
+        expect(screen.queryByRole('note')).not.toBeInTheDocument()
+    })
+})
