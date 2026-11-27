@@ -254,6 +254,39 @@ describe('activity recorder', () => {
             {operation: 'Create', resourceType: 'instance', resourceName: 'web-1'},
         ])
     })
+
+    test('names a tag edit after the resource it remembers', async () => {
+        const {app} = appWith((routes) => {
+            routes.post('/api/clouds/aws/services/compute/resources', (c) =>
+                c.json({id: 'i-1', name: 'web-1', type: 'instance'}, 201))
+            routes.patch('/api/clouds/aws/services/compute/resources/:id/tags', (c) => c.json({ok: true}))
+        })
+
+        await app.request('/api/clouds/aws/services/compute/resources', {method: 'POST', body: '{}'})
+        await app.request('/api/clouds/aws/services/compute/resources/i-1/tags', {method: 'PATCH', body: '{}'})
+
+        const {items} = await feed(app)
+        expect(items[0]).toMatchObject({resourceType: 'instance', resourceName: 'web-1'})
+    })
+
+    test('remembers a resource only in the account and region it was seen in', async () => {
+        const {app} = appWith((routes) => {
+            routes.post('/api/clouds/aws/services/parameters/resources', (c) =>
+                c.json({id: 'cfg', name: '/app/config', type: 'parameter'}, 201))
+            routes.delete('/api/clouds/aws/services/parameters/resources/:id', (c) => c.json({ok: true}))
+        })
+        const inAccount = (account: string) => ({'x-floci-account-id': account})
+
+        await app.request('/api/clouds/aws/services/parameters/resources', {method: 'POST', body: '{}', headers: inAccount('111111111111')})
+        await app.request('/api/clouds/aws/services/parameters/resources/cfg', {method: 'DELETE', headers: inAccount('222222222222')})
+        await app.request('/api/clouds/aws/services/parameters/resources/cfg', {method: 'DELETE', headers: {'x-floci-account-id': '111111111111', 'x-floci-region': 'eu-west-3'}})
+
+        const {items} = await feed(app)
+        expect(items.slice(0, 2).map(({resourceType, resourceName}) => ({resourceType, resourceName}))).toEqual([
+            {resourceType: null, resourceName: 'cfg'},
+            {resourceType: null, resourceName: 'cfg'},
+        ])
+    })
 })
 
 describe('GET /api/activity', () => {

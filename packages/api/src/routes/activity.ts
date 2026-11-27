@@ -3,6 +3,7 @@ import type {MiddlewareHandler} from 'hono'
 import {clampLimit} from '../cloud-spi/childCollections'
 import {CloudError, toHttpError, ValidationError} from '../cloud-spi/errors'
 import type {CloudProvider} from '../cloud-spi/types'
+import {ACCOUNT_HEADER, REGION_HEADER} from './clouds'
 import {
     activityLog,
     ActivityLog,
@@ -184,12 +185,15 @@ function withKnownResource(
     method: string,
     statusCode: number,
     body: Record<string, unknown> | null,
+    scope: string,
 ): Record<string, unknown> | null {
     const {action} = described
-    if (action !== null && !ACTION_VERBS.has(action)) return body
+    // Tags belong to the resource itself, so their row names it like a verb's row does.
+    if (action !== null && action !== 'tags' && !ACTION_VERBS.has(action)) return body
     const id = described.resourceId ?? stringField(body, 'id')
     if (id === null) return body
-    const key = `${described.cloud}:${described.service}:${id}`
+    // Ids repeat across accounts and regions, which each request selects.
+    const key = `${scope}:${described.cloud}:${described.service}:${id}`
 
     const type = stringField(body, 'type')
     if (type) {
@@ -251,7 +255,11 @@ export function activityRecorder(log: ActivityLog = activityLog): MiddlewareHand
                 ? (thrown.error instanceof CloudError ? toHttpError(thrown.error).status : 500)
                 : c.res.status
             const answered = response ? await readJsonObject(response) : null
-            const body = withKnownResource(known, described, c.req.method, statusCode, answered)
+            const scope = [
+                c.req.header(ACCOUNT_HEADER) ?? c.req.query('account') ?? '',
+                c.req.header(REGION_HEADER) ?? c.req.query('region') ?? '',
+            ].join('/')
+            const body = withKnownResource(known, described, c.req.method, statusCode, answered, scope)
             log.record({
                 cloud: described.cloud,
                 service: described.service,
