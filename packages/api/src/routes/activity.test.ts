@@ -207,6 +207,86 @@ describe('activity recorder', () => {
         const {items} = await feed(app)
         expect(items).toHaveLength(0)
     })
+
+    test('records an encoded path id decoded', async () => {
+        const {app} = appWith((routes) => {
+            routes.delete('/api/clouds/aws/services/parameters/resources/:id', (c) => c.json({ok: true}))
+        })
+
+        await app.request('/api/clouds/aws/services/parameters/resources/%2Fux%2Fregion-note', {method: 'DELETE'})
+
+        const {items} = await feed(app)
+        expect(items[0]).toMatchObject({resourceName: '/ux/region-note', path: '/api/clouds/aws/services/parameters/resources/%2Fux%2Fregion-note'})
+        expect(describeRequest('DELETE', '/api/clouds/aws/services/parameters/resources/%2Fa%2Fb')).toMatchObject({resourceId: '/a/b'})
+    })
+
+    test('keeps an id whose encoding does not decode as it came', async () => {
+        const {app} = appWith((routes) => {
+            routes.delete('/api/clouds/aws/services/parameters/resources/:id', (c) => c.json({ok: true}))
+        })
+
+        await app.request('/api/clouds/aws/services/parameters/resources/100%25-bad%E0%A4', {method: 'DELETE'})
+
+        const {items} = await feed(app)
+        expect(items[0]).toMatchObject({resourceName: '100%25-bad%E0%A4'})
+    })
+
+    test('records the delete of a resource in the format its create was recorded in', async () => {
+        const {app} = appWith((routes) => {
+            routes.post('/api/clouds/aws/services/compute/resources', (c) =>
+                c.json({id: 'i-1', name: 'web-1', type: 'instance'}, 201))
+            routes.post('/api/clouds/aws/services/compute/resources/:id/stop', (c) => c.json({ok: true}))
+            routes.delete('/api/clouds/aws/services/compute/resources/:id', (c) => c.json({ok: true}))
+        })
+
+        await app.request('/api/clouds/aws/services/compute/resources', {method: 'POST', body: '{}'})
+        await app.request('/api/clouds/aws/services/compute/resources/i-1/stop', {method: 'POST', body: '{}'})
+        await app.request('/api/clouds/aws/services/compute/resources/i-1', {method: 'DELETE'})
+        await app.request('/api/clouds/aws/services/compute/resources/i-1', {method: 'DELETE'})
+
+        const {items} = await feed(app)
+        const targets = items.map(({operation, resourceType, resourceName}) => ({operation, resourceType, resourceName}))
+        expect(targets).toEqual([
+            // Once deleted, the id is forgotten: a later row names it as the path does.
+            {operation: 'Delete', resourceType: null, resourceName: 'i-1'},
+            {operation: 'Delete', resourceType: 'instance', resourceName: 'web-1'},
+            {operation: 'Stop', resourceType: 'instance', resourceName: 'web-1'},
+            {operation: 'Create', resourceType: 'instance', resourceName: 'web-1'},
+        ])
+    })
+
+    test('names a tag edit after the resource it remembers', async () => {
+        const {app} = appWith((routes) => {
+            routes.post('/api/clouds/aws/services/compute/resources', (c) =>
+                c.json({id: 'i-1', name: 'web-1', type: 'instance'}, 201))
+            routes.patch('/api/clouds/aws/services/compute/resources/:id/tags', (c) => c.json({ok: true}))
+        })
+
+        await app.request('/api/clouds/aws/services/compute/resources', {method: 'POST', body: '{}'})
+        await app.request('/api/clouds/aws/services/compute/resources/i-1/tags', {method: 'PATCH', body: '{}'})
+
+        const {items} = await feed(app)
+        expect(items[0]).toMatchObject({resourceType: 'instance', resourceName: 'web-1'})
+    })
+
+    test('remembers a resource only in the account and region it was seen in', async () => {
+        const {app} = appWith((routes) => {
+            routes.post('/api/clouds/aws/services/parameters/resources', (c) =>
+                c.json({id: 'cfg', name: '/app/config', type: 'parameter'}, 201))
+            routes.delete('/api/clouds/aws/services/parameters/resources/:id', (c) => c.json({ok: true}))
+        })
+        const inAccount = (account: string) => ({'x-floci-account-id': account})
+
+        await app.request('/api/clouds/aws/services/parameters/resources', {method: 'POST', body: '{}', headers: inAccount('111111111111')})
+        await app.request('/api/clouds/aws/services/parameters/resources/cfg', {method: 'DELETE', headers: inAccount('222222222222')})
+        await app.request('/api/clouds/aws/services/parameters/resources/cfg', {method: 'DELETE', headers: {'x-floci-account-id': '111111111111', 'x-floci-region': 'eu-west-3'}})
+
+        const {items} = await feed(app)
+        expect(items.slice(0, 2).map(({resourceType, resourceName}) => ({resourceType, resourceName}))).toEqual([
+            {resourceType: null, resourceName: 'cfg'},
+            {resourceType: null, resourceName: 'cfg'},
+        ])
+    })
 })
 
 describe('GET /api/activity', () => {

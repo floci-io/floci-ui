@@ -3,6 +3,7 @@ import type {MiddlewareHandler} from 'hono'
 import {clampLimit} from '../cloud-spi/childCollections'
 import {CloudError, toHttpError, ValidationError} from '../cloud-spi/errors'
 import type {CloudProvider} from '../cloud-spi/types'
+import {ACCOUNT_HEADER, REGION_HEADER} from './clouds'
 import {
     activityLog,
     ActivityLog,
@@ -73,7 +74,7 @@ export interface ResourceRequest {
 export function describeRequest(method: string, path: string): ResourceRequest | null {
     if (!MUTATING_METHODS.has(method)) return null
 
-    const parts = path.split('/').filter(Boolean)
+    const parts = path.split('/').filter(Boolean).map(decodeSegment)
     let service: string
     let cloud: CloudProvider | null = null
     let rest: string[]
@@ -153,6 +154,66 @@ function humanize(action: string): string {
 }
 
 /**
+ * Ids that are paths (`/team/db-url`) travel percent-encoded in one segment.
+ * The segment is split first and decoded once, so an encoded slash stays part
+ * of the id; encoding that does not decode is kept as it came.
+ */
+function decodeSegment(segment: string): string {
+    try {
+        return decodeURIComponent(segment)
+    } catch {
+        return segment
+    }
+}
+
+interface KnownResource {
+    type: string
+    name: string | null
+}
+
+const MAX_KNOWN_RESOURCES = 1000
+
+/**
+ * A create or update answers with the resource's type and name, but a delete or
+ * a verb on the resource answers with neither, so its row would name the bare
+ * id with no type. Every resource the recorder has seen answered for is
+ * remembered by id, and a later row on it records the same type and name.
+ */
+function withKnownResource(
+    known: Map<string, KnownResource>,
+    described: ResourceRequest,
+    method: string,
+    statusCode: number,
+    body: Record<string, unknown> | null,
+    scope: string,
+): Record<string, unknown> | null {
+    const {action} = described
+    // Tags belong to the resource itself, so their row names it like a verb's row does.
+    if (action !== null && action !== 'tags' && !ACTION_VERBS.has(action)) return body
+    const id = described.resourceId ?? stringField(body, 'id')
+    if (id === null) return body
+    // Ids repeat across accounts and regions, which each request selects.
+    const key = `${scope}:${described.cloud}:${described.service}:${id}`
+
+    const type = stringField(body, 'type')
+    if (type) {
+        known.delete(key)
+        known.set(key, {type, name: stringField(body, 'name')})
+        if (known.size > MAX_KNOWN_RESOURCES) known.delete(known.keys().next().value as string)
+        return body
+    }
+
+    const remembered = known.get(key)
+    if (!remembered) return body
+    if (method === 'DELETE' && statusCode < 400) known.delete(key)
+    return {
+        ...body,
+        type: remembered.type,
+        name: stringField(body, 'name') ?? remembered.name,
+    }
+}
+
+/**
  * Source of the call, best effort from the caller's user agent. Everything
  * reaching this middleware came in over HTTP, so the console's own browser
  * requests and a script talking to the API are distinguishable; traffic that
@@ -173,6 +234,7 @@ function sourceFor(userAgent: string): string {
  * are both covered without touching either.
  */
 export function activityRecorder(log: ActivityLog = activityLog): MiddlewareHandler {
+    const known = new Map<string, KnownResource>()
     return async (c, next) => {
         if (!MUTATING_METHODS.has(c.req.method)) return next()
 
@@ -192,7 +254,12 @@ export function activityRecorder(log: ActivityLog = activityLog): MiddlewareHand
             const statusCode = thrown !== null
                 ? (thrown.error instanceof CloudError ? toHttpError(thrown.error).status : 500)
                 : c.res.status
-            const body = response ? await readJsonObject(response) : null
+            const answered = response ? await readJsonObject(response) : null
+            const scope = [
+                c.req.header(ACCOUNT_HEADER) ?? c.req.query('account') ?? '',
+                c.req.header(REGION_HEADER) ?? c.req.query('region') ?? '',
+            ].join('/')
+            const body = withKnownResource(known, described, c.req.method, statusCode, answered, scope)
             log.record({
                 cloud: described.cloud,
                 service: described.service,
