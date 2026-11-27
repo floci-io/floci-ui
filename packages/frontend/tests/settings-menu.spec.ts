@@ -35,7 +35,8 @@ test('Settings switcher menus fit within narrow screens', async ({page}) => {
             const menu = page.getByRole('listbox')
             await expect(menu).toBeVisible()
             const fits = await menu.evaluate((element) => {
-                const bounds = element.getBoundingClientRect()
+                // The account list sits inside its popover, which also holds the add-account form.
+                const bounds = (element.closest('.account-popover') ?? element).getBoundingClientRect()
                 const row = element.closest('.settings-row')?.getBoundingClientRect()
                 return row !== undefined && bounds.left >= row.left - 1
                     && bounds.right <= row.right + 1 && bounds.right <= window.innerWidth

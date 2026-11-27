@@ -95,9 +95,9 @@ export function CloudSwitcher({clouds, selected, onSelect}: CloudSwitcherProps) 
             </button>
 
             {open && (
-                <div className="account-popover" role="listbox">
+                <div className="account-popover">
                     <div className="account-popover-title">Switch cloud</div>
-                    <div className="account-recents" onKeyDown={onListKeyDown}>
+                    <div className="account-recents" role="listbox" aria-label="Clouds" onKeyDown={onListKeyDown}>
                         {clouds.map((cloud, index) => (
                             <button
                                 key={cloud.id}
