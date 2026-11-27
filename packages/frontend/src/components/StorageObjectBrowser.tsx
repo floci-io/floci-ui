@@ -103,7 +103,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
 
     const query = useQuery({
         queryKey: target ? storageObjectsKey(target, prefix) : ['storage-objects', accountId, region, cloud, undefined, prefix],
-        queryFn: ({signal}) => listStorageObjects(accountId, cloud, resource?.id ?? '', prefix, signal),
+        queryFn: ({signal}) => listStorageObjects({accountId, region}, cloud, resource?.id ?? '', prefix, signal),
         enabled: !!resource,
     })
 
@@ -121,7 +121,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         mutationKey: storageObjectWriteKey,
         mutationFn: async ({file, target}: {file: File; target: StorageTarget}) => {
             const key = `${uploadPrefix || prefix}${file.name}`
-            await uploadStorageObject(target.accountId, target.cloud, target.bucketId, key, file)
+            await uploadStorageObject(target, target.cloud, target.bucketId, key, file)
         },
         onSuccess: (_, {target}) => qc.invalidateQueries({queryKey: storageObjectsKey(target)}),
     })
@@ -130,7 +130,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         mutationKey: storageObjectWriteKey,
         mutationFn: async ({name, target}: {name: string; target: StorageTarget}) => {
             const folderKey = `${prefix}${normalizeFolderName(name)}`
-            await uploadStorageObject(target.accountId, target.cloud, target.bucketId, folderKey, new Blob([], {type: 'application/x-directory'}))
+            await uploadStorageObject(target, target.cloud, target.bucketId, folderKey, new Blob([], {type: 'application/x-directory'}))
         },
         onSuccess: (_, {target}) => {
             if (isCurrent(target)) {
@@ -144,7 +144,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     const deleteMut = useMutation({
         mutationKey: storageObjectWriteKey,
         mutationFn: async ({object, target}: {object: StorageObject; target: StorageTarget}) => {
-            await deleteStorageObject(target.accountId, target.cloud, target.bucketId, object.key)
+            await deleteStorageObject(target, target.cloud, target.bucketId, object.key)
         },
         onSuccess: (_, {object, target}) => {
             if (isCurrent(target) && selectedObjectKey === object.key) onSelectObject(undefined)
@@ -157,7 +157,7 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
     const bulkDeleteMut = useMutation({
         mutationKey: storageObjectWriteKey,
         mutationFn: ({keys, target}: {keys: string[]; target: StorageTarget}) =>
-            Promise.allSettled(keys.map((key) => deleteStorageObject(target.accountId, target.cloud, target.bucketId, key))),
+            Promise.allSettled(keys.map((key) => deleteStorageObject(target, target.cloud, target.bucketId, key))),
     })
 
     const moveCopyMut = useMutation({
@@ -165,8 +165,8 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
         mutationFn: async ({srcKey, destKey, destResourceId, mode, target}: {
             srcKey: string; destKey: string; destResourceId?: string; mode: 'move' | 'copy'; target: StorageTarget
         }) => {
-            await copyStorageObject(target.accountId, target.cloud, target.bucketId, srcKey, destKey, destResourceId)
-            if (mode === 'move') await deleteStorageObject(target.accountId, target.cloud, target.bucketId, srcKey)
+            await copyStorageObject(target, target.cloud, target.bucketId, srcKey, destKey, destResourceId)
+            if (mode === 'move') await deleteStorageObject(target, target.cloud, target.bucketId, srcKey)
         },
         onSuccess: (_, vars) => {
             if (isCurrent(vars.target)) {

@@ -185,7 +185,7 @@ describe('StorageObjectBrowser storage cache', () => {
             },
             // The delete is sent after the copy settles, by which time account B is
             // selected; it must still go to account A, where the copy was made.
-            verify: () => expect(deleteStorageObject).toHaveBeenCalledWith(ACCOUNT_A, 'aws', 'logs', 'a.txt'),
+            verify: () => expect(deleteStorageObject).toHaveBeenCalledWith(expect.objectContaining({accountId: ACCOUNT_A, region: null}), 'aws', 'logs', 'a.txt'),
         },
     ]
 

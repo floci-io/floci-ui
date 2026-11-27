@@ -238,7 +238,7 @@ export function DynamicResourceView({
 
   const emptyMut = useMutation({
     mutationFn: (target: StorageTarget) =>
-      emptyStorageBucket(target.accountId, target.cloud, target.bucketId),
+      emptyStorageBucket(target, target.cloud, target.bucketId),
     // Earlier batches may have been deleted even when the call fails, so every
     // outcome refreshes the bucket it ran against.
     onSettled: (_result, _error, target) => {

@@ -42,7 +42,7 @@ import type {
   StorageObjectList,
 } from "@/types/resource";
 import type { ServiceSchema } from "@/types/schema";
-import { ACCOUNT_HEADER, getAccountId } from "@/lib/accountStore";
+import { getAccountId } from "@/lib/accountStore";
 import { getRegion } from "@/lib/regionStore";
 import { type RequestScope, scopeHeaders } from "@/lib/requestScope";
 
@@ -651,11 +651,11 @@ export async function purgeQueue(
 
 /**
  * Permanently delete every object version and delete marker in an AWS bucket.
- * The account is passed explicitly so the request runs against the account the
- * user confirmed, even if another account is selected before it is sent.
+ * The account and region are passed explicitly so the request runs where the
+ * user confirmed it, even if another account or region is selected before it is sent.
  */
 export async function emptyStorageBucket(
-  accountId: string,
+  scope: RequestScope,
   cloud: CloudProvider,
   resourceId: string,
   signal?: AbortSignal,
@@ -664,7 +664,7 @@ export async function emptyStorageBucket(
     apiEndpointKeys.clouds.storage.empty,
     requestOptions(cloud, "storage", {
       signal,
-      headers: { [ACCOUNT_HEADER]: accountId },
+      headers: scopeHeaders(scope),
       timeout: EMPTY_BUCKET_TIMEOUT_MS,
     }),
     storagePathParams(cloud, resourceId),
@@ -672,10 +672,10 @@ export async function emptyStorageBucket(
   return res.data;
 }
 
-// Object calls name their account explicitly: a write that settles after another
-// account is selected still lands in, and refreshes, the account it started in.
+// Object calls name their account and region explicitly: a write that settles after
+// another account or region is selected still lands in, and refreshes, the one it started in.
 export async function listStorageObjects(
-  accountId: string,
+  scope: RequestScope,
   cloud: CloudProvider,
   resourceId: string,
   prefix?: string,
@@ -686,7 +686,7 @@ export async function listStorageObjects(
     requestOptions(cloud, "storage", {
       signal,
       params: { prefix },
-      headers: { [ACCOUNT_HEADER]: accountId },
+      headers: scopeHeaders(scope),
     }),
     storagePathParams(cloud, resourceId),
   );
@@ -694,7 +694,7 @@ export async function listStorageObjects(
 }
 
 export async function uploadStorageObject(
-  accountId: string,
+  scope: RequestScope,
   cloud: CloudProvider,
   resourceId: string,
   key: string,
@@ -709,7 +709,7 @@ export async function uploadStorageObject(
       params: { key },
       headers: {
         "Content-Type": file.type || "application/octet-stream",
-        [ACCOUNT_HEADER]: accountId,
+        ...scopeHeaders(scope),
       },
     }),
     storagePathParams(cloud, resourceId),
@@ -736,7 +736,7 @@ export function storageObjectDownloadUrl(
 }
 
 export async function deleteStorageObject(
-  accountId: string,
+  scope: RequestScope,
   cloud: CloudProvider,
   resourceId: string,
   key: string,
@@ -747,14 +747,14 @@ export async function deleteStorageObject(
     requestOptions(cloud, "storage", {
       signal,
       params: { key },
-      headers: { [ACCOUNT_HEADER]: accountId },
+      headers: scopeHeaders(scope),
     }),
     storagePathParams(cloud, resourceId),
   );
 }
 
 export async function copyStorageObject(
-  accountId: string,
+  scope: RequestScope,
   cloud: CloudProvider,
   srcResourceId: string,
   srcKey: string,
@@ -767,7 +767,7 @@ export async function copyStorageObject(
     requestOptions(cloud, "storage", {
       signal,
       body: { srcKey, destKey, ...(destResourceId ? { destResourceId } : {}) },
-      headers: { [ACCOUNT_HEADER]: accountId },
+      headers: scopeHeaders(scope),
     }),
     storagePathParams(cloud, srcResourceId),
   );
