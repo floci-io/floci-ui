@@ -1066,8 +1066,10 @@ export function DynamicResourceView({
                 deletingId: deleteMut.isPending ? deleteMut.variables?.id : undefined,
                 cloudStatus,
                 listRegion:
-                  cloud === "aws" && !AWS_GLOBAL_SERVICES.has(service)
-                    ? region ?? cloudStatus?.region
+                  // Only a region the user picked: the console default needs no
+                  // explaining, and the status answer can still be the last region's.
+                  cloud === "aws" && region !== null && !AWS_GLOBAL_SERVICES.has(service)
+                    ? region
                     : undefined,
                 statusLoading,
                 serviceAvailability,
@@ -1411,6 +1413,8 @@ const AWS_GLOBAL_SERVICES: ReadonlySet<CloudServiceType> = new Set<CloudServiceT
   "identity",
   "cdn",
   "dns",
+  // The SES inbox Floci serves is shared, not regional.
+  "email",
 ]);
 
 function namesAnotherResource(schema: ServiceSchema | undefined): boolean {

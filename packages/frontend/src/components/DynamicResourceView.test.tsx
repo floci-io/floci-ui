@@ -1781,7 +1781,7 @@ describe("DynamicResourceView the certificate of a payment key", () => {
 });
 
 describe("DynamicResourceView empty list", () => {
-  function renderEmpty(cloud: "aws" | "azure", service: "messaging" | "storage", displayName: string, status: CloudStatus) {
+  function renderEmpty(cloud: "aws" | "azure", service: "messaging" | "storage" | "email", displayName: string, status: CloudStatus) {
     vi.mocked(getServiceSchema).mockResolvedValue({
       cloud,
       service,
@@ -1822,10 +1822,17 @@ describe("DynamicResourceView empty list", () => {
     ).toBeInTheDocument();
   });
 
-  it("names the region the runtime reports when none is selected", async () => {
-    renderEmpty("aws", "messaging", "Amazon SQS", { ...cloudStatus, region: "us-east-1" });
+  it("names no region on the console default, whatever the last status answer said", async () => {
+    renderEmpty("aws", "messaging", "Amazon SQS", { ...cloudStatus, region: "eu-west-3" });
 
-    expect(await screen.findByRole("heading", { name: "No Amazon SQS found in us-east-1." })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "No Amazon SQS found." })).toBeInTheDocument();
+  });
+
+  it("names no region for the shared SES inbox", async () => {
+    setRegion("eu-west-3");
+    renderEmpty("aws", "email", "Amazon SES", { ...cloudStatus, region: "eu-west-3" });
+
+    expect(await screen.findByRole("heading", { name: "No Amazon SES found." })).toBeInTheDocument();
   });
 
   it("names no region for a global AWS service", async () => {
