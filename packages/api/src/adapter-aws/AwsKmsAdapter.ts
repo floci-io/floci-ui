@@ -107,8 +107,15 @@ export class AwsKmsAdapter implements CloudServiceAdapter {
      * KMS has no immediate delete: the key enters PendingDeletion and is destroyed
      * when the window elapses. It keeps appearing in `list()` until then, which is
      * the runtime's behaviour and not something to hide.
+     *
+     * An AWS managed key belongs to the service that created it, and KMS refuses
+     * to schedule its deletion, so the console refuses first with a typed error.
      */
     async delete(id: string): Promise<void> {
+        const metadata = await this.describeForCrypto(id)
+        if (metadata.KeyManager === 'AWS') {
+            throw new ValidationError(`Key ${id} is an AWS managed key, which cannot be scheduled for deletion`)
+        }
         await this.kms.send(
             new ScheduleKeyDeletionCommand({KeyId: id, PendingWindowInDays: PENDING_DELETION_WINDOW_DAYS}),
         )
@@ -194,7 +201,7 @@ export class AwsKmsAdapter implements CloudServiceAdapter {
         return ids
     }
 
-    /** Crypto actions need key metadata but not the extra tag lookup used by get(). */
+    /** Crypto actions and delete need key metadata but not the extra tag lookup used by get(). */
     private async describeForCrypto(id: string): Promise<KeyMetadata> {
         const res = await this.kms.send(new DescribeKeyCommand({KeyId: id}))
         if (!res.KeyMetadata) throw new RuntimeError('KMS did not return key metadata')
