@@ -713,7 +713,7 @@ export function LaunchInstanceForm({
     const createMut = useMutation({
         mutationFn: (values: Record<string, unknown>) => createCloudResource(cloud, 'compute', values),
         onSuccess: (created) => {
-            void qc.invalidateQueries({ queryKey: ['cloud-resources', cloud, 'compute'] })
+            void qc.invalidateQueries({ queryKey: ['cloud-resources', accountId, region, cloud, 'compute'] })
             onSuccess(created)
         },
     })

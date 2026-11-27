@@ -78,7 +78,7 @@ export function CreateRdsInstanceForm({
       createCloudResource(cloud, "database", values),
     onSuccess: (created) => {
       void qc.invalidateQueries({
-        queryKey: ["cloud-resources", cloud, "database"],
+        queryKey: ["cloud-resources", accountId, region, cloud, "database"],
       });
       onSuccess(created);
     },
