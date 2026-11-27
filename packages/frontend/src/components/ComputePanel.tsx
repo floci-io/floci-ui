@@ -429,10 +429,13 @@ function InstancePanel({ instanceId, onChanged }: { instanceId: string; onChange
                         )}
                         <button
                             className="button compact"
+                            type="button"
+                            aria-label="Refresh instance"
+                            title="Refresh instance"
                             disabled={query.isFetching}
                             onClick={() => query.refetch()}
                         >
-                            <RefreshCw size={12} />
+                            <RefreshCw size={12} aria-hidden="true" />
                         </button>
                     </div>
                 </div>

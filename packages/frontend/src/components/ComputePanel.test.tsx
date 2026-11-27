@@ -171,3 +171,19 @@ test("closing the deregister dialog mid-request does not allow a second request"
   expect(confirmButton()).toBeDisabled();
   expect(deregisterEc2Ami).toHaveBeenCalledTimes(1);
 });
+
+test("the instance refresh control has an accessible name and refetches", async () => {
+  vi.mocked(describeEc2Instance).mockResolvedValue({
+    instanceId: "i-test", name: "test", state: "running", instanceType: "t3.nano", tags: [], securityGroups: [],
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const user = userEvent.setup();
+  render(<QueryClientProvider client={client}>
+    <ComputePanel cloud="aws" runtimeReachable resource={{
+      id: "i-test", name: "test", cloud: "aws", service: "compute", type: "instance",
+      region: "us-east-1", createdAt: null, metadata: {},
+    }} />
+  </QueryClientProvider>);
+  await user.click(await screen.findByRole("button", { name: "Refresh instance" }));
+  await waitFor(() => expect(describeEc2Instance).toHaveBeenCalledTimes(2));
+});
