@@ -1,6 +1,7 @@
 import {describe, expect, test} from 'bun:test'
 import {join} from 'node:path'
 import {
+    CreateBucketCommand,
     DeleteBucketCommand,
     DeleteObjectsCommand,
     type DeleteObjectsCommandInput,
@@ -24,8 +25,10 @@ function fakeS3(overrides: Partial<{
     versioning: {Status?: string} | Error
     onGetBucketVersioning: (bucketName: string) => void
     deleteBucketError: Error
+    region: string
 }> = {}): S3Client {
     return {
+        config: {region: async () => overrides.region ?? 'us-east-1'},
         send: async (command: unknown) => {
             if (command instanceof GetBucketVersioningCommand) {
                 overrides.onGetBucketVersioning?.(command.input.Bucket ?? '')
@@ -654,5 +657,49 @@ describe('withDeadline', () => {
 
         parent.abort()
         expect(seen?.aborted).toBe(true)
+    })
+})
+
+describe('AwsStorageAdapter create bucket location', () => {
+    function recordingS3(region: string) {
+        const sent: unknown[] = []
+        const client = {
+            config: {region: async () => region},
+            send: async (command: unknown) => {
+                sent.push(command)
+                return {}
+            },
+        } as unknown as S3Client
+        return {client, sent}
+    }
+
+    test('creates the bucket in the region the client is scoped to', async () => {
+        const {client, sent} = recordingS3('eu-west-3')
+
+        await new AwsStorageAdapter(client).create({values: {bucketName: 'paris-bucket'}})
+
+        expect(sent).toHaveLength(1)
+        expect(sent[0]).toBeInstanceOf(CreateBucketCommand)
+        expect((sent[0] as CreateBucketCommand).input).toEqual({
+            Bucket: 'paris-bucket',
+            CreateBucketConfiguration: {LocationConstraint: 'eu-west-3'},
+        })
+    })
+
+    // us-east-1 is the default location and is not a valid LocationConstraint.
+    test('sends no location constraint in us-east-1', async () => {
+        const {client, sent} = recordingS3('us-east-1')
+
+        await new AwsStorageAdapter(client).create({values: {bucketName: 'virginia-bucket'}})
+
+        const input = (sent[0] as CreateBucketCommand).input
+        expect(input.Bucket).toBe('virginia-bucket')
+        expect(input.CreateBucketConfiguration).toBeUndefined()
+    })
+
+    test('the create form offers no region of its own', () => {
+        const fields = new AwsStorageAdapter(recordingS3('eu-west-3').client).schema().fields
+
+        expect(fields.map((field) => field.name)).toEqual(['bucketName'])
     })
 })

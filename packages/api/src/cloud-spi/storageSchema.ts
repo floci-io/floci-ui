@@ -56,16 +56,6 @@ export function awsStorageSchema(): ServiceSchema {
                     message: 'Use a valid S3 bucket name: 3-63 lowercase characters, numbers, dots, or hyphens.',
                 },
             },
-            {
-                name: 'region',
-                label: 'Region',
-                type: 'select',
-                required: false,
-                options: [
-                    {label: 'US East (N. Virginia)', value: 'us-east-1'},
-                    {label: 'US West (Oregon)', value: 'us-west-2'},
-                ],
-            },
         ],
         actions: ['list', 'create', 'delete', 'inspect'],
         capabilities: {

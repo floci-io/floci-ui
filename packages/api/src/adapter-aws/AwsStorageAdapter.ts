@@ -8,8 +8,10 @@ import {
 import {
     type _Error as S3Error,
     type Bucket,
+    type BucketLocationConstraint,
     CopyObjectCommand,
     CreateBucketCommand,
+    type CreateBucketConfiguration,
     DeleteBucketCommand,
     DeleteObjectCommand,
     DeleteObjectsCommand,
@@ -49,6 +51,8 @@ export const DELETE_BATCH_TIMEOUT_MS = 25_000
 /** Per-object failures quoted in an error, and the length each quoted field is cut to. */
 const MAX_REPORTED_FAILURES = 10
 const MAX_REPORTED_FIELD_LENGTH = 256
+/** The one region a CreateBucket LocationConstraint must not name. */
+const US_EAST_1 = 'us-east-1'
 
 /** Whether any DeleteObjects request has been sent, so a failure can say if data may be gone. */
 interface EmptyProgress {
@@ -141,7 +145,10 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
             throw new ValidationError('Use a valid S3 bucket name: 3-63 lowercase characters, numbers, dots, or hyphens.')
         }
 
-        await this.s3.send(new CreateBucketCommand({Bucket: bucketName}))
+        await this.s3.send(new CreateBucketCommand({
+            Bucket: bucketName,
+            CreateBucketConfiguration: await this.locationConstraintForClientRegion(),
+        }))
         return {
             id: bucketName,
             name: bucketName,
@@ -155,6 +162,17 @@ export class AwsStorageAdapter implements CloudServiceAdapter {
                 storageService: 's3',
             },
         }
+    }
+
+    /**
+     * CreateBucket creates in us-east-1 unless a LocationConstraint names another
+     * region, and us-east-1 itself must not be named. The bucket goes to the
+     * region the S3 client (the console's active region) is scoped to.
+     */
+    private async locationConstraintForClientRegion(): Promise<CreateBucketConfiguration | undefined> {
+        const region = await this.s3.config.region()
+        if (region === US_EAST_1) return undefined
+        return {LocationConstraint: region as BucketLocationConstraint}
     }
 
     async delete(id: string): Promise<void> {
