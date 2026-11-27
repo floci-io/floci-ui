@@ -128,6 +128,20 @@ describe('describeRequest', () => {
 })
 
 describe('activity recorder', () => {
+    test('names a started deployment after its number', async () => {
+        const {app} = appWith((routes) => {
+            routes.post('/api/clouds/aws/services/configuration/resources/:id/environments/:env/deployments', (c) =>
+                c.json({deploymentNumber: 7, state: 'DEPLOYING'}, 201))
+        })
+
+        await app.request('/api/clouds/aws/services/configuration/resources/app/environments/prod/deployments', {
+            method: 'POST', body: '{}',
+        })
+
+        const {items} = await feed(app)
+        expect(items[0]).toMatchObject({operation: 'Create deployment', resourceName: 'app/prod/7'})
+    })
+
     test('records a successful create with the name and type the API answered with', async () => {
         const {app} = appWith((routes) => {
             routes.post('/api/clouds/aws/services/storage/resources', (c) =>

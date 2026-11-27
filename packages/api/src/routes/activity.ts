@@ -307,7 +307,11 @@ function resourceNameFor(
     const path = [resourceId, ...childPath]
     // Object routes name their key in the query string, not the path.
     if (child === 'object' && query.key) path.push(query.key)
-    else if (operation.startsWith('Create ') && named) path.push(named)
+    else if (operation.startsWith('Create ')) {
+        // A deployment answers with its number rather than a name or id.
+        const created = named ?? numberField(body, 'deploymentNumber')
+        if (created) path.push(created)
+    }
     return path.join('/')
 }
 
@@ -339,6 +343,11 @@ function failureDetail(error: unknown, statusCode: number, body: Record<string, 
 
 function bodyDetail(body: Record<string, unknown> | null): string | null {
     return stringField(body, 'detail') ?? stringField(body, 'message') ?? stringField(body, 'error')
+}
+
+function numberField(body: Record<string, unknown> | null, field: string): string | null {
+    const value = body?.[field]
+    return typeof value === 'number' && Number.isFinite(value) ? String(value) : null
 }
 
 function stringField(body: Record<string, unknown> | null, field: string): string | null {
