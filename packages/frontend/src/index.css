@@ -538,6 +538,24 @@ pre,
     color: var(--text-2);
 }
 
+.search-field {
+    position: relative;
+    display: inline-flex;
+}
+
+.search-field > svg {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+    color: var(--text-3);
+    pointer-events: none;
+}
+
+.search-field > .input {
+    padding-left: 32px;
+}
+
 .kbd {
     position: absolute;
     right: 8px;
@@ -3176,6 +3194,13 @@ pre,
     text-transform: uppercase;
 }
 
+.object-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+}
+
 .object-prefix-input {
     min-width: 180px;
 }
@@ -3870,12 +3895,12 @@ button.console-service-card {
     z-index: 200;
     display: flex;
     flex-direction: column;
-    box-shadow: -6px 0 32px rgba(0, 0, 0, 0.45);
     transition: right 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tag-drawer.open {
     right: 0;
+    box-shadow: -6px 0 32px rgba(0, 0, 0, 0.45);
 }
 
 .tag-drawer-header {

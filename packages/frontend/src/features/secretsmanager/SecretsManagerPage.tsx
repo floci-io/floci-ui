@@ -709,13 +709,15 @@ export function SecretsManagerPage() {
       </div>
 
       <div className="input-row">
-        <Search size={14} color="var(--text-3)" />
-        <input aria-label="Search by name or description"
-          className="input"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or description…"
-        />
+        <div className="search-field">
+          <Search size={14} aria-hidden="true" />
+          <input aria-label="Search by name or description"
+            className="input"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or description…"
+          />
+        </div>
       </div>
 
       <div className="content">

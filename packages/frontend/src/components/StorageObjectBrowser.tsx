@@ -336,13 +336,15 @@ export function StorageObjectBrowser({cloud, resource, capabilities = [], runtim
             {/* ── Search bar ── */}
             {!query.isLoading && objects.length > 0 && (
                 <div className="object-search-bar">
-                    <Search size={13}/>
-                    <input aria-label={`Search ${objectLabel} and folders`}
-                        className="input"
-                        value={search}
-                        onChange={(e) => { setSearch(e.target.value); setSelectedKeys(new Set()) }}
-                        placeholder={`Search ${objectLabel} and folders…`}
-                    />
+                    <div className="search-field">
+                        <Search size={13} aria-hidden="true"/>
+                        <input aria-label={`Search ${objectLabel} and folders`}
+                            className="input"
+                            value={search}
+                            onChange={(e) => { setSearch(e.target.value); setSelectedKeys(new Set()) }}
+                            placeholder={`Search ${objectLabel} and folders…`}
+                        />
+                    </div>
                     {search && (
                         <button className="icon-btn" type="button" onClick={() => setSearch('')} aria-label="Clear search" title="Clear search">
                             <X size={13} aria-hidden="true"/>
