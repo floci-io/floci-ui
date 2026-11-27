@@ -104,49 +104,49 @@ Generated from the service catalog and adapter registry, so it never drifts. Aft
 | Group | Service | AWS | Azure | GCP | OCI |
 |---|---|:-:|:-:|:-:|:-:|
 | Compute | Compute | ✅ | ✅ | ✅ | – |
-| Compute | k8s Engine | 👁 | 👁 | ✅ | ✅ |
-| Compute | Serverless | ✅ | ✅ | ✅ | ✅ |
-| Compute | Containers | ✅ | ✅ | ✅ | – |
-| Compute | Container Registry | ✅ | ✅ | – | – |
-| Compute | Machine Learning | ✅ | – | – | – |
+| Compute | k8s Engine (AWS: EKS, Azure: AKS, GCP: GKE, OCI: OKE) | 👁 | 👁 | ✅ | ✅ |
+| Compute | Serverless (OCI: Functions) | ✅ | ✅ | ✅ | ✅ |
+| Compute | Containers (AWS: ECS, Azure: Container Apps, GCP: Cloud Run) | ✅ | ✅ | ✅ | – |
+| Compute | Container Registry (AWS: ECR) | ✅ | ✅ | – | – |
+| Compute | Machine Learning (AWS: SageMaker AI) | ✅ | – | – | – |
 | Storage | Storage | ✅ | ✅ | ✅ | ✅ |
-| Storage | Storage Tables | – | ✅ | – | – |
+| Storage | Storage Tables (Azure: Table Storage) | – | ✅ | – | – |
 | Databases | Database | ✅ | ✅ | ✅ | ✅ |
-| Databases | Distributed SQL | ✅ | – | – | – |
-| Databases | Cache | ✅ | ✅ | – | – |
-| Databases | NoSQL | ✅ | ✅ | ✅ | – |
-| Databases | Search | ✅ | – | – | – |
-| Databases | Analytics | ✅ | – | ✅ | – |
+| Databases | Distributed SQL (AWS: Aurora DSQL) | ✅ | – | – | – |
+| Databases | Cache (AWS: ElastiCache, Azure: Azure Cache for Redis) | ✅ | ✅ | – | – |
+| Databases | NoSQL (AWS: DynamoDB, Azure: Cosmos DB NoSQL, GCP: Firestore) | ✅ | ✅ | ✅ | – |
+| Databases | Search (AWS: OpenSearch) | ✅ | – | – | – |
+| Databases | Analytics (AWS: Athena, GCP: BigQuery) | ✅ | – | ✅ | – |
 | Networking | Networking | 👁 | ✅ | ✅ | – |
-| Networking | Load Balancing | ✅ | – | – | – |
-| Networking | CDN | ✅ | – | – | – |
-| Networking | DNS | ✅ | – | – | – |
-| Integration | Messaging | ✅ | ✅ | ✅ | ✅ |
-| Integration | API Gateway | ✅ | 👁 | – | – |
-| Integration | Notifications | ✅ | – | – | – |
-| Integration | Storage Queues | – | ✅ | – | – |
-| Integration | Streams | ✅ | ✅ | ✅ | ✅ |
-| Integration | Events | ✅ | ✅ | ✅ | – |
-| Integration | Event Buses | ✅ | – | – | – |
-| Integration | Email | 👁 | – | – | – |
-| Integration | Scheduler | ✅ | – | ✅ | – |
-| Integration | Workflows | ✅ | – | – | – |
-| Provisioning | Infrastructure as Code | ✅ | 👁 | – | – |
-| Provisioning | Configuration | ✅ | ✅ | – | – |
-| Provisioning | CI/CD | ✅ | – | – | – |
+| Networking | Load Balancing (AWS: ELB) | ✅ | – | – | – |
+| Networking | CDN (AWS: CloudFront) | ✅ | – | – | – |
+| Networking | DNS (AWS: Route 53) | ✅ | – | – | – |
+| Integration | Messaging (AWS: SQS, GCP: Pub/Sub, OCI: Queue) | ✅ | ✅ | ✅ | ✅ |
+| Integration | API Gateway (Azure: API Management) | ✅ | 👁 | – | – |
+| Integration | Notifications (AWS: SNS) | ✅ | – | – | – |
+| Integration | Storage Queues (Azure: Queue Storage) | – | ✅ | – | – |
+| Integration | Streams (AWS: Kinesis, Azure: Event Hubs, GCP: Managed Kafka, OCI: Streaming) | ✅ | ✅ | ✅ | ✅ |
+| Integration | Events (AWS: EventBridge, Azure: Event Grid, GCP: Eventarc) | ✅ | ✅ | ✅ | – |
+| Integration | Event Buses (AWS: EventBridge V2) | ✅ | – | – | – |
+| Integration | Email (AWS: SES Mailbox) | 👁 | – | – | – |
+| Integration | Scheduler (AWS: EventBridge Scheduler, GCP: Cloud Scheduler) | ✅ | – | ✅ | – |
+| Integration | Workflows (AWS: Step Functions) | ✅ | – | – | – |
+| Provisioning | Infrastructure as Code (AWS: CloudFormation, Azure: ARM Deployments) | ✅ | 👁 | – | – |
+| Provisioning | Configuration (AWS: AppConfig, Azure: App Configuration) | ✅ | ✅ | – | – |
+| Provisioning | CI/CD (AWS: CodeBuild) | ✅ | – | – | – |
 | Provisioning | Organizations | – | – | – | 👁 |
 | Provisioning | Governance Rules | – | – | – | 👁 |
 | Security | Identity | ✅ | ✅ | ✅ | ✅ |
-| Security | User Sign-in | ✅ | – | 👁 | – |
-| Security | Secrets | ✅ | ✅ | ✅ | ✅ |
-| Security | Key Management | ✅ | ✅ | 👁 | ✅ |
-| Security | Certificates | ✅ | ✅ | – | – |
+| Security | User Sign-in (AWS: Cognito, GCP: Identity Platform) | ✅ | – | 👁 | – |
+| Security | Secrets (AWS: Secrets Manager, Azure: Key Vault, GCP: Secret Manager, OCI: Vault Secrets) | ✅ | ✅ | ✅ | ✅ |
+| Security | Key Management (AWS: KMS, Azure: Key Vault Keys, GCP: Cloud KMS, OCI: Vault) | ✅ | ✅ | 👁 | ✅ |
+| Security | Certificates (AWS: ACM, Azure: Key Vault Certificates) | ✅ | ✅ | – | – |
 | Security | Payment Cryptography | ✅ | – | – | – |
-| Security | Parameters | ✅ | – | – | – |
-| Observability | Logs | ✅ | – | 👁 | – |
-| Observability | Monitoring | ✅ | – | ✅ | – |
-| Observability | Tracing | 👁 | – | – | – |
-| Observability | Operations | – | – | – | 👁 |
+| Security | Parameters (AWS: Parameter Store) | ✅ | – | – | – |
+| Observability | Logs (AWS: CloudWatch Logs, GCP: Cloud Logging) | ✅ | – | 👁 | – |
+| Observability | Monitoring (AWS: CloudWatch, GCP: Cloud Monitoring) | ✅ | – | ✅ | – |
+| Observability | Tracing (AWS: X-Ray) | 👁 | – | – | – |
+| Observability | Operations (OCI: Work Requests) | – | – | – | 👁 |
 
 ✅ list, inspect, create, delete · 👁 read-only or partial · ⏳ adapter registered, runtime gap · – not available
 
