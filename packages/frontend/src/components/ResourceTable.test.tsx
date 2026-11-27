@@ -78,3 +78,19 @@ describe("ResourceTable selection", () => {
     expect(screen.getByRole("button", { name: "ux-assets" })).not.toHaveAttribute("aria-current");
   });
 });
+
+describe("ResourceTable empty state", () => {
+  it("names the region it was given", () => {
+    render(<ResourceTable schema={schema} resources={[]} onSelect={vi.fn()} onDelete={vi.fn()} region="eu-west-3" />);
+
+    expect(screen.getByRole("heading", { name: "No Buckets found in eu-west-3." })).toBeInTheDocument();
+    expect(screen.getByText("The connected runtime did not return any Buckets resources in eu-west-3.")).toBeInTheDocument();
+  });
+
+  it("names no region without one", () => {
+    render(<ResourceTable schema={schema} resources={[]} onSelect={vi.fn()} onDelete={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: "No Buckets found." })).toBeInTheDocument();
+    expect(screen.getByText("The connected runtime did not return any Buckets resources.")).toBeInTheDocument();
+  });
+});

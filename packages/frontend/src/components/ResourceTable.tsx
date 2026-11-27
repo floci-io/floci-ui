@@ -22,6 +22,8 @@ interface ResourceTableProps {
   setAllSelected?: (value: boolean) => void;
   isAllSelected?: boolean;
   canDeleteResource?: (resource: CloudResource) => boolean;
+  /** The region the list was read from, named in the empty state when the list is regional. */
+  region?: string;
 }
 
 export function ResourceTable({
@@ -40,6 +42,7 @@ export function ResourceTable({
   setAllSelected,
   isAllSelected = false,
   canDeleteResource,
+  region,
 }: ResourceTableProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const returnFocusToId = useRef<string | null>(null);
@@ -51,8 +54,9 @@ export function ResourceTable({
     || Boolean(dataPath && resources.some((resource) => dataPath(resource)));
 
   if (resources.length === 0) {
-    const emptyTitle = `No ${schema.displayName} found.`;
-    const emptyDescription = `The connected runtime did not return any ${schema.displayName} resources.`;
+    const inRegion = region ? ` in ${region}` : '';
+    const emptyTitle = `No ${schema.displayName} found${inRegion}.`;
+    const emptyDescription = `The connected runtime did not return any ${schema.displayName} resources${inRegion}.`;
     return (
       <div className="empty compact">
         <h2>{emptyTitle}</h2>
