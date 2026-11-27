@@ -1065,6 +1065,10 @@ export function DynamicResourceView({
                 selectedId: activeSelected?.id,
                 deletingId: deleteMut.isPending ? deleteMut.variables?.id : undefined,
                 cloudStatus,
+                listRegion:
+                  cloud === "aws" && !AWS_GLOBAL_SERVICES.has(service)
+                    ? region ?? cloudStatus?.region
+                    : undefined,
                 statusLoading,
                 serviceAvailability,
                 serviceReason,
@@ -1400,6 +1404,15 @@ export function DynamicResourceView({
  * <p>Such a field needs the resources the service holds, which the table's rows
  * are not: they are the rows the search box and the facet narrowed.
  */
+// AWS services whose lists do not depend on the region (S3 buckets, IAM, CloudFront,
+// Route 53), so an empty list there does not name one.
+const AWS_GLOBAL_SERVICES: ReadonlySet<CloudServiceType> = new Set<CloudServiceType>([
+  "storage",
+  "identity",
+  "cdn",
+  "dns",
+]);
+
 function namesAnotherResource(schema: ServiceSchema | undefined): boolean {
   return Boolean(schema?.fields?.some((field) => field.optionsFrom));
 }
@@ -1464,6 +1477,7 @@ function renderResourceSurface({
   selectedId,
   deletingId,
   cloudStatus,
+  listRegion,
   statusLoading,
   serviceAvailability,
   serviceReason,
@@ -1486,6 +1500,7 @@ function renderResourceSurface({
   selectedId?: string;
   deletingId?: string;
   cloudStatus?: CloudStatus;
+  listRegion?: string;
   statusLoading: boolean;
   serviceAvailability: CloudAvailability;
   serviceReason?: string;
@@ -1579,6 +1594,7 @@ function renderResourceSurface({
       onToggleSelect={onToggleSelect}
       onToggleSelectAll={onToggleSelectAll}
       isAllSelected={isAllSelected}
+      region={listRegion}
     />
     </>
   );
