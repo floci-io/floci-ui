@@ -2337,6 +2337,29 @@ pre,
     min-height: 82px;
 }
 
+/* The JSON and message editors of the explorer panels (Lambda invoke, SQS, KMS, streams). */
+.json-editor {
+    width: 100%;
+    min-width: 0;
+    min-height: 120px;
+    padding: 8px 10px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+}
+
+.json-editor:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .cosmos-editor,
 .cosmos-query {
     display: grid;
