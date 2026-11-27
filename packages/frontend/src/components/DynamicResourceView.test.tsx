@@ -1873,3 +1873,60 @@ describe("DynamicResourceView the usage of a payment key", () => {
     expect(screen.queryByRole("button", {name: /Enable key/})).toBeNull();
   });
 });
+
+describe("DynamicResourceView a partial inspect", () => {
+  const reason = "Parameter values are never returned to the console, so the inspector shows metadata only.";
+  const parameter: CloudResource = {
+    id: "/app/db/url",
+    name: "/app/db/url",
+    cloud: "aws",
+    service: "parameters",
+    type: "parameter",
+    region: null,
+    createdAt: null,
+    metadata: {parameterType: "String", valueWithheld: true},
+  };
+  const parametersSchema: ServiceSchema = {
+    cloud: "aws",
+    service: "parameters",
+    displayName: "Parameter Store",
+    fields: [],
+    filters: [],
+    actions: ["list", "inspect"],
+    columns: [{name: "name", label: "Name"}],
+    capabilities: {
+      resourceActions: [
+        {name: "list", label: "List parameters", enabled: true, status: "available"},
+        {name: "inspect", label: "Inspect parameter", enabled: true, status: "partial", reason},
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAccountId(DEFAULT_ACCOUNT_ID);
+    vi.mocked(getServiceSchema).mockResolvedValue(parametersSchema);
+    vi.mocked(listCloudResources).mockResolvedValue([parameter]);
+    vi.mocked(getCloudResource).mockResolvedValue(parameter);
+  });
+
+  it("puts the schema's reason in the inspector", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DynamicResourceView
+          cloud="aws"
+          service="parameters"
+          serviceAvailability="available"
+          cloudStatus={cloudStatus}
+          onOpenInfo={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("/app/db/url"));
+
+    expect(await screen.findByRole("note")).toHaveTextContent(reason);
+  });
+});
