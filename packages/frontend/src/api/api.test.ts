@@ -116,24 +116,50 @@ describe('shared request interceptors', () => {
         })
     }
 
-    test('object calls send the account they were given, not the active one', async () => {
-        await listStorageObjects(CONFIRMED, 'aws', 'logs')
-        await uploadStorageObject(CONFIRMED, 'aws', 'logs', 'a.txt', new Blob(['x'], {type: 'text/plain'}))
-        await deleteStorageObject(CONFIRMED, 'aws', 'logs', 'a.txt')
-        await copyStorageObject(CONFIRMED, 'aws', 'logs', 'a.txt', 'b.txt')
+    test('object calls send the account and region they were given, not the active ones', async () => {
+        setRegion('eu-central-1')
+        const scope = {accountId: CONFIRMED, region: 'us-west-2'}
+        await listStorageObjects(scope, 'aws', 'logs')
+        await uploadStorageObject(scope, 'aws', 'logs', 'a.txt', new Blob(['x'], {type: 'text/plain'}))
+        await deleteStorageObject(scope, 'aws', 'logs', 'a.txt')
+        await copyStorageObject(scope, 'aws', 'logs', 'a.txt', 'b.txt')
+        setRegion(null)
 
         expect(fetchMock).toHaveBeenCalledTimes(4)
-        for (let call = 0; call < 4; call += 1) expect(sentHeaders(call).get(ACCOUNT_HEADER)).toBe(CONFIRMED)
+        for (let call = 0; call < 4; call += 1) {
+            expect(sentHeaders(call).get(ACCOUNT_HEADER)).toBe(CONFIRMED)
+            expect(sentHeaders(call).get(REGION_HEADER)).toBe('us-west-2')
+        }
         expect(sentHeaders(1).get('content-type')).toBe('text/plain')
     })
 
-    test('emptyStorageBucket runs against the confirmed account, not the active one', async () => {
-        const result = await emptyStorageBucket(CONFIRMED, 'aws', 'logs')
+    test('object calls pinned to the console default send no region, whatever is selected', async () => {
+        setRegion('eu-central-1')
+        const scope = {accountId: CONFIRMED, region: null}
+        await listStorageObjects(scope, 'aws', 'logs')
+        await uploadStorageObject(scope, 'aws', 'logs', 'a.txt', new Blob(['x'], {type: 'text/plain'}))
+        await deleteStorageObject(scope, 'aws', 'logs', 'a.txt')
+        await copyStorageObject(scope, 'aws', 'logs', 'a.txt', 'b.txt')
+        await emptyStorageBucket(scope, 'aws', 'logs')
+        setRegion(null)
+
+        expect(fetchMock).toHaveBeenCalledTimes(5)
+        for (let call = 0; call < 5; call += 1) {
+            expect(sentHeaders(call).get(ACCOUNT_HEADER)).toBe(CONFIRMED)
+            expect(sentHeaders(call).get(REGION_HEADER)).toBeNull()
+        }
+    })
+
+    test('emptyStorageBucket runs against the confirmed account and region, not the active ones', async () => {
+        setRegion('eu-central-1')
+        const result = await emptyStorageBucket({accountId: CONFIRMED, region: 'us-west-2'}, 'aws', 'logs')
+        setRegion(null)
 
         expect(result).toEqual({deleted: 3})
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
         expect(url).toBe('/api/clouds/aws/services/storage/resources/logs/empty')
         expect(init.method).toBe('POST')
         expect(sentHeaders().get(ACCOUNT_HEADER)).toBe(CONFIRMED)
+        expect(sentHeaders().get(REGION_HEADER)).toBe('us-west-2')
     })
 })

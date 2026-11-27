@@ -804,7 +804,7 @@ describe("DynamicResourceView Empty bucket", () => {
     await user.click(within(dialog).getByRole("button", { name: "Empty bucket" }));
 
     expect(await screen.findByText(/Emptied logs: permanently deleted 4/)).toBeInTheDocument();
-    expect(emptyStorageBucket).toHaveBeenCalledWith(ACCOUNT_A, "aws", "logs");
+    expect(emptyStorageBucket).toHaveBeenCalledWith(expect.objectContaining({ accountId: ACCOUNT_A, region: null }), "aws", "logs");
     expect(deleteCloudResource).not.toHaveBeenCalled();
     const keys = invalidatedKeys(invalidate);
     expect(keys).toContainEqual(["storage-objects", ACCOUNT_A, null, "aws", "logs"]);
